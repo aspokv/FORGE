@@ -1,0 +1,71 @@
+/* AUTH SHELL */
+.auth-shell{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 20px;background:radial-gradient(circle at 20% -20%,#2a1e19 0,transparent 40%),var(--bg)}
+.auth-brand{display:flex;flex-direction:column;align-items:center;gap:6px;margin-bottom:32px;color:var(--muted);font:600 16px 'IBM Plex Mono';letter-spacing:.14em}
+.auth-brand .brand-mark{width:44px;height:44px;font-size:22px;margin-bottom:8px}
+.auth-brand small{font:500 9px 'IBM Plex Mono';letter-spacing:.24em;color:var(--muted)}
+.auth-card{width:min(440px,100%);background:var(--surface);border:1px solid var(--line);padding:34px 30px;display:flex;flex-direction:column;gap:16px}
+.auth-card h1{font-size:clamp(1.9rem,4vw,2.4rem);margin-top:4px}
+.auth-card .deep-field{margin-top:6px}
+.auth-submit{margin-top:12px}
+.auth-hint{display:flex;align-items:center;gap:8px;font-size:12px;margin-top:12px}
+.auth-error{border-left:2px solid var(--accent);background:#2a1a17;color:#f1b2a0;padding:10px 12px;font-size:13px}
+
+/* ADMIN PANEL */
+.admin-shell{min-height:100vh;display:flex;background:var(--bg)}
+.admin-rail{width:240px;min-height:100vh;border-right:1px solid var(--line);padding:28px 20px;display:flex;flex-direction:column;position:fixed;background:var(--bg);z-index:2}
+.admin-rail nav{display:grid;gap:6px;margin-top:22px}
+.admin-rail .rail-bottom{margin-top:auto;font:12px 'IBM Plex Mono';color:var(--muted);display:flex;flex-direction:column;gap:10px}
+.admin-rail .rail-bottom .text-button{align-self:flex-start;color:var(--muted)}
+.admin-rail .rail-bottom .text-button:hover{color:var(--accent)}
+.admin-main{margin-left:240px;width:calc(100% - 240px);padding:0 5vw 60px}
+.admin-main .topbar{border-bottom:1px solid var(--line);padding:26px 0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px}
+.admin-flash{padding:12px 16px;margin:18px 0;font-size:13px;border-left:2px solid var(--accent);background:#2a1a17;color:#f1b2a0}
+.admin-flash.success{border-color:var(--success);background:#1e2a1e;color:#c8e0ac}
+.admin-stats{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin:24px 0}
+.stat-card{border:1px solid var(--line);background:var(--surface);padding:16px;display:flex;flex-direction:column;gap:8px}
+.stat-card b{font:500 26px 'IBM Plex Mono';color:var(--accent)}
+.admin-filters{display:flex;gap:10px;margin:14px 0}
+.admin-filters input,.admin-filters select{background:var(--surface);border:1px solid var(--line);color:var(--text);padding:12px;min-height:44px;font:13px 'IBM Plex Sans'}
+.admin-filters input{flex:1;min-width:0}
+.admin-table{padding:0}
+.athlete-rows{display:grid}
+.athlete-row{display:grid;grid-template-columns:2fr 100px 130px 150px auto;align-items:center;gap:14px;padding:16px 22px;border-top:1px solid var(--line)}
+.athlete-row:first-child{border-top:0}
+.athlete-main{display:flex;flex-direction:column;gap:4px}
+.athlete-main b{font-size:14px}
+.athlete-main .muted{font-size:12px}
+.badge{font:10px 'IBM Plex Mono';padding:5px 8px;letter-spacing:.1em;text-transform:uppercase;border:1px solid var(--line);background:var(--elevated);color:var(--muted)}
+.badge.success{color:#c8e0ac;border-color:#4d5f3a;background:#1e2a1e}
+.badge.warn{color:#e0c994;border-color:#6b5628;background:#29251d}
+.badge.danger{color:#f1b2a0;border-color:#6e4338;background:#2a1a17}
+.athlete-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.audit-list{list-style:none;padding:0;display:grid;gap:0}
+.audit-list li{display:grid;grid-template-columns:180px 1fr 90px auto;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--line);font-size:13px}
+.audit-list li:first-child{border-top:0}
+
+.athlete-metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:18px 0}
+.athlete-metrics div{border:1px solid var(--line);background:var(--surface);padding:14px;display:grid;gap:6px}
+.athlete-metrics b{font:500 22px 'IBM Plex Mono';color:var(--accent)}
+.athlete-metrics span{font-size:11px;color:var(--muted)}
+
+.invite-box{margin:16px 0;border:1px solid var(--line);background:var(--elevated);padding:16px}
+.invite-link{display:flex;gap:8px;align-items:center;margin-top:10px}
+.invite-link code{flex:1;background:var(--surface);border:1px solid var(--line);padding:11px;font:11px 'IBM Plex Mono';word-break:break-all;color:var(--text)}
+.admin-edit{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0}
+.create-athlete-form{display:flex;flex-direction:column;gap:8px;margin-top:18px}
+
+@media(max-width:900px){
+  .admin-stats{grid-template-columns:repeat(3,1fr)}
+  .athlete-row{grid-template-columns:1fr}
+  .athlete-actions{justify-content:flex-start}
+  .admin-edit{grid-template-columns:1fr}
+  .audit-list li{grid-template-columns:1fr;gap:6px}
+}
+@media(max-width:800px){
+  .admin-rail{position:static;width:100%;min-height:auto;border-right:0;border-bottom:1px solid var(--line);padding:20px}
+  .admin-rail nav{grid-auto-flow:column;grid-auto-columns:max-content;overflow-x:auto}
+  .admin-rail .rail-bottom{margin-top:14px;flex-direction:row;justify-content:space-between;align-items:center}
+  .admin-main{margin-left:0;width:100%;padding:0 20px 60px}
+  .admin-stats{grid-template-columns:repeat(2,1fr)}
+  .admin-filters{flex-direction:column}
+}

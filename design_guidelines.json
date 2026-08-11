@@ -1,0 +1,92 @@
+{
+  "project": "FORGE — Advanced Training OS",
+  "language": "pt-BR",
+  "context": "mobile-first hybrid fullstack training app",
+  "theme": "dark-first with optional light theme",
+  "design_directions": [
+    {"name":"Tactical Atelier","probability":0.32,"description":"Performance-pro command center fused with editorial print grids and warm material texture. Obsidian surfaces, ivory data, restrained vermilion action color.","best_for":"intermediários e avançados que querem foco e autoridade"},
+    {"name":"Iron Ledger","probability":0.24,"description":"Old-money training journal meets Linear-like precision: serif display headings, mono metrics, ruled dividers, archival progress language.","best_for":"histórico, periodização e confiança nos dados"},
+    {"name":"Clinical Blackbook","probability":0.18,"description":"Biomechanics lab meets premium notebook. Flat solid surfaces, anatomical labels, regional muscle priorities and calm recovery signals.","best_for":"recovery, fatigue e decisões contextualizadas"},
+    {"name":"Night Shift","probability":0.16,"description":"Night-club lighting without gamer neon: graphite canvas, one amber signal color, tight workout-mode controls and timer-led momentum.","best_for":"registro rápido no treino"},
+    {"name":"Brutalist Training Poster","probability":0.10,"description":"Swiss poster composition with oversized but bounded type, exposed grid borders and sharp progress markers. Highest visual tension, used selectively.","best_for":"onboarding, weekly report e milestones"}
+  ],
+  "discovery": {
+    "audience": "praticantes intermediários e avançados de musculação/hipertrofia, 20–45 anos, autodirigidos e orientados a progresso",
+    "primary_tasks": ["entender o que treinar hoje", "registrar séries com mínima fricção", "ver progressão e volume por região", "ajustar programa com segurança", "consultar coach contextualizado"],
+    "success_actions": ["concluir o treino do dia", "registrar todas as séries", "seguir a recomendação de progressão", "retornar no próximo treino", "ler relatório semanal"],
+    "emotional_tone": "adulto, exigente, calmo, técnico e motivador sem teatralidade",
+    "content_strategy": "mostrar primeiro a decisão acionável; explicar o porquê em segundo nível; usar números reais do perfil e histórico; nunca usar copy motivacional genérica"
+  },
+  "research_takeaways": [
+    {"reference":"WHOOP","descriptor":"recovery-first; interpreta dados e orienta comportamento fora do treino; feedback reflexivo e contextual"},
+    {"reference":"Hevy","descriptor":"logging rápido, validação em tempo real, micro-recompensas e analytics ligados a cada exercício"},
+    {"reference":"Strong","descriptor":"workflow direto, baixa carga cognitiva, reconhecimento antes de descoberta"},
+    {"reference":"Apple Fitness","descriptor":"hierarquia escaneável, resumo claro e feedback de hábito; durante treino mostrar somente o essencial"},
+    {"reference":"Linear","descriptor":"canvas quase preto, superfícies em camadas, bordas sutis, tipografia precisa e motion curto de 100–160ms"}
+  ],
+  "typography": {
+    "heading_font":"Bodoni Moda",
+    "body_font":"IBM Plex Sans",
+    "metric_font":"IBM Plex Mono",
+    "fallbacks":"Georgia, Arial, monospace",
+    "rules":["não usar Inter/Roboto/Open Sans/Lato em headings","H1 text-4xl sm:text-5xl lg:text-6xl máximo, tracking-tight, leading-none","H2 text-2xl sm:text-3xl lg:text-4xl","H3 text-xl sm:text-2xl","body text-sm mobile/text-base desktop, leading-relaxed","labels uppercase text-xs tracking-[0.2em]","usar font-[350] para contexto e font-[850] apenas em números ou decisões"]
+  },
+  "colors": {
+    "archetype":"Performance Pro com acabamento editorial",
+    "tokens":{"background":"#0C0D0F","surface":"#141619","surface_elevated":"#1B1E22","surface_highlight":"#25292E","text":"#F2F0EA","text_muted":"#A7AAA8","border":"#34383D","primary":"#E36B4D","primary_hover":"#F18462","success":"#A8C686","warning":"#D7A85C","danger":"#D85B5B","focus":"#F2B09A"},
+    "rules":["usar a cor primary somente em CTA, progresso ativo e estados de decisão","não usar gradientes de tela inteira","não usar #000000 ou #808080","não usar teal #1B93A4 nem #7351B7","texto normal deve atingir 4.5:1; large text e controles 3:1","vermelho/laranja não deve ser o único indicador: acompanhar por texto, ícone ou padrão"]
+  },
+  "visual_enhancers": ["textura grain discreta via pseudo-elemento aria-hidden", "bordas 1px em camadas para expor o esqueleto", "divisores editoriais e marcadores de régua", "sombras ambientais muito suaves, nunca glow neon", "selection background na cor primary com texto escuro", "scrollbar fina em grafite, sem gutter", "sem imagens de stock: dados, tipografia e microdiagramas são a linguagem visual"],
+  "component_name": {
+    "navigation":"ForgeBottomNav / ForgeDesktopRail",
+    "today":"TodayCommandHeader, ReadinessStrip, NextSessionPanel, WeeklySignal",
+    "workout":"WorkoutMode, SetRow, RestTimer, ExerciseSwapDrawer",
+    "progress":"ProgressionTable, VolumeByRegion, MusclePriorityMap",
+    "analysis":"AnalyticsGrid, RecoveryPanel, DeloadBanner, WeeklyReport",
+    "coach":"CoachContextPanel",
+    "onboarding":"OnboardingStepper, RegionalAssessment, ProgramPreview",
+    "component_path":"/app/frontend/src/components/; arquivos .js/.jsx, não .tsx",
+    "primitives":"reusar /app/frontend/src/components/ui/button.jsx, dialog.jsx, drawer.jsx, dropdown-menu.jsx, input.jsx, progress.jsx, tabs.jsx, table.jsx, sonner.jsx"
+  },
+  "grids": {
+    "mobile":"grid-cols-1 gap-4; bottom nav fixa com padding inferior seguro",
+    "desktop":"grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 ou gap-6; usar high-density dashboard protocol",
+    "today":"resumo col-span-1, treino principal col-span-2 row-span-2, feed de sinais col-span-1 row-span-2",
+    "analysis":"charts primary col-span-2, recovery col-span-1, coach col-span-1; todos os itens h-full",
+    "rules":["grid items devem ser filhos diretos", "align-items:start por padrão", "não preencher artificialmente todas as células; manter respiro em marketing/onboarding", "bordas internas sutis, sem card nesting excessivo"]
+  },
+  "layouts": {
+    "global":"desktop com rail lateral sólida de 240px e header de conteúdo; mobile com header sólido h-16 e bottom navigation h-20",
+    "header":"background #141619 ou backdrop-blur-xl bg-[#141619]/95, z-50; nunca transparente; logo FORGE + contexto da página + CTA contextual",
+    "today":"começar por saudação curta e readiness; revelar próximo treino; colocar CTA Iniciar treino alinhado à esquerda; depois sinais de progressão",
+    "workout":"tela quase sem distrações; exercício atual, alvo, última sessão, SetRows grandes, timer persistente e ação finalizar; drawer para substituir exercício",
+    "onboarding":"progressivo em 5–7 passos; uma pergunta por cena; mostrar barra de progresso e preview do programa antes de confirmar; salvar localmente",
+    "profile":"perfil local, advanced mode, preferências, exportação e reset com confirmação via Dialog",
+    "break_pattern":"usar headings serif e divisores de caderno em vez do visual gamer para fazer um praticante avançado sentir que está operando um instrumento, não jogando"
+  },
+  "motion": {
+    "durations":"100–160ms para feedback; 220ms para drawers; entrance stagger 40ms",
+    "interactions":"hover/focus muda explicitamente background, color e border; active scale 0.98; set concluído anima check e atualiza volume",
+    "entrance":"fade + translateY(6px) em listas e painéis; sem parallax pesado em telas de dados",
+    "loading":"skeleton sólido em surface_highlight com pulse discreto",
+    "reduced_motion":"@media (prefers-reduced-motion: reduce) remove transform, stagger e animações decorativas",
+    "implementation":"transicionar propriedades específicas; nunca usar transition: all; framer-motion opcional apenas em drawers e listas"
+  },
+  "accessibility": {
+    "requirements":["todos os botões, links, inputs, menus e informações-chave com data-testid em kebab-case","foco visível 2px na cor focus e contraste superior ao estado normal","áreas de toque mínimas 44px","labels sempre presentes em inputs; não depender apenas de placeholder","charts com legenda textual, tabela/resumo acessível e paleta distinguível por daltonismo","timer e séries comunicam estado por texto além de cor","respeitar prefers-reduced-motion","Dialog/Drawer deve devolver foco ao gatilho; usar primitives Shadcn/Radix"]
+  },
+  "media": {"needed":false,"policy":"não usar imagens externas ou placeholders; construir anatomia, volume e progressão com SVG/CSS/dados. Se uma ilustração anatômica for necessária, usar SVG local acessível e rotulado.","image_urls":[]},
+  "3d_libraries": {"decision":"não usar 3D no MVP: clareza e velocidade superam imersão para treino em andamento","optional_later":"D3.js para muscle priority map/data art; Recharts ou Shadcn charts para analytics simples; lazy-load qualquer canvas"},
+  "data_and_logic_guidance": {
+    "local_profile":"persistir onboarding e preferências em localStorage com schema versionado",
+    "workout_state":"persistir cada set imediatamente; suportar offline-first e recuperação após reload",
+    "progression":"double progression: manter carga até atingir topo de reps em todas as séries com RIR alvo; então incrementar carga e resetar reps ao piso",
+    "volume":"contar séries efetivas por região, com filtro semanal e comparação com alvo individual",
+    "recovery":"readiness e fatigue são sinais explicados, não diagnóstico; deload banner deve mostrar motivo e ação",
+    "coach":"GPT 5.6 Terra via Emergent LLM key, com contexto real do perfil, histórico, volume, recovery e sessão; mostrar loading/error/last updated; nunca inventar dados",
+    "demo":"dados demo realistas, explicitamente identificados como demo quando ativos"
+  },
+  "general_ui_ux_design_guidelines": ["mobile-first; desktop expande sem mudar a lógica mental", "não centralizar o app inteiro; usar leitura esquerda e assimetria controlada", "dar 2–3x mais espaço do que o padrão em onboarding e relatórios, mas manter workout mode denso", "CTAs em formato pill ou retângulo afiado, com hover, active e focus", "superfícies com conteúdo nunca devem ter fundo completamente transparente", "usar sonner para confirmação e erro; não criar toast manual", "dropdowns e calendários devem usar componentes Shadcn, nunca select/date input nativos", "não usar emojis como ícones", "todas as interações devem ter feedback visível e estado de erro", "evitar excesso de cards: preferir painéis planos com bordas e hierarquia por espaçamento", "copy em pt-BR, objetiva, técnica e contextual", "não esconder navegação desktop atrás de hamburger", "testar 360px, 768px e 1440px; garantir safe-area no bottom nav"],
+  "instructions_to_main_agent": "Implementar em React JavaScript/JSX dentro de /app/frontend. Começar com tokens dark-first e navegação persistente. Usar Tailwind puro para layout e primitives Shadcn para interação. Cada elemento interativo ou informação crítica recebe data-testid. Não usar placeholders, gradientes baratos, neon gamer, cards uniformes, imagens stock ou headings genéricos. Manter integração de coach claramente diferenciada entre carregando, sucesso, erro e modo mock/demo; se a API não estiver disponível, sinalizar MOCKED na interface de desenvolvimento.",
+  "implementation_notes": {"tailwind":"aproveitar variáveis HSL existentes, mas substituir neutros puros por grafite azulado; content glob já cobre .js/.jsx","css":"remover estilos starter de App.css; adicionar grain, scrollbar e reduced-motion em index.css","api_status":"integração GPT 5.6 Terra/Emergent LLM key deve ser tratada como dependência real; não assumir que está funcional sem verificar resposta","testing":"testar onboarding local, reload durante treino, registro de set, progressão, drawer de substituição, bottom nav, desktop rail, sonner e erro do coach"}
+}

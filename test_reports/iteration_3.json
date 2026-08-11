@@ -1,0 +1,19 @@
+{
+  "summary": "Regressão V2 validada: demo legado, Muscle Map com 18 regiões, assessment de 1–7 dias e endpoints auxiliares passaram; onboarding mobile carregou e save-later funcionou.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/test_forge_api.py", "/app/backend/tests/test_forge_v2_regressions.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": ["Reexecutar uma checagem desktop completa após eventual alteração de UI."],
+  "critical_code_review_comments": ["Bootstrap e Muscle Map agora toleram assessment legado em strings; o fallback silencioso de bootstrap continua sendo uma oportunidade de melhoria, mas não bloqueou esta rodada."],
+  "updated_files": ["/app/backend/tests/test_forge_api.py", "/app/backend/tests/test_forge_v2_regressions.py", "/app/test_reports/iteration_3.json"],
+  "success_rate": {"backend": "100% (4/4)", "frontend": "100% (onboarding mobile smoke flow)"},
+  "seed_data_creation": "Foram criados/atualizados perfis TEST_regression_1 a TEST_regression_7 e logs TEST_forge para teste; permanecem no ambiente.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "O teste de UI avançou até Muscle Map no viewport 390x844; escolha de 7 dias e salvar depois passaram. O detector de erros do script falhou por aspas inválidas no próprio evaluate, não por erro observado na aplicação.",
+  "rca of the issue": "O teste legado falhou porque esperava program.exercises (contrato V1), enquanto o endpoint V2 retorna program.sessions e program.logic.days. A asserção foi atualizada para validar o contrato V2 sem alterar produto."
+}

@@ -1,0 +1,4 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+html{background:#0c0d0f}body{margin:0;min-width:320px;-webkit-font-smoothing:antialiased}*{scrollbar-width:thin;scrollbar-color:#34383d #0c0d0f}::selection{background:#e36b4d;color:#1c120f}:focus-visible{outline:2px solid #f2b09a;outline-offset:2px}@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}

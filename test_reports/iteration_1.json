@@ -1,0 +1,15 @@
+{
+  "summary": "Validado o fluxo mobile de onboarding, dashboard, treino, registro de série, navegação, analytics, coach SSE e ausência de overflow; APIs root/bootstrap, sets, analytics e weekly-report passaram. Recovery inicialmente retornava 500 por ObjectId Mongo e foi corrigido.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": ["/app/backend/tests/test_forge_api.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": ["Considerar persistir os valores de carga/reps editados pelo usuário no POST de sets; a UI atualmente envia carga/reps fixos do programa."],
+  "critical_code_review_comments": ["Recovery serialization bug fixed: response now excludes MongoDB _id.", "Profile/onboarding selections are only local UI state and are not POSTed to /api/profiles, so custom onboarding choices do not persist to MongoDB or update the dashboard."],
+  "updated_files": ["/app/backend/server.py", "/app/backend/tests/test_forge_api.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "seed_data_creation": "Created one TEST_forge set and one TEST_forge recovery record for API validation.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Public URL tested at forge-engine-7.preview.emergentagent.com. Coach returned real Portuguese streaming response. Initial recovery 500 was reproduced and fixed; rerun backend test before further changes.",
+  "rca of the issue": "POST /api/recovery inserted the document into MongoDB and returned the same dict, which acquired _id during insert_one; FastAPI JSON encoding could not serialize bson ObjectId. Returning a filtered dict, matching /api/sets, resolves the 500."
+}

@@ -1,0 +1,56 @@
+{
+  "summary": "Testes públicos V2 concluídos: assessment novo, motor 1–7 dias, Muscle Map, alternativas, weekly review, análise de volume e visual assessment passaram. O bootstrap do demo e Muscle Map demo retornam 500 por incompatibilidade de dados legados.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "GET /api/bootstrap?profile_id=demo",
+        "issue": "Retorna 500 quando o perfil demo persistido contém assessment como strings legadas; score_priority chama .get() em string.",
+        "priority": "CRITICAL"
+      },
+      {
+        "endpoint": "GET /api/muscle-map/demo",
+        "issue": "Mesma falha de score_priority, impedindo a tela Análise do demo.",
+        "priority": "HIGH"
+      }
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Carregamento inicial do demo",
+        "issue": "A UI depende de bootstrap e fica sem carregar corretamente quando o perfil demo persistido dispara 500.",
+        "affected_selectors": [
+          "[data-testid=loading-state]",
+          "[data-testid=nav-análise]"
+        ]
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/test_reports/iteration_2.json",
+    "/app/backend/tests/test_forge_api.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Normalizar assessment legado (string) para estrutura {development, priority} ou tornar score_priority compatível com ambos os formatos, preservando o demo.",
+    "Adicionar teste de regressão para bootstrap e muscle-map com perfil demo persistido legado.",
+    "Corrigir o teste pytest para carregar REACT_APP_BACKEND_URL de frontend/.env; coleta falhou com KeyError no ambiente atual."
+  ],
+  "critical_code_review_comments": [
+    "save_assessment no frontend encerra onboarding mesmo quando POST /api/assessment falha, pois o catch atualiza estado local e chama setAssessment(false); isso pode apresentar um perfil não persistido.",
+    "Frontend tem fallback silencioso para falhas de bootstrap, sem estado de erro visível; problemas de API podem parecer carregamento indefinido."
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "90% (fresh V2 flows; demo bootstrap failed)",
+    "frontend": "75% (onboarding mobile passed; demo app load blocked by API 500)"
+  },
+  "seed_data_creation": "Criados perfis TEST_v2_* e registros associados para validação de assessment; não removidos.",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Public URL forge-engine-7.preview.emergentagent.com. Fresh assessments with nested assessment pass and create exactly 1–7 sessions. Demo profile currently has legacy string assessment data causing score_priority AttributeError and 500 on bootstrap/muscle-map.",
+  "rca of the issue": "GET bootstrap loads the persisted demo profile instead of DEMO_PROFILE. Its assessment values are strings (legacy V1 shape), but score_priority assumes every value is a dict and invokes v.get(). Normalize at read/write boundary or guard by type before scoring."
+}
