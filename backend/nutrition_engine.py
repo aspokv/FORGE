@@ -83,131 +83,140 @@ FORGE_COACH_METHODOLOGY = {
     "redistribution_cap_multiplier": 1.8,
 }
 
-# REAL_MEAL_COMPOSITION — explicit archetypes per meal, so a meal is built from a small
-# set of culinarily coherent roles instead of a solver free to inflate whichever single
-# food closes the macro fastest. "required" roles must be filled when candidates exist;
+# FORGE NUTRITION DNA — food_families.py-equivalent: named groups of concrete food IDs
+# that reflect the coach's real method, not raw nutrient category. "food availability !=
+# meal suitability" — e.g. tuna-can is a real protein but never belongs to the LEAN_
+# PROTEIN_SOLID family a lunch/dinner combo draws from; it lives in QUICK_PROTEIN instead
+# (snack-appropriate, matching its own 'snack'/'quick' tags in foods.json). Every family
+# is additive over the existing SUB_GROUPS/SUB_TIER substitution tiers below — this is a
+# separate, meal-composition-time concept, not a replacement for the substitution logic.
+FOOD_FAMILIES = {
+    "LEAN_PROTEIN_SOLID": ["chicken-breast", "beef-grill", "tilapia", "pork-loin", "salmon",
+                           "chicken-thigh", "beef-ground", "tofu", "soy-protein"],
+    "QUICK_PROTEIN": ["tuna-can", "whey-protein", "cheese-cottage", "yogurt-greek"],
+    "EGG_FAMILY": ["eggs-whole", "egg-whites"],
+    "OMELET_FAMILY": ["chicken-egg-omelet"],
+    "FAST_PROTEIN": ["whey-protein"],
+    "BREAKFAST_PROTEIN": ["eggs-whole", "egg-whites", "whey-protein", "chicken-egg-omelet"],
+    "POST_PRE_PROTEIN": ["chicken-breast", "beef-grill", "tilapia", "pork-loin", "salmon",
+                         "chicken-thigh", "beef-ground", "whey-protein"],
+    "MAIN_CARB": ["rice-white", "potato", "sweet-potato", "cassava", "rice-brown"],
+    "PORRIDGE_CARB": ["oats", "rice-flour"],
+    "RICE_FLOUR_FAMILY": ["rice-flour"],
+    "BREAD_FAMILY": ["bread-whole", "bread-white"],
+    "FRUIT_FAMILY": ["banana", "apple", "papaya", "orange", "watermelon", "strawberry", "grapes", "mango"],
+    "VEGETABLE_FAMILY": ["broccoli", "spinach", "lettuce", "tomato", "carrot", "zucchini",
+                         "green-beans", "eggplant", "pumpkin", "beetroot"],
+    "FAT_FAMILY": ["olive-oil", "avocado", "peanuts", "brazil-nuts", "peanut-butter"],
+}
+
+# REAL_MEAL_COMPOSITION — explicit roles per meal, so a meal is built from a small set of
+# culinarily coherent slots instead of a solver free to inflate whichever single food
+# closes the macro fastest. "required" roles must be filled when candidates exist;
 # optional roles fill in only when they earn their place (variety, protein-compound need,
-# or leftover calorie budget) — see generate_meal() / _needs_secondary_protein().
+# or leftover calorie budget) — see generate_meal() / _needs_secondary_protein(). This is
+# the always-available FALLBACK used by the legacy one-shot /generate endpoint and
+# whenever no MEAL_COMBOS entry survives the feasibility guardrail for an athlete — so it
+# carries the same DNA-approved families as the combos below (item 20: no silent fallback
+# reintroducing "atum at lunch" or a floating optional legume with no combo identity).
 MEAL_TEMPLATES = {
     "breakfast": [
-        {"role": "primary_protein", "category": "PROTEIN", "required": True},
+        {"role": "primary_protein", "category": "PROTEIN", "required": True, "family": "BREAKFAST_PROTEIN"},
         {"role": "secondary_protein", "category": "PROTEIN", "required": False},
         {"role": "primary_carb", "category": "CARBOHYDRATE", "required": True},
-        {"role": "fruit", "category": "FRUIT", "required": False},
-        {"role": "fat_source", "category": "FAT", "required": False},
+        {"role": "fruit", "category": "FRUIT", "required": False, "family": "FRUIT_FAMILY"},
+        {"role": "fat_source", "category": "FAT", "required": False, "family": "FAT_FAMILY"},
     ],
     "lunch": [
-        {"role": "primary_protein", "category": "PROTEIN", "required": True},
-        {"role": "primary_carb", "category": "CARBOHYDRATE", "required": True},
-        {"role": "vegetable", "category": "VEGETABLE", "required": True},
-        {"role": "legume", "category": "LEGUME", "required": False},
-        {"role": "fat_source", "category": "FAT", "required": False},
+        {"role": "primary_protein", "category": "PROTEIN", "required": True, "family": "LEAN_PROTEIN_SOLID"},
+        {"role": "primary_carb", "category": "CARBOHYDRATE", "required": True, "family": "MAIN_CARB"},
+        {"role": "vegetable", "category": "VEGETABLE", "required": True, "family": "VEGETABLE_FAMILY"},
+        {"role": "fat_source", "category": "FAT", "required": False, "family": "FAT_FAMILY"},
     ],
     "dinner": [
-        {"role": "primary_protein", "category": "PROTEIN", "required": True},
-        {"role": "primary_carb", "category": "CARBOHYDRATE", "required": True},
-        {"role": "vegetable", "category": "VEGETABLE", "required": True},
-        {"role": "legume", "category": "LEGUME", "required": False},
-        {"role": "fat_source", "category": "FAT", "required": False},
+        {"role": "primary_protein", "category": "PROTEIN", "required": True, "family": "LEAN_PROTEIN_SOLID"},
+        {"role": "primary_carb", "category": "CARBOHYDRATE", "required": True, "family": "MAIN_CARB"},
+        {"role": "vegetable", "category": "VEGETABLE", "required": True, "family": "VEGETABLE_FAMILY"},
+        {"role": "fat_source", "category": "FAT", "required": False, "family": "FAT_FAMILY"},
     ],
     "snack": [
-        {"role": "primary_protein", "category": "PROTEIN", "required": True},
-        {"role": "secondary_protein", "category": "PROTEIN", "required": False},
-        {"role": "primary_carb", "category": "CARBOHYDRATE", "required": False},
-        {"role": "fruit", "category": "FRUIT", "required": False},
+        {"role": "primary_protein", "category": "PROTEIN", "required": True, "family": "QUICK_PROTEIN"},
+        {"role": "primary_carb", "category": "CARBOHYDRATE", "required": False, "family": "PORRIDGE_CARB"},
+        {"role": "fruit", "category": "FRUIT", "required": False, "family": "FRUIT_FAMILY"},
     ],
     "pre_workout": [
         {"role": "primary_carb", "category": "CARBOHYDRATE", "required": True},
-        {"role": "fruit", "category": "FRUIT", "required": False},
-        {"role": "primary_protein", "category": "PROTEIN", "required": False},
+        {"role": "fruit", "category": "FRUIT", "required": False, "family": "FRUIT_FAMILY"},
+        {"role": "primary_protein", "category": "PROTEIN", "required": False, "family": "POST_PRE_PROTEIN"},
     ],
     "post_workout": [
-        {"role": "primary_protein", "category": "PROTEIN", "required": True},
-        {"role": "secondary_protein", "category": "PROTEIN", "required": False},
+        {"role": "primary_protein", "category": "PROTEIN", "required": True, "family": "POST_PRE_PROTEIN"},
         {"role": "primary_carb", "category": "CARBOHYDRATE", "required": True},
-        {"role": "fruit", "category": "FRUIT", "required": False},
+        {"role": "fruit", "category": "FRUIT", "required": False, "family": "FRUIT_FAMILY"},
     ],
 }
 
-# Guided flow (MEAL_ARCHETYPES): real, named alternative combinations per meal type —
-# "Clássico" vs "Rápido" vs "Refeição sólida", not a random ingredient list. Each
-# archetype is still just a role list consumed by the exact same generate_meal() /
-# calculate_meal_portions() pipeline as MEAL_TEMPLATES; the only new piece is an
-# optional food_group narrowing so two archetypes for the same meal type can't both
-# resolve to the same concrete food (e.g. "ovos" vs "carne/peixe" at breakfast).
-# MEAL_TEMPLATES itself remains the always-available, always-viable fallback archetype
-# used by the legacy one-shot /generate endpoint and whenever no archetype survives the
-# feasibility guardrail for a given athlete.
-MEAL_ARCHETYPE_FOOD_GROUPS = {
-    "egg_family": ["eggs-whole", "egg-whites"],
-    "dairy_yogurt": ["yogurt-greek", "yogurt-natural", "cheese-cottage"],
-    "meat_fish_family": ["chicken-breast", "chicken-thigh", "beef-grill", "beef-ground",
-                          "pork-loin", "tilapia", "salmon", "tuna-can"],
-}
-
-MEAL_ARCHETYPES = {
-    "breakfast": [
-        {"id": "classic_eggs", "label": "Clássico", "roles": [
-            {"role": "primary_protein", "category": "PROTEIN", "required": True, "food_group": "egg_family"},
-            {"role": "secondary_protein", "category": "PROTEIN", "required": False},
-            {"role": "primary_carb", "category": "CARBOHYDRATE", "required": True},
-            {"role": "fruit", "category": "FRUIT", "required": False},
-            {"role": "fat_source", "category": "FAT", "required": False},
-        ]},
-        {"id": "quick_dairy", "label": "Rápido", "roles": [
-            {"role": "dairy", "category": "DAIRY", "required": True, "food_group": "dairy_yogurt"},
-            {"role": "primary_carb", "category": "CARBOHYDRATE", "required": True},
-            {"role": "fruit", "category": "FRUIT", "required": False},
-            {"role": "secondary_protein", "category": "PROTEIN", "required": False},
-        ]},
-        {"id": "solid_meal", "label": "Refeição sólida", "roles": [
-            {"role": "primary_protein", "category": "PROTEIN", "required": True, "food_group": "meat_fish_family"},
-            {"role": "primary_carb", "category": "CARBOHYDRATE", "required": True},
-            {"role": "fruit", "category": "FRUIT", "required": False},
-        ]},
-    ],
-    "lunch": [
-        {"id": "classic", "label": "Clássico", "roles": MEAL_TEMPLATES["lunch"]},
-        {"id": "veggie_forward", "label": "Reforço de vegetais", "roles": [
-            {"role": "primary_protein", "category": "PROTEIN", "required": True},
-            {"role": "primary_carb", "category": "CARBOHYDRATE", "required": True},
-            {"role": "vegetable", "category": "VEGETABLE", "required": True},
-            {"role": "vegetable", "category": "VEGETABLE", "required": True},
-            {"role": "fat_source", "category": "FAT", "required": False},
-        ]},
-    ],
-    "dinner": [
-        {"id": "classic", "label": "Clássico", "roles": MEAL_TEMPLATES["dinner"]},
-        {"id": "veggie_forward", "label": "Reforço de vegetais", "roles": [
-            {"role": "primary_protein", "category": "PROTEIN", "required": True},
-            {"role": "primary_carb", "category": "CARBOHYDRATE", "required": True},
-            {"role": "vegetable", "category": "VEGETABLE", "required": True},
-            {"role": "vegetable", "category": "VEGETABLE", "required": True},
-            {"role": "fat_source", "category": "FAT", "required": False},
-        ]},
-    ],
-    "snack": [
-        {"id": "completo", "label": "Completo", "roles": MEAL_TEMPLATES["snack"]},
-        {"id": "leve", "label": "Leve", "roles": [
-            {"role": "primary_protein", "category": "PROTEIN", "required": True},
-            {"role": "fruit", "category": "FRUIT", "required": False},
-        ]},
-    ],
-    "pre_workout": [
-        {"id": "energetico", "label": "Energético", "roles": MEAL_TEMPLATES["pre_workout"]},
-        {"id": "simples", "label": "Simples", "roles": [
-            {"role": "primary_carb", "category": "CARBOHYDRATE", "required": True},
-        ]},
-    ],
-    "post_workout": [
-        {"id": "completo", "label": "Completo", "roles": MEAL_TEMPLATES["post_workout"]},
-        {"id": "com_fruta", "label": "Com fruta", "roles": [
-            {"role": "primary_protein", "category": "PROTEIN", "required": True},
-            {"role": "primary_carb", "category": "CARBOHYDRATE", "required": True},
-            {"role": "fruit", "category": "FRUIT", "required": True},
-        ]},
-    ],
-}
+# FORGE NUTRITION DNA — MEAL_COMBOS: the real unit of meal composition. A meal is never
+# assembled by picking independent role-slots from a wide category — it's built from one
+# of these named, whole combinations (MACROS AJUSTAM A REFEIÇÃO, MACROS NÃO INVENTAM A
+# REFEIÇÃO). Deliberately small: a handful of strong, real combos observed in the coach's
+# actual method, not dozens of synthetic ones — quality over quantity, and the model below
+# (meal_types + components) leaves room to grow the library later without touching engine
+# code. Every component still flows through the unchanged generate_meal() /
+# calculate_meal_portions() / calculate_meal_coherence_score() pipeline; get_meal_
+# archetype_options() is what turns a combo into 2-5 real, sized, guardrail-checked
+# options for one meal slot — MEAL_TEMPLATES remains the always-viable fallback whenever
+# no combo below survives an athlete's restrictions for that slot.
+MEAL_COMBOS = [
+    {"id": "forge_oats_whey_banana", "label": "Mingau FORGE", "meal_types": ["breakfast", "snack"],
+     "components": [
+         {"role": "primary_carb", "category": "CARBOHYDRATE", "family": "PORRIDGE_CARB", "required": True},
+         {"role": "primary_protein", "category": "PROTEIN", "family": "FAST_PROTEIN", "required": True},
+         {"role": "fruit", "category": "FRUIT", "family": "FRUIT_FAMILY", "required": False},
+     ]},
+    {"id": "forge_eggs_classic", "label": "Clássico FORGE", "meal_types": ["breakfast"],
+     "components": [
+         {"role": "primary_protein", "category": "PROTEIN", "family": "EGG_FAMILY", "required": True},
+         {"role": "secondary_protein", "category": "PROTEIN", "required": False},
+         {"role": "primary_carb", "category": "CARBOHYDRATE", "family": "PORRIDGE_CARB", "required": False},
+         {"role": "fruit", "category": "FRUIT", "family": "FRUIT_FAMILY", "required": False},
+     ]},
+    {"id": "forge_bread_eggs_whey", "label": "Pão e ovos", "meal_types": ["breakfast"],
+     "components": [
+         {"role": "primary_carb", "category": "CARBOHYDRATE", "family": "BREAD_FAMILY", "required": True},
+         {"role": "primary_protein", "category": "PROTEIN", "family": "EGG_FAMILY", "required": True},
+         {"role": "primary_protein", "category": "PROTEIN", "family": "FAST_PROTEIN", "required": True},
+     ]},
+    {"id": "forge_omelete", "label": "Omelete FORGE", "meal_types": ["breakfast", "snack"],
+     "components": [
+         {"role": "primary_protein", "category": "PROTEIN", "family": "OMELET_FAMILY", "required": True},
+         {"role": "primary_carb", "category": "CARBOHYDRATE", "family": "MAIN_CARB", "required": False},
+     ]},
+    {"id": "forge_solid_meal", "label": "Refeição sólida", "meal_types": ["lunch", "dinner", "post_workout"],
+     "components": [
+         {"role": "primary_protein", "category": "PROTEIN", "family": "LEAN_PROTEIN_SOLID", "required": True},
+         {"role": "primary_carb", "category": "CARBOHYDRATE", "family": "MAIN_CARB", "required": True},
+         {"role": "vegetable", "category": "VEGETABLE", "family": "VEGETABLE_FAMILY", "required": True},
+         {"role": "fat_source", "category": "FAT", "family": "FAT_FAMILY", "required": False},
+     ]},
+    {"id": "forge_postwork_fruit", "label": "Pós-treino com fruta", "meal_types": ["post_workout"],
+     "components": [
+         {"role": "primary_protein", "category": "PROTEIN", "family": "LEAN_PROTEIN_SOLID", "required": True},
+         {"role": "primary_carb", "category": "CARBOHYDRATE", "family": "MAIN_CARB", "required": True},
+         {"role": "fruit", "category": "FRUIT", "family": "FRUIT_FAMILY", "required": False},
+     ]},
+    {"id": "forge_prework_meat_carb_fruit", "label": "Pré-treino completo", "meal_types": ["pre_workout"],
+     "components": [
+         {"role": "primary_protein", "category": "PROTEIN", "family": "LEAN_PROTEIN_SOLID", "required": True},
+         {"role": "primary_carb", "category": "CARBOHYDRATE", "family": "MAIN_CARB", "required": True},
+         {"role": "fruit", "category": "FRUIT", "family": "FRUIT_FAMILY", "required": False},
+     ]},
+    {"id": "forge_prework_riceflour_whey", "label": "Pré-treino rápido", "meal_types": ["pre_workout"],
+     "components": [
+         {"role": "primary_carb", "category": "CARBOHYDRATE", "family": "RICE_FLOUR_FAMILY", "required": True},
+         {"role": "primary_protein", "category": "PROTEIN", "family": "FAST_PROTEIN", "required": True},
+     ]},
+]
 
 SUB_GROUPS = {
     "CARB": ["potato","sweet-potato","cassava","rice-white","rice-brown","tapioca","oats","corn-flour"],
@@ -349,10 +358,13 @@ def _food_compatible(food, pn, used_ids):
     vegetarian_ok_ids = {"eggs-whole","egg-whites","whey-protein","tofu","soy-protein",
         "beans-black","beans-carioca","lentils","chickpeas",
         "yogurt-greek","cheese-cottage","cheese-mozzarella","milk-whole","milk-skim","yogurt-natural"}
-    lactose_ids = {"milk-whole","yogurt-natural","yogurt-greek","cheese-mozzarella","cheese-cottage"}
     if "vegetarian" in rt and food.get("category")=="PROTEIN" and food["id"] not in vegetarian_ok_ids:
         return False
-    if "lactose_free" in rt and food["id"] in lactose_ids:
+    # Reuses the same _DAIRY_IDS set the "lactose"/"dairy"/"milk" ALLERGY exclusion
+    # already relies on (item: whey-protein/rice-cream-whey were already treated as
+    # lactose-containing there but not here — a real inconsistency, now fixed at its one
+    # source of truth instead of a second hand-maintained list drifting out of sync).
+    if "lactose_free" in rt and food["id"] in _DAIRY_IDS:
         return False
     return True
 
@@ -483,10 +495,21 @@ def calculate_meal_portions(food_ids, target_cal, target_protein, target_fat=0, 
     # the same kcal share buys far more mass — bulk/satiety without spending extra
     # calories, and it stays proportionate to whatever budget this profile actually has
     # (no fixed-gram override that could blow a tight cutting budget).
+    # Bulking (item 12: "aumentar principalmente capacidade energética dos combos: mais
+    # arroz/batata/aveia") — the inverse bias: a big muscle_gain meal's extra calorie
+    # share leans into the carb, which comfortably absorbs a large dense portion, rather
+    # than pushing a vegetable toward an oversized pile just to hit the same target —
+    # aveia+whey+banana stays that combo with more of each, not a random 5th ingredient.
     remaining_ids = [fid for fid in food_ids if fid not in sized]
-    veg_weight = 3.0 if _goal_key(goal) == "fat_loss" else 1.0
-    weights = {fid: (veg_weight if FOOD_INDEX.get(fid, {}).get("category") == "VEGETABLE" else 1.0)
-               for fid in remaining_ids}
+    gk = _goal_key(goal)
+    if gk == "fat_loss":
+        weights = {fid: (3.0 if FOOD_INDEX.get(fid, {}).get("category") == "VEGETABLE" else 1.0)
+                   for fid in remaining_ids}
+    elif gk == "muscle_gain":
+        weights = {fid: (2.5 if FOOD_INDEX.get(fid, {}).get("category") in ("CARBOHYDRATE", "MIXED") else 1.0)
+                   for fid in remaining_ids}
+    else:
+        weights = {fid: 1.0 for fid in remaining_ids}
     total_w = sum(weights.values()) or 1
 
     # Pass 1: every item capped at its own comfortable_portion_g.
@@ -503,16 +526,25 @@ def calculate_meal_portions(food_ids, target_cal, target_protein, target_fat=0, 
     # Pass 2: if the comfortable-capped set can't absorb the remaining calorie budget,
     # scale the shortfall across items that still have room up to their hard_max_portion_g
     # — never beyond it. This is what replaces blindly inflating a single food.
+    # Deliberately NOT the same veg_weight-boosted weights as Pass 1 for fat_loss: the
+    # satiety objective (more volume within a comfortable, human portion) was already
+    # served there. Continuing to funnel the *overflow past comfortable* preferentially
+    # into vegetables produces exactly "vegetais utilizados como filler calórico" (item
+    # 18) — e.g. two vegetables both pushed toward hard_max for one big cutting meal.
+    # Past comfortable, the leftover spreads evenly instead (muscle_gain keeps its carb
+    # bias here too — a dense carb absorbing overflow is more natural than a bigger pile
+    # of vegetables or protein).
+    pass2_weights = weights if gk == "muscle_gain" else {fid: 1.0 for fid in remaining_ids}
     absorbed = sum(comfortable_grams[fid] * (FOOD_INDEX.get(fid, {}).get("kcal", 100) / max(1, FOOD_INDEX.get(fid, {}).get("grams", 100))) for fid in remaining_ids)
     shortfall = remaining_cal - absorbed
     if shortfall > 20 and remaining_ids:
         room_ids = [fid for fid in remaining_ids
                     if comfortable_grams[fid] < _portion_limit(FOOD_INDEX.get(fid, {}), "hard_max")]
-        room_w = sum(weights[fid] for fid in room_ids) or 1
+        room_w = sum(pass2_weights[fid] for fid in room_ids) or 1
         for fid in room_ids:
             f = FOOD_INDEX.get(fid, {})
             cpg = f.get("kcal", 100) / max(1, f.get("grams", 100))
-            extra_cal = shortfall * (weights[fid] / room_w)
+            extra_cal = shortfall * (pass2_weights[fid] / room_w)
             extra_grams = extra_cal / max(0.1, cpg) if cpg > 0 else 0
             hard_max = _portion_limit(f, "hard_max")
             comfortable_grams[fid] = min(hard_max, round(comfortable_grams[fid] + extra_grams, -1))
@@ -548,18 +580,18 @@ def generate_meal(meal_name, meal_type, target_cal, target_protein, target_fat,
                   day_index=0, is_later_meal=False, template_override=None):
     mt = _infer_meal_type(meal_name)
 
-    # REAL_MEAL_COMPOSITION: build from the named archetype for this meal type instead of
-    # an ad-hoc role list, so every meal stays a small, culinarily coherent set of roles.
-    # Guided flow (MEAL_ARCHETYPES): a caller building alternative combos for the same
-    # meal slot passes its own role list here instead of the single default template —
-    # everything downstream (selection, sizing, coherence scoring) is unchanged.
+    # FORGE NUTRITION DNA: build from the named combo for this meal type instead of an
+    # ad-hoc role list, so every meal stays a small, culinarily coherent identity. A
+    # caller building alternative MEAL_COMBOS options for the same meal slot passes its
+    # own component list here instead of the single default template — everything
+    # downstream (selection, sizing, coherence scoring) is unchanged.
     template = template_override if template_override is not None else MEAL_TEMPLATES.get(mt, MEAL_TEMPLATES["lunch"])
-    total_roles = [(r["role"], r["category"], r.get("required", False), r.get("food_group")) for r in template]
+    total_roles = [(r["role"], r["category"], r.get("required", False), r.get("family")) for r in template]
     # Cutting: a second vegetable (like a real plate — main veg + salad) adds
     # near-free volume/satiety without meaningfully spending the calorie budget.
-    # Only applies to the default template — a custom archetype defines its own roles.
+    # Only applies to the default template — a custom combo defines its own components.
     if template_override is None and mt in ("lunch", "dinner") and _goal_key(goal) == "fat_loss":
-        total_roles.append(("vegetable", "VEGETABLE", True, None))
+        total_roles.append(("vegetable", "VEGETABLE", True, "VEGETABLE_FAMILY"))
 
     # Optional roles only earn their place when the meal's own budget can actually
     # afford another item — a required role is always attempted regardless of count.
@@ -577,7 +609,7 @@ def generate_meal(meal_name, meal_type, target_cal, target_protein, target_fat,
     max_same = FORGE_COACH_METHODOLOGY.get("max_same_protein_per_day", 2)
 
     selected = []; mu = set(used_food_ids)
-    for role, cat, required, food_group in total_roles:
+    for role, cat, required, family in total_roles:
         if role == "fat_source" and target_fat < 5:
             continue
         # Optional roles (item 3/6: fewer, more human items on a tight per-meal budget)
@@ -599,25 +631,37 @@ def generate_meal(meal_name, meal_type, target_cal, target_protein, target_fat,
             if fid:
                 selected.append(fid); mu.add(fid)
             continue
-        cands = list(FOODS_BY_ROLE.get(role, FOODS_BY_CAT.get(cat, [])))
-        cands = [c for c in cands if c not in exclude and c not in dislike]
-        if food_group:
-            allowed = set(MEAL_ARCHETYPE_FOOD_GROUPS.get(food_group, []))
-            cands = [c for c in cands if c in allowed]
 
-        if role == "primary_carb":
-            if ctx:
-                ctxc = [c for c in cands if c in ctx]
-                if ctxc: cands = ctxc
-            remaining = [c for c in cands if c not in mu]
-            if remaining: cands = remaining
+        # FORGE NUTRITION DNA: a family IS the candidate pool (food availability != meal
+        # suitability) — a food only reaches this slot because it genuinely belongs to
+        # the combo's identity, not merely because it shares a nutrient category. Only a
+        # role with no family declared (a rare legacy/safety-net case) falls back to the
+        # old wide role/category pool.
+        if family:
+            cands = list(FOOD_FAMILIES.get(family, []))
+            # methodology_exclude_default ("breads/flours not a generic solution") exists
+            # to keep bread out of the WIDE, undifferentiated pool — it was never meant to
+            # veto a food that's the deliberate, named anchor of a real combo (e.g. "pão +
+            # ovos + whey"). A curated family is itself the "belongs to a valid combo"
+            # check item 4 asks for, so it isn't re-filtered through the blanket list.
+            cands = [c for c in cands if c not in dislike]
+        else:
+            cands = list(FOODS_BY_ROLE.get(role, FOODS_BY_CAT.get(cat, [])))
+            cands = [c for c in cands if c not in exclude and c not in dislike]
+
+        if role == "primary_carb" and not family and ctx:
+            ctxc = [c for c in cands if c in ctx]
+            if ctxc: cands = ctxc
+
+        # Daily variety (item 10): every role prefers a food not already used elsewhere
+        # today — soft preference, not a hard ban, so "frango duas vezes" or "aveia no
+        # café e na ceia" stays perfectly valid whenever no fresh alternative exists.
+        remaining = [c for c in cands if c not in mu]
+        if remaining: cands = remaining
 
         if role == "primary_protein":
-            remaining = [c for c in cands if c not in mu]
-            if remaining:
-                varied = [c for c in remaining if prot_count.get(c, 0) < max_same]
-                if varied: remaining = varied
-            if remaining: cands = remaining
+            varied = [c for c in cands if prot_count.get(c, 0) < max_same]
+            if varied: cands = varied
 
         if role == "legume":
             idx = (day_index + len(selected)) % len(LEGUME_ROTATION)
@@ -670,33 +714,35 @@ def _preference_bonus(foods, preferences):
 def get_meal_archetype_options(meal_name, target_cal, target_protein, target_fat, pn, used_food_ids,
                                 goal="maintenance", daily_used_proteins=None, day_index=0,
                                 preferences=None, max_options=5, variety_seed=0):
-    """Guided flow entry point: 2-5 real, complete, coherent meal combinations for one
-    meal slot — never a raw ingredient list. Reuses generate_meal/calculate_meal_portions/
-    calculate_meal_coherence_score exactly as-is; the only new logic here is COACH_GUARDRAILS
-    (an archetype that would need to cross hard_max_portion_g or that scores below the
-    coherence bar is simply never returned) and preference-based ranking among survivors."""
+    """FORGE NUTRITION DNA entry point (item 7 — combo first, portion after): 2-5 real,
+    complete, coach-plausible meal combinations for one meal slot, drawn from MEAL_COMBOS
+    — never a raw ingredient list assembled from independent role slots. Reuses
+    generate_meal/calculate_meal_portions/calculate_meal_coherence_score exactly as-is;
+    the logic here is COACH_GUARDRAILS (a combo that would need to cross hard_max_portion_g,
+    that scores below the coherence bar, or that can't fill one of its own required
+    components is simply never offered) plus preference-based ranking among survivors."""
     mt = _infer_meal_type(meal_name)
-    archetypes = MEAL_ARCHETYPES.get(mt, [])
+    combos = [c for c in MEAL_COMBOS if mt in c["meal_types"]]
     min_score = FORGE_COACH_METHODOLOGY.get("min_archetype_coherence", 55)
     options = []
     seen_signatures = set()
-    for arch in archetypes:
+    for combo in combos:
         meal = generate_meal(meal_name, mt, target_cal, target_protein, target_fat, pn, used_food_ids,
                               goal, daily_used_proteins, day_index + variety_seed,
-                              template_override=arch["roles"])
+                              template_override=combo["components"])
         if not meal["foods"]:
             continue  # infeasible for this athlete's restrictions — never offered
         # generate_meal silently skips a role it can't fill (e.g. an allergy wipes out
-        # every candidate in that archetype's food_group) rather than failing outright —
-        # correct there for the legacy single-template flow, but here a required role
-        # left empty means this WHOLE archetype is infeasible for this athlete and must
-        # never be offered as a real combination missing its own protein/dairy/etc.
+        # every candidate in that combo's family) rather than failing outright — correct
+        # there for the legacy single-template flow, but here a required component left
+        # empty means this WHOLE combo is infeasible for this athlete and must never be
+        # offered as a real combination missing its own protein/carb/etc identity.
         chosen_ids = {it["food_id"] for it in meal["foods"]}
         required_unmet = False
-        for req in arch["roles"]:
+        for req in combo["components"]:
             if not req.get("required"):
                 continue
-            allowed = set(MEAL_ARCHETYPE_FOOD_GROUPS.get(req["food_group"], [])) if req.get("food_group") else None
+            allowed = set(FOOD_FAMILIES.get(req["family"], [])) if req.get("family") else None
             matched = any(
                 (req["role"] in FOOD_INDEX.get(fid, {}).get("roles", []) or FOOD_INDEX.get(fid, {}).get("category") == req["category"])
                 and (allowed is None or fid in allowed)
@@ -708,25 +754,29 @@ def get_meal_archetype_options(meal_name, target_cal, target_protein, target_fat
             continue
         signature = tuple(sorted(it["food_id"] for it in meal["foods"]))
         if signature in seen_signatures:
-            continue  # two archetypes resolved to the same concrete foods — not a real choice
+            continue  # two combos resolved to the same concrete foods — not a real choice
         hard_max_ok = all(
             it["grams"] <= _portion_limit(FOOD_INDEX.get(it["food_id"], {}), "hard_max") + 0.5
             for it in meal["foods"])
-        score = calculate_meal_coherence_score(meal, mt, goal)
+        meal["composition_source"] = "dna"
+        score = calculate_meal_coherence_score(meal, mt, goal, used_elsewhere=used_food_ids)
         if not hard_max_ok or score < min_score:
             continue
         seen_signatures.add(signature)
         options.append({
-            "archetype_id": arch["id"], "label": arch["label"], "meal": meal,
+            "archetype_id": combo["id"], "label": combo["label"], "meal": meal,
             "coherence_score": score,
             "rank_score": score + _preference_bonus(meal["foods"], preferences),
         })
     if not options:
         # Guaranteed fallback (COACH_GUARDRAILS never leaves the athlete with zero
-        # options): the always-viable default template, exactly as the legacy flow uses.
+        # options, item 20): the always-viable default template, exactly as the legacy
+        # flow uses — still runs through the same coherence validator, and is tagged
+        # composition_source="fallback" so a silent low-quality result is never invisible.
         fallback = generate_meal(meal_name, mt, target_cal, target_protein, target_fat, pn, used_food_ids,
                                   goal, daily_used_proteins, day_index + variety_seed)
-        score = calculate_meal_coherence_score(fallback, mt, goal)
+        fallback["composition_source"] = "fallback"
+        score = calculate_meal_coherence_score(fallback, mt, goal, used_elsewhere=used_food_ids)
         options = [{"archetype_id": "default", "label": "Padrão", "meal": fallback,
                     "coherence_score": score, "rank_score": score}]
     options.sort(key=lambda o: -o["rank_score"])
@@ -782,7 +832,13 @@ def _reconcile_daily(meals, targets, pn, goal, max_iterations=8):
     # reconciliation shrink them like carbs — see FORGE.md "priorizar saciedade e maior
     # volume alimentar por caloria" for cutting.
     satiety_priority = gk == "fat_loss"
+    # Bulking (item 12): grow carb capacity first ("mais arroz/batata/aveia"), not
+    # vegetables — otherwise a big muscle_gain meal pushes both its carb AND its
+    # vegetable toward hard_max together (two oversized items instead of one dense
+    # carb portion, which is completely normal for a bulking plate).
+    carb_priority = gk == "muscle_gain"
     SATIETY_CATS = {"VEGETABLE", "FRUIT", "LEGUME"}
+    CARB_CATS = {"CARBOHYDRATE", "MIXED"}
 
     for _ in range(max_iterations):
         totals = sum_plan_totals(meals)
@@ -839,7 +895,21 @@ def _reconcile_daily(meals, targets, pn, goal, max_iterations=8):
                     eligible.append(item)
                 under_comfortable = [it for it in eligible
                                       if it["grams"] < _portion_limit(FOOD_INDEX.get(it["food_id"],{}), "comfortable")]
-                for item in (under_comfortable or eligible):
+                growth_pool = under_comfortable or eligible
+                if carb_priority:
+                    carb_pool = [it for it in growth_pool if FOOD_INDEX.get(it["food_id"], {}).get("category") in CARB_CATS]
+                    if carb_pool: growth_pool = carb_pool
+                elif satiety_priority and not under_comfortable:
+                    # Every satiety item already reached comfortable — protein still has
+                    # real room up to its own hard_max and is a more natural place for
+                    # the rest than pushing a SECOND vegetable past comfortable too
+                    # ("vegetais como filler calórico", item 18). Only once protein is
+                    # also maxed does growth widen back to every satiety item.
+                    protein_pool = [it for it in eligible
+                                     if "primary_protein" in FOOD_INDEX.get(it["food_id"], {}).get("roles", [])
+                                     and it["grams"] < _portion_limit(FOOD_INDEX.get(it["food_id"], {}), "hard_max")]
+                    if protein_pool: growth_pool = protein_pool
+                for item in growth_pool:
                     if kcal_budget <= 0: break
                     f = FOOD_INDEX.get(item["food_id"],{})
                     cpg = f.get("kcal", 100) / max(1, f.get("grams", 100))
@@ -915,25 +985,46 @@ def sum_plan_totals(meals):
     for k in t: t[k] = round(t[k], 1)
     return t
 
-def calculate_meal_coherence_score(meal, meal_type, goal="maintenance"):
-    """0-100 human-plausibility score for a generated meal (item 6). Rewards a normal
-    item count, human portions, and goal-appropriate satiety; penalizes hard the exact
-    failure modes reported in production — an oversized single food, or one food
-    resolving nearly an entire macro alone."""
+def calculate_meal_coherence_score(meal, meal_type, goal="maintenance", used_elsewhere=None):
+    """0-100 human-plausibility score for a generated meal (item 6, expanded for FORGE
+    NUTRITION DNA item 18). Rewards a normal item count (2-4 is the sweet spot, item 19),
+    human portions, and goal-appropriate satiety; penalizes hard the exact failure modes
+    reported in production — an oversized single food, one food resolving nearly an
+    entire macro alone, or a food repeated from elsewhere in the same day's plan when a
+    fresh alternative existed. `used_elsewhere` is optional (backward compatible with
+    every existing caller) — food_ids already used in other meals today, for the
+    adjacent/daily repetition penalty (item 10)."""
     foods = meal.get("foods", [])
     if not foods:
         return 0.0
     score = 100.0
     n = len(foods)
 
+    # item 19: 2-4 components is the real-world sweet spot — a lone item is too sparse,
+    # 5 is acceptable but not ideal, 6+ starts looking like ingredients thrown at a target
+    # rather than a plate a coach would prescribe.
     if n == 1:
         score -= 25
+    elif n == 5:
+        score -= 8
     elif n >= 6:
         score -= 10 * (n - 5)
+
+    if meal.get("composition_source") == "fallback":
+        # item 20: never let a silent fallback look identical to a real DNA combo —
+        # still fully valid and offerable, just naturally ranked behind a real combo
+        # whenever one exists, and visibly flagged for diagnosis either way.
+        score -= 10
+
+    if used_elsewhere:
+        repeated = sum(1 for it in foods if it["food_id"] in used_elsewhere)
+        if repeated:
+            score -= min(15, 8 * repeated)  # soft penalty, item 10 — never a hard ban
 
     macros = [( _food_macros(it["food_id"], it.get("grams", 0)), it) for it in foods]
     total_protein = sum(mm[1] for mm, _ in macros)
     total_carbs = sum(mm[2] for mm, _ in macros)
+    gk = _goal_key(goal)
 
     for (mk, mp, mc, mf), it in macros:
         f = FOOD_INDEX.get(it["food_id"], {})
@@ -944,14 +1035,32 @@ def calculate_meal_coherence_score(meal, meal_type, goal="maintenance"):
             score -= 40  # should be structurally unreachable now; scored hard if it ever occurs
         elif g > comfortable:
             over_pct = (g - comfortable) / max(1, comfortable)
-            score -= min(20, over_pct * 40)
+            # A generous vegetable portion in a cutting meal is the methodology's own
+            # intentional choice (satiety/volume priority, item 12) — not the same red
+            # flag as an oversized protein or carb, so it's penalized more gently here
+            # instead of being scored as if it were "vegetais como filler calórico".
+            # Same reasoning for the protein source specifically under fat_loss: cutting
+            # carries the HIGHEST protein target of all three goals (2.0-2.4g/kg, to
+            # preserve muscle in a deficit) — a cutting athlete's single protein source
+            # sitting between comfortable and hard_max (never beyond) is the expected
+            # case that range exists for, not a coherence failure.
+            veg_softened = gk == "fat_loss" and f.get("category") == "VEGETABLE"
+            protein_softened = gk == "fat_loss" and "primary_protein" in f.get("roles", [])
+            softened = veg_softened or protein_softened
+            penalty_cap = 8 if veg_softened else 12 if protein_softened else 20
+            score -= min(penalty_cap, over_pct * (20 if softened else 40))
 
-        # one food resolving almost the entire protein/carb macro alone, while already
-        # past its comfortable size — exactly "resolver todo um macro com um único alimento".
-        if total_protein > 0 and "primary_protein" in f.get("roles", []) and g > comfortable:
+        # one food resolving almost the entire protein/carb macro alone, while
+        # MEANINGFULLY past its comfortable size — exactly "resolver todo um macro com
+        # um único alimento" (the original 300g+ egg-white bug was 65%+ over comfortable).
+        # A DNA combo's whole design is one main protein source per meal, so ">comfortable"
+        # alone is the ordinary case, not the failure mode — that's already counted once
+        # by the per-item penalty above; this catches the genuinely extreme case instead
+        # of double-penalizing an athlete who simply needs a bit more than "comfortable".
+        if total_protein > 0 and "primary_protein" in f.get("roles", []) and g > comfortable * 1.3:
             if mp / total_protein > 0.85:
                 score -= 15
-        if total_carbs > 0 and "primary_carb" in f.get("roles", []) and g > comfortable:
+        if total_carbs > 0 and "primary_carb" in f.get("roles", []) and g > comfortable * 1.3:
             if mc / total_carbs > 0.9:
                 score -= 10
 
@@ -959,7 +1068,6 @@ def calculate_meal_coherence_score(meal, meal_type, goal="maintenance"):
     if len(set(ids)) < len(ids):
         score -= 20  # repeated food within the same meal
 
-    gk = _goal_key(goal)
     if gk == "fat_loss":
         sat_score = {"HIGH": 3, "MEDIUM": 2, "LOW": 1}
         avg_sat = sum(sat_score.get(FOOD_INDEX.get(it["food_id"], {}).get("satiety", "MEDIUM"), 2) for it in foods) / n

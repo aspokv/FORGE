@@ -12,7 +12,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from nutrition_engine import (
     compute_macro_targets, get_meal_archetype_options, redistribute_remaining_targets,
-    generate_daily_plan, FOOD_INDEX, _portion_limit, MEAL_ARCHETYPES,
+    generate_daily_plan, FOOD_INDEX, _portion_limit, MEAL_COMBOS,
     FORGE_COACH_METHODOLOGY,
 )
 
@@ -75,20 +75,21 @@ def test_egg_allergy_excludes_egg_archetype_entirely_not_just_the_egg_food():
     profile = _profile(base, allergies=["egg"])
     options = get_meal_archetype_options("Cafe da manha", 600, 45, 20, profile, set(), base["goal"])
     archetype_ids = {o["archetype_id"] for o in options}
-    # classic_eggs' only required role is egg_family — with eggs excluded it has no way
-    # to fill that role, so it must never be offered at all (not degraded/protein-less).
-    assert "classic_eggs" not in archetype_ids, f"classic_eggs offered despite egg allergy: {archetype_ids}"
+    # forge_eggs_classic's only required component is EGG_FAMILY — with eggs excluded
+    # it has no way to fill that, so it must never be offered (not degraded/protein-less).
+    assert "forge_eggs_classic" not in archetype_ids, f"forge_eggs_classic offered despite egg allergy: {archetype_ids}"
+    breakfast_combos = [c for c in MEAL_COMBOS if "breakfast" in c["meal_types"]]
     for o in options:
         ids = {it["food_id"] for it in o["meal"]["foods"]}
         assert not (ids & {"eggs-whole", "egg-whites"}), f"egg leaked into {o['archetype_id']}"
-        arch = next(a for a in MEAL_ARCHETYPES["breakfast"] if a["id"] == o["archetype_id"])
-        for req in arch["roles"]:
+        combo = next(c for c in breakfast_combos if c["id"] == o["archetype_id"])
+        for req in combo["components"]:
             if not req.get("required"):
                 continue
             matched = any(
                 req["role"] in FOOD_INDEX.get(fid, {}).get("roles", []) or FOOD_INDEX.get(fid, {}).get("category") == req["category"]
                 for fid in ids)
-            assert matched, f"{o['archetype_id']} offered without filling its own required role {req['role']}"
+            assert matched, f"{o['archetype_id']} offered without filling its own required component {req['role']}"
 
 
 def test_lactose_free_excludes_dairy_archetype_entirely():
@@ -176,12 +177,11 @@ def test_redistribution_never_produces_negative_targets():
             assert m["target_cal"] >= 0 and m["target_protein"] >= 0
 
 
-# ─── 8. All defined archetypes reference only roles the engine already understands ────
+# ─── 8. All defined combos reference only roles the engine already understands ────────
 
 def test_archetype_catalog_uses_only_known_categories():
     known_categories = set(FORGE_COACH_METHODOLOGY["portion_limits"].keys())
-    for meal_type, archetypes in MEAL_ARCHETYPES.items():
-        for arch in archetypes:
-            for role_spec in arch["roles"]:
-                assert role_spec["category"] in known_categories, (
-                    f"{meal_type}/{arch['id']} references unknown category {role_spec['category']}")
+    for combo in MEAL_COMBOS:
+        for role_spec in combo["components"]:
+            assert role_spec["category"] in known_categories, (
+                f"{combo['id']} references unknown category {role_spec['category']}")

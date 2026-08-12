@@ -458,8 +458,12 @@ async def confirm_plan_draft(request: Request, user=Depends(get_current_user)):
         raise HTTPException(400, "Existem refeicoes ainda nao escolhidas. Use /choose ou /choose-remaining antes de confirmar.")
     goal = draft.get("goal", na.get("goal", "maintenance"))
     totals = sum_plan_totals(draft["meals"])
-    for meal in draft["meals"]:
-        meal["coherence_score"] = calculate_meal_coherence_score(meal, _infer_meal_type(meal["name"]), goal)
+    for i, meal in enumerate(draft["meals"]):
+        # Cross-meal repetition check (item 10) against every OTHER meal in the final
+        # plan — a true adjacent/daily view, not just what was known when this meal's
+        # options were first generated.
+        used_elsewhere = {it["food_id"] for j, m in enumerate(draft["meals"]) if j != i for it in m.get("foods", [])}
+        meal["coherence_score"] = calculate_meal_coherence_score(meal, _infer_meal_type(meal["name"]), goal, used_elsewhere)
     plan = {"meals": draft["meals"], "daily_totals": totals, "pre_reconciliation_totals": totals,
             "targets": draft["targets"], "engine_version": FORGE_COACH_METHODOLOGY["engine_version"],
             "methodology_version": FORGE_COACH_METHODOLOGY["coach_version"], "composed_by": "guided"}

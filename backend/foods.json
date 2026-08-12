@@ -230,7 +230,8 @@
     "satiety": "LOW",
     "roles": [
       "recipe_component",
-      "secondary_protein"
+      "secondary_protein",
+      "primary_protein"
     ],
     "comfortable_portion_g": 40,
     "hard_max_portion_g": 60
