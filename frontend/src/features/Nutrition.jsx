@@ -2,6 +2,18 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
 import { ChevronRight, RefreshCw, Check, X, Utensils } from "lucide-react";
 
+// Humanized display for naturally-countable foods (eggs, whites): the backend computes
+// display_quantity/display_unit from the real grams (e.g. "3 ovos"); grams stay the
+// source of truth for every calorie/macro calculation, this only changes what's shown.
+function formatQty(item) {
+  if (item?.display_quantity != null && item?.display_unit) {
+    const qty = item.display_quantity;
+    const qtyStr = Number.isInteger(qty) ? String(qty) : qty.toFixed(1).replace(/\.0$/, "");
+    return `${qtyStr} ${item.display_unit}`;
+  }
+  return `${item?.grams ?? 0}g`;
+}
+
 export default function Nutrition({ API, profileId, db }) {
   const [step, setStep] = useState("loading");
   const [plan, setPlan] = useState(null);
@@ -325,7 +337,7 @@ export default function Nutrition({ API, profileId, db }) {
                     <div className="food-row-main">
                       <div className="food-row-info">
                         <b>{it.food?.name || it.food_id}</b>
-                        <span className="muted">{it.grams}g · {Math.round(it.food?.kcal || 0)} kcal</span>
+                        <span className="muted">{formatQty(it)} · {Math.round(it.food?.kcal || 0)} kcal</span>
                       </div>
                     </div>
                   </div>
@@ -377,7 +389,7 @@ export default function Nutrition({ API, profileId, db }) {
                         <div className="food-row-main">
                           <div className="food-row-info">
                             <b>{it.food?.name || it.food_id}</b>
-                            <span className="muted">{it.grams}g · {Math.round(it.food?.kcal || 0)} kcal</span>
+                            <span className="muted">{formatQty(it)} · {Math.round(it.food?.kcal || 0)} kcal</span>
                           </div>
                           <button className="food-sub-btn" onClick={() => abrirSwapNaOpcao(i, it.food_id)}>
                             <RefreshCw size={13} /> Trocar
@@ -392,7 +404,7 @@ export default function Nutrition({ API, profileId, db }) {
                                 {guidedSwap.options.map((s, k) => (
                                   <button key={k} className="substitute-option" disabled={busy}
                                     onClick={() => aplicarSwapNaOpcao(i, it.food_id, s.food_id)}>
-                                    <span>{s.food?.name || s.food_id}</span><b>{s.grams}g</b>
+                                    <span>{s.food?.name || s.food_id}</span><b>{formatQty(s)}</b>
                                   </button>
                                 ))}
                               </div>
@@ -496,7 +508,7 @@ export default function Nutrition({ API, profileId, db }) {
                     <div className="food-row-main">
                       <div className="food-row-info">
                         <b>{f.name || item.food_id}</b>
-                        <span className="muted">{item.grams}g · {Math.round(f.kcal || 0)} kcal</span>
+                        <span className="muted">{formatQty(item)} · {Math.round(f.kcal || 0)} kcal</span>
                       </div>
                       <button className="food-sub-btn" data-testid={`substitute-${i}-${item.food_id}`} onClick={() => doSubstitute(i, item.food_id)}>
                         <RefreshCw size={13} /> Substituir
@@ -504,7 +516,7 @@ export default function Nutrition({ API, profileId, db }) {
                     </div>
                     {open && (
                       <div className="substitute-panel" data-testid={`substitute-panel-${i}-${item.food_id}`}>
-                        <p className="eyebrow">SUBSTITUIR · {f.name || item.food_id} — {item.grams}g</p>
+                        <p className="eyebrow">SUBSTITUIR · {f.name || item.food_id} — {formatQty(item)}</p>
                         {subResult.loading ? (
                           <p className="muted" style={{ fontSize: 12 }}>Buscando opções...</p>
                         ) : (subResult.options || []).length > 0 ? (
@@ -512,7 +524,7 @@ export default function Nutrition({ API, profileId, db }) {
                             {subResult.options.map((opt, k) => (
                               <button key={k} className="substitute-option" disabled={busy} onClick={() => applySub(i, item.food_id, opt.food_id)}>
                                 <span>{opt.food?.name || opt.food_id}</span>
-                                <b>{opt.grams}g</b>
+                                <b>{formatQty(opt)}</b>
                               </button>
                             ))}
                           </div>

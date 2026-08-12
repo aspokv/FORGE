@@ -292,6 +292,56 @@ def _portion_limit(food, kind):
     return hi * mult if kind == "hard_max" else hi * FORGE_COACH_METHODOLOGY["portion_fallback_multiplier"]["comfortable"]
 
 
+def _snap_to_unit(fid, grams, lo, hi):
+    """Portion humanization (item 3): a food with a natural unit (an egg, a clara) is
+    never shown — or even calculated — as an arbitrary gram figure like "180g"; it's
+    rounded to the nearest whole, human count first (bounded by this slot's own [lo, hi],
+    so it never crosses comfortable/hard_max), and that snapped weight is what the rest
+    of the meal reconciles against — not a cosmetic label slapped on top of the raw
+    number. Foods without a unit_grams pass through unchanged."""
+    f = FOOD_INDEX.get(fid, {})
+    unit_g = f.get("unit_grams")
+    if not unit_g or unit_g <= 0:
+        return grams
+    qty = max(1, round(grams / unit_g))
+    snapped = qty * unit_g
+    while snapped > hi and qty > 1:
+        qty -= 1
+        snapped = qty * unit_g
+    while snapped < lo and qty < 50:
+        qty += 1
+        snapped = qty * unit_g
+    return snapped
+
+
+def _display_fields(fid, grams):
+    """Presentation layer for a unit-based food (item 3): "3 ovos" instead of "150g" —
+    the engine still calculates and persists in grams throughout; this only adds the
+    display_quantity/display_unit the frontend renders instead of the raw gram figure.
+    Returns {} for any food without a defined natural unit (the vast majority — grams
+    stay the primary display for a carb, a vegetable, a spoon of oil, etc.)."""
+    f = FOOD_INDEX.get(fid, {})
+    unit_g = f.get("unit_grams")
+    if not unit_g or unit_g <= 0:
+        return {}
+    qty = round(grams / unit_g)
+    if qty <= 0:
+        return {}
+    label = f.get("unit_label_singular") if qty == 1 else f.get("unit_label_plural")
+    if not label:
+        return {}
+    return {"display_quantity": qty, "display_unit": label}
+
+
+def build_food_item(fid, grams):
+    """Single place every meal-food entry is built, so display_quantity/display_unit
+    (item 3) show up consistently everywhere a food item is returned — generation,
+    guided-flow options, swap-food, choose, confirm — never just some of them."""
+    item = {"food_id": fid, "grams": grams, "food": FOOD_INDEX.get(fid, {})}
+    item.update(_display_fields(fid, grams))
+    return item
+
+
 def _needs_secondary_protein(primary_fid, target_protein):
     """True when the primary alone would have to blow past its comfortable portion to
     hit the meal's protein target — the exact condition that produced 300g+ egg-white
@@ -449,6 +499,7 @@ def calculate_meal_portions(food_ids, target_cal, target_protein, target_fat=0, 
             max_kcal = target_cal * kcal_cap["primary_protein"]
             if cpg > 0 and grams * cpg > max_kcal:
                 grams = max(lo, round(max_kcal / cpg, -1))
+            grams = _snap_to_unit(protein_fid, grams, lo, cap)
             portions[protein_fid] = grams
             sized.add(protein_fid)
             remaining_cal -= grams * cpg
@@ -465,6 +516,7 @@ def calculate_meal_portions(food_ids, target_cal, target_protein, target_fat=0, 
                     s_grams = max(s_lo, min(s_hard_max, round(protein_gap / spg, -1)))
                     if s_grams > s_comfortable:
                         s_grams = s_comfortable  # never blow the helper's own comfortable either
+                    s_grams = _snap_to_unit(secondary_fid, s_grams, s_lo, s_comfortable)
                     s_cpg = sf.get("kcal", 100) / max(1, sf.get("grams", 100))
                     portions[secondary_fid] = s_grams
                     sized.add(secondary_fid)
@@ -500,16 +552,18 @@ def calculate_meal_portions(food_ids, target_cal, target_protein, target_fat=0, 
     # share leans into the carb, which comfortably absorbs a large dense portion, rather
     # than pushing a vegetable toward an oversized pile just to hit the same target —
     # aveia+whey+banana stays that combo with more of each, not a random 5th ingredient.
+    # Maintenance gets the same carb-first bias as bulking (item 6): with no explicit
+    # satiety-first philosophy of its own, letting a dense carb absorb the overflow is
+    # the more natural default than pushing carb AND vegetable both toward hard_max
+    # together (e.g. "batata 400g + abobrinha 400g" in one plate).
     remaining_ids = [fid for fid in food_ids if fid not in sized]
     gk = _goal_key(goal)
     if gk == "fat_loss":
         weights = {fid: (3.0 if FOOD_INDEX.get(fid, {}).get("category") == "VEGETABLE" else 1.0)
                    for fid in remaining_ids}
-    elif gk == "muscle_gain":
+    else:
         weights = {fid: (2.5 if FOOD_INDEX.get(fid, {}).get("category") in ("CARBOHYDRATE", "MIXED") else 1.0)
                    for fid in remaining_ids}
-    else:
-        weights = {fid: 1.0 for fid in remaining_ids}
     total_w = sum(weights.values()) or 1
 
     # Pass 1: every item capped at its own comfortable_portion_g.
@@ -534,7 +588,7 @@ def calculate_meal_portions(food_ids, target_cal, target_protein, target_fat=0, 
     # Past comfortable, the leftover spreads evenly instead (muscle_gain keeps its carb
     # bias here too — a dense carb absorbing overflow is more natural than a bigger pile
     # of vegetables or protein).
-    pass2_weights = weights if gk == "muscle_gain" else {fid: 1.0 for fid in remaining_ids}
+    pass2_weights = weights if gk != "fat_loss" else {fid: 1.0 for fid in remaining_ids}
     absorbed = sum(comfortable_grams[fid] * (FOOD_INDEX.get(fid, {}).get("kcal", 100) / max(1, FOOD_INDEX.get(fid, {}).get("grams", 100))) for fid in remaining_ids)
     shortfall = remaining_cal - absorbed
     if shortfall > 20 and remaining_ids:
@@ -685,9 +739,9 @@ def generate_meal(meal_name, meal_type, target_cal, target_protein, target_fat,
             selected.append(fid); mu.add(fid)
 
     portions = calculate_meal_portions(selected, target_cal, target_protein, target_fat, goal)
-    foods = [{"food_id": fid, "grams": portions.get(fid, 100), "food": FOOD_INDEX.get(fid, {})} for fid in selected]
+    foods = [build_food_item(fid, portions.get(fid, 100)) for fid in selected]
     return {"name": meal_name, "target_cal": round(target_cal), "target_protein": round(target_protein),
-            "foods": foods}
+            "target_fat": round(target_fat, 1), "foods": foods}
 
 def _preference_bonus(foods, preferences):
     """USER_PREFERENCES: ranking-only nudge for the guided flow. `preferences` is
@@ -832,11 +886,11 @@ def _reconcile_daily(meals, targets, pn, goal, max_iterations=8):
     # reconciliation shrink them like carbs — see FORGE.md "priorizar saciedade e maior
     # volume alimentar por caloria" for cutting.
     satiety_priority = gk == "fat_loss"
-    # Bulking (item 12): grow carb capacity first ("mais arroz/batata/aveia"), not
-    # vegetables — otherwise a big muscle_gain meal pushes both its carb AND its
-    # vegetable toward hard_max together (two oversized items instead of one dense
-    # carb portion, which is completely normal for a bulking plate).
-    carb_priority = gk == "muscle_gain"
+    # Bulking and maintenance (item 6/12): grow carb capacity first ("mais arroz/
+    # batata/aveia"), not vegetables — otherwise a big meal pushes both its carb AND
+    # its vegetable toward hard_max together (two oversized items instead of one dense
+    # carb portion, which is completely normal for a non-cutting plate).
+    carb_priority = gk != "fat_loss"
     SATIETY_CATS = {"VEGETABLE", "FRUIT", "LEGUME"}
     CARB_CATS = {"CARBOHYDRATE", "MIXED"}
 
@@ -944,7 +998,7 @@ def _reconcile_daily(meals, targets, pn, goal, max_iterations=8):
                         lo,_ = FORGE_COACH_METHODOLOGY["portion_limits"].get(f.get("category","FAT"),[5,40])
                         hard_max = _portion_limit(f, "hard_max")
                         grams = round(min(abs(fat_gap), 15) / max(0.01, fpg))
-                        m["foods"].append({"food_id": fid, "grams": max(lo, min(hard_max, grams)), "food": f})
+                        m["foods"].append(build_food_item(fid, max(lo, min(hard_max, grams))))
             elif fat_gap < -5:
                 for item in fat_items:
                     item["grams"] = max(3, item["grams"] - 5)
@@ -1198,18 +1252,160 @@ def evaluate_goal_directional_substitution(orig_fid, new_fid, orig_grams, new_gr
         "reason": reason,
     }
 
+
+def evaluate_goal_directional_substitution_meal_level(meal_before, meal_after, goal, day_before, targets, pn):
+    """Same LEVEL 1 (local) + LEVEL 2 (daily impact) validation as
+    evaluate_goal_directional_substitution, but comparing the whole MEAL's totals
+    before/after instead of a single food's before/after. The single-food version
+    assumes every other item in the meal stays exactly as it was, which is true for the
+    naive calorie-equivalence fallback — but false for role-aware equivalence, where
+    calculate_meal_portions resizes every item in the meal to hit the same meal target
+    (item 2: 'reconcilie os demais componentes da refeicao'). Comparing just the swapped
+    food's isolated before/after there produces a large, misleading delta and rejects
+    substitutions that the reconciled meal is actually fine with."""
+    m = FORGE_COACH_METHODOLOGY
+    gk = _goal_key(goal)
+    tol = m["goal_directional_tolerance"][gk]
+    guard = m["daily_guardrails"][gk]
+    dead_band = m["calorie_tolerance_pct"]
+
+    ok, op, oc, of = meal_before["kcal"], meal_before["protein_g"], meal_before["carbs_g"], meal_before["fat_g"]
+    nk, np_, nc, nf = meal_after["kcal"], meal_after["protein_g"], meal_after["carbs_g"], meal_after["fat_g"]
+    local_delta_kcal = nk - ok
+    local_pct = (local_delta_kcal / ok) if ok else 0.0
+
+    if abs(local_pct) <= dead_band:
+        direction = "equivalent"
+    elif local_delta_kcal < 0:
+        direction = "undershoot"
+    else:
+        direction = "overshoot"
+
+    unfavorable = {"fat_loss": "overshoot", "muscle_gain": "undershoot", "maintenance": None}[gk]
+
+    goal_compatible = True
+    reasons = []
+    if gk == "maintenance":
+        if direction == "undershoot" and abs(local_pct) > tol["allow_undershoot_pct"]:
+            goal_compatible = False
+            reasons.append("Reducao calorica maior que a tolerancia de manutencao")
+        elif direction == "overshoot" and local_pct > tol["allow_overshoot_pct"]:
+            goal_compatible = False
+            reasons.append("Aumento calorico maior que a tolerancia de manutencao")
+    elif direction == unfavorable:
+        limit = tol["allow_overshoot_pct"] if unfavorable == "overshoot" else tol["allow_undershoot_pct"]
+        if abs(local_pct) > limit:
+            goal_compatible = False
+            reasons.append(f"Direcao contraria ao objetivo {gk} alem do limite permitido")
+
+    day_after_kcal = day_before.get("kcal", 0) + local_delta_kcal
+    day_after_protein = day_before.get("protein_g", 0) + (np_ - op)
+    day_after_fat = day_before.get("fat_g", 0) + (nf - of)
+    daily_delta_kcal = local_delta_kcal
+
+    tdee = targets.get("tdee") or targets.get("goal_calories", day_before.get("kcal", 0)) or 0
+    min_k = guard["min_total_kcal_pct"] * tdee
+    max_k = guard["max_total_kcal_pct"] * tdee
+    daily_kcal_ok = min_k <= day_after_kcal <= max_k
+    if not daily_kcal_ok:
+        reasons.append("Impacto diario excede os limites seguros de calorias")
+
+    weight = pn.get("weight_kg")
+    min_protein_g = guard["min_protein_g_per_kg"] * weight if weight else targets.get("protein_g", 0) * 0.85
+    min_fat_g = guard["min_fat_g_per_kg"] * weight if weight else targets.get("fat_g", 0) * 0.7
+    protein_ok = day_after_protein >= min_protein_g
+    fat_ok = day_after_fat >= min_fat_g
+    if not protein_ok: reasons.append("Proteina diaria abaixo do minimo")
+    if not fat_ok: reasons.append("Gordura diaria abaixo do minimo")
+
+    meal_min_p = m["min_protein_per_meal_g"]
+    meal_min_f = m["min_fat_per_meal_g"]
+    meal_floor_ok = True
+    if op >= meal_min_p and np_ < meal_min_p * 0.6:
+        meal_floor_ok = False
+        reasons.append("Substituicao reduz proteina da refeicao abaixo do minimo")
+    if of >= meal_min_f and nf < meal_min_f * 0.5:
+        meal_floor_ok = False
+        reasons.append("Substituicao reduz gordura da refeicao abaixo do minimo")
+
+    valid = goal_compatible and daily_kcal_ok and protein_ok and fat_ok and meal_floor_ok
+    reason = "; ".join(reasons) if reasons else "Aceito: compativel com a direcao do objetivo e o impacto diario"
+    return {
+        "valid": valid, "direction": direction, "goal_compatible": goal_compatible,
+        "local_delta_kcal": round(local_delta_kcal, 1), "daily_delta_kcal": round(daily_delta_kcal, 1),
+        "reason": reason,
+    }
+
+def _role_of_food(food):
+    """Which role a food represents for substitution purposes (item 1) — the main
+    structural roles (protein/carb/vegetable/fat) take priority over secondary/recipe
+    roles, since those are the "componente principal" an athlete actually swaps."""
+    roles = food.get("roles", [])
+    for r in ("primary_protein", "primary_carb", "vegetable", "fat_source"):
+        if r in roles:
+            return r
+    return roles[0] if roles else None
+
+
+def _dna_candidates_for_role(role, meal_type, exclude_food_id=None):
+    """FORGE NUTRITION DNA candidate pool (item 1/5): the union of every family a real
+    MEAL_COMBOS entry — or the MEAL_TEMPLATES fallback — uses for this exact role at this
+    exact meal type. Never the wide role/category pool: this is what makes "tilápia ↔
+    frango ↔ patinho" possible at lunch while never offering "tilápia ↔ tofu" there just
+    because both happen to be PROTEIN category."""
+    families = set()
+    for combo in MEAL_COMBOS:
+        if meal_type not in combo["meal_types"]:
+            continue
+        for comp in combo["components"]:
+            if comp["role"] == role and comp.get("family"):
+                families.add(comp["family"])
+    for comp in MEAL_TEMPLATES.get(meal_type, []):
+        if comp["role"] == role and comp.get("family"):
+            families.add(comp["family"])
+    candidates = set()
+    for fam in families:
+        candidates.update(FOOD_FAMILIES.get(fam, []))
+    candidates.discard(exclude_food_id)
+    return candidates
+
+
 def find_substitutes(food_id, pn, current_meal_foods, max_results=3, orig_grams=100, goal="maintenance",
-                      meal=None, daily_totals=None, targets=None):
+                      meal=None, daily_totals=None, targets=None, meal_type=None,
+                      meal_target_cal=None, meal_target_protein=None, meal_target_fat=None,
+                      validate_daily=True):
+    """FORGE NUTRITION DNA substitution (item 1/2/5): every real component — protein or
+    carb especially — gets real, role-appropriate alternatives from the same families a
+    coach would actually use there, sized by simulating the WHOLE meal through the
+    unchanged calculate_meal_portions — the number shown is exactly what applying
+    produces, never a naive calorie-for-calorie guess ("200g batata" doesn't become
+    "200g arroz"; the engine recomputes what arroz needs to be to fill that same role).
+
+    `validate_daily=False` is the guided-flow draft, where the day isn't complete yet —
+    evaluating a still-in-progress day against the full daily guardrail would reject
+    every substitution (a partial day is always far below the minimum), so this instead
+    validates against the MEAL's own target and hard_max, exactly as item 2 specifies
+    ("verificar calorias/macros totais DA REFEIÇÃO"). The confirmed-plan path keeps the
+    full whole-day goal-directional validation unchanged."""
     src = FOOD_INDEX.get(food_id)
     if not src: return []
     av = set(pn.get("avoid_foods") or [])
     dislike = set(pn.get("disliked_foods") or [])
     used = set(current_meal_foods)
-    tier = SUB_TIER.get(food_id, [])
-    group = None
-    for g, ids in SUB_GROUPS.items():
-        if food_id in ids: group = g; break
-    all_cands = list(tier) + ([i for i in SUB_GROUPS.get(group,[]) if i != food_id and i not in tier]) if group else []
+
+    role = _role_of_food(src)
+    dna_cands = _dna_candidates_for_role(role, meal_type, exclude_food_id=food_id) if (role and meal_type) else set()
+    if dna_cands:
+        all_cands = list(dna_cands)
+    else:
+        # Safety-net fallback: no MEAL_COMBOS/MEAL_TEMPLATES entry declares this exact
+        # role+meal_type — fall back to the older substitution tier rather than zero
+        # results (item 20's "never a silent dead end", applied to substitution too).
+        tier = SUB_TIER.get(food_id, [])
+        group = None
+        for g, ids in SUB_GROUPS.items():
+            if food_id in ids: group = g; break
+        all_cands = list(tier) + ([i for i in SUB_GROUPS.get(group, []) if i != food_id and i not in tier] if group else [])
 
     full_context = meal is not None and daily_totals is not None and targets is not None
     meal_before = _meal_totals({"foods": meal}) if full_context else None
@@ -1217,18 +1413,61 @@ def find_substitutes(food_id, pn, current_meal_foods, max_results=3, orig_grams=
         mk, mp, mc, mf = meal_before
         meal_before = {"kcal": mk, "protein_g": mp, "carbs_g": mc, "fat_g": mf}
 
+    has_meal_target = meal_target_cal is not None and meal_target_protein is not None
+    current_ids = [it.get("food_id") for it in meal] if meal else list(current_meal_foods)
+
     results = []
     for cid in all_cands:
         if len(results) >= max_results: break
         if cid in av or cid in dislike or cid in used: continue
         f = FOOD_INDEX.get(cid)
         if not f or not _food_compatible(f, pn, used): continue
-        ng, reason = recalculate_substitution_portion(cid, food_id, orig_grams)
-        if full_context:
+
+        sim_portions = None
+        if has_meal_target:
+            # Role-aware equivalence (item 2): simulate the whole meal with cid swapped
+            # in, sized by the exact same target-driven Portion Engine every meal uses.
+            new_ids = [cid if fid == food_id else fid for fid in current_ids]
+            sim_portions = calculate_meal_portions(new_ids, meal_target_cal, meal_target_protein,
+                                                     meal_target_fat or 0, goal)
+            ng = sim_portions.get(cid)
+            if not ng or ng <= 0:
+                continue
+            reason = "Porcao recalculada para o papel deste alimento na refeicao"
+        else:
+            ng, reason = recalculate_substitution_portion(cid, food_id, orig_grams)
+
+        if full_context and validate_daily and sim_portions is not None:
+            # The whole meal was reconciled around the swap (every item may have shifted,
+            # not just cid), so validation must compare the MEAL's before/after totals —
+            # not just this one food in isolation (that would misreport a large "delta"
+            # for items that merely freed up room for the rest of the meal to compensate).
+            new_ids = [cid if fid == food_id else fid for fid in current_ids]
+            nk, np_, nc, nf = 0.0, 0.0, 0.0, 0.0
+            for fid in new_ids:
+                fk, fp, fc, ff = _food_macros(fid, sim_portions.get(fid, 0))
+                nk += fk; np_ += fp; nc += fc; nf += ff
+            meal_after = {"kcal": nk, "protein_g": np_, "carbs_g": nc, "fat_g": nf}
+            evald = evaluate_goal_directional_substitution_meal_level(
+                meal_before, meal_after, goal, daily_totals, targets, pn)
+            if not evald["valid"]: continue
+            results.append((cid, ng, reason, evald))
+        elif full_context and validate_daily:
             evald = evaluate_goal_directional_substitution(
                 food_id, cid, orig_grams, ng, goal, meal_before, daily_totals, targets, pn)
             if not evald["valid"]: continue
             results.append((cid, ng, reason, evald))
+        elif full_context:
+            # Draft context (day incomplete): validate against this meal's own bounds —
+            # hard_max is the one rule that's never negotiable regardless of context.
+            hard_max = _portion_limit(f, "hard_max")
+            if ng > hard_max + 0.5:
+                continue
+            results.append((cid, ng, reason, {
+                "valid": True, "direction": "equivalent", "goal_compatible": True,
+                "local_delta_kcal": 0, "daily_delta_kcal": 0,
+                "reason": "Aceito: dentro do alvo da refeicao",
+            }))
         else:
             results.append((cid, ng, reason))
     return results

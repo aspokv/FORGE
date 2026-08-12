@@ -225,6 +225,118 @@ def test_swap_food_rejects_a_non_revalidated_substitute():
     assert r.status_code == 400
 
 
+def _forge_solid_meal_lunch_food_ids(headers, lunch_idx):
+    """Picks the forge_solid_meal option at the given (lunch) meal index — the exact
+    'tilapia + potato + vegetable + azeite' shape from the reported production bug."""
+    opts = requests.post(f"{API}/nutrition/plan/draft/options",
+                          json={"meal_index": lunch_idx}, headers=headers).json()
+    solid = next((o for o in opts["options"] if o["archetype_id"] == "forge_solid_meal"), opts["options"][0])
+    return [it["food_id"] for it in solid["foods"]]
+
+
+def test_lunch_primary_protein_and_carb_swap_return_real_alternatives_not_empty():
+    """Direct regression test for the reported production bug: swapping the main protein
+    or carb at lunch returned 'Nenhuma alternativa disponivel agora' because the draft's
+    partial-day total was checked against the whole-day guardrail. meal_index 1 of a
+    4-meal plan is Almoco (lunch) — see FORGE_COACH_METHODOLOGY['meal_names'][4]."""
+    headers = _create_athlete("guided.lunchswap@example.com", goal="fat_loss", meal_count=4)
+    requests.post(f"{API}/nutrition/plan/reset", headers=headers)
+    food_ids = _forge_solid_meal_lunch_food_ids(headers, 1)
+
+    from nutrition_engine import FOOD_INDEX, FOOD_FAMILIES
+    protein_id = next(fid for fid in food_ids if "primary_protein" in FOOD_INDEX.get(fid, {}).get("roles", []))
+    carb_id = next(fid for fid in food_ids if "primary_carb" in FOOD_INDEX.get(fid, {}).get("roles", []))
+
+    protein_opts = requests.post(f"{API}/nutrition/plan/draft/swap-food", json={
+        "meal_index": 1, "food_ids": food_ids, "food_id": protein_id,
+    }, headers=headers)
+    assert protein_opts.status_code == 200, protein_opts.text
+    protein_options = protein_opts.json()["options"]
+    assert protein_options, f"expected real protein alternatives for {protein_id} at lunch, got none"
+    assert {o["food_id"] for o in protein_options} <= set(FOOD_FAMILIES["LEAN_PROTEIN_SOLID"])
+    for o in protein_options:
+        assert o["grams"] > 0
+        assert "recalculada" in o["reason"].lower()
+
+    carb_opts = requests.post(f"{API}/nutrition/plan/draft/swap-food", json={
+        "meal_index": 1, "food_ids": food_ids, "food_id": carb_id,
+    }, headers=headers)
+    assert carb_opts.status_code == 200, carb_opts.text
+    carb_options = carb_opts.json()["options"]
+    assert carb_options, f"expected real carb alternatives for {carb_id} at lunch, got none"
+    assert {o["food_id"] for o in carb_options} <= set(FOOD_FAMILIES["MAIN_CARB"])
+
+
+def test_lunch_swap_applies_and_survives_choose_confirm_and_reload():
+    """Full end-to-end: swap the primary protein at lunch during the draft, lock the meal
+    in, confirm the whole plan, reload — the substitution must still be there (item 8's
+    'substituicao continua persistindo apos reload', for the draft flow specifically)."""
+    headers = _create_athlete("guided.lunchpersist@example.com", goal="fat_loss", meal_count=4)
+    requests.post(f"{API}/nutrition/plan/reset", headers=headers)
+    food_ids = _forge_solid_meal_lunch_food_ids(headers, 1)
+
+    from nutrition_engine import FOOD_INDEX
+    protein_id = next(fid for fid in food_ids if "primary_protein" in FOOD_INDEX.get(fid, {}).get("roles", []))
+    listed = requests.post(f"{API}/nutrition/plan/draft/swap-food", json={
+        "meal_index": 1, "food_ids": food_ids, "food_id": protein_id,
+    }, headers=headers).json()
+    assert listed["options"], "expected real lunch protein alternatives"
+    new_food = listed["options"][0]["food_id"]
+    new_grams = listed["options"][0]["grams"]
+
+    applied = requests.post(f"{API}/nutrition/plan/draft/swap-food", json={
+        "meal_index": 1, "food_ids": food_ids, "food_id": protein_id, "substitute_food_id": new_food,
+    }, headers=headers)
+    assert applied.status_code == 200, applied.text
+    swapped_foods = applied.json()["foods"]
+
+    # lock meal 0 through 3 with meal 1 using the swapped foods
+    for idx in range(4):
+        if idx == 1:
+            fids = [it["food_id"] for it in swapped_foods]
+            chosen = requests.post(f"{API}/nutrition/plan/draft/choose", json={
+                "meal_index": 1, "archetype_id": "forge_solid_meal", "food_ids": fids,
+            }, headers=headers)
+            assert chosen.status_code == 200, chosen.text
+        else:
+            opts = requests.post(f"{API}/nutrition/plan/draft/options", json={"meal_index": idx}, headers=headers).json()
+            best = opts["options"][0]
+            fids = [it["food_id"] for it in best["foods"]]
+            chosen = requests.post(f"{API}/nutrition/plan/draft/choose", json={
+                "meal_index": idx, "archetype_id": best["archetype_id"], "food_ids": fids,
+            }, headers=headers)
+            assert chosen.status_code == 200, chosen.text
+
+    confirm = requests.post(f"{API}/nutrition/plan/draft/confirm", headers=headers)
+    assert confirm.status_code == 200, confirm.text
+    plan = confirm.json()["plan"]
+    lunch_ids_after_confirm = {it["food_id"] for it in plan["meals"][1]["foods"]}
+    assert new_food in lunch_ids_after_confirm
+    assert protein_id not in lunch_ids_after_confirm
+
+    reloaded = requests.get(f"{API}/nutrition/plan", headers=headers).json()
+    lunch_ids_after_reload = {it["food_id"] for it in reloaded["meals"][1]["foods"]}
+    assert new_food in lunch_ids_after_reload, "lunch swap did not survive reload"
+    assert protein_id not in lunch_ids_after_reload
+
+
+def test_egg_options_display_human_units_via_options_api():
+    """The 'forge_eggs_classic' option must show eggs-whole/egg-whites with humanized
+    display_quantity/display_unit alongside the internal grams (item 3)."""
+    headers = _create_athlete("guided.eggdisplay@example.com", goal="maintenance", meal_count=4)
+    requests.post(f"{API}/nutrition/plan/reset", headers=headers)
+    opts = requests.post(f"{API}/nutrition/plan/draft/options", json={"meal_index": 0}, headers=headers).json()
+    eggs_combo = next((o for o in opts["options"] if o["archetype_id"] == "forge_eggs_classic"), None)
+    if not eggs_combo:
+        return  # this profile's breakfast target didn't surface the eggs combo — not a failure
+    egg_items = [it for it in eggs_combo["foods"] if it["food_id"] in ("eggs-whole", "egg-whites")]
+    assert egg_items, "expected an egg item in forge_eggs_classic"
+    for it in egg_items:
+        assert "display_quantity" in it and "display_unit" in it, f"missing human display fields: {it}"
+        assert it["display_unit"] in ("ovo", "ovos", "clara", "claras")
+        assert it["grams"] > 0  # internal grams still present for calculation/persistence
+
+
 # ───────────────────────── 4. choose locks the meal, redistributes remaining targets ───
 
 def test_choose_locks_meal_and_redistributes_remaining_targets():

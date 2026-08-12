@@ -50,7 +50,10 @@
       "secondary_protein"
     ],
     "comfortable_portion_g": 150,
-    "hard_max_portion_g": 200
+    "hard_max_portion_g": 200,
+    "unit_grams": 50,
+    "unit_label_singular": "ovo",
+    "unit_label_plural": "ovos"
   },
   {
     "id": "egg-whites",
@@ -76,7 +79,10 @@
       "secondary_protein"
     ],
     "comfortable_portion_g": 180,
-    "hard_max_portion_g": 240
+    "hard_max_portion_g": 240,
+    "unit_grams": 33,
+    "unit_label_singular": "clara",
+    "unit_label_plural": "claras"
   },
   {
     "id": "beef-grill",

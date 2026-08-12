@@ -15,6 +15,7 @@ from nutrition_engine import (
     FORGE_COACH_METHODOLOGY, sum_plan_totals,
     get_meal_archetype_options, redistribute_remaining_targets,
     calculate_meal_portions, calculate_meal_coherence_score, _infer_meal_type,
+    build_food_item,
 )
 
 
@@ -210,16 +211,22 @@ async def substitute_food(payload: SubstituteFoodIn, request: Request, user=Depe
     # dietary_restrictions, goal-directional tolerance, daily guardrails) against the
     # CURRENT persisted plan state — recomputed fresh on every call, list or apply, so a
     # stale client can never smuggle through a food that isn't valid right now.
+    # meal_type/meal_target_* enable role-aware DNA-family candidates and simulation-based
+    # portion equivalence (item 1/2); meals persisted before this field existed simply
+    # fall back to the older calorie-equivalence sizing (has_meal_target=False upstream).
     subs = find_substitutes(
         food_id, na, current_foods, max_results=3, orig_grams=original.get("grams", 100),
         goal=na.get("goal", "maintenance"), meal=foods,
-        daily_totals=plan.get("daily_totals", {}), targets=plan.get("targets", {}))
+        daily_totals=plan.get("daily_totals", {}), targets=plan.get("targets", {}),
+        meal_type=_infer_meal_type(meal.get("name", "")),
+        meal_target_cal=meal.get("target_cal"), meal_target_protein=meal.get("target_protein"),
+        meal_target_fat=meal.get("target_fat"))
 
     options = []
     matched = None
     for s in subs:
         fid, grams, reason = s[0], s[1], s[2]
-        opt = {"food_id": fid, "grams": grams, "food": FOOD_INDEX.get(fid, {}), "reason": reason}
+        opt = {**build_food_item(fid, grams), "reason": reason}
         if len(s) >= 4:
             evald = s[3]
             opt.update({
@@ -237,11 +244,23 @@ async def substitute_food(payload: SubstituteFoodIn, request: Request, user=Depe
     if not matched:
         raise HTTPException(400, "Substituicao nao permitida para este alimento e objetivo atual")
 
-    # Backend remains the sole source of truth for grams/macros: the persisted item uses
-    # exactly the food_id + grams the engine just recomputed, never anything the client sent.
-    new_food_item = {"food_id": matched["food_id"], "grams": matched["grams"], "food": matched["food"]}
-    foods[food_pos] = new_food_item
-    meal["foods"] = foods
+    # Backend remains the sole source of truth for grams/macros. When the meal carries a
+    # real target (role-aware equivalence was used to find this candidate), every item in
+    # the meal must be re-persisted at its simulated portion — not just the swapped slot —
+    # since calculate_meal_portions resized the WHOLE meal around the swap (item 2:
+    # "reconcilie os demais componentes da refeicao"). Leaving the other items at their
+    # pre-swap grams would silently drift the persisted meal away from its own target.
+    if meal.get("target_cal") is not None and meal.get("target_protein") is not None:
+        new_food_ids = [matched["food_id"] if i == food_pos else f["food_id"] for i, f in enumerate(foods)]
+        portions = calculate_meal_portions(new_food_ids, meal["target_cal"], meal["target_protein"],
+                                            meal.get("target_fat", 0), na.get("goal", "maintenance"))
+        new_foods = [build_food_item(fid, portions.get(fid, foods[i].get("grams", 100)))
+                     for i, fid in enumerate(new_food_ids)]
+    else:
+        new_foods = list(foods)
+        new_foods[food_pos] = {"food_id": matched["food_id"], "grams": matched["grams"], "food": matched["food"]}
+
+    meal["foods"] = new_foods
     meals[meal_idx] = meal
     plan["meals"] = meals
     new_totals = sum_plan_totals(meals)
@@ -252,7 +271,7 @@ async def substitute_food(payload: SubstituteFoodIn, request: Request, user=Depe
     await db.nutrition_plans.update_one(
         {"profile_id": target},
         {"$set": {
-            f"plan.meals.{meal_idx}.foods.{food_pos}": new_food_item,
+            f"plan.meals.{meal_idx}.foods": new_foods,
             "plan.daily_totals": new_totals,
         }},
     )
@@ -260,7 +279,7 @@ async def substitute_food(payload: SubstituteFoodIn, request: Request, user=Depe
     return {
         "original": food_id, "options": options, "applied": True,
         "meal_index": meal_idx, "food_index": food_pos,
-        "food": new_food_item, "daily_totals": new_totals, "plan": plan,
+        "food": new_foods[food_pos], "daily_totals": new_totals, "plan": plan,
     }
 
 
@@ -323,7 +342,7 @@ async def draft_meal_options(payload: MealOptionsIn, request: Request, user=Depe
     return {"meal_index": idx, "target_cal": meal["target_cal"], "target_protein": meal["target_protein"],
             "options": [{
                 "archetype_id": o["archetype_id"], "label": o["label"], "coherence_score": o["coherence_score"],
-                "foods": [{"food_id": it["food_id"], "grams": it["grams"], "food": it["food"]} for it in o["meal"]["foods"]],
+                "foods": [build_food_item(it["food_id"], it["grams"]) for it in o["meal"]["foods"]],
             } for o in options]}
 
 
@@ -350,14 +369,20 @@ async def draft_swap_food(payload: SwapFoodIn, request: Request, user=Depends(ge
         payload.food_ids, meal_target["target_cal"], meal_target["target_protein"],
         meal_target.get("target_fat", 0), goal)
     orig_grams = current_portions.get(payload.food_id, 100)
-    current_foods = [{"food_id": fid, "grams": current_portions.get(fid, 100), "food": FOOD_INDEX.get(fid, {})}
-                      for fid in payload.food_ids]
+    current_foods = [build_food_item(fid, current_portions.get(fid, 100)) for fid in payload.food_ids]
     locked_totals = sum_plan_totals([draft["meals"][i] for i, l in enumerate(draft["locked"]) if l])
 
+    # validate_daily=False: the draft day is still in progress (locked_totals only covers
+    # meals confirmed so far), so the whole-day guardrail would reject every substitution.
+    # meal_type/meal_target_* give role-aware DNA-family candidates sized by simulating
+    # THIS meal — the fix for "Nenhuma alternativa disponivel agora" (item 1/2).
     subs = find_substitutes(
         payload.food_id, na, payload.food_ids, max_results=3, orig_grams=orig_grams,
-        goal=goal, meal=current_foods, daily_totals=locked_totals, targets=draft["targets"])
-    options = [{"food_id": s[0], "grams": s[1], "food": FOOD_INDEX.get(s[0], {}), "reason": s[2]} for s in subs]
+        goal=goal, meal=current_foods, daily_totals=locked_totals, targets=draft["targets"],
+        meal_type=_infer_meal_type(meal_target.get("name", "")),
+        meal_target_cal=meal_target["target_cal"], meal_target_protein=meal_target["target_protein"],
+        meal_target_fat=meal_target.get("target_fat", 0), validate_daily=False)
+    options = [{**build_food_item(s[0], s[1]), "reason": s[2]} for s in subs]
 
     if not payload.substitute_food_id:
         return {"meal_index": idx, "food_id": payload.food_id, "options": options}
@@ -370,7 +395,7 @@ async def draft_swap_food(payload: SwapFoodIn, request: Request, user=Depends(ge
     portions = calculate_meal_portions(
         new_food_ids, meal_target["target_cal"], meal_target["target_protein"],
         meal_target.get("target_fat", 0), goal)
-    foods = [{"food_id": fid, "grams": portions.get(fid, 100), "food": FOOD_INDEX.get(fid, {})} for fid in new_food_ids]
+    foods = [build_food_item(fid, portions.get(fid, 100)) for fid in new_food_ids]
     return {"meal_index": idx, "foods": foods, "applied": True}
 
 
@@ -396,7 +421,7 @@ async def draft_choose_meal(payload: ChooseMealIn, request: Request, user=Depend
     portions = calculate_meal_portions(
         payload.food_ids, meal_target["target_cal"], meal_target["target_protein"],
         meal_target.get("target_fat", 0), goal)
-    foods = [{"food_id": fid, "grams": portions.get(fid, 100), "food": FOOD_INDEX.get(fid, {})} for fid in payload.food_ids]
+    foods = [build_food_item(fid, portions.get(fid, 100)) for fid in payload.food_ids]
     draft["meals"][idx]["foods"] = foods
     draft["meals"][idx]["archetype_id"] = payload.archetype_id
     draft["locked"][idx] = True
