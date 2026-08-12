@@ -310,7 +310,6 @@ def select_food_for_slot(candidates, role, meal_type, pn, used_ids, goal="mainte
         f = FOOD_INDEX.get(fid)
         if not f or not _food_compatible(f, pn, used_ids): continue
         scored.append((_score_food(f, meal_type, pn, goal), fid))
-        R.shuffle([scored[-1][0]])
     scored.sort(key=lambda x: -x[0])
     return scored[0][1] if scored and scored[0][0] > 0 else None
 
@@ -659,7 +658,7 @@ def _reconcile_daily(meals, targets, pn, goal, max_iterations=8):
                     item["grams"] = max(3, item["grams"] - 5)
     return meals
 
-def generate_daily_plan(targets, pn, meal_count=4, goal="maintenance"):
+def generate_daily_plan(targets, pn, meal_count=4, goal="maintenance", variety_seed=0):
     m = FORGE_COACH_METHODOLOGY
     dist = m["meal_distribution"].get(meal_count, m["meal_distribution"][4])
     names = m["meal_names"].get(meal_count, m["meal_names"][4])
@@ -667,7 +666,12 @@ def generate_daily_plan(targets, pn, meal_count=4, goal="maintenance"):
     meals = []; ug = set(); dp = {}
     for i in range(meal_count):
         mc = gc * dist[i]; mp = gp * dist[i]; mf = gf * dist[i]
-        meals.append(generate_meal(names[i], names[i], mc, mp, mf, pn, ug, goal, dp, i))
+        # variety_seed shifts the existing vegetable/legume/fruit rotation (day_index)
+        # without touching primary_protein/primary_carb selection or any scoring — so
+        # "Regenerar plano" can produce a genuinely different, still-methodology-correct
+        # plan instead of the same deterministic pick every time, while every directional/
+        # coherence guarantee that assumes the top-scored protein/carb stays intact.
+        meals.append(generate_meal(names[i], names[i], mc, mp, mf, pn, ug, goal, dp, i + variety_seed))
         for f2 in meals[-1]["foods"]:
             ug.add(f2["food_id"])
             probe = FOOD_INDEX.get(f2["food_id"],{}).get("primary_muscle","")

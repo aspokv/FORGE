@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from typing import List, Optional
 from datetime import datetime, timezone
-import uuid
+import uuid, random
 
 from auth import get_current_user
 
@@ -90,7 +90,10 @@ async def generate_plan(request: Request, user=Depends(get_current_user)):
     targets = compute_macro_targets(
         na["weight_kg"], na["height_cm"], na["age"], na["sex"],
         na["training_days"], na["goal"], na.get("activity_level", "moderate"))
-    plan = generate_daily_plan(targets, na, na.get("meal_count", 4), na["goal"])
+    # A fresh random seed on every call is what makes "Regenerar plano" actually
+    # produce a different (still coherent, still methodology-correct) plan instead of
+    # the same deterministic pick every time — see generate_daily_plan's variety_seed.
+    plan = generate_daily_plan(targets, na, na.get("meal_count", 4), na["goal"], random.randint(0, 999))
     doc = {"profile_id": target, "user_id": target, "plan": plan, "created_at": datetime.now(timezone.utc).isoformat(),
            "engine_version": FORGE_COACH_METHODOLOGY["engine_version"],
            "methodology_version": FORGE_COACH_METHODOLOGY["coach_version"]}
