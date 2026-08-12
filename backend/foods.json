@@ -1,0 +1,1542 @@
+[
+  {
+    "id": "chicken-breast",
+    "name": "Peito de frango grelhado",
+    "category": "PROTEIN",
+    "serving": "100g",
+    "grams": 100,
+    "kcal": 165,
+    "protein_g": 31,
+    "carbs_g": 0,
+    "fat_g": 3.6,
+    "fiber_g": 0,
+    "tags": [
+      "lean_protein",
+      "lunch",
+      "dinner",
+      "budget_friendly",
+      "gluten_free",
+      "lactose_free",
+      "high_protein"
+    ],
+    "satiety": "HIGH",
+    "roles": [
+      "primary_protein"
+    ]
+  },
+  {
+    "id": "eggs-whole",
+    "name": "Ovo inteiro",
+    "category": "PROTEIN",
+    "serving": "2 unidades",
+    "grams": 100,
+    "kcal": 155,
+    "protein_g": 13,
+    "carbs_g": 1.1,
+    "fat_g": 11,
+    "fiber_g": 0,
+    "tags": [
+      "lean_protein",
+      "breakfast",
+      "budget_friendly",
+      "gluten_free",
+      "lactose_free"
+    ],
+    "satiety": "HIGH",
+    "roles": [
+      "primary_protein"
+    ]
+  },
+  {
+    "id": "egg-whites",
+    "name": "Clara de ovo",
+    "category": "PROTEIN",
+    "serving": "4 unidades",
+    "grams": 132,
+    "kcal": 68,
+    "protein_g": 14,
+    "carbs_g": 1,
+    "fat_g": 0.2,
+    "fiber_g": 0,
+    "tags": [
+      "lean_protein",
+      "breakfast",
+      "gluten_free",
+      "lactose_free",
+      "high_protein"
+    ],
+    "satiety": "HIGH",
+    "roles": [
+      "primary_protein"
+    ]
+  },
+  {
+    "id": "beef-grill",
+    "name": "Carne bovina grelhada (patinho)",
+    "category": "PROTEIN",
+    "serving": "100g",
+    "grams": 100,
+    "kcal": 194,
+    "protein_g": 30,
+    "carbs_g": 0,
+    "fat_g": 8,
+    "fiber_g": 0,
+    "tags": [
+      "lean_protein",
+      "lunch",
+      "dinner",
+      "gluten_free",
+      "lactose_free",
+      "high_protein"
+    ],
+    "satiety": "HIGH",
+    "roles": [
+      "primary_protein"
+    ]
+  },
+  {
+    "id": "beef-ground",
+    "name": "Carne moída (acém)",
+    "category": "PROTEIN",
+    "serving": "100g",
+    "grams": 100,
+    "kcal": 246,
+    "protein_g": 26,
+    "carbs_g": 0,
+    "fat_g": 15,
+    "fiber_g": 0,
+    "tags": [
+      "fattier_protein",
+      "lunch",
+      "dinner",
+      "gluten_free",
+      "lactose_free",
+      "high_protein"
+    ],
+    "satiety": "HIGH",
+    "roles": [
+      "primary_protein"
+    ]
+  },
+  {
+    "id": "tilapia",
+    "name": "Filé de tilápia",
+    "category": "PROTEIN",
+    "serving": "100g",
+    "grams": 100,
+    "kcal": 128,
+    "protein_g": 26,
+    "carbs_g": 0,
+    "fat_g": 2.7,
+    "fiber_g": 0,
+    "tags": [
+      "lean_protein",
+      "lunch",
+      "dinner",
+      "gluten_free",
+      "lactose_free",
+      "high_protein"
+    ],
+    "satiety": "HIGH",
+    "roles": [
+      "primary_protein"
+    ]
+  },
+  {
+    "id": "salmon",
+    "name": "Salmão grelhado",
+    "category": "PROTEIN",
+    "serving": "100g",
+    "grams": 100,
+    "kcal": 208,
+    "protein_g": 25,
+    "carbs_g": 0,
+    "fat_g": 13,
+    "fiber_g": 0,
+    "tags": [
+      "fattier_protein",
+      "lunch",
+      "dinner",
+      "gluten_free",
+      "lactose_free",
+      "high_protein"
+    ],
+    "satiety": "HIGH",
+    "roles": [
+      "primary_protein"
+    ]
+  },
+  {
+    "id": "chicken-thigh",
+    "name": "Sobrecoxa de frango assada",
+    "category": "PROTEIN",
+    "serving": "100g",
+    "grams": 100,
+    "kcal": 209,
+    "protein_g": 26,
+    "carbs_g": 0,
+    "fat_g": 11,
+    "fiber_g": 0,
+    "tags": [
+      "fattier_protein",
+      "lunch",
+      "dinner",
+      "gluten_free",
+      "lactose_free",
+      "high_protein"
+    ],
+    "satiety": "HIGH",
+    "roles": [
+      "primary_protein"
+    ]
+  },
+  {
+    "id": "whey-protein",
+    "name": "Whey protein concentrado",
+    "category": "PROTEIN",
+    "serving": "30g scoop",
+    "grams": 30,
+    "kcal": 120,
+    "protein_g": 24,
+    "carbs_g": 3,
+    "fat_g": 1.5,
+    "fiber_g": 0,
+    "tags": [
+      "high_protein",
+      "breakfast",
+      "snack",
+      "post_workout",
+      "gluten_free",
+      "quick"
+    ],
+    "satiety": "LOW",
+    "roles": [
+      "recipe_component"
+    ]
+  },
+  {
+    "id": "tuna-can",
+    "name": "Atum em lata (água)",
+    "category": "PROTEIN",
+    "serving": "1 lata",
+    "grams": 120,
+    "kcal": 132,
+    "protein_g": 30,
+    "carbs_g": 0,
+    "fat_g": 1,
+    "fiber_g": 0,
+    "tags": [
+      "lean_protein",
+      "lunch",
+      "dinner",
+      "snack",
+      "gluten_free",
+      "lactose_free",
+      "quick",
+      "high_protein"
+    ],
+    "satiety": "HIGH",
+    "roles": [
+      "primary_protein"
+    ]
+  },
+  {
+    "id": "pork-loin",
+    "name": "Lombo suíno grelhado",
+    "category": "PROTEIN",
+    "serving": "100g",
+    "grams": 100,
+    "kcal": 192,
+    "protein_g": 28,
+    "carbs_g": 0,
+    "fat_g": 8,
+    "fiber_g": 0,
+    "tags": [
+      "lean_protein",
+      "lunch",
+      "dinner",
+      "gluten_free",
+      "lactose_free",
+      "high_protein"
+    ],
+    "satiety": "HIGH",
+    "roles": [
+      "primary_protein"
+    ]
+  },
+  {
+    "id": "rice-white",
+    "name": "Arroz branco cozido",
+    "category": "CARBOHYDRATE",
+    "serving": "4 col sopa",
+    "grams": 100,
+    "kcal": 130,
+    "protein_g": 2.7,
+    "carbs_g": 28,
+    "fat_g": 0.3,
+    "fiber_g": 0.4,
+    "tags": [
+      "carb_source",
+      "lunch",
+      "dinner",
+      "budget_friendly",
+      "gluten_free",
+      "lactose_free"
+    ],
+    "satiety": "MEDIUM",
+    "roles": [
+      "primary_carb"
+    ]
+  },
+  {
+    "id": "rice-brown",
+    "name": "Arroz integral cozido",
+    "category": "CARBOHYDRATE",
+    "serving": "4 col sopa",
+    "grams": 100,
+    "kcal": 123,
+    "protein_g": 2.6,
+    "carbs_g": 26,
+    "fat_g": 1,
+    "fiber_g": 2.7,
+    "tags": [
+      "carb_source",
+      "lunch",
+      "dinner",
+      "gluten_free",
+      "lactose_free",
+      "high_fiber"
+    ],
+    "satiety": "MEDIUM",
+    "roles": [
+      "primary_carb"
+    ]
+  },
+  {
+    "id": "beans-black",
+    "name": "Feijão preto cozido",
+    "category": "LEGUME",
+    "serving": "1 concha",
+    "grams": 100,
+    "kcal": 132,
+    "protein_g": 9,
+    "carbs_g": 23,
+    "fat_g": 0.5,
+    "fiber_g": 8,
+    "tags": [
+      "carb_source",
+      "legume",
+      "lunch",
+      "dinner",
+      "budget_friendly",
+      "gluten_free",
+      "lactose_free",
+      "vegetarian",
+      "vegan",
+      "high_fiber"
+    ],
+    "satiety": "HIGH",
+    "roles": [
+      "legume"
+    ]
+  },
+  {
+    "id": "beans-carioca",
+    "name": "Feijão carioca cozido",
+    "category": "LEGUME",
+    "serving": "1 concha",
+    "grams": 100,
+    "kcal": 143,
+    "protein_g": 9,
+    "carbs_g": 26,
+    "fat_g": 0.5,
+    "fiber_g": 9,
+    "tags": [
+      "carb_source",
+      "legume",
+      "lunch",
+      "dinner",
+      "budget_friendly",
+      "gluten_free",
+      "lactose_free",
+      "vegetarian",
+      "vegan",
+      "high_fiber"
+    ],
+    "satiety": "HIGH",
+    "roles": [
+      "legume"
+    ]
+  },
+  {
+    "id": "lentils",
+    "name": "Lentilha cozida",
+    "category": "LEGUME",
+    "serving": "1 concha",
+    "grams": 100,
+    "kcal": 116,
+    "protein_g": 9,
+    "carbs_g": 20,
+    "fat_g": 0.4,
+    "fiber_g": 8,
+    "tags": [
+      "carb_source",
+      "legume",
+      "lunch",
+      "dinner",
+      "gluten_free",
+      "lactose_free",
+      "vegetarian",
+      "vegan",
+      "high_fiber",
+      "high_protein"
+    ],
+    "satiety": "HIGH",
+    "roles": [
+      "legume"
+    ]
+  },
+  {
+    "id": "chickpeas",
+    "name": "Grão-de-bico cozido",
+    "category": "LEGUME",
+    "serving": "1 concha",
+    "grams": 100,
+    "kcal": 164,
+    "protein_g": 9,
+    "carbs_g": 27,
+    "fat_g": 2.6,
+    "fiber_g": 8,
+    "tags": [
+      "carb_source",
+      "legume",
+      "lunch",
+      "dinner",
+      "gluten_free",
+      "lactose_free",
+      "vegetarian",
+      "vegan",
+      "high_fiber"
+    ],
+    "satiety": "HIGH",
+    "roles": [
+      "legume"
+    ]
+  },
+  {
+    "id": "potato",
+    "name": "Batata inglesa cozida",
+    "category": "CARBOHYDRATE",
+    "serving": "1 unid média",
+    "grams": 150,
+    "kcal": 116,
+    "protein_g": 2.4,
+    "carbs_g": 26,
+    "fat_g": 0.1,
+    "fiber_g": 2.1,
+    "tags": [
+      "carb_source",
+      "lunch",
+      "dinner",
+      "budget_friendly",
+      "gluten_free",
+      "lactose_free",
+      "vegetarian",
+      "vegan"
+    ],
+    "satiety": "HIGH",
+    "roles": [
+      "primary_carb"
+    ]
+  },
+  {
+    "id": "sweet-potato",
+    "name": "Batata doce cozida",
+    "category": "CARBOHYDRATE",
+    "serving": "1 unid média",
+    "grams": 150,
+    "kcal": 128,
+    "protein_g": 1.8,
+    "carbs_g": 30,
+    "fat_g": 0.1,
+    "fiber_g": 4,
+    "tags": [
+      "carb_source",
+      "lunch",
+      "dinner",
+      "pre_workout",
+      "gluten_free",
+      "lactose_free",
+      "vegetarian",
+      "vegan"
+    ],
+    "satiety": "HIGH",
+    "roles": [
+      "primary_carb"
+    ]
+  },
+  {
+    "id": "cassava",
+    "name": "Mandioca cozida",
+    "category": "CARBOHYDRATE",
+    "serving": "2 pedaços",
+    "grams": 150,
+    "kcal": 188,
+    "protein_g": 0.9,
+    "carbs_g": 45,
+    "fat_g": 0.4,
+    "fiber_g": 2.7,
+    "tags": [
+      "carb_source",
+      "lunch",
+      "dinner",
+      "gluten_free",
+      "lactose_free",
+      "vegetarian",
+      "vegan"
+    ],
+    "satiety": "HIGH",
+    "roles": [
+      "primary_carb"
+    ]
+  },
+  {
+    "id": "pasta",
+    "name": "Macarrão cozido",
+    "category": "CARBOHYDRATE",
+    "serving": "1 prato",
+    "grams": 150,
+    "kcal": 197,
+    "protein_g": 7,
+    "carbs_g": 37,
+    "fat_g": 1.4,
+    "fiber_g": 2.4,
+    "tags": [
+      "carb_source",
+      "lunch",
+      "dinner",
+      "budget_friendly",
+      "vegetarian",
+      "vegan"
+    ],
+    "satiety": "MEDIUM",
+    "roles": [
+      "primary_carb"
+    ]
+  },
+  {
+    "id": "pasta-whole",
+    "name": "Macarrão integral cozido",
+    "category": "CARBOHYDRATE",
+    "serving": "1 prato",
+    "grams": 150,
+    "kcal": 174,
+    "protein_g": 8,
+    "carbs_g": 35,
+    "fat_g": 1.5,
+    "fiber_g": 5,
+    "tags": [
+      "carb_source",
+      "lunch",
+      "dinner",
+      "vegetarian",
+      "vegan",
+      "high_fiber"
+    ],
+    "satiety": "MEDIUM",
+    "roles": [
+      "primary_carb"
+    ]
+  },
+  {
+    "id": "oats",
+    "name": "Aveia em flocos",
+    "category": "CARBOHYDRATE",
+    "serving": "4 col sopa",
+    "grams": 60,
+    "kcal": 221,
+    "protein_g": 8,
+    "carbs_g": 39,
+    "fat_g": 4.2,
+    "fiber_g": 6,
+    "tags": [
+      "carb_source",
+      "breakfast",
+      "snack",
+      "pre_workout",
+      "budget_friendly",
+      "vegetarian",
+      "high_fiber"
+    ],
+    "satiety": "HIGH",
+    "roles": [
+      "primary_carb"
+    ]
+  },
+  {
+    "id": "bread-whole",
+    "name": "Pão integral",
+    "category": "CARBOHYDRATE",
+    "serving": "2 fatias",
+    "grams": 50,
+    "kcal": 127,
+    "protein_g": 5,
+    "carbs_g": 23,
+    "fat_g": 1.5,
+    "fiber_g": 3.5,
+    "tags": [
+      "carb_source",
+      "breakfast",
+      "snack",
+      "budget_friendly",
+      "vegetarian",
+      "vegan"
+    ],
+    "satiety": "LOW",
+    "roles": [
+      "primary_carb"
+    ]
+  },
+  {
+    "id": "bread-white",
+    "name": "Pão francês",
+    "category": "CARBOHYDRATE",
+    "serving": "1 unid",
+    "grams": 50,
+    "kcal": 137,
+    "protein_g": 4,
+    "carbs_g": 27,
+    "fat_g": 1.5,
+    "fiber_g": 1,
+    "tags": [
+      "carb_source",
+      "breakfast",
+      "snack",
+      "budget_friendly",
+      "vegetarian",
+      "vegan"
+    ],
+    "satiety": "LOW",
+    "roles": [
+      "primary_carb"
+    ]
+  },
+  {
+    "id": "tapioca",
+    "name": "Tapioca (goma)",
+    "category": "CARBOHYDRATE",
+    "serving": "3 col sopa",
+    "grams": 50,
+    "kcal": 174,
+    "protein_g": 0,
+    "carbs_g": 43,
+    "fat_g": 0,
+    "fiber_g": 0,
+    "tags": [
+      "carb_source",
+      "breakfast",
+      "snack",
+      "quick",
+      "gluten_free",
+      "lactose_free",
+      "vegetarian",
+      "vegan"
+    ],
+    "satiety": "LOW",
+    "roles": [
+      "primary_carb"
+    ]
+  },
+  {
+    "id": "corn-flour",
+    "name": "Cuscuz de milho",
+    "category": "CARBOHYDRATE",
+    "serving": "1 porção",
+    "grams": 100,
+    "kcal": 140,
+    "protein_g": 3,
+    "carbs_g": 30,
+    "fat_g": 1,
+    "fiber_g": 2,
+    "tags": [
+      "carb_source",
+      "breakfast",
+      "snack",
+      "budget_friendly",
+      "gluten_free",
+      "lactose_free",
+      "vegetarian",
+      "vegan"
+    ],
+    "satiety": "MEDIUM",
+    "roles": [
+      "primary_carb"
+    ]
+  },
+  {
+    "id": "banana",
+    "name": "Banana",
+    "category": "FRUIT",
+    "serving": "1 unid média",
+    "grams": 100,
+    "kcal": 89,
+    "protein_g": 1.1,
+    "carbs_g": 23,
+    "fat_g": 0.3,
+    "fiber_g": 2.6,
+    "tags": [
+      "fruit",
+      "snack",
+      "pre_workout",
+      "post_workout",
+      "budget_friendly",
+      "gluten_free",
+      "lactose_free",
+      "vegetarian",
+      "vegan"
+    ],
+    "satiety": "MEDIUM",
+    "roles": [
+      "fruit"
+    ]
+  },
+  {
+    "id": "apple",
+    "name": "Maçã",
+    "category": "FRUIT",
+    "serving": "1 unid",
+    "grams": 150,
+    "kcal": 78,
+    "protein_g": 0.4,
+    "carbs_g": 21,
+    "fat_g": 0.3,
+    "fiber_g": 3.6,
+    "tags": [
+      "fruit",
+      "snack",
+      "budget_friendly",
+      "gluten_free",
+      "lactose_free",
+      "vegetarian",
+      "vegan"
+    ],
+    "satiety": "HIGH",
+    "roles": [
+      "fruit"
+    ]
+  },
+  {
+    "id": "papaya",
+    "name": "Mamão",
+    "category": "FRUIT",
+    "serving": "1 fatia",
+    "grams": 150,
+    "kcal": 65,
+    "protein_g": 0.7,
+    "carbs_g": 16,
+    "fat_g": 0.2,
+    "fiber_g": 2.7,
+    "tags": [
+      "fruit",
+      "snack",
+      "breakfast",
+      "gluten_free",
+      "lactose_free",
+      "vegetarian",
+      "vegan"
+    ],
+    "satiety": "HIGH",
+    "roles": [
+      "fruit"
+    ]
+  },
+  {
+    "id": "orange",
+    "name": "Laranja",
+    "category": "FRUIT",
+    "serving": "1 unid",
+    "grams": 150,
+    "kcal": 70,
+    "protein_g": 1.5,
+    "carbs_g": 18,
+    "fat_g": 0.2,
+    "fiber_g": 3.6,
+    "tags": [
+      "fruit",
+      "snack",
+      "gluten_free",
+      "lactose_free",
+      "vegetarian",
+      "vegan"
+    ],
+    "satiety": "MEDIUM",
+    "roles": [
+      "fruit"
+    ]
+  },
+  {
+    "id": "avocado",
+    "name": "Abacate",
+    "category": "FAT",
+    "serving": "1/2 unid",
+    "grams": 100,
+    "kcal": 160,
+    "protein_g": 2,
+    "carbs_g": 9,
+    "fat_g": 15,
+    "fiber_g": 7,
+    "tags": [
+      "fat_source",
+      "fruit",
+      "snack",
+      "gluten_free",
+      "lactose_free",
+      "vegetarian",
+      "vegan"
+    ],
+    "satiety": "HIGH",
+    "roles": [
+      "fat_source"
+    ]
+  },
+  {
+    "id": "olive-oil",
+    "name": "Azeite de oliva",
+    "category": "FAT",
+    "serving": "1 col sopa",
+    "grams": 10,
+    "kcal": 88,
+    "protein_g": 0,
+    "carbs_g": 0,
+    "fat_g": 10,
+    "fiber_g": 0,
+    "tags": [
+      "fat_source",
+      "lunch",
+      "dinner",
+      "gluten_free",
+      "lactose_free",
+      "vegetarian",
+      "vegan"
+    ],
+    "satiety": "LOW",
+    "roles": [
+      "fat_source"
+    ]
+  },
+  {
+    "id": "peanuts",
+    "name": "Amendoim torrado",
+    "category": "FAT",
+    "serving": "1 porção",
+    "grams": 30,
+    "kcal": 170,
+    "protein_g": 7,
+    "carbs_g": 5,
+    "fat_g": 14,
+    "fiber_g": 2.4,
+    "tags": [
+      "fat_source",
+      "snack",
+      "budget_friendly",
+      "gluten_free",
+      "lactose_free",
+      "vegetarian",
+      "vegan"
+    ],
+    "satiety": "LOW",
+    "roles": [
+      "fat_source"
+    ]
+  },
+  {
+    "id": "brazil-nuts",
+    "name": "Castanha do Pará",
+    "category": "FAT",
+    "serving": "3 unid",
+    "grams": 15,
+    "kcal": 98,
+    "protein_g": 2,
+    "carbs_g": 2,
+    "fat_g": 10,
+    "fiber_g": 1,
+    "tags": [
+      "fat_source",
+      "snack",
+      "gluten_free",
+      "lactose_free",
+      "vegetarian",
+      "vegan"
+    ],
+    "satiety": "LOW",
+    "roles": [
+      "fat_source"
+    ]
+  },
+  {
+    "id": "peanut-butter",
+    "name": "Pasta de amendoim",
+    "category": "FAT",
+    "serving": "1 col sopa",
+    "grams": 20,
+    "kcal": 118,
+    "protein_g": 5,
+    "carbs_g": 3.6,
+    "fat_g": 10,
+    "fiber_g": 1.2,
+    "tags": [
+      "fat_source",
+      "snack",
+      "breakfast",
+      "gluten_free",
+      "lactose_free",
+      "vegetarian",
+      "vegan"
+    ],
+    "satiety": "LOW",
+    "roles": [
+      "fat_source"
+    ]
+  },
+  {
+    "id": "milk-whole",
+    "name": "Leite integral",
+    "category": "DAIRY",
+    "serving": "1 copo",
+    "grams": 200,
+    "kcal": 122,
+    "protein_g": 6,
+    "carbs_g": 10,
+    "fat_g": 6.4,
+    "fiber_g": 0,
+    "tags": [
+      "dairy",
+      "breakfast",
+      "snack",
+      "budget_friendly",
+      "gluten_free",
+      "vegetarian"
+    ],
+    "satiety": "LOW",
+    "roles": [
+      "dairy"
+    ]
+  },
+  {
+    "id": "milk-skim",
+    "name": "Leite desnatado",
+    "category": "DAIRY",
+    "serving": "1 copo",
+    "grams": 200,
+    "kcal": 72,
+    "protein_g": 7,
+    "carbs_g": 10,
+    "fat_g": 0.4,
+    "fiber_g": 0,
+    "tags": [
+      "dairy",
+      "breakfast",
+      "snack",
+      "gluten_free",
+      "lactose_free"
+    ],
+    "satiety": "LOW",
+    "roles": [
+      "dairy"
+    ]
+  },
+  {
+    "id": "yogurt-natural",
+    "name": "Iogurte natural",
+    "category": "DAIRY",
+    "serving": "1 pote",
+    "grams": 170,
+    "kcal": 104,
+    "protein_g": 6,
+    "carbs_g": 12,
+    "fat_g": 3.5,
+    "fiber_g": 0,
+    "tags": [
+      "dairy",
+      "breakfast",
+      "snack",
+      "gluten_free",
+      "vegetarian"
+    ],
+    "satiety": "MEDIUM",
+    "roles": [
+      "dairy"
+    ]
+  },
+  {
+    "id": "yogurt-greek",
+    "name": "Iogurte grego",
+    "category": "DAIRY",
+    "serving": "1 pote",
+    "grams": 150,
+    "kcal": 145,
+    "protein_g": 15,
+    "carbs_g": 6,
+    "fat_g": 7.5,
+    "fiber_g": 0,
+    "tags": [
+      "dairy",
+      "snack",
+      "high_protein",
+      "gluten_free",
+      "vegetarian"
+    ],
+    "satiety": "HIGH",
+    "roles": [
+      "dairy"
+    ]
+  },
+  {
+    "id": "cheese-mozzarella",
+    "name": "Mussarela",
+    "category": "DAIRY",
+    "serving": "2 fatias",
+    "grams": 30,
+    "kcal": 90,
+    "protein_g": 7,
+    "carbs_g": 1,
+    "fat_g": 6.6,
+    "fiber_g": 0,
+    "tags": [
+      "dairy",
+      "lunch",
+      "dinner",
+      "gluten_free",
+      "vegetarian"
+    ],
+    "satiety": "LOW",
+    "roles": [
+      "dairy"
+    ]
+  },
+  {
+    "id": "cheese-cottage",
+    "name": "Queijo cottage",
+    "category": "DAIRY",
+    "serving": "3 col sopa",
+    "grams": 100,
+    "kcal": 98,
+    "protein_g": 11,
+    "carbs_g": 3.4,
+    "fat_g": 4.3,
+    "fiber_g": 0,
+    "tags": [
+      "dairy",
+      "snack",
+      "high_protein",
+      "gluten_free",
+      "vegetarian"
+    ],
+    "satiety": "HIGH",
+    "roles": [
+      "dairy"
+    ]
+  },
+  {
+    "id": "broccoli",
+    "name": "Brócolis cozido",
+    "category": "VEGETABLE",
+    "serving": "1 xíc",
+    "grams": 100,
+    "kcal": 35,
+    "protein_g": 2.4,
+    "carbs_g": 7,
+    "fat_g": 0.4,
+    "fiber_g": 3.3,
+    "tags": [
+      "vegetable",
+      "lunch",
+      "dinner",
+      "gluten_free",
+      "lactose_free",
+      "vegetarian",
+      "vegan"
+    ],
+    "satiety": "HIGH",
+    "roles": [
+      "vegetable"
+    ]
+  },
+  {
+    "id": "spinach",
+    "name": "Espinafre refogado",
+    "category": "VEGETABLE",
+    "serving": "1 xíc",
+    "grams": 100,
+    "kcal": 40,
+    "protein_g": 3,
+    "carbs_g": 4,
+    "fat_g": 0.5,
+    "fiber_g": 2.4,
+    "tags": [
+      "vegetable",
+      "lunch",
+      "dinner",
+      "gluten_free",
+      "lactose_free",
+      "vegetarian",
+      "vegan"
+    ],
+    "satiety": "HIGH",
+    "roles": [
+      "vegetable"
+    ]
+  },
+  {
+    "id": "lettuce",
+    "name": "Alface",
+    "category": "VEGETABLE",
+    "serving": "4 folhas",
+    "grams": 50,
+    "kcal": 7,
+    "protein_g": 0.6,
+    "carbs_g": 1.2,
+    "fat_g": 0.1,
+    "fiber_g": 0.7,
+    "tags": [
+      "vegetable",
+      "lunch",
+      "dinner",
+      "gluten_free",
+      "lactose_free",
+      "vegetarian",
+      "vegan"
+    ],
+    "satiety": "HIGH",
+    "roles": [
+      "vegetable"
+    ]
+  },
+  {
+    "id": "tomato",
+    "name": "Tomate",
+    "category": "VEGETABLE",
+    "serving": "1 unid",
+    "grams": 100,
+    "kcal": 18,
+    "protein_g": 0.9,
+    "carbs_g": 4,
+    "fat_g": 0.2,
+    "fiber_g": 1.2,
+    "tags": [
+      "vegetable",
+      "lunch",
+      "dinner",
+      "gluten_free",
+      "lactose_free",
+      "vegetarian",
+      "vegan"
+    ],
+    "satiety": "HIGH",
+    "roles": [
+      "vegetable"
+    ]
+  },
+  {
+    "id": "carrot",
+    "name": "Cenoura crua",
+    "category": "VEGETABLE",
+    "serving": "1 unid",
+    "grams": 100,
+    "kcal": 41,
+    "protein_g": 0.9,
+    "carbs_g": 10,
+    "fat_g": 0.2,
+    "fiber_g": 2.8,
+    "tags": [
+      "vegetable",
+      "lunch",
+      "dinner",
+      "snack",
+      "gluten_free",
+      "lactose_free",
+      "vegetarian",
+      "vegan"
+    ],
+    "satiety": "HIGH",
+    "roles": [
+      "vegetable"
+    ]
+  },
+  {
+    "id": "zucchini",
+    "name": "Abobrinha cozida",
+    "category": "VEGETABLE",
+    "serving": "1 xíc",
+    "grams": 100,
+    "kcal": 17,
+    "protein_g": 1.2,
+    "carbs_g": 3,
+    "fat_g": 0.2,
+    "fiber_g": 1,
+    "tags": [
+      "vegetable",
+      "lunch",
+      "dinner",
+      "gluten_free",
+      "lactose_free",
+      "vegetarian",
+      "vegan"
+    ],
+    "satiety": "HIGH",
+    "roles": [
+      "vegetable"
+    ]
+  },
+  {
+    "id": "green-beans",
+    "name": "Vagem cozida",
+    "category": "VEGETABLE",
+    "serving": "1 xíc",
+    "grams": 100,
+    "kcal": 35,
+    "protein_g": 1.8,
+    "carbs_g": 7,
+    "fat_g": 0.2,
+    "fiber_g": 3.2,
+    "tags": [
+      "vegetable",
+      "lunch",
+      "dinner",
+      "gluten_free",
+      "lactose_free",
+      "vegetarian",
+      "vegan"
+    ],
+    "satiety": "HIGH",
+    "roles": [
+      "vegetable"
+    ]
+  },
+  {
+    "id": "tofu",
+    "name": "Tofu firme",
+    "category": "PROTEIN",
+    "serving": "100g",
+    "grams": 100,
+    "kcal": 144,
+    "protein_g": 15,
+    "carbs_g": 2,
+    "fat_g": 8,
+    "fiber_g": 1,
+    "tags": [
+      "lean_protein",
+      "lunch",
+      "dinner",
+      "gluten_free",
+      "lactose_free",
+      "vegetarian",
+      "vegan",
+      "high_protein"
+    ],
+    "satiety": "HIGH",
+    "roles": [
+      "primary_protein"
+    ]
+  },
+  {
+    "id": "soy-protein",
+    "name": "Proteína texturizada de soja",
+    "category": "PROTEIN",
+    "serving": "50g",
+    "grams": 50,
+    "kcal": 165,
+    "protein_g": 25,
+    "carbs_g": 12,
+    "fat_g": 0.5,
+    "fiber_g": 8,
+    "tags": [
+      "lean_protein",
+      "lunch",
+      "dinner",
+      "budget_friendly",
+      "gluten_free",
+      "lactose_free",
+      "vegetarian",
+      "vegan",
+      "high_protein"
+    ],
+    "satiety": "HIGH",
+    "roles": [
+      "primary_protein"
+    ]
+  },
+  {
+    "id": "chicken-egg-omelet",
+    "name": "Omelete simples",
+    "category": "PROTEIN",
+    "serving": "2 ovos",
+    "grams": 120,
+    "kcal": 186,
+    "protein_g": 15.6,
+    "carbs_g": 1.3,
+    "fat_g": 13.2,
+    "fiber_g": 0,
+    "tags": [
+      "lean_protein",
+      "breakfast",
+      "lunch",
+      "budget_friendly",
+      "quick",
+      "gluten_free",
+      "lactose_free"
+    ],
+    "satiety": "HIGH",
+    "roles": [
+      "primary_protein"
+    ]
+  },
+  {
+    "id": "granola",
+    "name": "Granola tradicional",
+    "category": "CARBOHYDRATE",
+    "serving": "3 col sopa",
+    "grams": 40,
+    "kcal": 172,
+    "protein_g": 4,
+    "carbs_g": 27,
+    "fat_g": 6,
+    "fiber_g": 3,
+    "tags": [
+      "carb_source",
+      "breakfast",
+      "snack",
+      "vegetarian"
+    ],
+    "satiety": "MEDIUM",
+    "roles": [
+      "primary_carb"
+    ]
+  },
+  {
+    "id": "watermelon",
+    "name": "Melancia",
+    "category": "FRUIT",
+    "serving": "2 fatias",
+    "grams": 200,
+    "kcal": 60,
+    "protein_g": 1.2,
+    "carbs_g": 15,
+    "fat_g": 0.2,
+    "fiber_g": 0.8,
+    "tags": [
+      "fruit",
+      "snack",
+      "gluten_free",
+      "lactose_free",
+      "vegetarian",
+      "vegan"
+    ],
+    "satiety": "HIGH",
+    "roles": [
+      "fruit"
+    ]
+  },
+  {
+    "id": "strawberry",
+    "name": "Morango",
+    "category": "FRUIT",
+    "serving": "1 xíc",
+    "grams": 150,
+    "kcal": 48,
+    "protein_g": 1,
+    "carbs_g": 11,
+    "fat_g": 0.5,
+    "fiber_g": 3,
+    "tags": [
+      "fruit",
+      "snack",
+      "gluten_free",
+      "lactose_free",
+      "vegetarian",
+      "vegan"
+    ],
+    "satiety": "HIGH",
+    "roles": [
+      "fruit"
+    ]
+  },
+  {
+    "id": "grapes",
+    "name": "Uva",
+    "category": "FRUIT",
+    "serving": "1 cacho",
+    "grams": 150,
+    "kcal": 104,
+    "protein_g": 1,
+    "carbs_g": 27,
+    "fat_g": 0.3,
+    "fiber_g": 1.4,
+    "tags": [
+      "fruit",
+      "snack",
+      "gluten_free",
+      "lactose_free",
+      "vegetarian",
+      "vegan"
+    ],
+    "satiety": "MEDIUM",
+    "roles": [
+      "fruit"
+    ]
+  },
+  {
+    "id": "mango",
+    "name": "Manga",
+    "category": "FRUIT",
+    "serving": "1/2 unid",
+    "grams": 120,
+    "kcal": 72,
+    "protein_g": 1,
+    "carbs_g": 18,
+    "fat_g": 0.5,
+    "fiber_g": 2,
+    "tags": [
+      "fruit",
+      "snack",
+      "gluten_free",
+      "lactose_free",
+      "vegetarian",
+      "vegan"
+    ],
+    "satiety": "MEDIUM",
+    "roles": [
+      "fruit"
+    ]
+  },
+  {
+    "id": "eggplant",
+    "name": "Berinjela cozida",
+    "category": "VEGETABLE",
+    "serving": "1 xíc",
+    "grams": 100,
+    "kcal": 35,
+    "protein_g": 0.8,
+    "carbs_g": 9,
+    "fat_g": 0.2,
+    "fiber_g": 2.5,
+    "tags": [
+      "vegetable",
+      "lunch",
+      "dinner",
+      "gluten_free",
+      "lactose_free",
+      "vegetarian",
+      "vegan"
+    ],
+    "satiety": "HIGH",
+    "roles": [
+      "vegetable"
+    ]
+  },
+  {
+    "id": "pumpkin",
+    "name": "Abóbora cozida",
+    "category": "VEGETABLE",
+    "serving": "1 xíc",
+    "grams": 100,
+    "kcal": 20,
+    "protein_g": 0.7,
+    "carbs_g": 5,
+    "fat_g": 0.1,
+    "fiber_g": 1.1,
+    "tags": [
+      "vegetable",
+      "lunch",
+      "dinner",
+      "gluten_free",
+      "lactose_free",
+      "vegetarian",
+      "vegan"
+    ],
+    "satiety": "HIGH",
+    "roles": [
+      "vegetable"
+    ]
+  },
+  {
+    "id": "beetroot",
+    "name": "Beterraba cozida",
+    "category": "CARBOHYDRATE",
+    "serving": "1 unid",
+    "grams": 100,
+    "kcal": 44,
+    "protein_g": 1.7,
+    "carbs_g": 10,
+    "fat_g": 0.2,
+    "fiber_g": 2,
+    "tags": [
+      "carb_source",
+      "vegetable",
+      "lunch",
+      "dinner",
+      "gluten_free",
+      "lactose_free",
+      "vegetarian",
+      "vegan"
+    ],
+    "satiety": "HIGH",
+    "roles": [
+      "vegetable"
+    ]
+  },
+  {
+    "id": "rice-flour",
+    "name": "Farinha de arroz",
+    "category": "CARBOHYDRATE",
+    "serving": "4 col sopa",
+    "grams": 50,
+    "kcal": 180,
+    "protein_g": 3,
+    "carbs_g": 40,
+    "fat_g": 1,
+    "fiber_g": 1,
+    "tags": [
+      "carb_source",
+      "breakfast",
+      "snack",
+      "pre_workout",
+      "post_workout",
+      "quick",
+      "gluten_free",
+      "lactose_free",
+      "vegetarian",
+      "vegan"
+    ],
+    "satiety": "LOW",
+    "roles": [
+      "recipe_component",
+      "primary_carb"
+    ]
+  },
+  {
+    "id": "rice-cream-whey",
+    "name": "Creme de arroz com whey",
+    "category": "MIXED",
+    "serving": "1 porcao",
+    "grams": 80,
+    "kcal": 300,
+    "protein_g": 27,
+    "carbs_g": 43,
+    "fat_g": 3,
+    "fiber_g": 1,
+    "tags": [
+      "breakfast",
+      "snack",
+      "pre_workout",
+      "post_workout",
+      "quick",
+      "high_protein"
+    ],
+    "satiety": "MEDIUM",
+    "roles": [
+      "primary_protein",
+      "primary_carb"
+    ]
+  }
+]

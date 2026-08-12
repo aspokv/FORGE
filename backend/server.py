@@ -17,6 +17,17 @@ from llm_providers import get_coach_provider, FORGE_COACH_SYSTEM
 
 from auth import router as auth_router, get_current_user, seed_super_admin
 from admin_routes import router as admin_router
+from nutrition_routes import router as nutrition_router
+from muscles import (
+    to_frontend, to_internal, get_profile_priorities_internal,
+    get_assessment_internal, FRONTEND_MUSCLES as MUSCLES_FRONTEND_LIST,
+    LEGACY_TO_INTERNAL, MUSCLE_IDS,
+)
+from engine import (
+    FRONTEND_EXERCISE_LIST, EXERCISE_INDEX, build_program_v2,
+    _is_empty_profile as engine_is_empty_profile,
+    validate_sessions, determine_split, EXERCISES as ENGINE_EXERCISES,
+)
 
 client = AsyncIOMotorClient(os.environ["MONGO_URL"])
 db = client[os.environ["DB_NAME"]]
@@ -25,7 +36,7 @@ app.state.db = db
 api = APIRouter(prefix="/api")
 logger = logging.getLogger("forge")
 
-MUSCLES = ["Peitoral superior", "Peitoral esternal", "Deltóide anterior", "Deltóide lateral", "Deltóide posterior", "Dorsais / largura", "Costas / espessura", "Trapézio", "Bíceps", "Braquial", "Tríceps", "Quadríceps", "Posteriores", "Glúteos", "Adutores", "Panturrilhas", "Abdômen", "Oblíquos"]
+MUSCLES = MUSCLES_FRONTEND_LIST
 
 TECHNIQUES = [
     {"id":"straight","name":"Straight Sets","short":"Séries retas","fatigue":"baixa","recommended_for":["Iniciante","Intermediário","Avançado","Bodybuilder"],"description":"Todas as séries com o mesmo peso e faixa de reps, respeitando o RIR planejado.","protocol":"Peso fixo. Ex.: 3×8 @ RIR 2.","when":"Base do plano; não substitua sem motivo."},
@@ -40,14 +51,7 @@ TECHNIQUES = [
     {"id":"superset","name":"Superset","short":"Dois exercícios seguidos","fatigue":"moderada","recommended_for":["Intermediário","Avançado","Bodybuilder"],"description":"Executa dois exercícios em sequência sem descanso. Preferencialmente antagonistas ou complementares.","protocol":"Ex.: Rosca direta + Tríceps corda, 3 rounds.","when":"Densidade e economia de tempo; evite em compostos exigentes."},
 ]
 
-EXERCISES = [
-    {"id":"incline-smith","name":"Supino inclinado Smith","muscle":"Peitoral superior","secondary":["Tríceps","Deltóide anterior"],"equipment":"Smith","pattern":"Empurrar horizontal","fatigue":"moderada","alternatives":["Supino inclinado com halteres","Chest press convergente","Supino inclinado no cabo"]},
-    {"id":"lat-pulldown","name":"Puxada unilateral na polia","muscle":"Dorsais / largura","secondary":["Bíceps"],"equipment":"Cabo","pattern":"Puxar vertical","fatigue":"baixa","alternatives":["Barra fixa neutra","Puxada articulada","Pulldown com braço estendido"]},
-    {"id":"lateral-raise","name":"Elevação lateral na polia","muscle":"Deltóide lateral","secondary":[],"equipment":"Cabo","pattern":"Abdução","fatigue":"baixa","alternatives":["Elevação lateral máquina","Elevação lateral halteres","Elevação lateral inclinada"]},
-    {"id":"hack-squat","name":"Hack squat","muscle":"Quadríceps","secondary":["Glúteos","Adutores"],"equipment":"Máquina","pattern":"Agachar","fatigue":"alta","alternatives":["Agachamento high bar","Leg press 45°","Agachamento no Smith"]},
-    {"id":"leg-curl","name":"Flexão de joelho sentado","muscle":"Posteriores","secondary":["Glúteos"],"equipment":"Máquina","pattern":"Flexão de joelho","fatigue":"moderada","alternatives":["Flexão de joelho deitado","Nordic curl assistido","Flexão unilateral no cabo"]},
-    {"id":"row","name":"Remada apoiada no peito","muscle":"Costas / espessura","secondary":["Deltóide posterior","Bíceps"],"equipment":"Máquina","pattern":"Puxar horizontal","fatigue":"moderada","alternatives":["Remada cavalinho","Remada baixa no cabo","Remada unilateral"]},
-]
+EXERCISES = FRONTEND_EXERCISE_LIST
 
 DEMO_PROFILE = {"id":"demo","user_id":"demo","name":"Rafael Mendes","goal":"Hipertrofia com especialização","experience":"Avançado","days":4,"session_minutes":70,"equipment":["Academia completa"],"priorities":["Deltóide lateral","Peitoral superior","Posteriores"],"assessment":{m:{"development":"fraco","priority":"alta"} if m in ["Deltóide lateral","Peitoral superior","Posteriores"] else {"development":"proporcional","priority":"normal"} for m in MUSCLES},"advanced_mode":True,"automation_mode":"FORGE_ASSISTED","created_at":datetime.now(timezone.utc).isoformat()}
 
@@ -158,71 +162,27 @@ def owned_profile_id(user: dict, requested: Optional[str]) -> str:
 
 
 def score_priority(profile: Dict[str, Any], muscle: str) -> int:
-    raw = profile.get("assessment", {}).get(muscle, "proporcional")
-    if raw is None: raw = "proporcional"
+    internal = to_internal(muscle)
+    assessment = get_assessment_internal(profile)
+    raw = assessment.get(internal, {"development": "proporcional", "priority": "normal"})
     manual = raw.get("priority", "normal") if isinstance(raw, dict) else "normal"
     weights = {"baixa": 1, "normal": 2, "alta": 4, "máxima": 6, "maxima": 6}
     development = raw.get("development", "proporcional") if isinstance(raw, dict) else raw
     weakness = {"muito fraco": 4, "fraco": 3, "proporcional": 1, "forte": 0, "muito forte": 0}.get(str(development).lower(), 1)
-    return weights.get(str(manual).lower(), 2) + weakness + (3 if muscle in (profile.get("priorities") or []) else 0)
+    priorities = get_profile_priorities_internal(profile)
+    return weights.get(str(manual).lower(), 2) + weakness + (3 if internal in priorities else 0)
 
 
-def choose_split(days: int, experience: str, priorities: List[str]) -> str:
-    if days == 1: return "Full Body · estímulo prioritário"
-    if days == 2: return "Full Body A/B · distribuição de fadiga"
-    if days == 3: return "Full Body · prioridade rotativa"
-    if days == 4: return "Upper / Lower · especialização"
-    if days == 5: return "Upper / Lower + especialização"
-    if days == 6: return "Push / Pull / Legs · frequência adaptativa"
-    return "Microciclo de 7 dias · demandas HIGH / MODERATE / LOW"
+def choose_split(days: int, experience: str, priorities: List[str] = None) -> str:
+    return determine_split(days, experience, "Hipertrofia")
 
 
 async def build_program(profile: Dict[str, Any]) -> Dict[str, Any]:
-    if profile.get("onboarding_required") is True and _is_empty_profile(profile):
-        return {"name": "Onboarding pendente", "week": "", "session": "", "duration": "", "focus": [], "sessions": [], "logic": {"split": "", "days": 0, "priority_scores": {}, "recovery_modifier": 1, "mode": "ONBOARDING_REQUIRED", "manual": False}, "onboarding_required": True}
-    custom = profile.get("custom_program")
-    if custom and custom.get("sessions"):
-        priorities = profile.get("priorities") or []
-        sessions = []
-        for i, s in enumerate(custom["sessions"]):
-            sessions.append({"day": s.get("day", i + 1), "label": s.get("label") or f"Sessão {i+1}", "demand": s.get("demand", "MODERATE"), "focus": s.get("focus") or priorities[:2], "exercises": [{"exercise_id": x.get("exercise_id"), "sets": int(x.get("sets", 3)), "reps": x.get("reps", "8–12"), "rir": x.get("rir", "1–2"), "rest": x.get("rest", "2 min"), "load": float(x.get("load", 0) or 0), "technique": x.get("technique", "Straight Sets"), "technique_id": x.get("technique_id", "straight"), "note": x.get("note", "")} for x in s.get("exercises", [])]})
-        return {"name": custom.get("name", "Programa personalizado"), "week": custom.get("week", "Microciclo manual"), "session": sessions[0]["label"] if sessions else "Sessão", "duration": f"{custom.get('session_minutes', profile.get('session_minutes', 60))} min", "focus": priorities[:3], "sessions": sessions, "logic": {"split": "Programa manual (Program Builder Pro)", "days": len(sessions), "priority_scores": {m: score_priority(profile, m) for m in priorities}, "recovery_modifier": 1, "mode": profile.get("automation_mode", "FORGE_PRO"), "manual": True}}
-    days = max(1, min(7, int(profile.get("days", 3))))
-    priorities = profile.get("priorities") or ["Deltóide lateral"]
-    experience = profile.get("experience", "Intermediário")
-    split = choose_split(days, experience, priorities)
-    recovery = profile.get("recovery", {}) or {}
-    sleep = float(recovery.get("sleep_hours", 7) or 7)
-    volume_factor = 0.82 if sleep < 6 or recovery.get("stress") in [4, 5] else 1
-    pid = profile.get("id")
-    if pid:
-        recent_sets = await db.set_logs.find({"profile_id": pid}).sort("created_at", -1).to_list(100)
-        if len(recent_sets) >= 10:
-            wk_ago = (datetime.now(timezone.utc) - timedelta(days=7)).strftime("%Y-%m-%d")
-            this_week = [float(s.get("weight", 0)) for s in recent_sets if s["created_at"][:10] >= wk_ago]
-            last_week = [float(s.get("weight", 0)) for s in recent_sets if s["created_at"][:10] < wk_ago]
-            if this_week and last_week and (sum(this_week)/len(this_week)) < (sum(last_week)/max(1,len(last_week))) * 0.88:
-                volume_factor = min(volume_factor, 0.70)
-    names = ["Upper Priority", "Lower", "Pull", "Push", "Legs", "Delts + Arms", "Specialization"]
-    templates = ["incline-smith", "lat-pulldown", "lateral-raise", "row"]
-    sessions = []
-    for index in range(days):
-        demand = "HIGH" if index % 3 == 0 else ("LOW" if days == 7 and index % 3 == 2 else "MODERATE")
-        count = 2 if demand == "LOW" else 3
-        exercise_ids = templates[index % len(templates):] + templates[:index % len(templates)]
-        items = []
-        for exercise_id in exercise_ids[:count]:
-            ex = next(x for x in EXERCISES if x["id"] == exercise_id)
-            sets = max(2, round((4 if ex["muscle"] in priorities else 3) * volume_factor))
-            items.append({"exercise_id": exercise_id, "sets": sets, "reps": "6–10" if demand == "HIGH" else "10–20", "rir": "1–2" if demand != "LOW" else "2–3", "rest": "3 min" if demand == "HIGH" else "90 s", "load": next((b.get("weight", 0) for b in profile.get("baseline", []) if b.get("exercise_id") == exercise_id), 0), "technique": "Straight Sets", "technique_id": "straight"})
-        sessions.append({"day": index + 1, "label": names[index % len(names)], "demand": demand, "focus": priorities[:2], "exercises": items})
-    return {"name": split, "week": "Microciclo adaptativo", "session": sessions[0]["label"] if sessions else "Sessão", "duration": f"{profile.get('session_minutes', 60)} min", "focus": priorities[:3], "sessions": sessions, "logic": {"split": split, "days": days, "priority_scores": {m: score_priority(profile, m) for m in priorities}, "recovery_modifier": volume_factor, "mode": profile.get("automation_mode", "FORGE_ASSISTED"), "manual": False}}
+    return await build_program_v2(profile, db)
 
 
 def _is_empty_profile(stored: dict) -> bool:
-    has_assessment = bool(stored.get("assessment"))
-    has_priorities = bool(stored.get("priorities"))
-    return not has_assessment and not has_priorities
+    return engine_is_empty_profile(stored)
 
 
 async def load_profile(profile_id: str) -> Dict[str, Any]:
@@ -611,6 +571,7 @@ async def coach(payload: Dict[str, Any], user=Depends(get_current_user)):
 
 app.include_router(auth_router)
 app.include_router(admin_router)
+app.include_router(nutrition_router)
 app.include_router(api)
 app.add_middleware(CORSMiddleware, allow_credentials=True, allow_origins=os.environ.get("CORS_ORIGINS", "*").split(","), allow_methods=["*"], allow_headers=["*"])
 

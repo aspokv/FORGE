@@ -1,0 +1,293 @@
+import { useEffect, useMemo, useRef, useState } from "react";
+import axios from "axios";
+import { ChevronRight, RefreshCw, Check, X, Utensils } from "lucide-react";
+
+export default function Nutrition({ API, profileId, db }) {
+  const [step, setStep] = useState("loading");
+  const [plan, setPlan] = useState(null);
+  const [targets, setTargets] = useState(null);
+  const [form, setForm] = useState({
+    weight_kg: "", height_cm: "", age: "", sex: "male",
+    goal: "maintenance", activity_level: "moderate", training_days: 3,
+    meal_count: 4, training_time: "", preferred_foods: [], disliked_foods: [],
+    avoid_foods: [], allergies: [], dietary_restrictions: [], cooking_time: "medium"
+  });
+  const [genStep, setGenStep] = useState(1);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [mealStatus, setMealStatus] = useState({});
+  const [subResult, setSubResult] = useState(null);
+
+  useEffect(() => {
+    axios.get(`${API}/nutrition/plan`).then(r => {
+      setPlan(r.data); setTargets(r.data.targets || r.data.daily_totals); setStep("plan");
+      axios.get(`${API}/nutrition/adherence/${new Date().toISOString().slice(0,10)}`).then(r2 => {
+        const m = {}; r2.data.meals.forEach(x => m[x.meal_index] = x.status);
+        setMealStatus(m);
+      }).catch(() => {});
+    }).catch(() => {
+      axios.get(`${API}/nutrition/assessment`).catch(() => setStep("assessment")).finally(() => {
+        if (step === "loading") setStep("assessment");
+      });
+    });
+  }, []);
+
+  const submitAssessment = async () => {
+    setBusy(true); setError("");
+    try {
+      await axios.post(`${API}/nutrition/assessment`, {
+        ...form,
+        weight_kg: Number(form.weight_kg), height_cm: Number(form.height_cm),
+        age: Number(form.age), training_days: Number(form.training_days),
+        meal_count: Number(form.meal_count),
+        // backend expects lists: the restriction select yields a single string, and the
+        // allergies field is free text meant to be split on commas.
+        dietary_restrictions: form.dietary_restrictions ? [form.dietary_restrictions] : [],
+        allergies: typeof form.allergies === "string"
+          ? form.allergies.split(",").map(s => s.trim()).filter(Boolean)
+          : (form.allergies || [])
+      });
+      const r = await axios.post(`${API}/nutrition/generate`);
+      setPlan(r.data.plan); setTargets(r.data.targets); setStep("plan");
+    } catch (e) {
+      // FastAPI validation errors (422) return detail as an array of error objects,
+      // not a string — rendering that array directly crashes React.
+      const detail = e.response?.data?.detail;
+      const message = typeof detail === "string" ? detail
+        : Array.isArray(detail) ? detail.map(d => d.msg || JSON.stringify(d)).join("; ")
+        : "Erro ao salvar";
+      setError(message);
+    } finally { setBusy(false); }
+  };
+
+  const regenerate = async () => {
+    setBusy(true); setError("");
+    try {
+      const r = await axios.post(`${API}/nutrition/generate`);
+      setPlan(r.data.plan); setTargets(r.data.targets);
+    } catch (e) { setError("Não foi possível regenerar o plano agora."); }
+    finally { setBusy(false); }
+  };
+
+  const markMeal = async (idx, status) => {
+    try {
+      await axios.post(`${API}/nutrition/meal-status`, { meal_index: idx, status });
+      setMealStatus(s => ({ ...s, [idx]: status }));
+    } catch { setError("Não foi possível registrar a refeição."); }
+  };
+
+  const doSubstitute = async (mealIdx, foodId) => {
+    setBusy(true); setError("");
+    setSubResult(subResult?.mealIdx === mealIdx && subResult?.foodId === foodId ? null : { mealIdx, foodId, options: [], loading: true });
+    if (subResult?.mealIdx === mealIdx && subResult?.foodId === foodId) { setBusy(false); return; }
+    try {
+      const r = await axios.post(`${API}/nutrition/substitute`, { meal_index: mealIdx, food_id: foodId });
+      setSubResult({ mealIdx, foodId, options: r.data.options || [] });
+    } catch (e) { setError("Substituição indisponível agora."); setSubResult(null); }
+    finally { setBusy(false); }
+  };
+
+  const applySub = async (mi, oid, sid) => {
+    setBusy(true); setError("");
+    try {
+      // Backend re-validates and persists the substitution; it returns the updated plan
+      // as the source of truth — the frontend never computes macros/equivalence itself.
+      const r = await axios.post(`${API}/nutrition/substitute`, { meal_index: mi, food_id: oid, substitute_food_id: sid });
+      setPlan(r.data.plan);
+      setSubResult(null);
+    } catch (e) {
+      setError("Não foi possível aplicar a substituição agora.");
+    } finally { setBusy(false); }
+  };
+
+  const formRef = useRef(form);
+  formRef.current = form;
+  const F = useMemo(() => ({ label, k, type = "text", opts }) => (
+    <label className="deep-field">
+      <span>{label}</span>
+      {opts ? <select value={formRef.current[k]} onChange={e => setForm(s => ({ ...s, [k]: e.target.value }))}>
+        {opts.map(o => <option key={o.v ?? o} value={o.v ?? o}>{o.l ?? o.v ?? o}</option>)}
+      </select> : <input type={type} inputMode={type === "number" ? "decimal" : undefined} value={formRef.current[k]} onChange={e => setForm(s => ({ ...s, [k]: e.target.value }))} />}
+    </label>
+  ), []);
+
+  if (step === "loading") return (
+    <div className="content">
+      <div className="skeleton-block" style={{ height: 88 }} />
+      <div className="skeleton-grid">
+        <div className="skeleton-block" /><div className="skeleton-block" />
+      </div>
+      <div className="skeleton-block" style={{ height: 160, marginTop: 16 }} />
+    </div>
+  );
+
+  if (step === "assessment") {
+    return (
+      <div className="content">
+        <div className="onboarding deep-scene" style={{ maxWidth: 760 }}>
+          <p className="eyebrow">NUTRIÇÃO / AVALIAÇÃO</p>
+          <h2>Conhecer sua alimentação</h2>
+          <p className="muted">Etapa {genStep} de 5</p>
+          <div className="onboard-progress" style={{ margin: "10px 0 20px" }}><b style={{ width: `${genStep / 5 * 100}%` }} /></div>
+
+          {genStep === 1 && <>
+            <div className="field-grid">
+              <F label="Peso (kg)" k="weight_kg" type="number" />
+              <F label="Altura (cm)" k="height_cm" type="number" />
+              <F label="Idade" k="age" type="number" />
+              <F label="Sexo" k="sex" opts={[{ v: "male", l: "Masculino" }, { v: "female", l: "Feminino" }]} />
+            </div>
+            <F label="Objetivo" k="goal" opts={[
+              { v: "fat_loss", l: "Perda de gordura" },
+              { v: "maintenance", l: "Manutenção" },
+              { v: "muscle_gain", l: "Ganho de massa" }
+            ]} />
+          </>}
+          {genStep === 2 && <>
+            <F label="Nível de atividade" k="activity_level" opts={[
+              { v: "sedentary", l: "Sedentário" }, { v: "light", l: "Leve" },
+              { v: "moderate", l: "Moderado" }, { v: "active", l: "Ativo" }, { v: "very_active", l: "Muito ativo" }
+            ]} />
+            <F label="Dias de treino" k="training_days" type="number" />
+            <F label="Horário de treino" k="training_time" opts={[
+              { v: "", l: "Sem horário fixo" }, { v: "morning", l: "Manhã" },
+              { v: "afternoon", l: "Tarde" }, { v: "evening", l: "Noite" }
+            ]} />
+          </>}
+          {genStep === 3 && <>
+            <F label="Tempo para cozinhar" k="cooking_time" opts={[
+              { v: "low", l: "Pouco" }, { v: "medium", l: "Médio" }, { v: "high", l: "Bastante" }
+            ]} />
+            <F label="Número de refeições" k="meal_count" opts={[{v:3},{v:4},{v:5},{v:6}]} />
+          </>}
+          {genStep === 4 && <>
+            <p className="muted">Preferências alimentares (opcional)</p>
+            <F label="Alergias (separar por vírgula)" k="allergies" />
+            <F label="Restrições" k="dietary_restrictions" opts={[
+              { v: "", l: "Nenhuma" }, { v: "vegetarian", l: "Vegetariano" },
+              { v: "lactose_free", l: "Sem lactose" }, { v: "gluten_free", l: "Sem glúten" }
+            ]} />
+          </>}
+          {genStep === 5 && <div className="review-summary">
+            <div><b>{form.weight_kg || "?"}</b><span>kg</span></div>
+            <div><b>{form.goal === "fat_loss" ? "Déficit" : form.goal === "muscle_gain" ? "Superávit" : "Manutenção"}</b><span>objetivo</span></div>
+            <div><b>{form.meal_count}</b><span>refeições</span></div>
+          </div>}
+
+          {error && <div className="auth-error">{error}</div>}
+          <div className="deep-actions" style={{ marginTop: 24 }}>
+            {genStep > 1 && <button className="secondary-button" onClick={() => setGenStep(s => s - 1)}>Voltar</button>}
+            {genStep < 5 ? <button className="primary-button" onClick={() => setGenStep(s => s + 1)}>Continuar <ChevronRight size={18} /></button>
+              : <button className="primary-button" onClick={submitAssessment} disabled={busy}>
+                {busy ? "Gerando..." : "Gerar plano"} <ChevronRight size={18} />
+              </button>}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Plan view
+  const t = targets || {};
+  const meals = plan?.meals || [];
+  return (
+    <div className="content nutrition-page">
+      <div className="section-intro">
+        <p className="eyebrow">NUTRIÇÃO</p>
+        <h2>Seu plano alimentar</h2>
+      </div>
+
+      <section className="macro-strip">
+        <div><span>Calorias</span><b>{Math.round(t.goal_calories || 0)}<small>kcal</small></b></div>
+        <div><span>Proteína</span><b>{Math.round(t.protein_g || 0)}<small>g</small></b></div>
+        <div><span>Carbo</span><b>{Math.round(t.carbs_g || 0)}<small>g</small></b></div>
+        <div><span>Gordura</span><b>{Math.round(t.fat_g || 0)}<small>g</small></b></div>
+      </section>
+
+      {error && <div className="auth-error" style={{ marginTop: 14 }}>{error}</div>}
+
+      {meals.length === 0 && (
+        <div className="empty-state" data-testid="nutrition-empty-state">
+          <Utensils size={22} />
+          <h3>Nenhuma refeição no plano</h3>
+          <p className="muted">Regenere o plano para montar suas refeições de hoje.</p>
+        </div>
+      )}
+
+      {meals.map((meal, i) => {
+        const status = mealStatus[i];
+        return (
+          <section className={status === "completed" ? "meal-card done" : "meal-card"} key={i}>
+            <div className="meal-head">
+              <div>
+                <p className="eyebrow">{meal.name}</p>
+                <h3>{Math.round(meal.target_cal || 0)} kcal</h3>
+              </div>
+              <div className="meal-status">
+                <button
+                  className={status === "completed" ? "meal-status-btn active-ok" : "meal-status-btn"}
+                  aria-label={`Concluir ${meal.name}`}
+                  data-testid={`meal-complete-${i}`}
+                  onClick={() => markMeal(i, "completed")}>
+                  <Check size={16} />
+                </button>
+                <button
+                  className={status === "skipped" ? "meal-status-btn active-skip" : "meal-status-btn"}
+                  aria-label={`Pular ${meal.name}`}
+                  data-testid={`meal-skip-${i}`}
+                  onClick={() => markMeal(i, "skipped")}>
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
+
+            <div className="food-list">
+              {meal.foods?.map((item, j) => {
+                const f = item.food || {};
+                const open = subResult?.mealIdx === i && subResult?.foodId === item.food_id;
+                return (
+                  <div className="food-row" key={j}>
+                    <div className="food-row-main">
+                      <div className="food-row-info">
+                        <b>{f.name || item.food_id}</b>
+                        <span className="muted">{item.grams}g · {Math.round(f.kcal || 0)} kcal</span>
+                      </div>
+                      <button className="food-sub-btn" data-testid={`substitute-${i}-${item.food_id}`} onClick={() => doSubstitute(i, item.food_id)}>
+                        <RefreshCw size={13} /> Substituir
+                      </button>
+                    </div>
+                    {open && (
+                      <div className="substitute-panel" data-testid={`substitute-panel-${i}-${item.food_id}`}>
+                        <p className="eyebrow">SUBSTITUIR · {f.name || item.food_id} — {item.grams}g</p>
+                        {subResult.loading ? (
+                          <p className="muted" style={{ fontSize: 12 }}>Buscando opções...</p>
+                        ) : (subResult.options || []).length > 0 ? (
+                          <div className="substitute-options">
+                            {subResult.options.map((opt, k) => (
+                              <button key={k} className="substitute-option" disabled={busy} onClick={() => applySub(i, item.food_id, opt.food_id)}>
+                                <span>{opt.food?.name || opt.food_id}</span>
+                                <b>{opt.grams}g</b>
+                              </button>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="muted" style={{ fontSize: 12 }}>Nenhuma substituição disponível para este alimento agora.</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        );
+      })}
+
+      <div className="action-row" style={{ marginTop: 24 }}>
+        <button className="secondary-button" onClick={regenerate} disabled={busy}>
+          <RefreshCw size={15} /> {busy ? "Regenerando..." : "Regenerar plano"}
+        </button>
+      </div>
+    </div>
+  );
+}
