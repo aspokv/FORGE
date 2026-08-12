@@ -54,13 +54,70 @@ FORGE_COACH_METHODOLOGY = {
         "lunch": ["potato","sweet-potato","cassava","rice-white","rice-brown"],
         "dinner": ["potato","sweet-potato","cassava","rice-white","rice-brown"],
         "snack": ["oats","tapioca","rice-flour","banana","papaya","sweet-potato"],
+        "pre_workout": ["banana","oats","tapioca","rice-white","sweet-potato"],
+        "post_workout": ["rice-white","potato","sweet-potato","tapioca","banana"],
     },
     "methodology_exclude_default": ["bread-whole","bread-white","pasta","pasta-whole"],
     "satiety_weight_by_goal": {"fat_loss": 3.0, "maintenance": 1.0, "muscle_gain": 0.3},
     "satiety_bonus": {"HIGH": 20, "MEDIUM": 10, "LOW": 0},
     "meal_role_scores": {"primary_protein": 50, "primary_carb": 40, "vegetable": 20,
-                         "fruit": 15, "dairy": 15, "fat_source": 12, "legume": 10, "recipe_component": 0},
+                         "fruit": 15, "dairy": 15, "fat_source": 12, "legume": 10,
+                         "secondary_protein": 8, "recipe_component": 0},
     "max_same_protein_per_day": 2,
+    # A food's own comfortable/hard_max (foods.json) always wins when present; these are
+    # only the fallback for a food that somehow lacks per-food values.
+    "portion_fallback_multiplier": {"comfortable": 1.0, "hard_max": 1.3},
+    # A real food item rarely lands below this many kcal (a 50g floor portion of almost
+    # anything already clears it). Used to cap how many *optional* template roles a small
+    # meal can afford before each one's minimum floor starts summing past the meal's own
+    # target_cal — the mechanism that produced 4-item 137kcal pre-workout snacks.
+    "min_kcal_per_meal_item": 90,
+}
+
+# REAL_MEAL_COMPOSITION — explicit archetypes per meal, so a meal is built from a small
+# set of culinarily coherent roles instead of a solver free to inflate whichever single
+# food closes the macro fastest. "required" roles must be filled when candidates exist;
+# optional roles fill in only when they earn their place (variety, protein-compound need,
+# or leftover calorie budget) — see generate_meal() / _needs_secondary_protein().
+MEAL_TEMPLATES = {
+    "breakfast": [
+        {"role": "primary_protein", "category": "PROTEIN", "required": True},
+        {"role": "secondary_protein", "category": "PROTEIN", "required": False},
+        {"role": "primary_carb", "category": "CARBOHYDRATE", "required": True},
+        {"role": "fruit", "category": "FRUIT", "required": False},
+        {"role": "fat_source", "category": "FAT", "required": False},
+    ],
+    "lunch": [
+        {"role": "primary_protein", "category": "PROTEIN", "required": True},
+        {"role": "primary_carb", "category": "CARBOHYDRATE", "required": True},
+        {"role": "vegetable", "category": "VEGETABLE", "required": True},
+        {"role": "legume", "category": "LEGUME", "required": False},
+        {"role": "fat_source", "category": "FAT", "required": False},
+    ],
+    "dinner": [
+        {"role": "primary_protein", "category": "PROTEIN", "required": True},
+        {"role": "primary_carb", "category": "CARBOHYDRATE", "required": True},
+        {"role": "vegetable", "category": "VEGETABLE", "required": True},
+        {"role": "legume", "category": "LEGUME", "required": False},
+        {"role": "fat_source", "category": "FAT", "required": False},
+    ],
+    "snack": [
+        {"role": "primary_protein", "category": "PROTEIN", "required": True},
+        {"role": "secondary_protein", "category": "PROTEIN", "required": False},
+        {"role": "primary_carb", "category": "CARBOHYDRATE", "required": False},
+        {"role": "fruit", "category": "FRUIT", "required": False},
+    ],
+    "pre_workout": [
+        {"role": "primary_carb", "category": "CARBOHYDRATE", "required": True},
+        {"role": "fruit", "category": "FRUIT", "required": False},
+        {"role": "primary_protein", "category": "PROTEIN", "required": False},
+    ],
+    "post_workout": [
+        {"role": "primary_protein", "category": "PROTEIN", "required": True},
+        {"role": "secondary_protein", "category": "PROTEIN", "required": False},
+        {"role": "primary_carb", "category": "CARBOHYDRATE", "required": True},
+        {"role": "fruit", "category": "FRUIT", "required": False},
+    ],
 }
 
 SUB_GROUPS = {
@@ -107,6 +164,49 @@ ALLERGY_EXCLUDE_IDS = {
     "fish": {"tilapia", "salmon", "tuna-can"},
     "shellfish": set(),
 }
+
+# A primary protein this dense of a partner works with, when the meal's protein target
+# outgrows what the primary can comfortably deliver alone (item 4 — protein composta).
+SECONDARY_PROTEIN_PAIRS = {
+    "eggs-whole": ["egg-whites"], "egg-whites": ["eggs-whole"],
+    "chicken-breast": ["whey-protein", "cheese-cottage"],
+    "tilapia": ["whey-protein"], "salmon": ["whey-protein"],
+    "beef-grill": ["whey-protein"], "beef-ground": ["whey-protein"],
+    "pork-loin": ["whey-protein"], "chicken-thigh": ["whey-protein"],
+    "tuna-can": ["whey-protein", "cheese-cottage"],
+    "tofu": ["whey-protein", "soy-protein"], "oats": ["whey-protein", "yogurt-greek"],
+    "tapioca": ["whey-protein"], "rice-white": ["whey-protein"],
+    "sweet-potato": ["whey-protein"], "potato": ["whey-protein"],
+    "banana": ["whey-protein", "yogurt-greek"],
+}
+
+
+def _portion_limit(food, kind):
+    """Per-food comfortable/hard_max (real serving ceilings, item 3) with a category-based
+    fallback only for a food that somehow lacks its own values — no duplicated magic
+    numbers, the fallback multiplier itself lives in FORGE_COACH_METHODOLOGY."""
+    key = "comfortable_portion_g" if kind == "comfortable" else "hard_max_portion_g"
+    val = food.get(key)
+    if val:
+        return val
+    lo, hi = FORGE_COACH_METHODOLOGY["portion_limits"].get(food.get("category", "PROTEIN"), [50, 250])
+    mult = FORGE_COACH_METHODOLOGY["portion_fallback_multiplier"][kind]
+    return hi * mult if kind == "hard_max" else hi * FORGE_COACH_METHODOLOGY["portion_fallback_multiplier"]["comfortable"]
+
+
+def _needs_secondary_protein(primary_fid, target_protein):
+    """True when the primary alone would have to blow past its comfortable portion to
+    hit the meal's protein target — the exact condition that produced 300g+ egg-white
+    breakfasts. A small 5% slack avoids recruiting a helper for a marginal shortfall."""
+    f = FOOD_INDEX.get(primary_fid)
+    if not f or target_protein <= 0:
+        return False
+    ppg = f.get("protein_g", 0) / max(1, f.get("grams", 100))
+    if ppg <= 0:
+        return False
+    max_protein_alone = _portion_limit(f, "comfortable") * ppg
+    return target_protein > max_protein_alone * 1.05
+
 
 def _goal_key(goal):
     gl = (goal or "").lower()
@@ -217,7 +317,11 @@ def select_food_for_slot(candidates, role, meal_type, pn, used_ids, goal="mainte
 def calculate_meal_portions(food_ids, target_cal, target_protein, target_fat=0, goal="maintenance"):
     """Size the primary_protein and fat_source foods directly from their macro targets
     first (so the meal actually converges on target_protein/target_fat), then split the
-    remaining calorie budget evenly across the rest, as before."""
+    remaining calorie budget across the rest. REAL_MEAL_COMPOSITION (item 3): every food
+    is capped at its own comfortable_portion_g first; only if the meal's macro math still
+    needs more does a food get pushed toward hard_max_portion_g — which it may never
+    cross. A primary_protein short of its target after comfortable prefers handing the
+    remainder to a secondary_protein (item 4) over inflating itself past comfortable."""
     portions = {}
     if not food_ids: return portions
     remaining_cal = target_cal
@@ -227,13 +331,20 @@ def calculate_meal_portions(food_ids, target_cal, target_protein, target_fat=0, 
 
     protein_fid = next((fid for fid in food_ids
                          if "primary_protein" in FOOD_INDEX.get(fid, {}).get("roles", [])), None)
+    secondary_fid = next((fid for fid in food_ids
+                           if fid != protein_fid and "secondary_protein" in FOOD_INDEX.get(fid, {}).get("roles", [])), None)
     if protein_fid and target_protein > 0:
         f = FOOD_INDEX.get(protein_fid, {})
         ppg = f.get("protein_g", 0) / max(1, f.get("grams", 100))
         if ppg > 0:
-            grams = target_protein / ppg
-            lo, hi = FORGE_COACH_METHODOLOGY["portion_limits"].get(f.get("category", "PROTEIN"), [50, 250])
-            grams = max(lo, min(hi, round(grams, -1)))
+            comfortable = _portion_limit(f, "comfortable")
+            hard_max = _portion_limit(f, "hard_max")
+            lo, _ = FORGE_COACH_METHODOLOGY["portion_limits"].get(f.get("category", "PROTEIN"), [50, 250])
+            # without a secondary to hand the remainder to, the primary is allowed up to
+            # hard_max so the protein target isn't silently abandoned; with a secondary
+            # present, the primary stops at comfortable and the secondary covers the rest.
+            cap = hard_max if not secondary_fid else comfortable
+            grams = max(lo, min(cap, round(target_protein / ppg, -1)))
             cpg = f.get("kcal", 100) / max(1, f.get("grams", 100))
             max_kcal = target_cal * kcal_cap["primary_protein"]
             if cpg > 0 and grams * cpg > max_kcal:
@@ -242,15 +353,35 @@ def calculate_meal_portions(food_ids, target_cal, target_protein, target_fat=0, 
             sized.add(protein_fid)
             remaining_cal -= grams * cpg
 
+            if secondary_fid:
+                delivered = grams * ppg
+                protein_gap = max(0, target_protein - delivered)
+                sf = FOOD_INDEX.get(secondary_fid, {})
+                spg = sf.get("protein_g", 0) / max(1, sf.get("grams", 100))
+                if spg > 0 and protein_gap > 0:
+                    s_lo, _ = FORGE_COACH_METHODOLOGY["portion_limits"].get(sf.get("category", "PROTEIN"), [20, 100])
+                    s_comfortable = _portion_limit(sf, "comfortable")
+                    s_hard_max = _portion_limit(sf, "hard_max")
+                    s_grams = max(s_lo, min(s_hard_max, round(protein_gap / spg, -1)))
+                    if s_grams > s_comfortable:
+                        s_grams = s_comfortable  # never blow the helper's own comfortable either
+                    s_cpg = sf.get("kcal", 100) / max(1, sf.get("grams", 100))
+                    portions[secondary_fid] = s_grams
+                    sized.add(secondary_fid)
+                    remaining_cal -= s_grams * s_cpg
+                else:
+                    portions[secondary_fid] = s_lo if spg <= 0 else 0
+                    sized.add(secondary_fid)
+
     fat_fid = next((fid for fid in food_ids
                      if fid not in sized and "fat_source" in FOOD_INDEX.get(fid, {}).get("roles", [])), None)
     if fat_fid and target_fat > 0:
         f = FOOD_INDEX.get(fat_fid, {})
         fpg = f.get("fat_g", 0) / max(1, f.get("grams", 100))
         if fpg > 0:
-            grams = target_fat / fpg
-            lo, hi = FORGE_COACH_METHODOLOGY["portion_limits"].get(f.get("category", "FAT"), [5, 40])
-            grams = max(lo, min(hi, round(grams, -1)))
+            hard_max = _portion_limit(f, "hard_max")
+            lo, _ = FORGE_COACH_METHODOLOGY["portion_limits"].get(f.get("category", "FAT"), [5, 40])
+            grams = max(lo, min(hard_max, round(target_fat / fpg, -1)))
             cpg = f.get("kcal", 100) / max(1, f.get("grams", 100))
             max_kcal = target_cal * kcal_cap["fat_source"]
             if cpg > 0 and grams * cpg > max_kcal:
@@ -269,13 +400,37 @@ def calculate_meal_portions(food_ids, target_cal, target_protein, target_fat=0, 
     weights = {fid: (veg_weight if FOOD_INDEX.get(fid, {}).get("category") == "VEGETABLE" else 1.0)
                for fid in remaining_ids}
     total_w = sum(weights.values()) or 1
+
+    # Pass 1: every item capped at its own comfortable_portion_g.
+    comfortable_grams = {}
     for fid in remaining_ids:
         f = FOOD_INDEX.get(fid, {})
         share = remaining_cal * (weights[fid] / total_w)
-        cpg = f.get("kcal",100)/max(1,f.get("grams",100))
-        grams = share/max(0.1,cpg) if cpg>0 else 100
-        lo,hi = FORGE_COACH_METHODOLOGY["portion_limits"].get(f.get("category","PROTEIN"),[50,250])
-        portions[fid] = max(lo, min(hi, round(grams,-1)))
+        cpg = f.get("kcal", 100) / max(1, f.get("grams", 100))
+        lo, _ = FORGE_COACH_METHODOLOGY["portion_limits"].get(f.get("category", "PROTEIN"), [50, 250])
+        comfortable_cap = _portion_limit(f, "comfortable")
+        grams = share / max(0.1, cpg) if cpg > 0 else 100
+        comfortable_grams[fid] = max(lo, min(comfortable_cap, round(grams, -1)))
+
+    # Pass 2: if the comfortable-capped set can't absorb the remaining calorie budget,
+    # scale the shortfall across items that still have room up to their hard_max_portion_g
+    # — never beyond it. This is what replaces blindly inflating a single food.
+    absorbed = sum(comfortable_grams[fid] * (FOOD_INDEX.get(fid, {}).get("kcal", 100) / max(1, FOOD_INDEX.get(fid, {}).get("grams", 100))) for fid in remaining_ids)
+    shortfall = remaining_cal - absorbed
+    if shortfall > 20 and remaining_ids:
+        room_ids = [fid for fid in remaining_ids
+                    if comfortable_grams[fid] < _portion_limit(FOOD_INDEX.get(fid, {}), "hard_max")]
+        room_w = sum(weights[fid] for fid in room_ids) or 1
+        for fid in room_ids:
+            f = FOOD_INDEX.get(fid, {})
+            cpg = f.get("kcal", 100) / max(1, f.get("grams", 100))
+            extra_cal = shortfall * (weights[fid] / room_w)
+            extra_grams = extra_cal / max(0.1, cpg) if cpg > 0 else 0
+            hard_max = _portion_limit(f, "hard_max")
+            comfortable_grams[fid] = min(hard_max, round(comfortable_grams[fid] + extra_grams, -1))
+
+    for fid in remaining_ids:
+        portions[fid] = comfortable_grams[fid]
     return portions
 
 def _food_macros(fid, grams):
@@ -290,29 +445,35 @@ def _meal_totals(meal):
         k+=mk; p+=mp; c+=mc; f+=mf
     return k,p,c,f
 
+def _infer_meal_type(meal_name):
+    tn = meal_name.lower()
+    if "pre" in tn and "trein" in tn: return "pre_workout"
+    if "pos" in tn and "trein" in tn: return "post_workout"
+    if "cafe" in tn or "manha" in tn: return "breakfast"
+    if "lanche" in tn or "tarde" in tn or "snack" in tn: return "snack"
+    if "jantar" in tn: return "dinner"
+    return "lunch"
+
+
 def generate_meal(meal_name, meal_type, target_cal, target_protein, target_fat,
                   pn, used_food_ids, goal="maintenance", daily_used_proteins=None,
                   day_index=0, is_later_meal=False):
-    tn = meal_name.lower(); mt = "lunch"
-    if "cafe" in tn or "manha" in tn: mt = "breakfast"
-    elif "lanche" in tn or "tarde" in tn or "snack" in tn: mt = "snack"
-    elif "jantar" in tn: mt = "dinner"
-    elif "pre" in tn or "pos" in tn: mt = "snack"
+    mt = _infer_meal_type(meal_name)
 
-    total_roles = []
-    if mt in ("lunch","dinner"):
-        total_roles = [("primary_protein","PROTEIN"),("primary_carb","CARBOHYDRATE"),
-                       ("vegetable","VEGETABLE"),("legume","LEGUME"),("fat_source","FAT")]
-        # Cutting: a second vegetable (like a real plate — main veg + salad) adds
-        # near-free volume/satiety without meaningfully spending the calorie budget.
-        if _goal_key(goal) == "fat_loss":
-            total_roles.append(("vegetable","VEGETABLE"))
-    elif mt == "breakfast":
-        total_roles = [("primary_protein","PROTEIN"),("primary_carb","CARBOHYDRATE"),
-                       ("fruit","FRUIT"),("fat_source","FAT")]
-    else:
-        total_roles = [("primary_protein","PROTEIN"),("primary_carb","CARBOHYDRATE"),
-                       ("fruit","FRUIT")]
+    # REAL_MEAL_COMPOSITION: build from the named archetype for this meal type instead of
+    # an ad-hoc role list, so every meal stays a small, culinarily coherent set of roles.
+    template = MEAL_TEMPLATES.get(mt, MEAL_TEMPLATES["lunch"])
+    total_roles = [(r["role"], r["category"], r.get("required", False)) for r in template]
+    # Cutting: a second vegetable (like a real plate — main veg + salad) adds
+    # near-free volume/satiety without meaningfully spending the calorie budget.
+    if mt in ("lunch", "dinner") and _goal_key(goal) == "fat_loss":
+        total_roles.append(("vegetable", "VEGETABLE", True))
+
+    # Optional roles only earn their place when the meal's own budget can actually
+    # afford another item — a required role is always attempted regardless of count.
+    n_required = sum(1 for _, _, req in total_roles if req)
+    min_item_kcal = FORGE_COACH_METHODOLOGY.get("min_kcal_per_meal_item", 90)
+    max_items = max(n_required, int(target_cal // min_item_kcal)) if target_cal > 0 else n_required
 
     ctx = FORGE_COACH_METHODOLOGY.get("carb_meal_context",{}).get(mt,[])
     exclude = set(FORGE_COACH_METHODOLOGY.get("methodology_exclude_default",[]))
@@ -324,8 +485,27 @@ def generate_meal(meal_name, meal_type, target_cal, target_protein, target_fat,
     max_same = FORGE_COACH_METHODOLOGY.get("max_same_protein_per_day", 2)
 
     selected = []; mu = set(used_food_ids)
-    for role, cat in total_roles:
+    for role, cat, required in total_roles:
         if role == "fat_source" and target_fat < 5:
+            continue
+        # Optional roles (item 3/6: fewer, more human items on a tight per-meal budget)
+        # only get filled while the meal can still afford another ~min_kcal_per_meal_item
+        # item — secondary_protein is exempt since it's gated by real protein need, not
+        # by "nice to have" (see its own _needs_secondary_protein check below).
+        if not required and role != "secondary_protein" and len(selected) >= max_items:
+            continue
+        if role == "secondary_protein":
+            # Only recruit a protein-compound partner (item 4) when the primary really
+            # can't cover the target within its comfortable portion — never unconditionally.
+            primary_fid = next((s for s in selected if "primary_protein" in FOOD_INDEX.get(s, {}).get("roles", [])), None)
+            if not primary_fid or not _needs_secondary_protein(primary_fid, target_protein):
+                continue
+            pair_ids = set(SECONDARY_PROTEIN_PAIRS.get(primary_fid, []))
+            cands = [c for c in FOODS_BY_ROLE.get(role, []) if c in pair_ids]
+            cands = [c for c in cands if c not in exclude and c not in dislike and c not in mu]
+            fid = select_food_for_slot(cands, role, mt, pn, mu, goal)
+            if fid:
+                selected.append(fid); mu.add(fid)
             continue
         cands = list(FOODS_BY_ROLE.get(role, FOODS_BY_CAT.get(cat, [])))
         cands = [c for c in cands if c not in exclude and c not in dislike]
@@ -390,27 +570,44 @@ def _reconcile_daily(meals, targets, pn, goal, max_iterations=8):
         if abs(cal_gap) < targets["goal_calories"] * 0.03 and abs(fat_gap) < 5:
             break
         protein_room = totals["protein_g"] - min_daily_protein
+        # Shared across every meal this iteration: the fixed per-item step sizes below
+        # are a per-item *ceiling*, but with fewer, larger items per meal (REAL_MEAL_
+        # COMPOSITION's smaller templates) that ceiling summed across every eligible item
+        # in every meal could move far more kcal in one pass than cal_gap actually calls
+        # for, overshooting past the target and oscillating. This budget caps the total
+        # kcal moved this iteration to what's actually needed, converging instead of
+        # bouncing past the guardrail.
+        kcal_budget = abs(cal_gap)
         for m in meals:
             mk, mp, mc, mf = _meal_totals(m)
             if cal_gap < -30:
                 for item in m.get("foods",[]):
+                    if kcal_budget <= 0: break
                     f = FOOD_INDEX.get(item["food_id"],{})
                     if "fat_source" in f.get("roles",[]): continue  # fat has its own dedicated correction below
+                    cpg = f.get("kcal", 100) / max(1, f.get("grams", 100))
                     is_protein = "primary_protein" in f.get("roles",[])
                     is_satiety = f.get("category") in SATIETY_CATS
                     if is_protein:
                         if protein_room <= 0: continue  # never cut protein below the daily guardrail
                         ppg = f.get("protein_g", 0) / max(1, f.get("grams", 100))
                         max_room_grams = (protein_room / ppg) if ppg > 0 else 0
-                        step = round(min(8, item["grams"] - 60, max_room_grams))
-                        if step <= 0: continue
-                        item["grams"] -= step
-                        protein_room -= step * ppg
+                        step = min(8, item["grams"] - 60, max_room_grams)
                     elif is_satiety and satiety_priority:
                         continue  # preserve satiety/volume foods in cutting; shrink dense carbs instead
                     else:
-                        item["grams"] = max(50, item["grams"] - 20)
+                        step = item["grams"] - max(50, item["grams"] - 20)
+                    step = round(min(step, kcal_budget / max(0.1, cpg)))
+                    if step <= 0: continue
+                    item["grams"] -= step
+                    kcal_budget -= step * cpg
+                    if is_protein: protein_room -= step * ppg
             elif cal_gap > 20:
+                # REAL_MEAL_COMPOSITION (item 3): hard_max_portion_g is the true ceiling —
+                # no *1.2 fudge. Grow whichever eligible items are still under their own
+                # comfortable_portion_g first; only once none remain does the pool widen
+                # to items already at/above comfortable (still capped at hard_max).
+                eligible = []
                 for item in m.get("foods",[]):
                     f = FOOD_INDEX.get(item["food_id"],{})
                     if "fat_source" in f.get("roles",[]): continue  # fat has its own dedicated correction below
@@ -418,8 +615,18 @@ def _reconcile_daily(meals, targets, pn, goal, max_iterations=8):
                     is_satiety = f.get("category") in SATIETY_CATS
                     if satiety_priority and not is_satiety and not is_protein:
                         continue  # in cutting, close the remaining gap with volume foods, not dense carbs
-                    lo,hi = FORGE_COACH_METHODOLOGY["portion_limits"].get(f.get("category","PROTEIN"),[50,250])
-                    item["grams"] = min(hi*1.2, item["grams"] + 15)
+                    eligible.append(item)
+                under_comfortable = [it for it in eligible
+                                      if it["grams"] < _portion_limit(FOOD_INDEX.get(it["food_id"],{}), "comfortable")]
+                for item in (under_comfortable or eligible):
+                    if kcal_budget <= 0: break
+                    f = FOOD_INDEX.get(item["food_id"],{})
+                    cpg = f.get("kcal", 100) / max(1, f.get("grams", 100))
+                    hard_max = _portion_limit(f, "hard_max")
+                    step = round(min(15, kcal_budget / max(0.1, cpg)))
+                    if step <= 0: continue
+                    item["grams"] = min(hard_max, item["grams"] + step)
+                    kcal_budget -= step * cpg
 
             # Fat correction runs independently of the overall calorie gap: a meal
             # already close to its calorie target would otherwise leave fat permanently
@@ -429,9 +636,9 @@ def _reconcile_daily(meals, targets, pn, goal, max_iterations=8):
                 bumped = False
                 for item in fat_items:
                     f = FOOD_INDEX.get(item["food_id"],{})
-                    lo,hi = FORGE_COACH_METHODOLOGY["portion_limits"].get(f.get("category","FAT"),[5,40])
-                    if item["grams"] < hi:
-                        item["grams"] = min(hi, item["grams"] + min(8, max(1, round(abs(fat_gap)/6))))
+                    hard_max = _portion_limit(f, "hard_max")
+                    if item["grams"] < hard_max:
+                        item["grams"] = min(hard_max, item["grams"] + min(8, max(1, round(abs(fat_gap)/6))))
                         bumped = True
                 if not bumped:
                     used_ids = [it["food_id"] for it in m.get("foods",[])]
@@ -443,9 +650,10 @@ def _reconcile_daily(meals, targets, pn, goal, max_iterations=8):
                         fid = fat_cands[0]
                         f = FOOD_INDEX.get(fid, {})
                         fpg = f.get("fat_g",0) / max(1, f.get("grams",100))
-                        lo,hi = FORGE_COACH_METHODOLOGY["portion_limits"].get(f.get("category","FAT"),[5,40])
+                        lo,_ = FORGE_COACH_METHODOLOGY["portion_limits"].get(f.get("category","FAT"),[5,40])
+                        hard_max = _portion_limit(f, "hard_max")
                         grams = round(min(abs(fat_gap), 15) / max(0.01, fpg))
-                        m["foods"].append({"food_id": fid, "grams": max(lo, min(hi, grams)), "food": f})
+                        m["foods"].append({"food_id": fid, "grams": max(lo, min(hard_max, grams)), "food": f})
             elif fat_gap < -5:
                 for item in fat_items:
                     item["grams"] = max(3, item["grams"] - 5)
@@ -468,6 +676,8 @@ def generate_daily_plan(targets, pn, meal_count=4, goal="maintenance"):
     pre_reconciliation_totals = sum_plan_totals(meals)
     meals = _reconcile_daily(meals, targets, pn, goal)
     totals = sum_plan_totals(meals)
+    for meal in meals:
+        meal["coherence_score"] = calculate_meal_coherence_score(meal, _infer_meal_type(meal["name"]), goal)
     return {"meals": meals, "daily_totals": totals, "pre_reconciliation_totals": pre_reconciliation_totals,
             "targets": targets, "engine_version": m["engine_version"], "methodology_version": m["coach_version"]}
 
@@ -478,6 +688,59 @@ def sum_plan_totals(meals):
         t["kcal"]+=mk; t["protein_g"]+=mp; t["carbs_g"]+=mc; t["fat_g"]+=mf
     for k in t: t[k] = round(t[k], 1)
     return t
+
+def calculate_meal_coherence_score(meal, meal_type, goal="maintenance"):
+    """0-100 human-plausibility score for a generated meal (item 6). Rewards a normal
+    item count, human portions, and goal-appropriate satiety; penalizes hard the exact
+    failure modes reported in production — an oversized single food, or one food
+    resolving nearly an entire macro alone."""
+    foods = meal.get("foods", [])
+    if not foods:
+        return 0.0
+    score = 100.0
+    n = len(foods)
+
+    if n == 1:
+        score -= 25
+    elif n >= 6:
+        score -= 10 * (n - 5)
+
+    macros = [( _food_macros(it["food_id"], it.get("grams", 0)), it) for it in foods]
+    total_protein = sum(mm[1] for mm, _ in macros)
+    total_carbs = sum(mm[2] for mm, _ in macros)
+
+    for (mk, mp, mc, mf), it in macros:
+        f = FOOD_INDEX.get(it["food_id"], {})
+        g = it.get("grams", 0)
+        comfortable = _portion_limit(f, "comfortable")
+        hard_max = _portion_limit(f, "hard_max")
+        if g > hard_max:
+            score -= 40  # should be structurally unreachable now; scored hard if it ever occurs
+        elif g > comfortable:
+            over_pct = (g - comfortable) / max(1, comfortable)
+            score -= min(20, over_pct * 40)
+
+        # one food resolving almost the entire protein/carb macro alone, while already
+        # past its comfortable size — exactly "resolver todo um macro com um único alimento".
+        if total_protein > 0 and "primary_protein" in f.get("roles", []) and g > comfortable:
+            if mp / total_protein > 0.85:
+                score -= 15
+        if total_carbs > 0 and "primary_carb" in f.get("roles", []) and g > comfortable:
+            if mc / total_carbs > 0.9:
+                score -= 10
+
+    ids = [it["food_id"] for it in foods]
+    if len(set(ids)) < len(ids):
+        score -= 20  # repeated food within the same meal
+
+    gk = _goal_key(goal)
+    if gk == "fat_loss":
+        sat_score = {"HIGH": 3, "MEDIUM": 2, "LOW": 1}
+        avg_sat = sum(sat_score.get(FOOD_INDEX.get(it["food_id"], {}).get("satiety", "MEDIUM"), 2) for it in foods) / n
+        if avg_sat < 2:
+            score -= 10  # cutting meal leaning on low-satiety foods
+
+    return max(0.0, round(score, 1))
 
 def validate_meal(meal, pn, idx):
     w = []; name = meal.get("name",f"M{idx+1}"); foods = meal.get("foods",[])

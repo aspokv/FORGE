@@ -22,7 +22,9 @@
     "satiety": "HIGH",
     "roles": [
       "primary_protein"
-    ]
+    ],
+    "comfortable_portion_g": 200,
+    "hard_max_portion_g": 280
   },
   {
     "id": "eggs-whole",
@@ -44,8 +46,11 @@
     ],
     "satiety": "HIGH",
     "roles": [
-      "primary_protein"
-    ]
+      "primary_protein",
+      "secondary_protein"
+    ],
+    "comfortable_portion_g": 150,
+    "hard_max_portion_g": 200
   },
   {
     "id": "egg-whites",
@@ -67,8 +72,11 @@
     ],
     "satiety": "HIGH",
     "roles": [
-      "primary_protein"
-    ]
+      "primary_protein",
+      "secondary_protein"
+    ],
+    "comfortable_portion_g": 180,
+    "hard_max_portion_g": 240
   },
   {
     "id": "beef-grill",
@@ -92,7 +100,9 @@
     "satiety": "HIGH",
     "roles": [
       "primary_protein"
-    ]
+    ],
+    "comfortable_portion_g": 200,
+    "hard_max_portion_g": 280
   },
   {
     "id": "beef-ground",
@@ -116,7 +126,9 @@
     "satiety": "HIGH",
     "roles": [
       "primary_protein"
-    ]
+    ],
+    "comfortable_portion_g": 180,
+    "hard_max_portion_g": 250
   },
   {
     "id": "tilapia",
@@ -140,7 +152,9 @@
     "satiety": "HIGH",
     "roles": [
       "primary_protein"
-    ]
+    ],
+    "comfortable_portion_g": 200,
+    "hard_max_portion_g": 280
   },
   {
     "id": "salmon",
@@ -164,7 +178,9 @@
     "satiety": "HIGH",
     "roles": [
       "primary_protein"
-    ]
+    ],
+    "comfortable_portion_g": 180,
+    "hard_max_portion_g": 250
   },
   {
     "id": "chicken-thigh",
@@ -188,7 +204,9 @@
     "satiety": "HIGH",
     "roles": [
       "primary_protein"
-    ]
+    ],
+    "comfortable_portion_g": 180,
+    "hard_max_portion_g": 250
   },
   {
     "id": "whey-protein",
@@ -211,8 +229,11 @@
     ],
     "satiety": "LOW",
     "roles": [
-      "recipe_component"
-    ]
+      "recipe_component",
+      "secondary_protein"
+    ],
+    "comfortable_portion_g": 40,
+    "hard_max_portion_g": 60
   },
   {
     "id": "tuna-can",
@@ -238,7 +259,9 @@
     "satiety": "HIGH",
     "roles": [
       "primary_protein"
-    ]
+    ],
+    "comfortable_portion_g": 150,
+    "hard_max_portion_g": 200
   },
   {
     "id": "pork-loin",
@@ -262,7 +285,9 @@
     "satiety": "HIGH",
     "roles": [
       "primary_protein"
-    ]
+    ],
+    "comfortable_portion_g": 200,
+    "hard_max_portion_g": 280
   },
   {
     "id": "rice-white",
@@ -286,7 +311,9 @@
     "satiety": "MEDIUM",
     "roles": [
       "primary_carb"
-    ]
+    ],
+    "comfortable_portion_g": 250,
+    "hard_max_portion_g": 350
   },
   {
     "id": "rice-brown",
@@ -310,7 +337,9 @@
     "satiety": "MEDIUM",
     "roles": [
       "primary_carb"
-    ]
+    ],
+    "comfortable_portion_g": 250,
+    "hard_max_portion_g": 350
   },
   {
     "id": "beans-black",
@@ -338,7 +367,9 @@
     "satiety": "HIGH",
     "roles": [
       "legume"
-    ]
+    ],
+    "comfortable_portion_g": 200,
+    "hard_max_portion_g": 280
   },
   {
     "id": "beans-carioca",
@@ -366,7 +397,9 @@
     "satiety": "HIGH",
     "roles": [
       "legume"
-    ]
+    ],
+    "comfortable_portion_g": 200,
+    "hard_max_portion_g": 280
   },
   {
     "id": "lentils",
@@ -394,7 +427,9 @@
     "satiety": "HIGH",
     "roles": [
       "legume"
-    ]
+    ],
+    "comfortable_portion_g": 200,
+    "hard_max_portion_g": 280
   },
   {
     "id": "chickpeas",
@@ -421,7 +456,9 @@
     "satiety": "HIGH",
     "roles": [
       "legume"
-    ]
+    ],
+    "comfortable_portion_g": 180,
+    "hard_max_portion_g": 250
   },
   {
     "id": "potato",
@@ -447,7 +484,9 @@
     "satiety": "HIGH",
     "roles": [
       "primary_carb"
-    ]
+    ],
+    "comfortable_portion_g": 300,
+    "hard_max_portion_g": 400
   },
   {
     "id": "sweet-potato",
@@ -473,7 +512,9 @@
     "satiety": "HIGH",
     "roles": [
       "primary_carb"
-    ]
+    ],
+    "comfortable_portion_g": 280,
+    "hard_max_portion_g": 380
   },
   {
     "id": "cassava",
@@ -498,7 +539,9 @@
     "satiety": "HIGH",
     "roles": [
       "primary_carb"
-    ]
+    ],
+    "comfortable_portion_g": 250,
+    "hard_max_portion_g": 350
   },
   {
     "id": "pasta",
@@ -522,7 +565,9 @@
     "satiety": "MEDIUM",
     "roles": [
       "primary_carb"
-    ]
+    ],
+    "comfortable_portion_g": 200,
+    "hard_max_portion_g": 280
   },
   {
     "id": "pasta-whole",
@@ -546,7 +591,9 @@
     "satiety": "MEDIUM",
     "roles": [
       "primary_carb"
-    ]
+    ],
+    "comfortable_portion_g": 200,
+    "hard_max_portion_g": 280
   },
   {
     "id": "oats",
@@ -571,7 +618,9 @@
     "satiety": "HIGH",
     "roles": [
       "primary_carb"
-    ]
+    ],
+    "comfortable_portion_g": 80,
+    "hard_max_portion_g": 120
   },
   {
     "id": "bread-whole",
@@ -595,7 +644,9 @@
     "satiety": "LOW",
     "roles": [
       "primary_carb"
-    ]
+    ],
+    "comfortable_portion_g": 100,
+    "hard_max_portion_g": 150
   },
   {
     "id": "bread-white",
@@ -619,7 +670,9 @@
     "satiety": "LOW",
     "roles": [
       "primary_carb"
-    ]
+    ],
+    "comfortable_portion_g": 100,
+    "hard_max_portion_g": 150
   },
   {
     "id": "tapioca",
@@ -645,7 +698,9 @@
     "satiety": "LOW",
     "roles": [
       "primary_carb"
-    ]
+    ],
+    "comfortable_portion_g": 80,
+    "hard_max_portion_g": 120
   },
   {
     "id": "corn-flour",
@@ -671,7 +726,9 @@
     "satiety": "MEDIUM",
     "roles": [
       "primary_carb"
-    ]
+    ],
+    "comfortable_portion_g": 80,
+    "hard_max_portion_g": 120
   },
   {
     "id": "banana",
@@ -698,7 +755,9 @@
     "satiety": "MEDIUM",
     "roles": [
       "fruit"
-    ]
+    ],
+    "comfortable_portion_g": 150,
+    "hard_max_portion_g": 200
   },
   {
     "id": "apple",
@@ -723,7 +782,9 @@
     "satiety": "HIGH",
     "roles": [
       "fruit"
-    ]
+    ],
+    "comfortable_portion_g": 200,
+    "hard_max_portion_g": 280
   },
   {
     "id": "papaya",
@@ -748,7 +809,9 @@
     "satiety": "HIGH",
     "roles": [
       "fruit"
-    ]
+    ],
+    "comfortable_portion_g": 220,
+    "hard_max_portion_g": 300
   },
   {
     "id": "orange",
@@ -772,7 +835,9 @@
     "satiety": "MEDIUM",
     "roles": [
       "fruit"
-    ]
+    ],
+    "comfortable_portion_g": 200,
+    "hard_max_portion_g": 280
   },
   {
     "id": "avocado",
@@ -797,7 +862,9 @@
     "satiety": "HIGH",
     "roles": [
       "fat_source"
-    ]
+    ],
+    "comfortable_portion_g": 100,
+    "hard_max_portion_g": 150
   },
   {
     "id": "olive-oil",
@@ -822,7 +889,9 @@
     "satiety": "LOW",
     "roles": [
       "fat_source"
-    ]
+    ],
+    "comfortable_portion_g": 15,
+    "hard_max_portion_g": 25
   },
   {
     "id": "peanuts",
@@ -847,7 +916,9 @@
     "satiety": "LOW",
     "roles": [
       "fat_source"
-    ]
+    ],
+    "comfortable_portion_g": 40,
+    "hard_max_portion_g": 60
   },
   {
     "id": "brazil-nuts",
@@ -871,7 +942,9 @@
     "satiety": "LOW",
     "roles": [
       "fat_source"
-    ]
+    ],
+    "comfortable_portion_g": 20,
+    "hard_max_portion_g": 30
   },
   {
     "id": "peanut-butter",
@@ -896,7 +969,9 @@
     "satiety": "LOW",
     "roles": [
       "fat_source"
-    ]
+    ],
+    "comfortable_portion_g": 30,
+    "hard_max_portion_g": 45
   },
   {
     "id": "milk-whole",
@@ -920,7 +995,9 @@
     "satiety": "LOW",
     "roles": [
       "dairy"
-    ]
+    ],
+    "comfortable_portion_g": 250,
+    "hard_max_portion_g": 350
   },
   {
     "id": "milk-skim",
@@ -943,7 +1020,9 @@
     "satiety": "LOW",
     "roles": [
       "dairy"
-    ]
+    ],
+    "comfortable_portion_g": 250,
+    "hard_max_portion_g": 350
   },
   {
     "id": "yogurt-natural",
@@ -966,7 +1045,9 @@
     "satiety": "MEDIUM",
     "roles": [
       "dairy"
-    ]
+    ],
+    "comfortable_portion_g": 200,
+    "hard_max_portion_g": 300
   },
   {
     "id": "yogurt-greek",
@@ -988,8 +1069,11 @@
     ],
     "satiety": "HIGH",
     "roles": [
-      "dairy"
-    ]
+      "dairy",
+      "secondary_protein"
+    ],
+    "comfortable_portion_g": 200,
+    "hard_max_portion_g": 280
   },
   {
     "id": "cheese-mozzarella",
@@ -1012,7 +1096,9 @@
     "satiety": "LOW",
     "roles": [
       "dairy"
-    ]
+    ],
+    "comfortable_portion_g": 50,
+    "hard_max_portion_g": 80
   },
   {
     "id": "cheese-cottage",
@@ -1034,8 +1120,11 @@
     ],
     "satiety": "HIGH",
     "roles": [
-      "dairy"
-    ]
+      "dairy",
+      "secondary_protein"
+    ],
+    "comfortable_portion_g": 150,
+    "hard_max_portion_g": 220
   },
   {
     "id": "broccoli",
@@ -1060,7 +1149,9 @@
     "satiety": "HIGH",
     "roles": [
       "vegetable"
-    ]
+    ],
+    "comfortable_portion_g": 300,
+    "hard_max_portion_g": 400
   },
   {
     "id": "spinach",
@@ -1085,7 +1176,9 @@
     "satiety": "HIGH",
     "roles": [
       "vegetable"
-    ]
+    ],
+    "comfortable_portion_g": 300,
+    "hard_max_portion_g": 400
   },
   {
     "id": "lettuce",
@@ -1110,7 +1203,9 @@
     "satiety": "HIGH",
     "roles": [
       "vegetable"
-    ]
+    ],
+    "comfortable_portion_g": 150,
+    "hard_max_portion_g": 250
   },
   {
     "id": "tomato",
@@ -1135,7 +1230,9 @@
     "satiety": "HIGH",
     "roles": [
       "vegetable"
-    ]
+    ],
+    "comfortable_portion_g": 250,
+    "hard_max_portion_g": 350
   },
   {
     "id": "carrot",
@@ -1161,7 +1258,9 @@
     "satiety": "HIGH",
     "roles": [
       "vegetable"
-    ]
+    ],
+    "comfortable_portion_g": 250,
+    "hard_max_portion_g": 350
   },
   {
     "id": "zucchini",
@@ -1186,7 +1285,9 @@
     "satiety": "HIGH",
     "roles": [
       "vegetable"
-    ]
+    ],
+    "comfortable_portion_g": 300,
+    "hard_max_portion_g": 400
   },
   {
     "id": "green-beans",
@@ -1211,7 +1312,9 @@
     "satiety": "HIGH",
     "roles": [
       "vegetable"
-    ]
+    ],
+    "comfortable_portion_g": 300,
+    "hard_max_portion_g": 400
   },
   {
     "id": "tofu",
@@ -1237,7 +1340,9 @@
     "satiety": "HIGH",
     "roles": [
       "primary_protein"
-    ]
+    ],
+    "comfortable_portion_g": 200,
+    "hard_max_portion_g": 280
   },
   {
     "id": "soy-protein",
@@ -1263,8 +1368,11 @@
     ],
     "satiety": "HIGH",
     "roles": [
-      "primary_protein"
-    ]
+      "primary_protein",
+      "secondary_protein"
+    ],
+    "comfortable_portion_g": 60,
+    "hard_max_portion_g": 90
   },
   {
     "id": "chicken-egg-omelet",
@@ -1289,7 +1397,9 @@
     "satiety": "HIGH",
     "roles": [
       "primary_protein"
-    ]
+    ],
+    "comfortable_portion_g": 180,
+    "hard_max_portion_g": 240
   },
   {
     "id": "granola",
@@ -1311,7 +1421,9 @@
     "satiety": "MEDIUM",
     "roles": [
       "primary_carb"
-    ]
+    ],
+    "comfortable_portion_g": 60,
+    "hard_max_portion_g": 90
   },
   {
     "id": "watermelon",
@@ -1335,7 +1447,9 @@
     "satiety": "HIGH",
     "roles": [
       "fruit"
-    ]
+    ],
+    "comfortable_portion_g": 300,
+    "hard_max_portion_g": 400
   },
   {
     "id": "strawberry",
@@ -1359,7 +1473,9 @@
     "satiety": "HIGH",
     "roles": [
       "fruit"
-    ]
+    ],
+    "comfortable_portion_g": 200,
+    "hard_max_portion_g": 280
   },
   {
     "id": "grapes",
@@ -1383,7 +1499,9 @@
     "satiety": "MEDIUM",
     "roles": [
       "fruit"
-    ]
+    ],
+    "comfortable_portion_g": 150,
+    "hard_max_portion_g": 220
   },
   {
     "id": "mango",
@@ -1407,7 +1525,9 @@
     "satiety": "MEDIUM",
     "roles": [
       "fruit"
-    ]
+    ],
+    "comfortable_portion_g": 180,
+    "hard_max_portion_g": 250
   },
   {
     "id": "eggplant",
@@ -1432,7 +1552,9 @@
     "satiety": "HIGH",
     "roles": [
       "vegetable"
-    ]
+    ],
+    "comfortable_portion_g": 300,
+    "hard_max_portion_g": 400
   },
   {
     "id": "pumpkin",
@@ -1457,7 +1579,9 @@
     "satiety": "HIGH",
     "roles": [
       "vegetable"
-    ]
+    ],
+    "comfortable_portion_g": 250,
+    "hard_max_portion_g": 350
   },
   {
     "id": "beetroot",
@@ -1483,7 +1607,9 @@
     "satiety": "HIGH",
     "roles": [
       "vegetable"
-    ]
+    ],
+    "comfortable_portion_g": 200,
+    "hard_max_portion_g": 300
   },
   {
     "id": "rice-flour",
@@ -1512,7 +1638,9 @@
     "roles": [
       "recipe_component",
       "primary_carb"
-    ]
+    ],
+    "comfortable_portion_g": 60,
+    "hard_max_portion_g": 100
   },
   {
     "id": "rice-cream-whey",
@@ -1537,6 +1665,8 @@
     "roles": [
       "primary_protein",
       "primary_carb"
-    ]
+    ],
+    "comfortable_portion_g": 200,
+    "hard_max_portion_g": 280
   }
 ]
