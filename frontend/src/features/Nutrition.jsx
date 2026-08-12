@@ -18,6 +18,18 @@ export default function Nutrition({ API, profileId, db }) {
   const [mealStatus, setMealStatus] = useState({});
   const [subResult, setSubResult] = useState(null);
 
+  // Guided flow ("Refazer plano"): meal-by-meal composition — the athlete picks a real
+  // combination the coach already vetted, instead of the engine deciding everything at
+  // once. See backend /plan/draft/* — the confirmed plan this produces is byte-for-byte
+  // the same shape the legacy generate() flow produces, so the rest of this component
+  // (plan view, Substituir, meal-status) needs no changes at all.
+  const [guidedDraft, setGuidedDraft] = useState(null);
+  const [guidedIdx, setGuidedIdx] = useState(0);
+  const [guidedOptions, setGuidedOptions] = useState([]);
+  const [guidedLoadingOptions, setGuidedLoadingOptions] = useState(false);
+  const [guidedSwap, setGuidedSwap] = useState(null);
+  const [guidedPhase, setGuidedPhase] = useState("choosing");
+
   useEffect(() => {
     axios.get(`${API}/nutrition/plan`).then(r => {
       setPlan(r.data); setTargets(r.data.targets || r.data.daily_totals); setStep("plan");
@@ -60,12 +72,106 @@ export default function Nutrition({ API, profileId, db }) {
     } finally { setBusy(false); }
   };
 
-  const regenerate = async () => {
+  const sumDraftMacros = (draft) => {
+    let kcal = 0, protein_g = 0, carbs_g = 0, fat_g = 0;
+    (draft?.meals || []).forEach(m => (m.foods || []).forEach(it => {
+      const f = it.food || {}; const fac = it.grams / (f.grams || 100);
+      kcal += (f.kcal || 0) * fac; protein_g += (f.protein_g || 0) * fac;
+      carbs_g += (f.carbs_g || 0) * fac; fat_g += (f.fat_g || 0) * fac;
+    }));
+    return { kcal, protein_g, carbs_g, fat_g };
+  };
+
+  const nextUnlockedIndex = (draft) => draft.locked.findIndex(l => !l);
+
+  const loadMealOptions = async (idx, seed) => {
+    setGuidedLoadingOptions(true); setGuidedSwap(null);
+    try {
+      const r = await axios.post(`${API}/nutrition/plan/draft/options`, {
+        meal_index: idx, ...(seed != null ? { variety_seed: seed } : {}),
+      });
+      setGuidedOptions(r.data.options || []);
+    } catch (e) { setError("Não foi possível carregar opções para esta refeição."); }
+    finally { setGuidedLoadingOptions(false); }
+  };
+
+  // "Refazer plano": only replaces the plan itself — assessment, peso, histórico,
+  // alergias e restrições continuam intactos (o backend nem toca nessas coleções).
+  const refazerPlano = async () => {
     setBusy(true); setError("");
     try {
-      const r = await axios.post(`${API}/nutrition/generate`);
+      const r = await axios.post(`${API}/nutrition/plan/reset`);
+      setGuidedDraft(r.data); setGuidedIdx(0); setGuidedPhase("choosing"); setStep("guided");
+      await loadMealOptions(0);
+    } catch (e) { setError("Não foi possível refazer o plano agora."); }
+    finally { setBusy(false); }
+  };
+
+  const outrasOpcoes = () => loadMealOptions(guidedIdx, Math.floor(Math.random() * 1000));
+
+  const escolherOpcao = async (option) => {
+    setBusy(true); setError("");
+    try {
+      const r = await axios.post(`${API}/nutrition/plan/draft/choose`, {
+        meal_index: guidedIdx, archetype_id: option.archetype_id,
+        food_ids: option.foods.map(f => f.food_id),
+      });
+      const draft = r.data;
+      setGuidedDraft(draft);
+      const next = nextUnlockedIndex(draft);
+      if (next === -1) { setGuidedPhase("review"); }
+      else { setGuidedIdx(next); await loadMealOptions(next); }
+    } catch (e) { setError("Não foi possível escolher esta combinação agora."); }
+    finally { setBusy(false); }
+  };
+
+  // FORGE_CHOOSES_FOR_ME — for this one meal, or for every meal still unlocked.
+  const forgeEscolheEsta = () => { if (guidedOptions.length) escolherOpcao(guidedOptions[0]); };
+
+  const forgeEscolheResto = async () => {
+    setBusy(true); setError("");
+    try {
+      const r = await axios.post(`${API}/nutrition/plan/draft/choose-remaining`);
+      setGuidedDraft(r.data); setGuidedPhase("review");
+    } catch (e) { setError("Não foi possível concluir automaticamente agora."); }
+    finally { setBusy(false); }
+  };
+
+  // Trocar um alimento dentro da combinação sugerida: a estrutura escolhida permanece,
+  // só esse componente muda, e as porções da combinação inteira são recalculadas.
+  const abrirSwapNaOpcao = async (optIdx, foodId) => {
+    if (guidedSwap?.optIdx === optIdx && guidedSwap?.foodId === foodId) { setGuidedSwap(null); return; }
+    const option = guidedOptions[optIdx];
+    setGuidedSwap({ optIdx, foodId, options: [], loading: true });
+    try {
+      const r = await axios.post(`${API}/nutrition/plan/draft/swap-food`, {
+        meal_index: guidedIdx, food_ids: option.foods.map(f => f.food_id), food_id: foodId,
+      });
+      setGuidedSwap({ optIdx, foodId, options: r.data.options || [] });
+    } catch (e) { setGuidedSwap(null); setError("Substituição indisponível agora."); }
+  };
+
+  const aplicarSwapNaOpcao = async (optIdx, foodId, subId) => {
+    const option = guidedOptions[optIdx];
+    setBusy(true);
+    try {
+      const r = await axios.post(`${API}/nutrition/plan/draft/swap-food`, {
+        meal_index: guidedIdx, food_ids: option.foods.map(f => f.food_id),
+        food_id: foodId, substitute_food_id: subId,
+      });
+      setGuidedOptions(opts => opts.map((o, i) => i === optIdx ? { ...o, foods: r.data.foods } : o));
+      setGuidedSwap(null);
+    } catch (e) { setError("Não foi possível aplicar a troca agora."); }
+    finally { setBusy(false); }
+  };
+
+  const confirmarPlanoGuiado = async () => {
+    setBusy(true); setError("");
+    try {
+      const r = await axios.post(`${API}/nutrition/plan/draft/confirm`);
       setPlan(r.data.plan); setTargets(r.data.targets);
-    } catch (e) { setError("Não foi possível regenerar o plano agora."); }
+      setGuidedDraft(null); setStep("plan");
+    } catch (e) { setError("Não foi possível confirmar o plano agora."); }
     finally { setBusy(false); }
   };
 
@@ -187,6 +293,146 @@ export default function Nutrition({ API, profileId, db }) {
     );
   }
 
+  if (step === "guided" && guidedPhase === "review") {
+    const sums = sumDraftMacros(guidedDraft);
+    return (
+      <div className="content">
+        <div className="onboarding deep-scene" style={{ maxWidth: 760 }}>
+          <p className="eyebrow">REFAZER PLANO / REVISÃO</p>
+          <h2>Confira sua estratégia de hoje</h2>
+          <div className="review-summary">
+            <div><b>{Math.round(sums.kcal)}</b><span>kcal</span></div>
+            <div><b>{Math.round(sums.protein_g)}g</b><span>proteína</span></div>
+            <div><b>{guidedDraft.meals.length}</b><span>refeições</span></div>
+          </div>
+          <div className="notice" style={{ marginTop: 16 }}>
+            <b>✓ Porções dentro dos limites confortáveis do coach</b>
+            <p className="muted" style={{ marginTop: 4, fontSize: 12 }}>
+              Cada combinação veio pré-validada pelo motor nutricional: nenhuma porção passa do limite
+              seguro, e alergias/restrições já foram respeitadas antes de qualquer opção chegar até você.
+            </p>
+          </div>
+          {guidedDraft.meals.map((m, i) => {
+            const mealKcal = (m.foods || []).reduce((s, f) => s + (f.food?.kcal || 0) * f.grams / (f.food?.grams || 100), 0);
+            return (
+            <section className="meal-card" key={i} style={{ marginTop: 12 }}>
+              <div className="meal-head">
+                <div><p className="eyebrow">{m.name}</p><h3>{Math.round(mealKcal)} kcal</h3></div>
+              </div>
+              <div className="food-list">
+                {(m.foods || []).map((it, j) => (
+                  <div className="food-row" key={j}>
+                    <div className="food-row-main">
+                      <div className="food-row-info">
+                        <b>{it.food?.name || it.food_id}</b>
+                        <span className="muted">{it.grams}g · {Math.round(it.food?.kcal || 0)} kcal</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+            );
+          })}
+          {error && <div className="auth-error" style={{ marginTop: 14 }}>{error}</div>}
+          <div className="deep-actions" style={{ marginTop: 24 }}>
+            <button className="secondary-button" onClick={() => setStep("plan")} disabled={busy}>Cancelar</button>
+            <button className="primary-button" onClick={confirmarPlanoGuiado} disabled={busy}>
+              {busy ? "Confirmando..." : "Confirmar plano"} <Check size={18} />
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (step === "guided") {
+    const meal = guidedDraft?.meals?.[guidedIdx];
+    const totalMeals = guidedDraft?.meals?.length || 0;
+    const lockedCount = guidedDraft?.locked?.filter(Boolean).length || 0;
+    return (
+      <div className="content">
+        <div className="onboarding deep-scene" style={{ maxWidth: 760 }}>
+          <p className="eyebrow">REFAZER PLANO</p>
+          <h2>{meal?.name}</h2>
+          <p className="muted">Refeição {guidedIdx + 1} de {totalMeals} · {lockedCount} já escolhidas</p>
+          <div className="onboard-progress" style={{ margin: "10px 0 20px" }}>
+            <b style={{ width: `${totalMeals ? (lockedCount / totalMeals) * 100 : 0}%` }} />
+          </div>
+
+          {guidedLoadingOptions ? (
+            <p className="muted">Buscando combinações...</p>
+          ) : guidedOptions.map((opt, i) => {
+            const optKcal = opt.foods.reduce((s, f) => s + (f.food?.kcal || 0) * f.grams / (f.food?.grams || 100), 0);
+            return (
+              <section className="meal-card" key={opt.archetype_id} style={{ marginBottom: 12 }}>
+                <div className="meal-head">
+                  <div><p className="eyebrow">{opt.label}</p><h3>{Math.round(optKcal)} kcal</h3></div>
+                </div>
+                <div className="food-list">
+                  {opt.foods.map((it, j) => {
+                    const swapOpen = guidedSwap?.optIdx === i && guidedSwap?.foodId === it.food_id;
+                    return (
+                      <div className="food-row" key={j}>
+                        <div className="food-row-main">
+                          <div className="food-row-info">
+                            <b>{it.food?.name || it.food_id}</b>
+                            <span className="muted">{it.grams}g · {Math.round(it.food?.kcal || 0)} kcal</span>
+                          </div>
+                          <button className="food-sub-btn" onClick={() => abrirSwapNaOpcao(i, it.food_id)}>
+                            <RefreshCw size={13} /> Trocar
+                          </button>
+                        </div>
+                        {swapOpen && (
+                          <div className="substitute-panel">
+                            {guidedSwap.loading ? (
+                              <p className="muted" style={{ fontSize: 12 }}>Buscando alternativas...</p>
+                            ) : (guidedSwap.options || []).length > 0 ? (
+                              <div className="substitute-options">
+                                {guidedSwap.options.map((s, k) => (
+                                  <button key={k} className="substitute-option" disabled={busy}
+                                    onClick={() => aplicarSwapNaOpcao(i, it.food_id, s.food_id)}>
+                                    <span>{s.food?.name || s.food_id}</span><b>{s.grams}g</b>
+                                  </button>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="muted" style={{ fontSize: 12 }}>Nenhuma alternativa disponível agora.</p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="action-row" style={{ marginTop: 12 }}>
+                  <button className="primary-button" onClick={() => escolherOpcao(opt)} disabled={busy}>
+                    Escolher esta combinação <ChevronRight size={18} />
+                  </button>
+                </div>
+              </section>
+            );
+          })}
+
+          {error && <div className="auth-error" style={{ marginTop: 14 }}>{error}</div>}
+
+          <div className="deep-actions" style={{ marginTop: 20, flexWrap: "wrap" }}>
+            <button className="secondary-button" onClick={outrasOpcoes} disabled={busy || guidedLoadingOptions}>
+              <RefreshCw size={15} /> Mostrar outras opções
+            </button>
+            <button className="secondary-button" onClick={forgeEscolheEsta} disabled={busy || guidedLoadingOptions}>
+              FORGE escolhe esta
+            </button>
+            <button className="secondary-button" onClick={forgeEscolheResto} disabled={busy}>
+              FORGE escolhe o resto
+            </button>
+            <button className="text-button" onClick={() => setStep("plan")}>Cancelar</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Plan view
   const t = targets || {};
   const meals = plan?.meals || [];
@@ -210,7 +456,7 @@ export default function Nutrition({ API, profileId, db }) {
         <div className="empty-state" data-testid="nutrition-empty-state">
           <Utensils size={22} />
           <h3>Nenhuma refeição no plano</h3>
-          <p className="muted">Regenere o plano para montar suas refeições de hoje.</p>
+          <p className="muted">Refaça o plano para montar suas refeições de hoje.</p>
         </div>
       )}
 
@@ -284,8 +530,8 @@ export default function Nutrition({ API, profileId, db }) {
       })}
 
       <div className="action-row" style={{ marginTop: 24 }}>
-        <button className="secondary-button" onClick={regenerate} disabled={busy}>
-          <RefreshCw size={15} /> {busy ? "Regenerando..." : "Regenerar plano"}
+        <button className="secondary-button" onClick={refazerPlano} disabled={busy}>
+          <RefreshCw size={15} /> {busy ? "Iniciando..." : "Refazer plano"}
         </button>
       </div>
     </div>

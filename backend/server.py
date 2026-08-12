@@ -584,6 +584,8 @@ async def startup():
     await db.profiles.create_index("user_id")
     await db.admin_audit_log.create_index([("created_at", -1)])
     await db.ai_usage.create_index([("user_id", 1), ("date", 1)])
+    await db.nutrition_plan_drafts.create_index("profile_id", unique=True)
+    await db.nutrition_preferences.create_index([("profile_id", 1), ("food_id", 1)], unique=True)
     email = os.environ.get("FORGE_SUPER_ADMIN_EMAIL")
     if email:
         uid, invite = await seed_super_admin(db, email)

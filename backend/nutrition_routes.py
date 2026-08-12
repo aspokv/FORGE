@@ -13,6 +13,8 @@ from nutrition_engine import (
     compute_macro_targets, generate_daily_plan, validate_daily_plan,
     find_substitutes, recalculate_substitution_portion, FOOD_INDEX,
     FORGE_COACH_METHODOLOGY, sum_plan_totals,
+    get_meal_archetype_options, redistribute_remaining_targets,
+    calculate_meal_portions, calculate_meal_coherence_score, _infer_meal_type,
 )
 
 
@@ -49,6 +51,64 @@ class SubstituteFoodIn(BaseModel):
 class WeightLogIn(BaseModel):
     weight_kg: float = Field(gt=0, le=300)
     date: Optional[str] = None
+
+
+class MealOptionsIn(BaseModel):
+    meal_index: int = Field(ge=0)
+    variety_seed: Optional[int] = None
+
+
+class SwapFoodIn(BaseModel):
+    meal_index: int = Field(ge=0)
+    food_ids: List[str]
+    food_id: str
+    substitute_food_id: Optional[str] = None
+
+
+class ChooseMealIn(BaseModel):
+    meal_index: int = Field(ge=0)
+    archetype_id: str = "default"
+    food_ids: List[str]
+
+
+class PreferenceIn(BaseModel):
+    food_id: str
+    signal: str = Field(pattern="^(liked|avoided|neutral)$")
+
+
+def _build_empty_draft(targets, meal_count, goal):
+    m = FORGE_COACH_METHODOLOGY
+    dist = m["meal_distribution"].get(meal_count, m["meal_distribution"][4])
+    names = m["meal_names"].get(meal_count, m["meal_names"][4])
+    gc, gp, gf = targets["goal_calories"], targets["protein_g"], targets["fat_g"]
+    meals = [{"name": names[i], "target_cal": round(gc * dist[i]), "target_protein": round(gp * dist[i]),
+              "target_fat": round(gf * dist[i], 1), "foods": [], "archetype_id": None}
+             for i in range(meal_count)]
+    return {"meals": meals, "locked": [False] * meal_count, "targets": targets, "goal": goal, "meal_count": meal_count}
+
+
+def _locked_used_ids(draft):
+    used = set()
+    for i, locked in enumerate(draft["locked"]):
+        if locked:
+            for it in draft["meals"][i]["foods"]:
+                used.add(it["food_id"])
+    return used
+
+
+async def _load_preferences(db, profile_id):
+    rows = await db.nutrition_preferences.find({"profile_id": profile_id}, {"_id": 0}).to_list(500)
+    return {r["food_id"]: {"signal": r.get("signal", "neutral"), "chosen_count": r.get("chosen_count", 0)} for r in rows}
+
+
+async def _record_choice_preferences(db, profile_id, food_ids):
+    now = datetime.now(timezone.utc).isoformat()
+    for fid in food_ids:
+        await db.nutrition_preferences.update_one(
+            {"profile_id": profile_id, "food_id": fid},
+            {"$inc": {"chosen_count": 1}, "$set": {"updated_at": now},
+             "$setOnInsert": {"signal": "neutral"}},
+            upsert=True)
 
 
 def owned_nutrition_target(user: dict, requested: Optional[str] = None) -> str:
@@ -202,6 +262,231 @@ async def substitute_food(payload: SubstituteFoodIn, request: Request, user=Depe
         "meal_index": meal_idx, "food_index": food_pos,
         "food": new_food_item, "daily_totals": new_totals, "plan": plan,
     }
+
+
+# ─── Guided flow (RESET_PLAN / MEAL_ARCHETYPES / FORGE_CHOOSES_FOR_ME) ─────────────
+# "Refazer plano" replaces the old one-shot Regenerar. It only ever touches the plan
+# draft below and, on confirm, the single nutrition_plans document — never the
+# assessment, weight history, adherence, or the Training Engine. Legacy POST /generate
+# is untouched and remains the fallback ("FORGE monta tudo de uma vez").
+
+@router.post("/plan/reset")
+async def reset_plan_draft(request: Request, user=Depends(get_current_user)):
+    db = request.app.state.db
+    target = user["id"]
+    profile = await db.profiles.find_one({"id": target}, {"_id": 0})
+    na = (profile or {}).get("nutrition_assessment")
+    if not na:
+        raise HTTPException(400, "Assessment nutricional nao encontrado. Faca o questionario primeiro.")
+    targets = compute_macro_targets(
+        na["weight_kg"], na["height_cm"], na["age"], na["sex"],
+        na["training_days"], na["goal"], na.get("activity_level", "moderate"))
+    meal_count = na.get("meal_count", 4)
+    draft = _build_empty_draft(targets, meal_count, na["goal"])
+    doc = {"profile_id": target, "user_id": target, "created_at": datetime.now(timezone.utc).isoformat(), **draft}
+    await db.nutrition_plan_drafts.replace_one({"profile_id": target}, doc, upsert=True)
+    doc.pop("_id", None)
+    return doc
+
+
+@router.get("/plan/draft")
+async def get_plan_draft(request: Request, user=Depends(get_current_user)):
+    db = request.app.state.db
+    target = user["id"]
+    draft = await db.nutrition_plan_drafts.find_one({"profile_id": target}, {"_id": 0})
+    if not draft:
+        raise HTTPException(404, "Nenhum rascunho de plano em andamento. Chame /plan/reset primeiro.")
+    return draft
+
+
+@router.post("/plan/draft/options")
+async def draft_meal_options(payload: MealOptionsIn, request: Request, user=Depends(get_current_user)):
+    db = request.app.state.db
+    target = user["id"]
+    profile = await db.profiles.find_one({"id": target}, {"_id": 0})
+    na = (profile or {}).get("nutrition_assessment", {})
+    draft = await db.nutrition_plan_drafts.find_one({"profile_id": target}, {"_id": 0})
+    if not draft:
+        raise HTTPException(404, "Nenhum rascunho de plano em andamento. Chame /plan/reset primeiro.")
+    idx = payload.meal_index
+    if idx >= len(draft["meals"]):
+        raise HTTPException(400, "Indice de refeicao invalido")
+    goal = draft.get("goal", na.get("goal", "maintenance"))
+    meal = draft["meals"][idx]
+    preferences = await _load_preferences(db, target)
+    # "Mostrar outras opcoes": a fresh seed shifts which concrete foods each archetype
+    # resolves to (existing rotation mechanism), without touching any guardrail.
+    seed = payload.variety_seed if payload.variety_seed is not None else random.randint(0, 999)
+    options = get_meal_archetype_options(
+        meal["name"], meal["target_cal"], meal["target_protein"], meal.get("target_fat", 0),
+        na, _locked_used_ids(draft), goal, None, idx, preferences, 5, seed)
+    return {"meal_index": idx, "target_cal": meal["target_cal"], "target_protein": meal["target_protein"],
+            "options": [{
+                "archetype_id": o["archetype_id"], "label": o["label"], "coherence_score": o["coherence_score"],
+                "foods": [{"food_id": it["food_id"], "grams": it["grams"], "food": it["food"]} for it in o["meal"]["foods"]],
+            } for o in options]}
+
+
+@router.post("/plan/draft/swap-food")
+async def draft_swap_food(payload: SwapFoodIn, request: Request, user=Depends(get_current_user)):
+    db = request.app.state.db
+    target = user["id"]
+    profile = await db.profiles.find_one({"id": target}, {"_id": 0})
+    na = (profile or {}).get("nutrition_assessment", {})
+    draft = await db.nutrition_plan_drafts.find_one({"profile_id": target}, {"_id": 0})
+    if not draft:
+        raise HTTPException(404, "Nenhum rascunho de plano em andamento.")
+    idx = payload.meal_index
+    if idx >= len(draft["meals"]):
+        raise HTTPException(400, "Indice de refeicao invalido")
+    if payload.food_id not in payload.food_ids:
+        raise HTTPException(400, "food_id nao esta na combinacao atual")
+    goal = draft.get("goal", na.get("goal", "maintenance"))
+    meal_target = draft["meals"][idx]
+
+    # The structure the athlete picked stays put — only this one food's slot changes,
+    # and portions are recalculated for the whole combination afterward.
+    current_portions = calculate_meal_portions(
+        payload.food_ids, meal_target["target_cal"], meal_target["target_protein"],
+        meal_target.get("target_fat", 0), goal)
+    orig_grams = current_portions.get(payload.food_id, 100)
+    current_foods = [{"food_id": fid, "grams": current_portions.get(fid, 100), "food": FOOD_INDEX.get(fid, {})}
+                      for fid in payload.food_ids]
+    locked_totals = sum_plan_totals([draft["meals"][i] for i, l in enumerate(draft["locked"]) if l])
+
+    subs = find_substitutes(
+        payload.food_id, na, payload.food_ids, max_results=3, orig_grams=orig_grams,
+        goal=goal, meal=current_foods, daily_totals=locked_totals, targets=draft["targets"])
+    options = [{"food_id": s[0], "grams": s[1], "food": FOOD_INDEX.get(s[0], {}), "reason": s[2]} for s in subs]
+
+    if not payload.substitute_food_id:
+        return {"meal_index": idx, "food_id": payload.food_id, "options": options}
+
+    matched = next((o for o in options if o["food_id"] == payload.substitute_food_id), None)
+    if not matched:
+        raise HTTPException(400, "Substituicao nao permitida para este alimento e objetivo atual")
+
+    new_food_ids = [matched["food_id"] if fid == payload.food_id else fid for fid in payload.food_ids]
+    portions = calculate_meal_portions(
+        new_food_ids, meal_target["target_cal"], meal_target["target_protein"],
+        meal_target.get("target_fat", 0), goal)
+    foods = [{"food_id": fid, "grams": portions.get(fid, 100), "food": FOOD_INDEX.get(fid, {})} for fid in new_food_ids]
+    return {"meal_index": idx, "foods": foods, "applied": True}
+
+
+@router.post("/plan/draft/choose")
+async def draft_choose_meal(payload: ChooseMealIn, request: Request, user=Depends(get_current_user)):
+    db = request.app.state.db
+    target = user["id"]
+    profile = await db.profiles.find_one({"id": target}, {"_id": 0})
+    na = (profile or {}).get("nutrition_assessment", {})
+    draft = await db.nutrition_plan_drafts.find_one({"profile_id": target}, {"_id": 0})
+    if not draft:
+        raise HTTPException(404, "Nenhum rascunho de plano em andamento.")
+    idx = payload.meal_index
+    if idx >= len(draft["meals"]):
+        raise HTTPException(400, "Indice de refeicao invalido")
+    if not payload.food_ids:
+        raise HTTPException(400, "Selecione ao menos um alimento")
+    goal = draft.get("goal", na.get("goal", "maintenance"))
+    meal_target = draft["meals"][idx]
+
+    # Backend remains the source of truth for grams: the client selects WHICH foods,
+    # the engine — never the client — decides HOW MUCH, exactly like /substitute.
+    portions = calculate_meal_portions(
+        payload.food_ids, meal_target["target_cal"], meal_target["target_protein"],
+        meal_target.get("target_fat", 0), goal)
+    foods = [{"food_id": fid, "grams": portions.get(fid, 100), "food": FOOD_INDEX.get(fid, {})} for fid in payload.food_ids]
+    draft["meals"][idx]["foods"] = foods
+    draft["meals"][idx]["archetype_id"] = payload.archetype_id
+    draft["locked"][idx] = True
+    redistribute_remaining_targets(draft["meals"], draft["locked"], draft["targets"], goal)
+
+    await db.nutrition_plan_drafts.update_one(
+        {"profile_id": target}, {"$set": {"meals": draft["meals"], "locked": draft["locked"]}})
+    await _record_choice_preferences(db, target, payload.food_ids)
+    draft.pop("_id", None)
+    return draft
+
+
+@router.post("/plan/draft/choose-remaining")
+async def draft_choose_remaining(request: Request, user=Depends(get_current_user)):
+    """FORGE_CHOOSES_FOR_ME across every meal that isn't locked in yet."""
+    db = request.app.state.db
+    target = user["id"]
+    profile = await db.profiles.find_one({"id": target}, {"_id": 0})
+    na = (profile or {}).get("nutrition_assessment", {})
+    draft = await db.nutrition_plan_drafts.find_one({"profile_id": target}, {"_id": 0})
+    if not draft:
+        raise HTTPException(404, "Nenhum rascunho de plano em andamento.")
+    goal = draft.get("goal", na.get("goal", "maintenance"))
+    preferences = await _load_preferences(db, target)
+    chosen_food_ids = []
+    for idx in range(len(draft["meals"])):
+        if draft["locked"][idx]:
+            continue
+        meal_target = draft["meals"][idx]
+        options = get_meal_archetype_options(
+            meal_target["name"], meal_target["target_cal"], meal_target["target_protein"],
+            meal_target.get("target_fat", 0), na, _locked_used_ids(draft), goal, None, idx,
+            preferences, 1, random.randint(0, 999))
+        best = options[0]
+        draft["meals"][idx]["foods"] = best["meal"]["foods"]
+        draft["meals"][idx]["archetype_id"] = best["archetype_id"]
+        draft["locked"][idx] = True
+        chosen_food_ids.extend(it["food_id"] for it in best["meal"]["foods"])
+        redistribute_remaining_targets(draft["meals"], draft["locked"], draft["targets"], goal)
+
+    await db.nutrition_plan_drafts.update_one(
+        {"profile_id": target}, {"$set": {"meals": draft["meals"], "locked": draft["locked"]}})
+    if chosen_food_ids:
+        await _record_choice_preferences(db, target, chosen_food_ids)
+    draft.pop("_id", None)
+    return draft
+
+
+@router.post("/plan/draft/confirm")
+async def confirm_plan_draft(request: Request, user=Depends(get_current_user)):
+    db = request.app.state.db
+    target = user["id"]
+    profile = await db.profiles.find_one({"id": target}, {"_id": 0})
+    na = (profile or {}).get("nutrition_assessment", {})
+    draft = await db.nutrition_plan_drafts.find_one({"profile_id": target}, {"_id": 0})
+    if not draft:
+        raise HTTPException(404, "Nenhum rascunho de plano em andamento.")
+    if not all(draft["locked"]):
+        raise HTTPException(400, "Existem refeicoes ainda nao escolhidas. Use /choose ou /choose-remaining antes de confirmar.")
+    goal = draft.get("goal", na.get("goal", "maintenance"))
+    totals = sum_plan_totals(draft["meals"])
+    for meal in draft["meals"]:
+        meal["coherence_score"] = calculate_meal_coherence_score(meal, _infer_meal_type(meal["name"]), goal)
+    plan = {"meals": draft["meals"], "daily_totals": totals, "pre_reconciliation_totals": totals,
+            "targets": draft["targets"], "engine_version": FORGE_COACH_METHODOLOGY["engine_version"],
+            "methodology_version": FORGE_COACH_METHODOLOGY["coach_version"], "composed_by": "guided"}
+    # Same validator the legacy /generate uses — this IS the "porcoes, restricoes e
+    # regras do coach foram respeitadas" confirmation surfaced to the review screen.
+    warnings = validate_daily_plan(plan, draft["targets"], na)
+    doc = {"profile_id": target, "user_id": target, "plan": plan, "created_at": datetime.now(timezone.utc).isoformat(),
+           "engine_version": FORGE_COACH_METHODOLOGY["engine_version"],
+           "methodology_version": FORGE_COACH_METHODOLOGY["coach_version"]}
+    await db.nutrition_plans.replace_one({"profile_id": target}, doc, upsert=True)
+    await db.nutrition_plan_drafts.delete_one({"profile_id": target})
+    return {"plan": plan, "targets": draft["targets"], "warnings": warnings}
+
+
+@router.post("/preferences")
+async def set_food_preference(payload: PreferenceIn, request: Request, user=Depends(get_current_user)):
+    """Explicit USER_PREFERENCES signal ('prefiro evitar' etc.) — a preference, never an
+    allergy or restriction. Only ever nudges ranking inside get_meal_archetype_options;
+    it can never widen what's offered past allergies/restrictions/avoid_foods/hard_max."""
+    db = request.app.state.db
+    target = user["id"]
+    await db.nutrition_preferences.update_one(
+        {"profile_id": target, "food_id": payload.food_id},
+        {"$set": {"signal": payload.signal, "updated_at": datetime.now(timezone.utc).isoformat()},
+         "$setOnInsert": {"chosen_count": 0}},
+        upsert=True)
+    return {"food_id": payload.food_id, "signal": payload.signal}
 
 
 @router.post("/meal-status")

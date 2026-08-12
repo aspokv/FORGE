@@ -72,6 +72,15 @@ FORGE_COACH_METHODOLOGY = {
     # meal can afford before each one's minimum floor starts summing past the meal's own
     # target_cal — the mechanism that produced 4-item 137kcal pre-workout snacks.
     "min_kcal_per_meal_item": 90,
+    # Guided flow (item: MEAL_ARCHETYPES): an archetype option is never offered to the
+    # athlete below this coherence bar — same bar the real_meal_composition test suite
+    # already holds every generated meal to.
+    "min_archetype_coherence": 55,
+    # Preference bonus (USER_PREFERENCES) is ranking-only and deliberately small next to
+    # methodology-driven score components (30-150+) — it can reorder within the already-
+    # guardrail-filtered set, never resurrect an excluded food or bury a required one.
+    "preference_bonus_cap": 15,
+    "redistribution_cap_multiplier": 1.8,
 }
 
 # REAL_MEAL_COMPOSITION — explicit archetypes per meal, so a meal is built from a small
@@ -117,6 +126,86 @@ MEAL_TEMPLATES = {
         {"role": "secondary_protein", "category": "PROTEIN", "required": False},
         {"role": "primary_carb", "category": "CARBOHYDRATE", "required": True},
         {"role": "fruit", "category": "FRUIT", "required": False},
+    ],
+}
+
+# Guided flow (MEAL_ARCHETYPES): real, named alternative combinations per meal type —
+# "Clássico" vs "Rápido" vs "Refeição sólida", not a random ingredient list. Each
+# archetype is still just a role list consumed by the exact same generate_meal() /
+# calculate_meal_portions() pipeline as MEAL_TEMPLATES; the only new piece is an
+# optional food_group narrowing so two archetypes for the same meal type can't both
+# resolve to the same concrete food (e.g. "ovos" vs "carne/peixe" at breakfast).
+# MEAL_TEMPLATES itself remains the always-available, always-viable fallback archetype
+# used by the legacy one-shot /generate endpoint and whenever no archetype survives the
+# feasibility guardrail for a given athlete.
+MEAL_ARCHETYPE_FOOD_GROUPS = {
+    "egg_family": ["eggs-whole", "egg-whites"],
+    "dairy_yogurt": ["yogurt-greek", "yogurt-natural", "cheese-cottage"],
+    "meat_fish_family": ["chicken-breast", "chicken-thigh", "beef-grill", "beef-ground",
+                          "pork-loin", "tilapia", "salmon", "tuna-can"],
+}
+
+MEAL_ARCHETYPES = {
+    "breakfast": [
+        {"id": "classic_eggs", "label": "Clássico", "roles": [
+            {"role": "primary_protein", "category": "PROTEIN", "required": True, "food_group": "egg_family"},
+            {"role": "secondary_protein", "category": "PROTEIN", "required": False},
+            {"role": "primary_carb", "category": "CARBOHYDRATE", "required": True},
+            {"role": "fruit", "category": "FRUIT", "required": False},
+            {"role": "fat_source", "category": "FAT", "required": False},
+        ]},
+        {"id": "quick_dairy", "label": "Rápido", "roles": [
+            {"role": "dairy", "category": "DAIRY", "required": True, "food_group": "dairy_yogurt"},
+            {"role": "primary_carb", "category": "CARBOHYDRATE", "required": True},
+            {"role": "fruit", "category": "FRUIT", "required": False},
+            {"role": "secondary_protein", "category": "PROTEIN", "required": False},
+        ]},
+        {"id": "solid_meal", "label": "Refeição sólida", "roles": [
+            {"role": "primary_protein", "category": "PROTEIN", "required": True, "food_group": "meat_fish_family"},
+            {"role": "primary_carb", "category": "CARBOHYDRATE", "required": True},
+            {"role": "fruit", "category": "FRUIT", "required": False},
+        ]},
+    ],
+    "lunch": [
+        {"id": "classic", "label": "Clássico", "roles": MEAL_TEMPLATES["lunch"]},
+        {"id": "veggie_forward", "label": "Reforço de vegetais", "roles": [
+            {"role": "primary_protein", "category": "PROTEIN", "required": True},
+            {"role": "primary_carb", "category": "CARBOHYDRATE", "required": True},
+            {"role": "vegetable", "category": "VEGETABLE", "required": True},
+            {"role": "vegetable", "category": "VEGETABLE", "required": True},
+            {"role": "fat_source", "category": "FAT", "required": False},
+        ]},
+    ],
+    "dinner": [
+        {"id": "classic", "label": "Clássico", "roles": MEAL_TEMPLATES["dinner"]},
+        {"id": "veggie_forward", "label": "Reforço de vegetais", "roles": [
+            {"role": "primary_protein", "category": "PROTEIN", "required": True},
+            {"role": "primary_carb", "category": "CARBOHYDRATE", "required": True},
+            {"role": "vegetable", "category": "VEGETABLE", "required": True},
+            {"role": "vegetable", "category": "VEGETABLE", "required": True},
+            {"role": "fat_source", "category": "FAT", "required": False},
+        ]},
+    ],
+    "snack": [
+        {"id": "completo", "label": "Completo", "roles": MEAL_TEMPLATES["snack"]},
+        {"id": "leve", "label": "Leve", "roles": [
+            {"role": "primary_protein", "category": "PROTEIN", "required": True},
+            {"role": "fruit", "category": "FRUIT", "required": False},
+        ]},
+    ],
+    "pre_workout": [
+        {"id": "energetico", "label": "Energético", "roles": MEAL_TEMPLATES["pre_workout"]},
+        {"id": "simples", "label": "Simples", "roles": [
+            {"role": "primary_carb", "category": "CARBOHYDRATE", "required": True},
+        ]},
+    ],
+    "post_workout": [
+        {"id": "completo", "label": "Completo", "roles": MEAL_TEMPLATES["post_workout"]},
+        {"id": "com_fruta", "label": "Com fruta", "roles": [
+            {"role": "primary_protein", "category": "PROTEIN", "required": True},
+            {"role": "primary_carb", "category": "CARBOHYDRATE", "required": True},
+            {"role": "fruit", "category": "FRUIT", "required": True},
+        ]},
     ],
 }
 
@@ -456,21 +545,25 @@ def _infer_meal_type(meal_name):
 
 def generate_meal(meal_name, meal_type, target_cal, target_protein, target_fat,
                   pn, used_food_ids, goal="maintenance", daily_used_proteins=None,
-                  day_index=0, is_later_meal=False):
+                  day_index=0, is_later_meal=False, template_override=None):
     mt = _infer_meal_type(meal_name)
 
     # REAL_MEAL_COMPOSITION: build from the named archetype for this meal type instead of
     # an ad-hoc role list, so every meal stays a small, culinarily coherent set of roles.
-    template = MEAL_TEMPLATES.get(mt, MEAL_TEMPLATES["lunch"])
-    total_roles = [(r["role"], r["category"], r.get("required", False)) for r in template]
+    # Guided flow (MEAL_ARCHETYPES): a caller building alternative combos for the same
+    # meal slot passes its own role list here instead of the single default template —
+    # everything downstream (selection, sizing, coherence scoring) is unchanged.
+    template = template_override if template_override is not None else MEAL_TEMPLATES.get(mt, MEAL_TEMPLATES["lunch"])
+    total_roles = [(r["role"], r["category"], r.get("required", False), r.get("food_group")) for r in template]
     # Cutting: a second vegetable (like a real plate — main veg + salad) adds
     # near-free volume/satiety without meaningfully spending the calorie budget.
-    if mt in ("lunch", "dinner") and _goal_key(goal) == "fat_loss":
-        total_roles.append(("vegetable", "VEGETABLE", True))
+    # Only applies to the default template — a custom archetype defines its own roles.
+    if template_override is None and mt in ("lunch", "dinner") and _goal_key(goal) == "fat_loss":
+        total_roles.append(("vegetable", "VEGETABLE", True, None))
 
     # Optional roles only earn their place when the meal's own budget can actually
     # afford another item — a required role is always attempted regardless of count.
-    n_required = sum(1 for _, _, req in total_roles if req)
+    n_required = sum(1 for _, _, req, _ in total_roles if req)
     min_item_kcal = FORGE_COACH_METHODOLOGY.get("min_kcal_per_meal_item", 90)
     max_items = max(n_required, int(target_cal // min_item_kcal)) if target_cal > 0 else n_required
 
@@ -484,7 +577,7 @@ def generate_meal(meal_name, meal_type, target_cal, target_protein, target_fat,
     max_same = FORGE_COACH_METHODOLOGY.get("max_same_protein_per_day", 2)
 
     selected = []; mu = set(used_food_ids)
-    for role, cat, required in total_roles:
+    for role, cat, required, food_group in total_roles:
         if role == "fat_source" and target_fat < 5:
             continue
         # Optional roles (item 3/6: fewer, more human items on a tight per-meal budget)
@@ -508,6 +601,9 @@ def generate_meal(meal_name, meal_type, target_cal, target_protein, target_fat,
             continue
         cands = list(FOODS_BY_ROLE.get(role, FOODS_BY_CAT.get(cat, [])))
         cands = [c for c in cands if c not in exclude and c not in dislike]
+        if food_group:
+            allowed = set(MEAL_ARCHETYPE_FOOD_GROUPS.get(food_group, []))
+            cands = [c for c in cands if c in allowed]
 
         if role == "primary_carb":
             if ctx:
@@ -548,6 +644,132 @@ def generate_meal(meal_name, meal_type, target_cal, target_protein, target_fat,
     foods = [{"food_id": fid, "grams": portions.get(fid, 100), "food": FOOD_INDEX.get(fid, {})} for fid in selected]
     return {"name": meal_name, "target_cal": round(target_cal), "target_protein": round(target_protein),
             "foods": foods}
+
+def _preference_bonus(foods, preferences):
+    """USER_PREFERENCES: ranking-only nudge for the guided flow. `preferences` is
+    {food_id: {"signal": "liked"|"avoided"|"neutral", "chosen_count": int}}. This never
+    runs before the guardrail filter in get_meal_archetype_options — it only reorders
+    among options that already passed it, so a "prefiro evitar" food can lower an
+    archetype's rank but can never make an otherwise-invalid archetype appear, and an
+    explicit "avoided" is still just a preference, never treated as an allergy."""
+    if not preferences:
+        return 0
+    cap = FORGE_COACH_METHODOLOGY.get("preference_bonus_cap", 15)
+    total = 0
+    for it in foods:
+        p = preferences.get(it["food_id"])
+        if not p:
+            continue
+        total += min(10, p.get("chosen_count", 0) * 2)
+        if p.get("signal") == "liked":
+            total += 8
+        elif p.get("signal") == "avoided":
+            total -= 8
+    return max(-cap, min(cap, total))
+
+def get_meal_archetype_options(meal_name, target_cal, target_protein, target_fat, pn, used_food_ids,
+                                goal="maintenance", daily_used_proteins=None, day_index=0,
+                                preferences=None, max_options=5, variety_seed=0):
+    """Guided flow entry point: 2-5 real, complete, coherent meal combinations for one
+    meal slot — never a raw ingredient list. Reuses generate_meal/calculate_meal_portions/
+    calculate_meal_coherence_score exactly as-is; the only new logic here is COACH_GUARDRAILS
+    (an archetype that would need to cross hard_max_portion_g or that scores below the
+    coherence bar is simply never returned) and preference-based ranking among survivors."""
+    mt = _infer_meal_type(meal_name)
+    archetypes = MEAL_ARCHETYPES.get(mt, [])
+    min_score = FORGE_COACH_METHODOLOGY.get("min_archetype_coherence", 55)
+    options = []
+    seen_signatures = set()
+    for arch in archetypes:
+        meal = generate_meal(meal_name, mt, target_cal, target_protein, target_fat, pn, used_food_ids,
+                              goal, daily_used_proteins, day_index + variety_seed,
+                              template_override=arch["roles"])
+        if not meal["foods"]:
+            continue  # infeasible for this athlete's restrictions — never offered
+        # generate_meal silently skips a role it can't fill (e.g. an allergy wipes out
+        # every candidate in that archetype's food_group) rather than failing outright —
+        # correct there for the legacy single-template flow, but here a required role
+        # left empty means this WHOLE archetype is infeasible for this athlete and must
+        # never be offered as a real combination missing its own protein/dairy/etc.
+        chosen_ids = {it["food_id"] for it in meal["foods"]}
+        required_unmet = False
+        for req in arch["roles"]:
+            if not req.get("required"):
+                continue
+            allowed = set(MEAL_ARCHETYPE_FOOD_GROUPS.get(req["food_group"], [])) if req.get("food_group") else None
+            matched = any(
+                (req["role"] in FOOD_INDEX.get(fid, {}).get("roles", []) or FOOD_INDEX.get(fid, {}).get("category") == req["category"])
+                and (allowed is None or fid in allowed)
+                for fid in chosen_ids)
+            if not matched:
+                required_unmet = True
+                break
+        if required_unmet:
+            continue
+        signature = tuple(sorted(it["food_id"] for it in meal["foods"]))
+        if signature in seen_signatures:
+            continue  # two archetypes resolved to the same concrete foods — not a real choice
+        hard_max_ok = all(
+            it["grams"] <= _portion_limit(FOOD_INDEX.get(it["food_id"], {}), "hard_max") + 0.5
+            for it in meal["foods"])
+        score = calculate_meal_coherence_score(meal, mt, goal)
+        if not hard_max_ok or score < min_score:
+            continue
+        seen_signatures.add(signature)
+        options.append({
+            "archetype_id": arch["id"], "label": arch["label"], "meal": meal,
+            "coherence_score": score,
+            "rank_score": score + _preference_bonus(meal["foods"], preferences),
+        })
+    if not options:
+        # Guaranteed fallback (COACH_GUARDRAILS never leaves the athlete with zero
+        # options): the always-viable default template, exactly as the legacy flow uses.
+        fallback = generate_meal(meal_name, mt, target_cal, target_protein, target_fat, pn, used_food_ids,
+                                  goal, daily_used_proteins, day_index + variety_seed)
+        score = calculate_meal_coherence_score(fallback, mt, goal)
+        options = [{"archetype_id": "default", "label": "Padrão", "meal": fallback,
+                    "coherence_score": score, "rank_score": score}]
+    options.sort(key=lambda o: -o["rank_score"])
+    return options[:max_options]
+
+def redistribute_remaining_targets(meals, locked, targets, goal="maintenance"):
+    """After some meal slots are locked in by the athlete's choice, the not-yet-chosen
+    meals must aim at what's actually left of the day's budget — not the original static
+    meal_distribution share — or an early rich choice would silently blow the daily
+    guardrail while later meals starve. Reuses the same meal_distribution weights already
+    used by generate_daily_plan as the reference for splitting *what's left*, and the same
+    _meal_totals helper _reconcile_daily already relies on."""
+    dist = FORGE_COACH_METHODOLOGY["meal_distribution"].get(len(meals), FORGE_COACH_METHODOLOGY["meal_distribution"][4])
+    locked_kcal = locked_protein = locked_fat = 0.0
+    unlocked_idx = []
+    for i, m in enumerate(meals):
+        if locked[i]:
+            mk, mp, mc, mf = _meal_totals(m)
+            locked_kcal += mk; locked_protein += mp; locked_fat += mf
+        else:
+            unlocked_idx.append(i)
+    remaining_kcal = max(0.0, targets["goal_calories"] - locked_kcal)
+    remaining_protein = max(0.0, targets["protein_g"] - locked_protein)
+    remaining_fat = max(0.0, targets["fat_g"] - locked_fat)
+    weight_sum = sum(dist[i] for i in unlocked_idx) or 1
+    # Cap how much of the day's shortfall a single remaining meal can be asked to absorb.
+    # Without this, an earlier meal's small under-delivery (a low-capacity archetype like
+    # a 2-item "leve" snack structurally can't hit a big target) cascades entirely onto
+    # whatever meal is chosen last, asking a light snack to somehow deliver 1300kcal — no
+    # archetype could ever satisfy that. A meal's target never exceeds ~1.8x its own
+    # original static share of the day; any residual shortfall stays unabsorbed rather
+    # than being dumped on one meal, exactly the "don't force artificial precision on a
+    # single meal — the daily total is the solver's goal" rule already governs elsewhere.
+    cap_mult = FORGE_COACH_METHODOLOGY.get("redistribution_cap_multiplier", 1.8)
+    for i in unlocked_idx:
+        share = dist[i] / weight_sum
+        cap_cal = dist[i] * targets["goal_calories"] * cap_mult
+        cap_protein = dist[i] * targets["protein_g"] * cap_mult
+        cap_fat = dist[i] * targets["fat_g"] * cap_mult
+        meals[i]["target_cal"] = round(min(remaining_kcal * share, cap_cal))
+        meals[i]["target_protein"] = round(min(remaining_protein * share, cap_protein))
+        meals[i]["target_fat"] = round(min(remaining_fat * share, cap_fat), 1)
+    return meals
 
 def _reconcile_daily(meals, targets, pn, goal, max_iterations=8):
     gk = _goal_key(goal)
