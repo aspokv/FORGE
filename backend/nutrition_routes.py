@@ -90,7 +90,7 @@ async def generate_plan(request: Request, user=Depends(get_current_user)):
     targets = compute_macro_targets(
         na["weight_kg"], na["height_cm"], na["age"], na["sex"],
         na["training_days"], na["goal"], na.get("activity_level", "moderate"))
-    plan = generate_daily_plan(targets, na, na.get("meal_count", 4))
+    plan = generate_daily_plan(targets, na, na.get("meal_count", 4), na["goal"])
     doc = {"profile_id": target, "user_id": target, "plan": plan, "created_at": datetime.now(timezone.utc).isoformat(),
            "engine_version": FORGE_COACH_METHODOLOGY["engine_version"],
            "methodology_version": FORGE_COACH_METHODOLOGY["coach_version"]}
