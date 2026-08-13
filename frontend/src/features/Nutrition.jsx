@@ -22,7 +22,7 @@ export default function Nutrition({ API, profileId, db }) {
     weight_kg: "", height_cm: "", age: "", sex: "male",
     goal: "maintenance", activity_level: "moderate", training_days: 3,
     meal_count: 4, training_time: "", preferred_foods: [], disliked_foods: [],
-    avoid_foods: [], allergies: [], dietary_restrictions: [], cooking_time: "medium"
+    avoid_foods: [], allergies: [], dietary_restrictions: "", cooking_time: "medium"
   });
   const [genStep, setGenStep] = useState(1);
   const [busy, setBusy] = useState(false);
