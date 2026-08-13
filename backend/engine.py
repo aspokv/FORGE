@@ -33,8 +33,13 @@ for ex in FRONTEND_EXERCISE_LIST:
     alt_ids = [a["id"] for a in EXERCISES
                if a["id"] != ex["id"] and a["primary_muscle"] == src["primary_muscle"]
                and a.get("movement_pattern") == src.get("movement_pattern")][:3]
-    ex["alternatives"] = [EXERCISE_INDEX[aid]["name"] for aid in alt_ids] or [
-        EXERCISE_INDEX[a]["name"] for a in [e["id"] for e in EXERCISES if e["id"] != ex["id"]][:1]]
+    if not alt_ids:
+        alt_ids = [e["id"] for e in EXERCISES if e["id"] != ex["id"]][:1]
+    # alternative_ids is what the substitution-apply endpoint validates a swap against
+    # (item: real substitution, not just listing) — alternatives (names) is unchanged
+    # for any existing frontend consumer that only ever read the display strings.
+    ex["alternative_ids"] = alt_ids
+    ex["alternatives"] = [EXERCISE_INDEX[aid]["name"] for aid in alt_ids]
 
 RANDOM = random.Random()
 
@@ -691,6 +696,26 @@ def _is_empty_profile(stored: dict) -> bool:
     return not has_assessment and not has_priorities
 
 
+def _apply_exercise_substitutions(sessions: List[Dict[str, Any]], profile: dict) -> List[Dict[str, Any]]:
+    """Applies persisted exercise swaps (POST /exercises/substitute) to a built session
+    list — the only thing that changes is exercise_id; sets/reps/rest/rir/technique/load/
+    note are all preserved exactly as generated. This is safe because /exercises/
+    substitute only ever accepts a new_exercise_id that was already a real alternative
+    for that exact exercise (same primary_muscle + movement_pattern, see
+    FRONTEND_EXERCISE_LIST's alternative_ids) — the existing prescription is guaranteed
+    still compatible, so no separate adaptation step is needed. Runs on both the manual
+    (custom_program) and algorithmic session paths so a substitution survives either mode."""
+    subs = profile.get("exercise_substitutions") or {}
+    if not subs:
+        return sessions
+    for session in sessions:
+        for item in session.get("exercises", []):
+            new_id = subs.get(item.get("exercise_id"))
+            if new_id and new_id in EXERCISE_INDEX:
+                item["exercise_id"] = new_id
+    return sessions
+
+
 async def build_program_v2(profile: dict, db=None) -> Dict[str, Any]:
     if profile.get("onboarding_required") is True and _is_empty_profile(profile):
         return {
@@ -723,6 +748,7 @@ async def build_program_v2(profile: dict, db=None) -> Dict[str, Any]:
                     "note": x.get("note", ""),
                 } for x in s.get("exercises", [])]
             })
+        sessions = _apply_exercise_substitutions(sessions, profile)
         return {
             "name": custom.get("name", "Programa personalizado"), "week": custom.get("week", "Microciclo manual"),
             "session": sessions[0]["label"] if sessions else "Sessão",
@@ -800,6 +826,8 @@ async def build_program_v2(profile: dict, db=None) -> Dict[str, Any]:
         for item in session.get("exercises", []):
             sets = item.get("sets", 3)
             item["sets"] = max(2, round(sets * volume_factor))
+
+    sessions = _apply_exercise_substitutions(sessions, profile)
 
     import logging as _logging
     logger = _logging.getLogger("forge.engine")

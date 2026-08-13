@@ -154,6 +154,12 @@ class CustomProgram(BaseModel):
     session_minutes: int = 60
 
 
+class ExerciseSubstituteIn(BaseModel):
+    original_exercise_id: str
+    new_exercise_id: str
+    profile_id: Optional[str] = None
+
+
 def owned_profile_id(user: dict, requested: Optional[str]) -> str:
     """ATHLETE: always their own id. SUPER_ADMIN: may pass any id (falls back to 'demo')."""
     if user.get("role") == "SUPER_ADMIN":
@@ -251,7 +257,32 @@ async def muscle_map(profile_id: str, user=Depends(get_current_user)):
 async def alternatives(exercise_id: str, _user=Depends(get_current_user)):
     source = next((x for x in EXERCISES if x["id"] == exercise_id), None)
     if not source: raise HTTPException(404, "Exercício não encontrado")
-    return {"source": source, "alternatives": [{"name": name, "reason": f"Mantém {source['muscle']} e o padrão {source['pattern']}, com diferença de estabilidade e custo de fadiga."} for name in source["alternatives"]]}
+    alt_ids = source.get("alternative_ids", [])
+    return {"source": source, "alternatives": [
+        {"id": aid, "name": name, "reason": f"Mantém {source['muscle']} e o padrão {source['pattern']}, com diferença de estabilidade e custo de fadiga."}
+        for aid, name in zip(alt_ids, source["alternatives"])]}
+
+
+@api.post("/exercises/substitute")
+async def substitute_exercise(payload: ExerciseSubstituteIn, user=Depends(get_current_user)):
+    target = owned_profile_id(user, payload.profile_id)
+    ex_index = {e["id"]: e for e in EXERCISES}
+    source = ex_index.get(payload.original_exercise_id)
+    if not source:
+        raise HTTPException(404, "Exercício original não encontrado")
+    # Only ever accept a swap the matching engine itself already offered for this exact
+    # exercise (same primary_muscle + movement_pattern) — this is what guarantees the
+    # athlete's existing sets/reps/rest/rir prescription stays valid unchanged, without
+    # needing a separate adaptation step.
+    if payload.new_exercise_id not in source.get("alternative_ids", []):
+        raise HTTPException(400, "Substituição não permitida: não é uma alternativa válida para este exercício")
+    profile = await load_profile(target)
+    subs = dict(profile.get("exercise_substitutions") or {})
+    subs[payload.original_exercise_id] = payload.new_exercise_id
+    await db.profiles.update_one(
+        {"id": target}, {"$set": {"exercise_substitutions": subs, "user_id": target}}, upsert=True)
+    profile = await load_profile(target)
+    return {"program": await build_program(profile), "exercise_substitutions": subs}
 
 
 @api.get("/techniques")
