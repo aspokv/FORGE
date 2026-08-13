@@ -35,8 +35,13 @@ MAINTENANCE_TARGETS = compute_macro_targets(82, 175, 40, "male", 3, "maintenance
 
 
 def test_cutting_allows_controlled_undershoot():
-    # spec example: 149 kcal -> 110 kcal in a fat_loss context should not auto-FAIL
-    day_before = _day(CUTTING_TARGETS["goal_calories"], CUTTING_TARGETS["protein_g"],
+    # spec example: 149 kcal -> 110 kcal in a fat_loss context should not auto-FAIL.
+    # day_before sits a bit above goal_calories (a realistic day-in-progress state, not
+    # the exact target) so there's real headroom before the daily guardrail floor —
+    # CUTTING_TARGETS now uses the more-aggressive-deficit floor for this profile (see
+    # calculate_goal_calories), which can put goal_calories exactly AT that floor, and a
+    # day already sitting precisely there would correctly reject any further undershoot.
+    day_before = _day(CUTTING_TARGETS["goal_calories"] + 150, CUTTING_TARGETS["protein_g"],
                        CUTTING_TARGETS["carbs_g"], CUTTING_TARGETS["fat_g"])
     meal_before = _meal(600, 40, 50, 10)
     r = evaluate_goal_directional_substitution(
@@ -242,3 +247,86 @@ def test_cutting_more_satiating_than_bulking():
         return kcal / max(1, grams / 100)
 
     assert density(cutting_plan) < density(bulking_plan)
+
+
+# ═════════════════════════════════════════════════════════════════════════════════════
+# Production report: 85kg/fat_loss/4 meals generated 2476 kcal / 170g P / 296g C / 68g F.
+# Audits the full chain (TDEE -> deficit -> goal_calories -> protein -> fat -> residual
+# carb) and adds support for a more-aggressive deficit (down to daily_guardrails.
+# fat_loss's own min_total_kcal_pct floor) whenever THIS profile's protein/fat leave
+# enough headroom for a real carb residual — never a fixed number for every user, never
+# below the guardrail, and protein/fat are never reduced to make room for it.
+# ═════════════════════════════════════════════════════════════════════════════════════
+
+from nutrition_engine import calculate_bmr, calculate_activity_factor, calculate_tdee, calculate_goal_calories  # noqa: E402
+
+
+def test_deficit_chain_matches_the_reported_85kg_case_exactly():
+    """Reproduces the reported BEFORE numbers exactly from the same chain the engine
+    itself runs — proves the calculation was never mathematically wrong, just always
+    using the flat moderate deficit_pct regardless of how much headroom a profile has."""
+    w, h, age, al, td = 85, 182, 28, "very_active", 6
+    bmr = calculate_bmr(w, h, age, "male")
+    af = calculate_activity_factor(td, al)
+    tdee = calculate_tdee(bmr, af)
+    protein_g = w * FORGE_COACH_METHODOLOGY["protein_range_g_per_kg"]["fat_loss"][0]
+    fat_g = w * FORGE_COACH_METHODOLOGY["fat_range_g_per_kg"]["fat_loss"][0]
+    assert protein_g == 170.0
+    assert fat_g == 68.0
+    moderate_goal_cal = round(tdee * FORGE_COACH_METHODOLOGY["deficit_pct"])
+    assert abs(moderate_goal_cal - 2476) <= 1, f"chain no longer matches the reported case: {moderate_goal_cal}"
+
+
+def test_aggressive_deficit_only_applies_when_carb_residual_stays_healthy():
+    """The more-aggressive floor (daily_guardrails.fat_loss.min_total_kcal_pct) must
+    only be used when it still leaves a real carb residual — never for a profile whose
+    protein+fat minimums would otherwise crush carbs toward zero."""
+    m = FORGE_COACH_METHODOLOGY
+    guard = m["daily_guardrails"]["fat_loss"]
+    # Case A: plenty of headroom (real 85kg case) -> aggressive floor used.
+    t_room = compute_macro_targets(85, 182, 28, "male", 6, "fat_loss", "very_active")
+    aggressive_expected = round(t_room["tdee"] * guard["min_total_kcal_pct"])
+    assert t_room["goal_calories"] == aggressive_expected, (
+        f"expected the aggressive floor for a profile with real headroom: {t_room}")
+    min_carb_kcal = m["min_carb_g_per_kg_aggressive_deficit"] * 85 * 4
+    residual_kcal = t_room["goal_calories"] - t_room["protein_g"] * 4 - t_room["fat_g"] * 9
+    assert residual_kcal >= min_carb_kcal - 1
+
+    # Case B: a much smaller/lighter profile with low TDEE relative to protein+fat needs
+    # (little training, sedentary) -> must fall back to the moderate deficit, not crush
+    # carbs toward zero just because the floor exists.
+    t_tight = compute_macro_targets(55, 155, 45, "female", 1, "fat_loss", "sedentary")
+    moderate_expected = round(t_tight["tdee"] * m["deficit_pct"])
+    assert t_tight["goal_calories"] == moderate_expected, (
+        f"expected the moderate (non-aggressive) deficit for a tight profile: {t_tight}")
+
+
+def test_aggressive_deficit_never_reduces_protein_or_fat_below_their_own_floor():
+    """Protein/fat stay exactly at their methodology-defined per-kg minimums regardless
+    of which deficit_pct gets chosen — the aggressive path only ever changes carbs."""
+    m = FORGE_COACH_METHODOLOGY
+    for w, h, age, al, td in [(85, 182, 28, "very_active", 6), (70, 175, 30, "active", 5)]:
+        t = compute_macro_targets(w, h, age, "male", td, "fat_loss", al)
+        assert t["protein_g"] == round(w * m["protein_range_g_per_kg"]["fat_loss"][0], 1)
+        assert t["fat_g"] == round(w * m["fat_range_g_per_kg"]["fat_loss"][0], 1)
+
+
+def test_aggressive_deficit_never_goes_below_the_guardrail_floor():
+    """goal_calories must never drop below daily_guardrails.fat_loss.min_total_kcal_pct
+    of TDEE, regardless of profile — the guardrail is a hard floor, not a suggestion."""
+    m = FORGE_COACH_METHODOLOGY
+    guard = m["daily_guardrails"]["fat_loss"]
+    for w, h, age, al, td in [(85, 182, 28, "very_active", 6), (95, 190, 22, "very_active", 7),
+                               (60, 165, 35, "moderate", 3), (55, 155, 45, "sedentary", 1)]:
+        t = compute_macro_targets(w, h, age, "male", td, "fat_loss", al)
+        floor = t["tdee"] * guard["min_total_kcal_pct"]
+        assert t["goal_calories"] >= floor - 1, f"goal_calories fell below the guardrail floor: {t}"
+
+
+def test_maintenance_and_muscle_gain_goal_calories_unaffected_by_the_deficit_change():
+    """The aggressive-deficit path only triggers for fat_loss — maintenance/muscle_gain
+    keep their existing flat calculation exactly as before."""
+    t_maint = compute_macro_targets(80, 175, 30, "male", 4, "maintenance", "moderate")
+    assert t_maint["goal_calories"] == round(t_maint["tdee"])
+    t_bulk = compute_macro_targets(80, 175, 30, "male", 4, "muscle_gain", "moderate")
+    assert t_bulk["goal_calories"] == round(t_bulk["tdee"] * FORGE_COACH_METHODOLOGY["surplus_pct"])

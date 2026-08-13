@@ -251,3 +251,86 @@ def test_role_and_candidate_helpers_handle_unknown_meal_type_gracefully():
     tilapia = FOOD_INDEX["tilapia"]
     assert _role_of_food(tilapia) == "primary_protein"
     assert _dna_candidates_for_role("primary_protein", "nonexistent_meal_type") == set()
+
+
+# ═════════════════════════════════════════════════════════════════════════════════════
+# Production bug: on a real generated fat_loss plan, Trocar on the CONFIRMED plan
+# (/substitute, validate_daily=True) returned "Nenhuma substituicao disponivel" for both
+# the primary protein and the primary carb — e.g. "File de tilapia 239g" and "Batata
+# doce cozida 70g". Root cause: evaluate_goal_directional_substitution_meal_level
+# compared the resized meal's calories against the meal's PRE-swap actual total instead
+# of its own target_cal, and fat_loss's allow_overshoot_pct (5%) was calibrated for the
+# old near-zero-delta naive calorie-equivalence method — both made the tight local check
+# reject nearly every real cross-species protein/carb swap during a deficit, even though
+# the whole-day guardrail (the real protection) was never actually violated.
+# ═════════════════════════════════════════════════════════════════════════════════════
+
+from nutrition_engine import _infer_meal_type, evaluate_goal_directional_substitution_meal_level, _meal_totals, _food_macros  # noqa: E402
+
+
+def _confirmed_plan_swap(food_id, meal, daily_totals, targets, pn, goal="fat_loss"):
+    """Mirrors exactly what /nutrition/substitute (the CONFIRMED plan) calls:
+    validate_daily=True (the default), using the meal's own persisted target_*."""
+    food_ids = [f["food_id"] for f in meal["foods"]]
+    orig_grams = next(f["grams"] for f in meal["foods"] if f["food_id"] == food_id)
+    return find_substitutes(
+        food_id, pn, food_ids, max_results=3, orig_grams=orig_grams, goal=goal,
+        meal=meal["foods"], daily_totals=daily_totals, targets=targets,
+        meal_type=_infer_meal_type(meal["name"]), meal_target_cal=meal.get("target_cal"),
+        meal_target_protein=meal.get("target_protein"), meal_target_fat=meal.get("target_fat"))
+
+
+def test_production_case_tilapia_swap_on_confirmed_fat_loss_plan_returns_alternatives():
+    """Direct regression for the reported 'File de tilapia 239g -> Nenhuma substituicao
+    disponivel'. Runs the real generate_daily_plan pipeline (not a synthetic meal) for a
+    real fat_loss profile, then swaps the primary protein exactly as /substitute would."""
+    pn = _profile(weight_kg=85)
+    targets = compute_macro_targets(85, 178, 30, "male", 4, "fat_loss", "moderate")
+    plan = generate_daily_plan(targets, pn, 4, "fat_loss")
+    meal = next(m for m in plan["meals"] if any(
+        "primary_protein" in FOOD_INDEX.get(it["food_id"], {}).get("roles", []) for it in m["foods"]))
+    protein_item = next(it for it in meal["foods"]
+                         if "primary_protein" in FOOD_INDEX.get(it["food_id"], {}).get("roles", []))
+    subs = _confirmed_plan_swap(protein_item["food_id"], meal, plan["daily_totals"], plan["targets"], pn)
+    assert subs, (f"expected real protein alternatives for {protein_item['food_id']} "
+                   f"{protein_item['grams']}g at {meal['name']} (fat_loss, confirmed plan), got none")
+    for cid, grams, reason, evald in subs:
+        assert grams > 0
+        assert evald["valid"] is True
+
+
+def test_production_case_carb_swap_on_confirmed_fat_loss_plan_returns_alternatives():
+    """Direct regression for the reported 'Batata doce cozida 70g -> Nenhuma
+    substituicao disponivel', same confirmed-plan path as the protein case above."""
+    pn = _profile(weight_kg=85)
+    targets = compute_macro_targets(85, 178, 30, "male", 4, "fat_loss", "moderate")
+    plan = generate_daily_plan(targets, pn, 4, "fat_loss")
+    meal = next(m for m in plan["meals"] if any(
+        "primary_carb" in FOOD_INDEX.get(it["food_id"], {}).get("roles", []) for it in m["foods"]))
+    carb_item = next(it for it in meal["foods"]
+                      if "primary_carb" in FOOD_INDEX.get(it["food_id"], {}).get("roles", []))
+    subs = _confirmed_plan_swap(carb_item["food_id"], meal, plan["daily_totals"], plan["targets"], pn)
+    assert subs, (f"expected real carb alternatives for {carb_item['food_id']} "
+                   f"{carb_item['grams']}g at {meal['name']} (fat_loss, confirmed plan), got none")
+    for cid, grams, reason, evald in subs:
+        assert grams > 0
+        assert "recalculada" in reason.lower()
+
+
+def test_meal_level_evaluator_measures_against_meal_target_not_pre_swap_total():
+    """The precise root-cause fix: a meal that's already sitting BELOW its own
+    target_cal (common right after generation) must not reject a swap that brings it
+    CLOSER to target just because it's numerically above the pre-swap total. day_before/
+    targets use a real, internally-consistent full-day snapshot for an 85kg fat_loss
+    profile so the daily guardrail/protein-floor checks reflect a realistic day, not an
+    arbitrary fixture that fails those checks for unrelated reasons."""
+    real_targets = compute_macro_targets(85, 178, 30, "male", 4, "fat_loss", "moderate")
+    meal_before = {"kcal": 552, "protein_g": 60.9, "carbs_g": 43.9, "fat_g": 16.8}
+    meal_after = {"kcal": 608, "protein_g": 65.0, "carbs_g": 43.0, "fat_g": 18.0}  # closer to target than before
+    day_before = {"kcal": real_targets["goal_calories"], "protein_g": real_targets["protein_g"],
+                   "carbs_g": real_targets["carbs_g"], "fat_g": real_targets["fat_g"]}
+    pn = {"weight_kg": 85}
+    ev = evaluate_goal_directional_substitution_meal_level(
+        meal_before, meal_after, "fat_loss", day_before, real_targets, pn, meal_target_cal=624)
+    assert ev["valid"] is True, f"swap that lands closer to the meal's own target was rejected: {ev}"
+    assert ev["direction"] == "equivalent"

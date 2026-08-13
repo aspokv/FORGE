@@ -23,9 +23,21 @@ FORGE_COACH_METHODOLOGY = {
     "fat_range_g_per_kg": {"fat_loss": [0.8, 1.0], "maintenance": [0.8, 1.2], "muscle_gain": [0.8, 1.2]},
     "fat_min_pct": 0.15,
     "deficit_pct": 0.80, "surplus_pct": 1.12, "calorie_tolerance_pct": 0.05,
+    # Safety floor for the more-aggressive-deficit check in calculate_goal_calories: a
+    # profile only gets pushed to daily_guardrails.fat_loss's min_total_kcal_pct floor
+    # when the residual carb after protein+fat still clears this per-kg minimum — a
+    # widely-used floor for avoiding a crash-diet-level carb residual, not a fixed gram
+    # number applied to every athlete (it still scales with bodyweight).
+    "min_carb_g_per_kg_aggressive_deficit": 1.5,
     "macro_tolerance_g": {"protein": 5, "carbs": 10, "fat": 5},
     "goal_directional_tolerance": {
-        "fat_loss": {"allow_undershoot_pct": 0.25, "allow_overshoot_pct": 0.05},
+        # allow_overshoot_pct for fat_loss matches the same 12% calorie-equivalence
+        # tolerance recalculate_substitution_portion already uses elsewhere in this
+        # engine — a same-role substitution (tilapia <-> frango, resized to the same
+        # protein target) isn't the athlete deliberately eating more, it's a real,
+        # unavoidable density difference between foods; the whole-day guardrail
+        # (daily_guardrails.fat_loss) is what actually protects the deficit.
+        "fat_loss": {"allow_undershoot_pct": 0.25, "allow_overshoot_pct": 0.12},
         "maintenance": {"allow_undershoot_pct": 0.08, "allow_overshoot_pct": 0.08},
         "muscle_gain": {"allow_undershoot_pct": 0.05, "allow_overshoot_pct": 0.25},
     },
@@ -408,9 +420,27 @@ def calculate_activity_factor(td, al="moderate"):
 
 def calculate_tdee(bmr, af): return round(bmr*af, 0)
 
-def calculate_goal_calories(tdee, goal):
+def calculate_goal_calories(tdee, goal, w=0, protein_g=0, fat_g=0):
     gl = (goal or "").lower()
-    if "fat" in gl or "perda" in gl: return round(tdee*0.80, 0)
+    if "fat" in gl or "perda" in gl:
+        m = FORGE_COACH_METHODOLOGY
+        moderate = tdee * m["deficit_pct"]
+        if not w:
+            return round(moderate, 0)
+        # A more aggressive deficit (down to daily_guardrails.fat_loss's own
+        # min_total_kcal_pct floor — never below it) is used automatically whenever THIS
+        # profile's protein/fat needs leave enough headroom for a real, non-crash carb
+        # residual — never a fixed number applied to every user. protein_g/fat_g are
+        # already fixed by the methodology's own per-kg minimums (never reduced here),
+        # so the extra reduction lands on carbs, which are already the residual macro —
+        # fat is deliberately left untouched since it's already at its own range floor.
+        guard = m["daily_guardrails"]["fat_loss"]
+        aggressive = tdee * guard["min_total_kcal_pct"]
+        min_carb_kcal = m["min_carb_g_per_kg_aggressive_deficit"] * w * 4
+        residual_at_aggressive = aggressive - protein_g*4 - fat_g*9
+        if residual_at_aggressive >= min_carb_kcal:
+            return round(aggressive, 0)
+        return round(moderate, 0)
     if "maintenance" in gl or "manut" in gl: return round(tdee, 0)
     return round(tdee*1.12, 0)
 
@@ -429,9 +459,12 @@ def compute_macro_targets(w, h, age, sex, td, goal, al="moderate"):
     bmr = calculate_bmr(w,h,age,sex)
     af = calculate_activity_factor(td,al)
     tdee = calculate_tdee(bmr,af)
-    gc = calculate_goal_calories(tdee,goal)
+    # protein/fat are computed first — they're driven purely by bodyweight/goal, never by
+    # goal_calories — so calculate_goal_calories can check whether THIS profile's own
+    # protein+fat minimums leave room for a more aggressive deficit (see above).
     pg = calculate_protein_target(w,goal)
     fg = calculate_fat_target(w,goal)
+    gc = calculate_goal_calories(tdee,goal,w,pg,fg)
     cg = calculate_carb_target(gc,pg,fg)
     return {"bmr":bmr,"tdee":tdee,"activity_factor":af,"goal_calories":gc,
             "protein_g":pg,"fat_g":fg,"carbs_g":cg,
@@ -1369,7 +1402,8 @@ def evaluate_goal_directional_substitution(orig_fid, new_fid, orig_grams, new_gr
     }
 
 
-def evaluate_goal_directional_substitution_meal_level(meal_before, meal_after, goal, day_before, targets, pn):
+def evaluate_goal_directional_substitution_meal_level(meal_before, meal_after, goal, day_before, targets, pn,
+                                                        meal_target_cal=None):
     """Same LEVEL 1 (local) + LEVEL 2 (daily impact) validation as
     evaluate_goal_directional_substitution, but comparing the whole MEAL's totals
     before/after instead of a single food's before/after. The single-food version
@@ -1378,7 +1412,18 @@ def evaluate_goal_directional_substitution_meal_level(meal_before, meal_after, g
     calculate_meal_portions resizes every item in the meal to hit the same meal target
     (item 2: 'reconcilie os demais componentes da refeicao'). Comparing just the swapped
     food's isolated before/after there produces a large, misleading delta and rejects
-    substitutions that the reconciled meal is actually fine with."""
+    substitutions that the reconciled meal is actually fine with.
+
+    LEVEL 1 direction/goal_compatible is measured against the meal's own target_cal, not
+    its pre-swap actual total: target_cal already bakes in the deficit/surplus (via
+    deficit_pct/surplus_pct in compute_macro_targets), so "does the new meal still land
+    near what this meal was always supposed to deliver" IS the goal-directional check.
+    Comparing to the pre-swap total instead rejected almost every real cross-species
+    protein swap during a deficit (e.g. tilapia -> frango), since a leaner fish naturally
+    costs fewer calories per gram of protein than a fattier meat even when both correctly
+    hit the same protein target — a real, unavoidable difference between foods, not a
+    goal violation. day_before/daily_delta_kcal below still use the real before/after
+    delta, so the whole-day guardrail keeps tracking the swap's actual calorie impact."""
     m = FORGE_COACH_METHODOLOGY
     gk = _goal_key(goal)
     tol = m["goal_directional_tolerance"][gk]
@@ -1388,11 +1433,14 @@ def evaluate_goal_directional_substitution_meal_level(meal_before, meal_after, g
     ok, op, oc, of = meal_before["kcal"], meal_before["protein_g"], meal_before["carbs_g"], meal_before["fat_g"]
     nk, np_, nc, nf = meal_after["kcal"], meal_after["protein_g"], meal_after["carbs_g"], meal_after["fat_g"]
     local_delta_kcal = nk - ok
-    local_pct = (local_delta_kcal / ok) if ok else 0.0
 
-    if abs(local_pct) <= dead_band:
+    target_ref = meal_target_cal if meal_target_cal else ok
+    target_delta_kcal = nk - target_ref
+    target_pct = (target_delta_kcal / target_ref) if target_ref else 0.0
+
+    if abs(target_pct) <= dead_band:
         direction = "equivalent"
-    elif local_delta_kcal < 0:
+    elif target_delta_kcal < 0:
         direction = "undershoot"
     else:
         direction = "overshoot"
@@ -1402,15 +1450,15 @@ def evaluate_goal_directional_substitution_meal_level(meal_before, meal_after, g
     goal_compatible = True
     reasons = []
     if gk == "maintenance":
-        if direction == "undershoot" and abs(local_pct) > tol["allow_undershoot_pct"]:
+        if direction == "undershoot" and abs(target_pct) > tol["allow_undershoot_pct"]:
             goal_compatible = False
             reasons.append("Reducao calorica maior que a tolerancia de manutencao")
-        elif direction == "overshoot" and local_pct > tol["allow_overshoot_pct"]:
+        elif direction == "overshoot" and target_pct > tol["allow_overshoot_pct"]:
             goal_compatible = False
             reasons.append("Aumento calorico maior que a tolerancia de manutencao")
     elif direction == unfavorable:
         limit = tol["allow_overshoot_pct"] if unfavorable == "overshoot" else tol["allow_undershoot_pct"]
-        if abs(local_pct) > limit:
+        if abs(target_pct) > limit:
             goal_compatible = False
             reasons.append(f"Direcao contraria ao objetivo {gk} alem do limite permitido")
 
@@ -1565,7 +1613,7 @@ def find_substitutes(food_id, pn, current_meal_foods, max_results=3, orig_grams=
                 nk += fk; np_ += fp; nc += fc; nf += ff
             meal_after = {"kcal": nk, "protein_g": np_, "carbs_g": nc, "fat_g": nf}
             evald = evaluate_goal_directional_substitution_meal_level(
-                meal_before, meal_after, goal, daily_totals, targets, pn)
+                meal_before, meal_after, goal, daily_totals, targets, pn, meal_target_cal=meal_target_cal)
             if not evald["valid"]: continue
             results.append((cid, ng, reason, evald))
         elif full_context and validate_daily:
