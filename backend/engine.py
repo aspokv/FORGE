@@ -716,6 +716,20 @@ def _apply_exercise_substitutions(sessions: List[Dict[str, Any]], profile: dict)
     return sessions
 
 
+def _resolve_active_day(sessions: List[Dict[str, Any]], profile: dict) -> Optional[int]:
+    """Program sequence progression (item: Concluir treino avanca imediatamente para o
+    proximo, nunca por data): the active session is whichever "day" POST /workout/complete
+    last advanced the profile's current_session_day pointer to — never sessions[0] by
+    itself, and never derived from the calendar date. Falls back to the first available
+    day when there's no pointer yet, or when the pointer no longer matches the program's
+    current shape (e.g. the athlete changed days/split after it was set)."""
+    if not sessions:
+        return None
+    day_values = sorted(s["day"] for s in sessions)
+    current = profile.get("current_session_day")
+    return current if current in day_values else day_values[0]
+
+
 async def build_program_v2(profile: dict, db=None) -> Dict[str, Any]:
     if profile.get("onboarding_required") is True and _is_empty_profile(profile):
         return {
@@ -749,9 +763,11 @@ async def build_program_v2(profile: dict, db=None) -> Dict[str, Any]:
                 } for x in s.get("exercises", [])]
             })
         sessions = _apply_exercise_substitutions(sessions, profile)
+        active_day = _resolve_active_day(sessions, profile)
+        active_label = next((s["label"] for s in sessions if s["day"] == active_day), sessions[0]["label"] if sessions else "Sessão")
         return {
             "name": custom.get("name", "Programa personalizado"), "week": custom.get("week", "Microciclo manual"),
-            "session": sessions[0]["label"] if sessions else "Sessão",
+            "session": active_label, "active_day": active_day,
             "duration": f"{custom.get('session_minutes', profile.get('session_minutes', 60))} min",
             "focus": priorities[:3], "sessions": sessions,
             "logic": {"split": "Programa manual (Program Builder Pro)", "days": len(sessions),
@@ -873,10 +889,12 @@ async def build_program_v2(profile: dict, db=None) -> Dict[str, Any]:
                     pass
 
     priorities_list = get_profile_priorities_internal(profile)
+    active_day = _resolve_active_day(sessions, profile)
+    active_label = next((s["label"] for s in sessions if s["day"] == active_day), sessions[0]["label"] if sessions else "Sessão")
     return {
         "name": f"{split_name} · {experience}",
         "week": f"Semana {block_week} · {split_name}",
-        "session": sessions[0]["label"] if sessions else "Sessão",
+        "session": active_label, "active_day": active_day,
         "duration": f"{session_minutes} min",
         "focus": [to_frontend(p) for p in priorities_list[:3]],
         "sessions": sessions,

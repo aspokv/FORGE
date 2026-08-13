@@ -160,6 +160,11 @@ class ExerciseSubstituteIn(BaseModel):
     profile_id: Optional[str] = None
 
 
+class WorkoutCompleteIn(BaseModel):
+    day: Optional[int] = None
+    profile_id: Optional[str] = None
+
+
 def owned_profile_id(user: dict, requested: Optional[str]) -> str:
     """ATHLETE: always their own id. SUPER_ADMIN: may pass any id (falls back to 'demo')."""
     if user.get("role") == "SUPER_ADMIN":
@@ -481,6 +486,38 @@ async def log_recovery(item: Recovery, user=Depends(get_current_user)):
     doc["created_at"] = datetime.now(timezone.utc).isoformat()
     await db.recovery.insert_one(doc)
     return {k: v for k, v in doc.items() if k != "_id"}
+
+
+@api.post("/workout/complete")
+async def complete_workout(payload: WorkoutCompleteIn, user=Depends(get_current_user)):
+    """Program sequence progression (Push -> Pull -> Legs): advances the athlete's
+    current_session_day pointer to the NEXT day in the program's own sequence — never
+    based on calendar date, never requiring logout/login or midnight. Atomic and
+    persistent: the pointer write and the completion-history write both happen here,
+    before returning the rebuilt program with the new active session already selected."""
+    target = owned_profile_id(user, payload.profile_id)
+    profile = await load_profile(target)
+    program = await build_program(profile)
+    sessions = program.get("sessions") or []
+    if not sessions:
+        raise HTTPException(400, "Nenhuma sessão disponível para concluir")
+    day_values = sorted(s["day"] for s in sessions)
+    completed_day = payload.day if payload.day in day_values else program.get("active_day", day_values[0])
+    completed_session = next(s for s in sessions if s["day"] == completed_day)
+    idx = day_values.index(completed_day)
+    next_day = day_values[(idx + 1) % len(day_values)]
+    now = datetime.now(timezone.utc).isoformat()
+
+    # Only the sequence pointer changes on the profile — sets/recovery/substitutions
+    # already persisted by their own endpoints are never touched here.
+    await db.profiles.update_one({"id": target}, {"$set": {"current_session_day": next_day}}, upsert=True)
+    await db.workout_completions.insert_one({
+        "id": str(uuid.uuid4()), "profile_id": target, "day": completed_day,
+        "label": completed_session.get("label"), "completed_at": now,
+    })
+
+    profile = await load_profile(target)
+    return {"program": await build_program(profile), "completed_day": completed_day, "next_day": next_day}
 
 
 @api.get("/analytics")
