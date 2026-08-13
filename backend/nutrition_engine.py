@@ -48,6 +48,18 @@ FORGE_COACH_METHODOLOGY = {
                        "FRUIT": [80, 350], "VEGETABLE": [80, 400], "DAIRY": [100, 300], "LEGUME": [50, 250], "MIXED": [50, 300]},
     "min_protein_per_meal_g": 10, "min_fat_per_meal_g": 3,
     "meal_role_kcal_share_cap": {"primary_protein": 0.65, "fat_source": 0.30},
+    # Coach anchor floor (not a ceiling): primary_protein claims at least this fraction
+    # of the meal's OWN calorie budget too, not just the bare grams its protein macro
+    # target implies — a lean, low-density protein (peixe/frango) still gets a natural,
+    # substantial portion instead of shrinking to a bare-minimum "protein math" figure
+    # while carb/vegetal fill the rest of the meal.
+    "primary_protein_anchor_kcal_share": 0.325,
+    # Daily protein distribution (not a single-meal solve): a solid meat/fish primary_
+    # protein should stay within a real single-plate reference (150-250g) rather than
+    # concentrate a whole day's protein deficit into one oversized portion — the day's
+    # protein need should spread across meals/sources instead. Applies only to
+    # MEAT_FISH_MAIN_IDS; eggs/whey/plant proteins are unaffected.
+    "meat_fish_single_meal_max_g": 250,
     "carb_hierarchy": {"tier_1": ["potato","sweet-potato"], "tier_2": ["cassava","rice-white","rice-brown"], "tier_3_contextual": ["rice-flour"]},
     "carb_meal_context": {
         "breakfast": ["oats","tapioca","rice-flour","corn-flour","sweet-potato"],
@@ -109,6 +121,12 @@ FOOD_FAMILIES = {
                          "green-beans", "eggplant", "pumpkin", "beetroot"],
     "FAT_FAMILY": ["olive-oil", "avocado", "peanuts", "brazil-nuts", "peanut-butter"],
 }
+
+# Solid meat/fish primary_protein sources (item: daily protein distribution) — the
+# animal-protein subset of LEAN_PROTEIN_SOLID/POST_PRE_PROTEIN, excluding plant proteins
+# (tofu/soy-protein) which don't carry the "carne/peixe numa unica refeicao" concern.
+MEAT_FISH_MAIN_IDS = {"chicken-breast", "beef-grill", "tilapia", "pork-loin", "salmon",
+                      "chicken-thigh", "beef-ground"}
 
 # REAL_MEAL_COMPOSITION — explicit roles per meal, so a meal is built from a small set of
 # culinarily coherent slots instead of a solver free to inflate whichever single food
@@ -292,6 +310,17 @@ def _portion_limit(food, kind):
     return hi * mult if kind == "hard_max" else hi * FORGE_COACH_METHODOLOGY["portion_fallback_multiplier"]["comfortable"]
 
 
+def _protein_hard_max(fid, food):
+    """hard_max for a primary_protein item, capped further for solid meat/fish (item:
+    daily protein distribution) so a single meal never concentrates 280g+ of carne/peixe
+    — the reference stays a real single-plate amount, with any extra daily protein need
+    meant to spread across other meals/sources instead."""
+    hard_max = _portion_limit(food, "hard_max")
+    if fid in MEAT_FISH_MAIN_IDS:
+        return min(hard_max, FORGE_COACH_METHODOLOGY["meat_fish_single_meal_max_g"])
+    return hard_max
+
+
 def _snap_to_unit(fid, grams, lo, hi):
     """Portion humanization (item 3): a food with a natural unit (an egg, a clara) is
     never shown — or even calculated — as an arbitrary gram figure like "180g"; it's
@@ -342,17 +371,25 @@ def build_food_item(fid, grams):
     return item
 
 
-def _needs_secondary_protein(primary_fid, target_protein):
-    """True when the primary alone would have to blow past its comfortable portion to
-    hit the meal's protein target — the exact condition that produced 300g+ egg-white
-    breakfasts. A small 5% slack avoids recruiting a helper for a marginal shortfall."""
+def _needs_secondary_protein(primary_fid, target_protein, meal_type=None):
+    """True when the primary alone would have to blow past its own ceiling to hit the
+    meal's protein target — the exact condition that produced 300g+ egg-white
+    breakfasts. A small 5% slack avoids recruiting a helper for a marginal shortfall.
+
+    Breakfast/snack use hard_max (not comfortable) as that ceiling: a single food
+    naturally sized up to "3 ovos" or "6 claras" is still simple and human, so a second
+    protein food should only be recruited when even that isn't enough — not on every
+    moderate target, which was silently pairing eggs-whole+egg-whites (or +whey) far
+    more often than a coach actually would ("empilhamento artificial so para fechar
+    macros"). Lunch/dinner keep the tighter comfortable-based gate."""
     f = FOOD_INDEX.get(primary_fid)
     if not f or target_protein <= 0:
         return False
     ppg = f.get("protein_g", 0) / max(1, f.get("grams", 100))
     if ppg <= 0:
         return False
-    max_protein_alone = _portion_limit(f, "comfortable") * ppg
+    limit_kind = "hard_max" if meal_type in ("breakfast", "snack") else "comfortable"
+    max_protein_alone = _portion_limit(f, limit_kind) * ppg
     return target_protein > max_protein_alone * 1.05
 
 
@@ -488,14 +525,25 @@ def calculate_meal_portions(food_ids, target_cal, target_protein, target_fat=0, 
         ppg = f.get("protein_g", 0) / max(1, f.get("grams", 100))
         if ppg > 0:
             comfortable = _portion_limit(f, "comfortable")
-            hard_max = _portion_limit(f, "hard_max")
+            hard_max = _protein_hard_max(protein_fid, f)
             lo, _ = FORGE_COACH_METHODOLOGY["portion_limits"].get(f.get("category", "PROTEIN"), [50, 250])
             # without a secondary to hand the remainder to, the primary is allowed up to
-            # hard_max so the protein target isn't silently abandoned; with a secondary
-            # present, the primary stops at comfortable and the secondary covers the rest.
+            # hard_max (capped further for solid meat/fish — item: daily protein
+            # distribution, never one meal absorbing a 280g+ plate) so the protein target
+            # isn't silently abandoned; with a secondary present, the primary stops at
+            # comfortable and the secondary covers the rest.
             cap = hard_max if not secondary_fid else comfortable
-            grams = max(lo, min(cap, round(target_protein / ppg, -1)))
             cpg = f.get("kcal", 100) / max(1, f.get("grams", 100))
+            protein_driven = round(target_protein / ppg, -1)
+            # Coach anchor: a real, dimensioned priority claim on the meal's OWN calorie
+            # budget, not just the bare grams the protein macro alone implies — this is
+            # what keeps a lean, low-density protein (peixe/frango) from shrinking to a
+            # thin "protein math" portion while carb/vegetal fill the rest of the plate.
+            # Still fully target/profile-driven (scales with target_cal, never a fixed
+            # number): only ever raises grams above what target_protein itself needed.
+            anchor_kcal = target_cal * FORGE_COACH_METHODOLOGY["primary_protein_anchor_kcal_share"]
+            anchor_driven = round(anchor_kcal / cpg, -1) if cpg > 0 else 0
+            grams = max(lo, min(cap, max(protein_driven, anchor_driven)))
             max_kcal = target_cal * kcal_cap["primary_protein"]
             if cpg > 0 and grams * cpg > max_kcal:
                 grams = max(lo, round(max_kcal / cpg, -1))
@@ -558,50 +606,93 @@ def calculate_meal_portions(food_ids, target_cal, target_protein, target_fat=0, 
     # together (e.g. "batata 400g + abobrinha 400g" in one plate).
     remaining_ids = [fid for fid in food_ids if fid not in sized]
     gk = _goal_key(goal)
-    if gk == "fat_loss":
-        weights = {fid: (3.0 if FOOD_INDEX.get(fid, {}).get("category") == "VEGETABLE" else 1.0)
-                   for fid in remaining_ids}
-    else:
-        weights = {fid: (2.5 if FOOD_INDEX.get(fid, {}).get("category") in ("CARBOHYDRATE", "MIXED") else 1.0)
-                   for fid in remaining_ids}
-    total_w = sum(weights.values()) or 1
 
-    # Pass 1: every item capped at its own comfortable_portion_g.
-    comfortable_grams = {}
-    for fid in remaining_ids:
+    def _cap_grams(fid, cal_share, cap_kind):
         f = FOOD_INDEX.get(fid, {})
-        share = remaining_cal * (weights[fid] / total_w)
         cpg = f.get("kcal", 100) / max(1, f.get("grams", 100))
         lo, _ = FORGE_COACH_METHODOLOGY["portion_limits"].get(f.get("category", "PROTEIN"), [50, 250])
-        comfortable_cap = _portion_limit(f, "comfortable")
-        grams = share / max(0.1, cpg) if cpg > 0 else 100
-        comfortable_grams[fid] = max(lo, min(comfortable_cap, round(grams, -1)))
+        cap = _portion_limit(f, cap_kind)
+        grams = cal_share / max(0.1, cpg) if cpg > 0 else 100
+        return max(lo, min(cap, round(grams, -1)))
+
+    def _kcal_of(fid, grams):
+        f = FOOD_INDEX.get(fid, {})
+        return grams * (f.get("kcal", 100) / max(1, f.get("grams", 100)))
+
+    comfortable_grams = {}
+    if gk == "fat_loss":
+        # Cutting: give vegetables a bigger weighted share of the remaining calorie
+        # budget instead of an even split with calorie-dense carbs — low-density foods
+        # buy far more mass/satiety per kcal, proportionate to whatever budget this
+        # profile actually has (no fixed-gram override that could blow a tight budget).
+        weights = {fid: (3.0 if FOOD_INDEX.get(fid, {}).get("category") == "VEGETABLE" else 1.0)
+                   for fid in remaining_ids}
+        total_w = sum(weights.values()) or 1
+        for fid in remaining_ids:
+            comfortable_grams[fid] = _cap_grams(fid, remaining_cal * (weights[fid] / total_w), "comfortable")
+    else:
+        # primary_protein -> primary_carb -> vegetables/fruit/legume -> fats (coach
+        # hierarchy): primary_carb gets a real, sequential first claim on what's left of
+        # the calorie budget — up to its own comfortable portion — before vegetable/
+        # fruit/legume see any of it, instead of racing it proportionally (which let
+        # both balloon toward comfortable together, e.g. "400g batata + 350g abobrinha"
+        # just to close calories). Bulking/maintenance: a big meal's extra calorie share
+        # leans into the carb, which comfortably absorbs a large dense portion, rather
+        # than pushing a vegetable toward an oversized pile for the same target.
+        carb_ids = [fid for fid in remaining_ids if FOOD_INDEX.get(fid, {}).get("category") in ("CARBOHYDRATE", "MIXED")]
+        other_ids = [fid for fid in remaining_ids if fid not in carb_ids]
+        cal_left = remaining_cal
+        for fid in carb_ids:
+            comfortable_grams[fid] = _cap_grams(fid, cal_left, "comfortable")
+            cal_left -= _kcal_of(fid, comfortable_grams[fid])
+        other_w = len(other_ids) or 1
+        for fid in other_ids:
+            comfortable_grams[fid] = _cap_grams(fid, max(0, cal_left) / other_w, "comfortable")
 
     # Pass 2: if the comfortable-capped set can't absorb the remaining calorie budget,
-    # scale the shortfall across items that still have room up to their hard_max_portion_g
-    # — never beyond it. This is what replaces blindly inflating a single food.
-    # Deliberately NOT the same veg_weight-boosted weights as Pass 1 for fat_loss: the
-    # satiety objective (more volume within a comfortable, human portion) was already
-    # served there. Continuing to funnel the *overflow past comfortable* preferentially
-    # into vegetables produces exactly "vegetais utilizados como filler calórico" (item
-    # 18) — e.g. two vegetables both pushed toward hard_max for one big cutting meal.
-    # Past comfortable, the leftover spreads evenly instead (muscle_gain keeps its carb
-    # bias here too — a dense carb absorbing overflow is more natural than a bigger pile
-    # of vegetables or protein).
-    pass2_weights = weights if gk != "fat_loss" else {fid: 1.0 for fid in remaining_ids}
-    absorbed = sum(comfortable_grams[fid] * (FOOD_INDEX.get(fid, {}).get("kcal", 100) / max(1, FOOD_INDEX.get(fid, {}).get("grams", 100))) for fid in remaining_ids)
+    # grow items that still have room up to their hard_max_portion_g — never beyond it.
+    # This is what replaces blindly inflating a single food.
+    absorbed = sum(_kcal_of(fid, comfortable_grams[fid]) for fid in remaining_ids)
     shortfall = remaining_cal - absorbed
     if shortfall > 20 and remaining_ids:
-        room_ids = [fid for fid in remaining_ids
-                    if comfortable_grams[fid] < _portion_limit(FOOD_INDEX.get(fid, {}), "hard_max")]
-        room_w = sum(pass2_weights[fid] for fid in room_ids) or 1
-        for fid in room_ids:
-            f = FOOD_INDEX.get(fid, {})
-            cpg = f.get("kcal", 100) / max(1, f.get("grams", 100))
-            extra_cal = shortfall * (pass2_weights[fid] / room_w)
-            extra_grams = extra_cal / max(0.1, cpg) if cpg > 0 else 0
-            hard_max = _portion_limit(f, "hard_max")
-            comfortable_grams[fid] = min(hard_max, round(comfortable_grams[fid] + extra_grams, -1))
+        if gk == "fat_loss":
+            # Deliberately equal weights here (not the veg-boosted Pass 1 weights): the
+            # satiety objective (more volume within a comfortable, human portion) was
+            # already served in Pass 1. Continuing to funnel the *overflow past
+            # comfortable* preferentially into vegetables produces exactly "vegetais
+            # utilizados como filler calorico" — two vegetables both pushed toward
+            # hard_max for one big cutting meal. Past comfortable, the leftover spreads
+            # evenly instead.
+            room_ids = [fid for fid in remaining_ids
+                        if comfortable_grams[fid] < _portion_limit(FOOD_INDEX.get(fid, {}), "hard_max")]
+            room_w = len(room_ids) or 1
+            for fid in room_ids:
+                extra_grams = (shortfall / room_w) / max(0.1, FOOD_INDEX.get(fid, {}).get("kcal", 100) / max(1, FOOD_INDEX.get(fid, {}).get("grams", 100)))
+                hard_max = _portion_limit(FOOD_INDEX.get(fid, {}), "hard_max")
+                comfortable_grams[fid] = min(hard_max, round(comfortable_grams[fid] + extra_grams, -1))
+        else:
+            # Same sequential hierarchy for the overflow: primary_carb claims the whole
+            # shortfall (up to ITS hard_max) before vegetable/fruit/legume are pushed
+            # past their own comfortable portion at all.
+            carb_ids = [fid for fid in remaining_ids if FOOD_INDEX.get(fid, {}).get("category") in ("CARBOHYDRATE", "MIXED")]
+            other_ids = [fid for fid in remaining_ids if fid not in carb_ids]
+            carb_room = [fid for fid in carb_ids
+                         if comfortable_grams[fid] < _portion_limit(FOOD_INDEX.get(fid, {}), "hard_max")]
+            room_w = len(carb_room) or 1
+            for fid in carb_room:
+                extra_grams = (shortfall / room_w) / max(0.1, FOOD_INDEX.get(fid, {}).get("kcal", 100) / max(1, FOOD_INDEX.get(fid, {}).get("grams", 100)))
+                hard_max = _portion_limit(FOOD_INDEX.get(fid, {}), "hard_max")
+                comfortable_grams[fid] = min(hard_max, round(comfortable_grams[fid] + extra_grams, -1))
+            absorbed_after_carb = sum(_kcal_of(fid, comfortable_grams[fid]) for fid in remaining_ids)
+            remaining_shortfall = remaining_cal - absorbed_after_carb
+            if remaining_shortfall > 20:
+                other_room = [fid for fid in other_ids
+                              if comfortable_grams[fid] < _portion_limit(FOOD_INDEX.get(fid, {}), "hard_max")]
+                other_room_w = len(other_room) or 1
+                for fid in other_room:
+                    extra_grams = (remaining_shortfall / other_room_w) / max(0.1, FOOD_INDEX.get(fid, {}).get("kcal", 100) / max(1, FOOD_INDEX.get(fid, {}).get("grams", 100)))
+                    hard_max = _portion_limit(FOOD_INDEX.get(fid, {}), "hard_max")
+                    comfortable_grams[fid] = min(hard_max, round(comfortable_grams[fid] + extra_grams, -1))
 
     for fid in remaining_ids:
         portions[fid] = comfortable_grams[fid]
@@ -676,7 +767,7 @@ def generate_meal(meal_name, meal_type, target_cal, target_protein, target_fat,
             # Only recruit a protein-compound partner (item 4) when the primary really
             # can't cover the target within its comfortable portion — never unconditionally.
             primary_fid = next((s for s in selected if "primary_protein" in FOOD_INDEX.get(s, {}).get("roles", [])), None)
-            if not primary_fid or not _needs_secondary_protein(primary_fid, target_protein):
+            if not primary_fid or not _needs_secondary_protein(primary_fid, target_protein, mt):
                 continue
             pair_ids = set(SECONDARY_PROTEIN_PAIRS.get(primary_fid, []))
             cands = [c for c in FOODS_BY_ROLE.get(role, []) if c in pair_ids]
@@ -961,13 +1052,14 @@ def _reconcile_daily(meals, targets, pn, goal, max_iterations=8):
                     # also maxed does growth widen back to every satiety item.
                     protein_pool = [it for it in eligible
                                      if "primary_protein" in FOOD_INDEX.get(it["food_id"], {}).get("roles", [])
-                                     and it["grams"] < _portion_limit(FOOD_INDEX.get(it["food_id"], {}), "hard_max")]
+                                     and it["grams"] < _protein_hard_max(it["food_id"], FOOD_INDEX.get(it["food_id"], {}))]
                     if protein_pool: growth_pool = protein_pool
                 for item in growth_pool:
                     if kcal_budget <= 0: break
                     f = FOOD_INDEX.get(item["food_id"],{})
                     cpg = f.get("kcal", 100) / max(1, f.get("grams", 100))
-                    hard_max = _portion_limit(f, "hard_max")
+                    is_protein = "primary_protein" in f.get("roles", [])
+                    hard_max = _protein_hard_max(item["food_id"], f) if is_protein else _portion_limit(f, "hard_max")
                     step = round(min(15, kcal_budget / max(0.1, cpg)))
                     if step <= 0: continue
                     item["grams"] = min(hard_max, item["grams"] + step)
@@ -1002,6 +1094,30 @@ def _reconcile_daily(meals, targets, pn, goal, max_iterations=8):
             elif fat_gap < -5:
                 for item in fat_items:
                     item["grams"] = max(3, item["grams"] - 5)
+
+            # Daily protein distribution (item: "a distribuicao diaria e mais importante
+            # do que fazer uma unica refeicao absorver todo o deficit"): if the day is
+            # still under the protein guardrail after the passes above, top up
+            # protein-bearing items a modest step per meal per iteration — spreading
+            # across MULTIPLE meals/sources over the iterations rather than dumping the
+            # whole shortfall into one plate. Respects each food's own comfortable/
+            # hard_max and the meat/fish single-meal reference cap.
+            if protein_room < 0:
+                protein_items = [it for it in m.get("foods", [])
+                                  if "primary_protein" in FOOD_INDEX.get(it["food_id"], {}).get("roles", [])
+                                  or "secondary_protein" in FOOD_INDEX.get(it["food_id"], {}).get("roles", [])]
+                for item in protein_items:
+                    if protein_room >= 0: break
+                    f = FOOD_INDEX.get(item["food_id"], {})
+                    ppg = f.get("protein_g", 0) / max(1, f.get("grams", 100))
+                    if ppg <= 0: continue
+                    is_protein = "primary_protein" in f.get("roles", [])
+                    hard_max = _protein_hard_max(item["food_id"], f) if is_protein else _portion_limit(f, "hard_max")
+                    if item["grams"] >= hard_max: continue
+                    step_grams = min(20, hard_max - item["grams"])
+                    if step_grams <= 0: continue
+                    item["grams"] += step_grams
+                    protein_room += step_grams * ppg
     return meals
 
 def generate_daily_plan(targets, pn, meal_count=4, goal="maintenance", variety_seed=0):
