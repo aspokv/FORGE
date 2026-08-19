@@ -12,7 +12,7 @@ import {AuthProvider,useAuth} from "./features/AuthContext";
 import {LoginScreen,InviteScreen} from "./features/AuthScreens";
 import AdminPanel from "./features/AdminPanel";
 import Nutrition from "./features/Nutrition";
-const API=`${process.env.REACT_APP_BACKEND_URL}/api`;
+const API=`${process.env.REACT_APP_BACKEND_URL || ""}/api`;
 const GROUPS={PEITORAL:["Peitoral superior","Peitoral esternal"],OMBROS:["Deltóide anterior","Deltóide lateral","Deltóide posterior"],COSTAS:["Dorsais / largura","Costas / espessura","Trapézio"],BRAÇOS:["Bíceps","Braquial","Tríceps"],PERNAS:["Quadríceps","Posteriores","Glúteos","Adutores","Panturrilhas"],CORE:["Abdômen","Oblíquos"]};
 const DEV=["muito fraco","fraco","proporcional","forte","muito forte"],PRI=["baixa","normal","alta","máxima"];
 const FALLBACK={profile:{id:"demo",name:"Rafael Mendes",goal:"Hipertrofia com especialização",experience:"Avançado",days:4,session_minutes:70,priorities:["Deltóide lateral","Peitoral superior","Posteriores"],assessment:{}},program:{week:"Semana 3 de 6",session:"Upper A — tensão e largura",duration:"67 min",focus:["Peitoral superior","Deltóide lateral"],exercises:[{exercise_id:"incline-smith",sets:3,reps:"6–8",rir:"1–2",rest:"3 min",load:82},{exercise_id:"lat-pulldown",sets:3,reps:"8–10",rir:"1–2",rest:"2 min",load:62},{exercise_id:"lateral-raise",sets:4,reps:"12–20",rir:"1–2",rest:"90 s",load:12}]},exercises:[],muscles:[],recent_sets:[],demo:true};

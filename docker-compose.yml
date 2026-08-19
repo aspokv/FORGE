@@ -1,0 +1,62 @@
+# FORGE — stack completa para Coolify (VPS)
+#
+# Topologia: UM unico dominio publico.
+#   frontend (nginx) serve o SPA em /  e faz proxy de /api -> backend:8000
+#   backend  (FastAPI) nao fica exposto na internet, so na rede interna do Docker
+#   banco    permanece no MongoDB Atlas (nao sobe para a VPS)
+#
+# No Coolify: New Resource -> Docker Compose -> repositorio aspokv/FORGE, branch main.
+# Aponte o dominio APENAS para o servico "frontend", porta 80.
+
+services:
+  backend:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    environment:
+      MONGO_URL: ${MONGO_URL:?defina MONGO_URL (a mesma string do Atlas usada no Railway)}
+      DB_NAME: ${DB_NAME:?defina DB_NAME (o mesmo do Railway, senao o app sobe com banco vazio)}
+      FORGE_JWT_SECRET: ${FORGE_JWT_SECRET:?copie o secret ATUAL do Railway, nao gere outro}
+      FORGE_SUPER_ADMIN_EMAIL: ${FORGE_SUPER_ADMIN_EMAIL:?defina FORGE_SUPER_ADMIN_EMAIL}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      # Front e API na mesma origem: CORS deixa de existir como problema.
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+    expose:
+      - "8000"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/api/"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
+  frontend:
+    build:
+      context: ./frontend
+    restart: unless-stopped
+    expose:
+      - "80"
+    depends_on:
+      - backend
+
+# --- Mongo local: NAO recomendado nesta VPS de 2 vCPU ---------------------------
+# So use se algum dia sair do Atlas. Descomente o servico, o volume, o depends_on
+# no backend, e troque MONGO_URL para mongodb://forge:SENHA@mongo:27017/?authSource=admin
+#
+#  mongo:
+#    image: mongo:7          # exige AVX no processador; sem AVX use mongo:4.4
+#    restart: unless-stopped
+#    environment:
+#      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-forge}
+#      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+#    volumes:
+#      - forge-mongo-data:/data/db
+#    healthcheck:
+#      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+#      interval: 10s
+#      timeout: 5s
+#      retries: 12
+#
+# volumes:
+#   forge-mongo-data:
