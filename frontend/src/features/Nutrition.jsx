@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
-import { ChevronRight, RefreshCw, Check, X, Utensils } from "lucide-react";
+import { ChevronRight, RefreshCw, Check, X, Utensils, ClipboardPaste } from "lucide-react";
+import NutritionImport from "./NutritionImport";
 
 // Humanized display for naturally-countable foods (eggs, whites): the backend computes
 // display_quantity/display_unit from the real grams (e.g. "3 ovos"); grams stay the
@@ -25,6 +26,7 @@ export default function Nutrition({ API, profileId, db }) {
     avoid_foods: [], allergies: [], dietary_restrictions: "", cooking_time: "medium"
   });
   const [genStep, setGenStep] = useState(1);
+  const [importOpen, setImportOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [mealStatus, setMealStatus] = useState({});
@@ -461,6 +463,19 @@ export default function Nutrition({ API, profileId, db }) {
         <div><span>Carbo</span><b>{Math.round(t.carbs_g || 0)}<small>g</small></b></div>
         <div><span>Gordura</span><b>{Math.round(t.fat_g || 0)}<small>g</small></b></div>
       </section>
+
+      <button className="secondary-button" data-testid="open-diet-import"
+        style={{ marginTop: 14 }} onClick={() => setImportOpen(true)}>
+        <ClipboardPaste size={16} /> Colar minha dieta / periodizar
+      </button>
+
+      {importOpen && (
+        <NutritionImport
+          API={API}
+          onActivated={res => { if (res?.plan) setPlan(res.plan); }}
+          onClose={() => setImportOpen(false)}
+        />
+      )}
 
       {error && <div className="auth-error" style={{ marginTop: 14 }}>{error}</div>}
 

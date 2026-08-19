@@ -58,3 +58,26 @@
   .manual-day-actions{margin-left:auto}
   .manual-confirm .primary-button,.manual-confirm .secondary-button{flex:1}
 }
+
+/* Importacao de dieta e periodizacao */
+.diet-totals{margin:0}
+.diet-meal-kcal{font:11px 'IBM Plex Mono';color:var(--accent);flex-shrink:0}
+.diet-grams{width:96px;flex-shrink:0}
+.diet-grams input{width:100%}
+.diet-item-macros{font:11px 'IBM Plex Mono';color:var(--muted)}
+
+.period-form{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;align-items:end}
+.period-form .primary-button{grid-column:1/-1}
+.period-floor{font-size:12px}
+.period-table-wrap{overflow-x:auto;border:1px solid var(--line)}
+.period-table{width:100%;border-collapse:collapse;font-size:12px;min-width:420px}
+.period-table th{background:var(--elevated);color:var(--muted);font:10px 'IBM Plex Mono';letter-spacing:.08em;text-transform:uppercase;padding:10px 8px;text-align:left}
+.period-table td{border-top:1px solid var(--line);padding:6px 8px}
+.period-table input{width:72px;background:var(--surface);border:1px solid var(--line);color:var(--text);padding:7px;font:12px 'IBM Plex Mono'}
+.period-table tr.infeasible{background:#2a1a17}
+.period-table tr.infeasible td{color:#f1b2a0}
+
+@media(max-width:800px){
+  .period-form{grid-template-columns:1fr 1fr}
+  .diet-grams{width:80px}
+}
