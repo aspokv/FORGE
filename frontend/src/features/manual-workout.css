@@ -1,0 +1,57 @@
+/* Criar meu próprio treino — editor manual e importador de texto.
+   Reaproveita os tokens e os blocos do Program Builder Pro (.builder-panel,
+   .deep-field, .builder-exercise-grid, .builder-actions) para não abrir um
+   segundo vocabulário visual. */
+
+.manual-panel{width:min(760px,100%)}
+
+.manual-tabs{display:flex;gap:6px;margin:20px 0 18px;border-bottom:1px solid var(--line);padding-bottom:14px}
+.manual-tab{flex:1;background:var(--elevated);border:1px solid var(--line);color:var(--muted);padding:12px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;transition:border .14s,color .14s}
+.manual-tab.active{border-color:var(--accent);color:var(--text);background:#291d19}
+
+.manual-build{display:grid;gap:16px}
+.manual-build .muted{line-height:1.7;font-size:13px}
+
+.manual-import{display:grid;gap:12px}
+.manual-textarea{background:var(--surface);border:1px solid var(--line);color:var(--text);padding:14px;font:13px/1.7 'IBM Plex Mono',monospace;width:100%;resize:vertical;min-height:240px}
+.manual-textarea:focus{outline:none;border-color:var(--accent)}
+.manual-import-meta{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.manual-counter{font:11px 'IBM Plex Mono';color:var(--muted)}
+.manual-counter.warn{color:var(--accent)}
+.manual-example{background:var(--elevated);border:1px solid var(--line);border-left:2px solid var(--accent);padding:14px;font:12px/1.7 'IBM Plex Mono',monospace;color:#dedbd3;white-space:pre-wrap;overflow-x:auto}
+
+.manual-preview{display:grid;gap:16px}
+.manual-summary{border:1px solid var(--line);background:var(--elevated);padding:14px;display:grid;gap:6px;font-size:13px}
+.manual-review-warning{display:flex;align-items:center;gap:6px;color:#f1b2a0;font-size:12px;line-height:1.6}
+
+.manual-day{border:1px solid var(--line);background:var(--surface);padding:16px;display:grid;gap:14px}
+.manual-day-head{display:flex;gap:8px;align-items:center}
+.manual-day-label{flex:1;background:var(--elevated);border:1px solid var(--line);color:var(--text);padding:11px;font:13px 'IBM Plex Sans';min-width:0}
+.manual-day-actions{display:flex;gap:4px;flex-shrink:0}
+.manual-day-actions .icon-button:disabled{opacity:.3;cursor:not-allowed}
+
+.manual-exercise{border:1px solid var(--line);background:var(--elevated);padding:14px;display:grid;gap:10px}
+.manual-exercise.review{border-color:#6e4338;background:#2a1a17}
+.manual-exercise-head{display:flex;gap:8px;align-items:center}
+.manual-exercise-head select{flex:1;background:var(--surface);border:1px solid var(--line);color:var(--text);padding:11px;font:13px 'IBM Plex Sans';min-width:0}
+.manual-raw{font:11px 'IBM Plex Mono';color:var(--muted)}
+
+.manual-errors{border-left:2px solid var(--accent);background:#2a1a17;color:#f1b2a0;padding:12px 12px 12px 26px;font-size:12px;display:grid;gap:6px;line-height:1.6}
+
+.manual-confirm{border:1px solid var(--accent);background:var(--elevated);padding:20px;display:grid;gap:12px;margin-top:8px}
+.manual-confirm h3{font-size:16px}
+.manual-confirm p{font-size:13px;line-height:1.7;color:#dedbd3}
+
+.spin{animation:manual-spin 1s linear infinite}
+@keyframes manual-spin{to{transform:rotate(360deg)}}
+
+@media(max-width:800px){
+  .manual-tabs{flex-direction:column}
+  .manual-textarea{min-height:200px;font-size:12px}
+  .manual-day{padding:12px}
+  .manual-exercise{padding:12px}
+  .manual-exercise-head{flex-wrap:wrap}
+  .manual-exercise-head select{flex:1 1 100%;order:2}
+  .manual-day-actions{margin-left:auto}
+  .manual-confirm .primary-button,.manual-confirm .secondary-button{flex:1}
+}

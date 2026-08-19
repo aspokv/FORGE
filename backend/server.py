@@ -18,6 +18,7 @@ from llm_providers import get_coach_provider, FORGE_COACH_SYSTEM
 from auth import router as auth_router, get_current_user, seed_super_admin
 from admin_routes import router as admin_router
 from nutrition_routes import router as nutrition_router
+from manual_workout_routes import router as manual_workout_router
 from muscles import (
     to_frontend, to_internal, get_profile_priorities_internal,
     get_assessment_internal, FRONTEND_MUSCLES as MUSCLES_FRONTEND_LIST,
@@ -640,6 +641,7 @@ async def coach(payload: Dict[str, Any], user=Depends(get_current_user)):
 app.include_router(auth_router)
 app.include_router(admin_router)
 app.include_router(nutrition_router)
+app.include_router(manual_workout_router)
 app.include_router(api)
 app.add_middleware(CORSMiddleware, allow_credentials=True, allow_origins=os.environ.get("CORS_ORIGINS", "*").split(","), allow_methods=["*"], allow_headers=["*"])
 
