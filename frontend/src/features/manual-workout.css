@@ -35,6 +35,9 @@
 .manual-exercise-head{display:flex;gap:8px;align-items:center}
 .manual-exercise-head select{flex:1;background:var(--surface);border:1px solid var(--line);color:var(--text);padding:11px;font:13px 'IBM Plex Sans';min-width:0}
 .manual-raw{font:11px 'IBM Plex Mono';color:var(--muted)}
+.manual-suggestions{display:flex;gap:6px;flex-wrap:wrap}
+.manual-chip{background:var(--surface);border:1px solid #6e4338;color:#f1b2a0;padding:7px 10px;font-size:11px;transition:border .14s,color .14s}
+.manual-chip:hover{border-color:var(--accent);color:var(--accent)}
 
 .manual-errors{border-left:2px solid var(--accent);background:#2a1a17;color:#f1b2a0;padding:12px 12px 12px 26px;font-size:12px;display:grid;gap:6px;line-height:1.6}
 

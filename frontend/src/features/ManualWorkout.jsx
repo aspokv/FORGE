@@ -24,6 +24,8 @@ Rosca direta — 3x10`;
 const REVIEW_LABELS = {
   exercise_unmatched: "exercício não reconhecido — escolha no catálogo",
   low_confidence_match: "correspondência incerta — confirme o exercício",
+  multiple_options: "o texto ofereceu duas opções — escolha qual você faz",
+  ambiguous_match: "nome ambíguo — escolha o exercício certo no catálogo",
   sets_missing: "séries não informadas no texto",
   reps_missing: "repetições não informadas no texto",
 };
@@ -289,6 +291,17 @@ export default function ManualWorkout({ API, profile, exercises, onActivated, on
                       <p className="manual-review-warning">
                         <AlertTriangle size={13} /> {(x.review_reasons || []).map(r => REVIEW_LABELS[r] || r).join(" · ")}
                       </p>
+                    )}
+                    {!x.exercise_id && (x.suggestions || []).length > 0 && (
+                      <div className="manual-suggestions" data-testid={`manual-suggestions-${dayIdx}-${exIdx}`}>
+                        {x.suggestions.map(sid => (
+                          <button key={sid} className="manual-chip"
+                            data-testid={`manual-suggestion-${dayIdx}-${exIdx}-${sid}`}
+                            onClick={() => patchExercise(dayIdx, exIdx, { exercise_id: sid })}>
+                            {exerciseName(sid)}
+                          </button>
+                        ))}
+                      </div>
                     )}
 
                     <div className="builder-exercise-grid">

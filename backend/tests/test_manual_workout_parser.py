@@ -13,8 +13,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from manual_workout import (  # noqa: E402
     MAX_IMPORT_CHARS, REVIEW_EXERCISE_UNMATCHED, REVIEW_REPS_MISSING, REVIEW_SETS_MISSING,
+    REVIEW_AMBIGUOUS, REVIEW_MULTIPLE_OPTIONS,
     draft_to_custom_program, match_exercise, parse_intensity, parse_rest, parse_technique,
-    parse_workout_text, normalize_reps, validate_draft,
+    parse_workout_text, normalize_reps, resolve_exercise_name, validate_draft,
 )
 from engine import EXERCISE_INDEX  # noqa: E402
 
@@ -256,3 +257,79 @@ def test_sanitization_strips_control_characters_from_pasted_text():
     draft = parse_workout_text("PEITO\nSupino\x00 reto\x07 — 4x10")
     assert "\x00" not in draft["sessions"][0]["exercises"][0]["raw_name"]
     assert "\x07" not in draft["sessions"][0]["exercises"][0]["raw_name"]
+
+
+# --- casos reais reportados em produção (camada 1: matching determinístico) ---------
+
+def test_alternatives_with_ou_offer_both_instead_of_failing():
+    """"Barra fixa ou puxada alta": duas opções reais, nenhuma escolhida pelo parser."""
+    r = resolve_exercise_name("Barra fixa ou puxada alta")
+    assert r["exercise_id"] is None
+    assert r["confidence"] == "options"
+    assert r["options"] == ["pullup", "cable-pulldown"]
+
+
+def test_alternatives_with_slash_are_split_too():
+    r = resolve_exercise_name("Desenvolvimento / elevação lateral")
+    assert r["confidence"] == "options"
+    assert set(r["options"]) == {"db-ohp", "db-lateral-raise"}
+
+
+def test_alternatives_where_only_one_resolves_uses_that_one():
+    r = resolve_exercise_name("Tríceps na polia ou extensão cruzada")
+    assert r["exercise_id"] == "cable-pushdown"
+
+
+def test_alternatives_pointing_at_the_same_exercise_do_not_become_options():
+    r = resolve_exercise_name("Paralelas / Dips")
+    assert r["exercise_id"] == "dip"
+    assert r["confidence"] != "options"
+
+
+def test_word_order_variation_matches_the_existing_catalog_entry():
+    """"Remada com peito apoiado" == "Remada apoiada no peito" (ordem trocada)."""
+    r = resolve_exercise_name("Remada com peito apoiado")
+    assert r["exercise_id"] == "row"
+
+
+def test_gender_and_plural_folding():
+    assert resolve_exercise_name("Rosca inclinada com halter")["exercise_id"] == "incline-db-curl"
+
+
+def test_bayesian_curl_exists_in_the_catalog_now():
+    assert "bayesian-curl" in EXERCISE_INDEX
+    for name in ["Rosca Bayesian", "rosca bayesiana", "bayesian curl"]:
+        assert resolve_exercise_name(name)["exercise_id"] == "bayesian-curl", name
+
+
+def test_romanian_deadlift_maps_to_the_existing_rdl_entry():
+    """O RDL ja existia como "Stiff / RDL com barra" — alias, nao entrada duplicada."""
+    for name in ["Levantamento romeno", "RDL", "levantamento terra romeno", "stiff"]:
+        assert resolve_exercise_name(name)["exercise_id"] == "rdl", name
+
+
+def test_conventional_deadlift_still_maps_to_its_own_entry():
+    assert resolve_exercise_name("Levantamento terra")["exercise_id"] == "conventional-deadlift"
+
+
+def test_ambiguous_name_is_never_forced_into_a_match():
+    """"Remada alta com peito apoiado" mistura dois exercicios diferentes do catalogo."""
+    r = resolve_exercise_name("Remada alta com peito apoiado")
+    assert r["exercise_id"] is None
+    assert r["confidence"] == "ambiguous"
+    assert r["suggestions"]
+
+
+def test_reported_cases_end_to_end_through_the_parser():
+    text = """DIA 1
+Barra fixa ou puxada alta — 4x8
+Remada com peito apoiado — 3x10
+Rosca Bayesian — 3x12
+Levantamento romeno — 4x8
+Remada alta com peito apoiado — 3x12"""
+    items = flat(parse_workout_text(text))
+    assert [x["exercise_id"] for x in items] == [None, "row", "bayesian-curl", "rdl", None]
+    assert items[0]["review_reasons"] == [REVIEW_MULTIPLE_OPTIONS]
+    assert items[4]["review_reasons"] == [REVIEW_AMBIGUOUS]
+    # os dois resolvidos por alias nao pedem revisao
+    assert not items[1]["needs_review"] and not items[2]["needs_review"] and not items[3]["needs_review"]

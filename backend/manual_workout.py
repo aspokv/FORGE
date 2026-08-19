@@ -29,6 +29,18 @@ REVIEW_EXERCISE_UNMATCHED = "exercise_unmatched"
 REVIEW_LOW_CONFIDENCE = "low_confidence_match"
 REVIEW_SETS_MISSING = "sets_missing"
 REVIEW_REPS_MISSING = "reps_missing"
+REVIEW_MULTIPLE_OPTIONS = "multiple_options"
+REVIEW_AMBIGUOUS = "ambiguous_match"
+
+# Words that carry no identity in an exercise name — "Remada apoiada NO peito" and
+# "Remada COM peito apoiado" are the same movement written in a different order.
+STOPWORDS = {
+    "com", "sem", "no", "na", "nos", "nas", "de", "do", "da", "dos", "das", "em",
+    "a", "o", "os", "as", "e", "para", "pra", "por", "ao", "aos", "num", "numa",
+}
+
+# "X ou Y" / "X / Y" in a pasted line means the athlete may do either one.
+_ALTERNATIVES = re.compile(r"\s+ou\s+|\s+/\s+", re.I)
 
 # Technique ids that really exist in server.TECHNIQUES — never map to anything else.
 TECHNIQUE_PATTERNS: List[Tuple[str, str, str]] = [
@@ -99,8 +111,22 @@ EXERCISE_ALIASES: Dict[str, str] = {
     "mesa flexora": "lying-leg-curl",
     "cadeira flexora": "seated-hamstring-curl",
     "stiff": "rdl",
+    # O RDL/levantamento romeno JA existe no catalogo como "Stiff / RDL com barra":
+    # estes sao apelidos dele, nao um exercicio novo.
+    "rdl": "rdl",
+    "levantamento romeno": "rdl",
+    "levantamento terra romeno": "rdl",
+    "terra romeno": "rdl",
+    "stiff romeno": "rdl",
+    "romeno": "rdl",
     "levantamento terra": "conventional-deadlift",
     "terra": "conventional-deadlift",
+    "rosca bayesian": "bayesian-curl",
+    "rosca bayesiana": "bayesian-curl",
+    "bayesian curl": "bayesian-curl",
+    "bayesian": "bayesian-curl",
+    "remada com peito apoiado": "row",
+    "remada peito apoiado": "row",
     "afundo": "lunge",
     "avanco": "lunge",
     "passada": "lunge",
@@ -146,11 +172,50 @@ def sanitize(text: str, limit: int) -> str:
 _CATALOG_BY_NAME = {normalize(e["name"]): e["id"] for e in ENGINE_EXERCISES}
 
 
-def _token_score(candidate: str, target: str) -> float:
-    a, b = set(candidate.split()), set(target.split())
-    if not a or not b:
+def _stem(token: str) -> str:
+    """Minimal Portuguese folding: plural and gender agreement only, so that
+    "apoiada"/"apoiado" and "halteres"/"halter" stop being different words."""
+    # halteres -> halter (plural -es de palavras terminadas em r/s/z/l)
+    if len(token) > 5 and token.endswith("es") and token[-3] in "rszl":
+        token = token[:-2]
+    elif len(token) > 4 and token.endswith("s"):
+        token = token[:-1]
+    if len(token) > 4 and token.endswith("a"):
+        token = token[:-1] + "o"
+    return token
+
+
+def token_set(text: str) -> frozenset:
+    """Identity of an exercise name as a bag of meaningful words — word order and
+    connectives are irrelevant."""
+    return frozenset(_stem(t) for t in normalize(text).split() if t not in STOPWORDS)
+
+
+_CATALOG_BY_TOKENS: Dict[frozenset, str] = {}
+_CATALOG_TOKENS: List[Tuple[frozenset, str]] = []
+for _e in ENGINE_EXERCISES:
+    _ts = token_set(_e["name"])
+    _CATALOG_BY_TOKENS.setdefault(_ts, _e["id"])
+    _CATALOG_TOKENS.append((_ts, _e["id"]))
+
+_TOKENS_BY_ID: Dict[str, frozenset] = {eid: ts for ts, eid in _CATALOG_TOKENS}
+
+_ALIAS_BY_TOKENS: Dict[frozenset, str] = {}
+for _alias, _eid in EXERCISE_ALIASES.items():
+    _ALIAS_BY_TOKENS.setdefault(token_set(_alias), _eid)
+
+# Which catalog entries each word appears in — used to tell a harmless extra word
+# ("olímpica") from one that distinguishes a different exercise ("alta").
+_TOKEN_TO_IDS: Dict[str, set] = {}
+for _ts, _eid in _CATALOG_TOKENS:
+    for _t in _ts:
+        _TOKEN_TO_IDS.setdefault(_t, set()).add(_eid)
+
+
+def _token_score(candidate: frozenset, target: frozenset) -> float:
+    if not candidate or not target:
         return 0.0
-    return len(a & b) / len(a | b)
+    return len(candidate & target) / len(candidate | target)
 
 
 def match_exercise(raw_name: str) -> Tuple[Optional[str], str, List[str]]:
@@ -170,13 +235,21 @@ def match_exercise(raw_name: str) -> Tuple[Optional[str], str, List[str]]:
     if key in EXERCISE_ALIASES:
         return EXERCISE_ALIASES[key], "alias", []
 
+    # Same words, any order, ignoring connectives: "Remada com peito apoiado" ==
+    # "Remada apoiada no peito". Confident enough to skip review.
+    tokens = token_set(raw_name)
+    if tokens in _CATALOG_BY_TOKENS:
+        return _CATALOG_BY_TOKENS[tokens], "exact", []
+    if tokens in _ALIAS_BY_TOKENS:
+        return _ALIAS_BY_TOKENS[tokens], "alias", []
+
     scored = sorted(
-        ((_token_score(key, name), eid) for name, eid in _CATALOG_BY_NAME.items()),
+        ((_token_score(tokens, ts), eid) for ts, eid in _CATALOG_TOKENS),
         key=lambda t: t[0], reverse=True,
     )
     # Alias keys are short phrases; score them too so "puxada aberta na polia" still lands.
     alias_scored = sorted(
-        ((_token_score(key, alias), eid) for alias, eid in EXERCISE_ALIASES.items()),
+        ((_token_score(tokens, ts), eid) for ts, eid in _ALIAS_BY_TOKENS.items()),
         key=lambda t: t[0], reverse=True,
     )
     best_score, best_id = scored[0] if scored else (0.0, None)
@@ -188,9 +261,56 @@ def match_exercise(raw_name: str) -> Tuple[Optional[str], str, List[str]]:
         if eid not in suggestions:
             suggestions.append(eid)
 
-    if best_score >= 0.5:
+    if best_score >= 0.5 and best_id:
+        # A leftover word that identifies a DIFFERENT catalog exercise means the name
+        # carries a distinction this match would silently discard — "Remada alta com
+        # peito apoiado" is not "Remada apoiada no peito", because "alta" belongs to
+        # "Remada alta no cabo". Those stay unresolved on purpose.
+        leftover = tokens - _TOKENS_BY_ID.get(best_id, frozenset())
+        if any(_TOKEN_TO_IDS.get(t, set()) - {best_id} for t in leftover):
+            return None, "ambiguous", suggestions
         return best_id, "fuzzy", suggestions
     return None, "none", suggestions
+
+
+def split_alternatives(raw_name: str) -> List[str]:
+    """"Barra fixa ou puxada alta" -> two candidate names."""
+    parts = [p.strip() for p in _ALTERNATIVES.split(raw_name or "") if p.strip()]
+    return parts if len(parts) > 1 else [(raw_name or "").strip()]
+
+
+def resolve_exercise_name(raw_name: str) -> Dict[str, Any]:
+    """Resolves a pasted name that may offer alternatives.
+
+    When the text says "X ou Y" and both are real exercises, neither is chosen for the
+    athlete: both come back as `options` for them to pick. A single resolvable name
+    behaves exactly like before.
+    """
+    candidates = split_alternatives(raw_name)
+    if len(candidates) == 1:
+        eid, confidence, suggestions = match_exercise(raw_name)
+        return {"exercise_id": eid, "confidence": confidence,
+                "suggestions": suggestions, "options": [eid] if eid else []}
+
+    resolved: List[Tuple[str, str]] = []
+    suggestions: List[str] = []
+    for candidate in candidates:
+        eid, confidence, sugg = match_exercise(candidate)
+        if eid and eid not in [r[0] for r in resolved]:
+            resolved.append((eid, confidence))
+        for s in sugg:
+            if s not in suggestions:
+                suggestions.append(s)
+
+    options = [eid for eid, _ in resolved]
+    if len(options) >= 2:
+        extra = [s for s in suggestions if s not in options][:3]
+        return {"exercise_id": None, "confidence": "options",
+                "suggestions": options + extra, "options": options}
+    if len(options) == 1:
+        return {"exercise_id": options[0], "confidence": resolved[0][1],
+                "suggestions": [], "options": options}
+    return {"exercise_id": None, "confidence": "none", "suggestions": suggestions[:5], "options": []}
 
 
 # --- attribute extraction ----------------------------------------------------------
@@ -341,16 +461,25 @@ def _parse_exercise_line(line: str, default_rest: str) -> Optional[Dict[str, Any
     note_parts = [p for p in (intensity_note, leftovers) if p]
     note = sanitize(" · ".join(note_parts), MAX_NOTE_CHARS)
 
-    exercise_id, confidence, suggestions = match_exercise(raw_name)
+    resolution = resolve_exercise_name(raw_name)
+    exercise_id = resolution["exercise_id"]
+    confidence = resolution["confidence"]
+    suggestions = resolution["suggestions"]
+    options = resolution["options"]
 
     # Minimum structure to count as an exercise at all: either a prescription was read,
-    # or the name is a real exercise. Prose ("queria saber o preço da consultoria")
-    # satisfies neither and is dropped as noise instead of becoming a phantom exercise.
-    if sets is None and not reps and exercise_id is None:
+    # or the name resolves to a real exercise. Prose ("queria saber o preço da
+    # consultoria") satisfies neither and is dropped as noise instead of becoming a
+    # phantom exercise.
+    if sets is None and not reps and exercise_id is None and not options:
         return None
 
     reasons: List[str] = []
-    if exercise_id is None:
+    if confidence == "options":
+        reasons.append(REVIEW_MULTIPLE_OPTIONS)
+    elif confidence == "ambiguous":
+        reasons.append(REVIEW_AMBIGUOUS)
+    elif exercise_id is None:
         reasons.append(REVIEW_EXERCISE_UNMATCHED)
     elif confidence == "fuzzy":
         reasons.append(REVIEW_LOW_CONFIDENCE)
@@ -364,6 +493,7 @@ def _parse_exercise_line(line: str, default_rest: str) -> Optional[Dict[str, Any
         "raw_name": sanitize(raw_name, MAX_LABEL_CHARS),
         "match_confidence": confidence,
         "suggestions": suggestions[:5],
+        "options": options,
         "sets": sets,
         "reps": reps,
         "rir": rir,

@@ -17,8 +17,9 @@ from auth import get_current_user
 from engine import EXERCISE_INDEX, build_program_v2
 from manual_workout import (
     MAX_DAYS, MAX_EXERCISES_PER_DAY, MAX_IMPORT_CHARS, MAX_LABEL_CHARS, MAX_NOTE_CHARS,
-    MAX_SETS, REVIEW_EXERCISE_UNMATCHED, REVIEW_LOW_CONFIDENCE, REVIEW_REPS_MISSING,
-    REVIEW_SETS_MISSING, draft_to_custom_program, match_exercise, parse_workout_text,
+    MAX_SETS, REVIEW_AMBIGUOUS, REVIEW_EXERCISE_UNMATCHED, REVIEW_LOW_CONFIDENCE,
+    REVIEW_MULTIPLE_OPTIONS, REVIEW_REPS_MISSING, REVIEW_SETS_MISSING,
+    draft_to_custom_program, parse_workout_text, resolve_exercise_name,
     sanitize, validate_draft,
 )
 
@@ -100,10 +101,15 @@ def _rehydrate(draft: Dict[str, Any]) -> Dict[str, Any]:
             raw_name = sanitize(x.get("raw_name") or "", MAX_LABEL_CHARS)
             confidence = "manual" if exercise_id else "none"
             suggestions: List[str] = []
+            options: List[str] = [exercise_id] if exercise_id else []
             if exercise_id and exercise_id not in EXERCISE_INDEX:
                 exercise_id = None
             if not exercise_id and raw_name:
-                exercise_id, confidence, suggestions = match_exercise(raw_name)
+                resolution = resolve_exercise_name(raw_name)
+                exercise_id = resolution["exercise_id"]
+                confidence = resolution["confidence"]
+                suggestions = resolution["suggestions"]
+                options = resolution["options"]
 
             sets = x.get("sets")
             if isinstance(sets, bool) or not isinstance(sets, int) or not (1 <= sets <= MAX_SETS):
@@ -111,7 +117,11 @@ def _rehydrate(draft: Dict[str, Any]) -> Dict[str, Any]:
             reps = sanitize(x.get("reps") or "", 20)
 
             reasons: List[str] = []
-            if not exercise_id:
+            if confidence == "options":
+                reasons.append(REVIEW_MULTIPLE_OPTIONS)
+            elif confidence == "ambiguous":
+                reasons.append(REVIEW_AMBIGUOUS)
+            elif not exercise_id:
                 reasons.append(REVIEW_EXERCISE_UNMATCHED)
             elif confidence == "fuzzy":
                 reasons.append(REVIEW_LOW_CONFIDENCE)
@@ -125,6 +135,7 @@ def _rehydrate(draft: Dict[str, Any]) -> Dict[str, Any]:
                 "raw_name": raw_name or (EXERCISE_INDEX.get(exercise_id, {}).get("name", "") if exercise_id else ""),
                 "match_confidence": confidence,
                 "suggestions": suggestions[:5],
+                "options": options,
                 "sets": sets,
                 "reps": reps,
                 "rir": sanitize(x.get("rir") or "", 20),
