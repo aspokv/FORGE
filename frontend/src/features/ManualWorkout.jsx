@@ -22,8 +22,9 @@ Remada curvada — 4x8
 Rosca direta — 3x10`;
 
 const REVIEW_LABELS = {
-  exercise_unmatched: "exercício não reconhecido — escolha no catálogo",
+  exercise_unmatched: "não encontramos esse exercício no catálogo — registramos sua sugestão de inclusão; por ora escolha um equivalente",
   low_confidence_match: "correspondência incerta — confirme o exercício",
+  ai_suggested: "identificado automaticamente pelo texto — confirme se é esse mesmo",
   multiple_options: "o texto ofereceu duas opções — escolha qual você faz",
   ambiguous_match: "nome ambíguo — escolha o exercício certo no catálogo",
   sets_missing: "séries não informadas no texto",

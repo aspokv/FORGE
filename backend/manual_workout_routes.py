@@ -15,12 +15,17 @@ from pydantic import BaseModel, Field
 
 from auth import get_current_user
 from engine import EXERCISE_INDEX, build_program_v2
+from exercise_ai_match import (
+    ai_matching_available, load_learned_aliases, record_missing_exercise,
+    resolve_names_with_ai, save_learned_alias,
+)
 from manual_workout import (
     MAX_DAYS, MAX_EXERCISES_PER_DAY, MAX_IMPORT_CHARS, MAX_LABEL_CHARS, MAX_NOTE_CHARS,
     MAX_SETS, REVIEW_AMBIGUOUS, REVIEW_EXERCISE_UNMATCHED, REVIEW_LOW_CONFIDENCE,
     REVIEW_MULTIPLE_OPTIONS, REVIEW_REPS_MISSING, REVIEW_SETS_MISSING,
-    draft_to_custom_program, parse_workout_text, resolve_exercise_name,
-    sanitize, validate_draft,
+    apply_ai_matches, apply_learned_aliases, draft_to_custom_program,
+    parse_workout_text, resolve_exercise_name, sanitize, unmatched_names,
+    validate_draft,
 )
 
 router = APIRouter(prefix="/api/workouts/manual", tags=["manual-workout"])
@@ -187,6 +192,28 @@ def _plan_summary(profile: Dict[str, Any], program: Dict[str, Any]) -> Dict[str,
     }
 
 
+async def _resolve_layers(db, profile_id: str, draft: Dict[str, Any]) -> Dict[str, Any]:
+    """Camada 1b (aliases aprendidos, sem custo) e camada 2 (IA restrita ao catalogo,
+    UMA chamada, so para o que sobrou). Nada aqui pode derrubar a importacao: sem chave
+    de IA, sem rede ou com resposta invalida, o item simplesmente segue para escolha
+    manual — que e o comportamento da camada 1."""
+    draft = apply_learned_aliases(draft, await load_learned_aliases(db))
+
+    pending = unmatched_names(draft)
+    if pending and ai_matching_available():
+        resolved = await resolve_names_with_ai(pending)
+        if resolved:
+            draft = apply_ai_matches(draft, resolved)
+            # O que a IA resolveu vira alias: da proxima vez a camada 1 acerta sozinha.
+            for name, exercise_id in resolved.items():
+                await save_learned_alias(db, name, exercise_id, source="ai", profile_id=profile_id)
+
+    # O que ninguem reconheceu fica registrado como sugestao de inclusao no catalogo.
+    for name in unmatched_names(draft):
+        await record_missing_exercise(db, name, profile_id)
+    return draft
+
+
 @router.post("/parse")
 async def parse_manual_workout(payload: ParseIn, request: Request, user=Depends(get_current_user)):
     """Free text -> structured draft. Persists the draft so a page refresh never loses it.
@@ -201,7 +228,8 @@ async def parse_manual_workout(payload: ParseIn, request: Request, user=Depends(
         raise HTTPException(400, str(e))
 
     draft["session_minutes"] = int((await _load_profile(db, target)).get("session_minutes") or 60)
-    stored = await _save_draft(db, target, _rehydrate(draft))
+    draft = await _resolve_layers(db, target, _rehydrate(draft))
+    stored = await _save_draft(db, target, draft)
     return {"draft": {k: v for k, v in stored.items() if k != "_id"},
             "blocking_errors": validate_draft(stored)}
 
@@ -222,7 +250,8 @@ async def save_manual_draft(payload: DraftSaveIn, request: Request, user=Depends
     recomputed here, and blocking_errors says what still stands between it and activation."""
     db = request.app.state.db
     target = owned_workout_target(user)
-    draft = _rehydrate(payload.draft.model_dump())
+    draft = apply_learned_aliases(_rehydrate(payload.draft.model_dump()),
+                                  await load_learned_aliases(db))
     if not draft["sessions"]:
         raise HTTPException(400, "O rascunho precisa de pelo menos um dia.")
     stored = await _save_draft(db, target, draft)

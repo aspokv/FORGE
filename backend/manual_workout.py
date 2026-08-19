@@ -31,6 +31,7 @@ REVIEW_SETS_MISSING = "sets_missing"
 REVIEW_REPS_MISSING = "reps_missing"
 REVIEW_MULTIPLE_OPTIONS = "multiple_options"
 REVIEW_AMBIGUOUS = "ambiguous_match"
+REVIEW_AI_SUGGESTED = "ai_suggested"
 
 # Words that carry no identity in an exercise name — "Remada apoiada NO peito" and
 # "Remada COM peito apoiado" are the same movement written in a different order.
@@ -639,3 +640,70 @@ def draft_to_custom_program(draft: Dict[str, Any], profile_id: str, session_minu
         "source": draft.get("source") if draft.get("source") in ("manual", "manual_import") else "manual",
         "sessions": sessions,
     }
+
+
+def _recount(draft: Dict[str, Any]) -> Dict[str, Any]:
+    sessions = draft.get("sessions") or []
+    total = sum(len(s.get("exercises") or []) for s in sessions)
+    review = sum(1 for s in sessions for x in (s.get("exercises") or []) if x.get("needs_review"))
+    draft["stats"] = {"days": len(sessions), "exercises": total, "needs_review": review}
+    return draft
+
+
+def unmatched_names(draft: Dict[str, Any]) -> List[str]:
+    """Nomes que a camada deterministica nao resolveu — e so isso que a camada 2 ve.
+    Itens ambiguos e com opcoes ficam de fora de proposito: neles a decisao e do
+    atleta, nao do modelo."""
+    names: List[str] = []
+    for s in draft.get("sessions") or []:
+        for x in s.get("exercises") or []:
+            if not x.get("exercise_id") and x.get("match_confidence") == "none":
+                name = (x.get("raw_name") or "").strip()
+                if name and name not in names:
+                    names.append(name)
+    return names
+
+
+def _apply_resolution(draft: Dict[str, Any], resolved: Dict[str, str],
+                      confidence: str, review_reason: Optional[str]) -> Dict[str, Any]:
+    for s in draft.get("sessions") or []:
+        for x in s.get("exercises") or []:
+            if x.get("exercise_id") or x.get("match_confidence") != "none":
+                continue
+            eid = resolved.get((x.get("raw_name") or "").strip())
+            if not eid:
+                continue
+            x["exercise_id"] = eid
+            x["match_confidence"] = confidence
+            x["options"] = [eid]
+            reasons = [r for r in (x.get("review_reasons") or []) if r != REVIEW_EXERCISE_UNMATCHED]
+            if review_reason:
+                reasons.insert(0, review_reason)
+            x["review_reasons"] = reasons
+            x["needs_review"] = bool(reasons)
+    return _recount(draft)
+
+
+def apply_learned_aliases(draft: Dict[str, Any], learned: Dict[str, str]) -> Dict[str, Any]:
+    """Aliases aprendidos valem como alias escrito a mao: resolvem sem pedir revisao.
+    Compara pelo texto normalizado e tambem por conjunto de palavras, entao uma variacao
+    de ordem do mesmo nome aprendido tambem cai aqui."""
+    if not learned:
+        return draft
+    by_tokens: Dict[frozenset, str] = {}
+    for alias, eid in learned.items():
+        by_tokens.setdefault(token_set(alias), eid)
+
+    resolved: Dict[str, str] = {}
+    for name in unmatched_names(draft):
+        eid = learned.get(normalize(name)) or by_tokens.get(token_set(name))
+        if eid and eid in EXERCISE_INDEX:
+            resolved[name] = eid
+    return _apply_resolution(draft, resolved, "learned", None)
+
+
+def apply_ai_matches(draft: Dict[str, Any], resolved: Dict[str, str]) -> Dict[str, Any]:
+    """Match vindo da IA entra preenchido, mas marcado: na primeira vez o atleta
+    confirma. A partir da segunda, o alias aprendido ja resolve na camada 1."""
+    safe = {name: eid for name, eid in (resolved or {}).items() if eid in EXERCISE_INDEX}
+    return _apply_resolution(draft, safe, "ai", REVIEW_AI_SUGGESTED)
