@@ -50,3 +50,10 @@
   .builder-actions .primary-button{margin-left:0;flex:1}
   .builder-actions .secondary-button{flex:1}
 }
+
+/* Autosave do preenchimento do treino */
+.workout-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.autosave-pill{border:1px solid var(--line);color:var(--muted);padding:6px 10px;font:10px 'IBM Plex Mono';letter-spacing:.08em;text-transform:uppercase;white-space:nowrap;flex-shrink:0}
+.autosave-pill.saving{border-color:var(--accent);color:var(--accent)}
+.autosave-pill.saved{border-color:#3d5a43;color:#8fbf9a}
+.autosave-pill.error{border-color:#6e4338;color:#f1b2a0}

@@ -38,6 +38,40 @@ function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutC
   const[finishResult,setFinishResult]=useState(null);
   const[startedAt]=useState(()=>Date.now());
   useEffect(()=>{const init={};items.forEach(x=>{const hint=hints[x.exercise_id]||{};for(let n=0;n<x.sets;n++)init[`${x.exercise_id}-${n}`]={weight:hint.last_weight||x.load||0,reps:hint.last_reps||x.reps?.split("–")?.[0]||"8"};});setSetInputs(init)},[items,!!Object.keys(hints).length]);
+  const[draftState,setDraftState]=useState("idle");
+  const draftTimer=useRef(null),draftReady=useRef(false),lastSaved=useRef("");
+  const draftDay=activeSession?.day;
+  // Recupera o preenchimento em andamento: refresh, queda de conexao ou sair e voltar
+  // antes de "Concluir treino" nao pode perder o que ja foi digitado.
+  useEffect(()=>{
+    if(!db.profile?.id||draftDay==null||!items.length)return;
+    let alive=true;draftReady.current=false;
+    axios.get(`${API}/workout/session-draft`,{params:{day:draftDay}}).then(r=>{
+      if(!alive)return;
+      const saved=r.data?.inputs||{};
+      setSetInputs(prev=>{
+        const merged=Object.keys(saved).length?{...prev,...saved}:prev;
+        lastSaved.current=JSON.stringify(merged);
+        return merged;
+      });
+      if(r.data?.saved_at&&Object.keys(saved).length)setDraftState("saved");
+    }).catch(()=>{}).finally(()=>{if(alive)draftReady.current=true});
+    return()=>{alive=false};
+  },[db.profile?.id,draftDay,items.length]);
+  // Autosave com debounce: salva 1,5 s depois da ultima alteracao, nao a cada tecla.
+  useEffect(()=>{
+    if(!draftReady.current||draftDay==null)return;
+    const payload=JSON.stringify(setInputs);
+    if(!Object.keys(setInputs).length||payload===lastSaved.current)return;
+    setDraftState("saving");
+    clearTimeout(draftTimer.current);
+    draftTimer.current=setTimeout(()=>{
+      axios.put(`${API}/workout/session-draft`,{day:draftDay,inputs:setInputs})
+        .then(()=>{lastSaved.current=payload;setDraftState("saved")})
+        .catch(()=>setDraftState("error"));
+    },1500);
+    return()=>clearTimeout(draftTimer.current);
+  },[setInputs,draftDay]);
   useEffect(()=>{if(!timer)return;const i=setInterval(()=>setTimer(x=>Math.max(0,x-1)),1000);return()=>clearInterval(i)},[timer]);
   const parseRestSeconds=r=>{if(!r)return 90;const n=parseInt(r);if(!isNaN(n))return n<10?n*60:n;const m=r.match(/(\d+)/);return m?parseInt(m[1])*60:90};
   const mark=(id,n,tech,rest)=>{setDone(x=>({...x,[id+n]:!x[id+n]}));const secs=parseRestSeconds(rest);setTimer(secs);setTimerTotal(secs);const v=setInputs[`${id}-${n}`]||{weight:0,reps:8};axios.post(`${API}/sets`,{profile_id:db.profile.id,exercise_id:id,set_number:n,weight:Number(v.weight||0),reps:Number(v.reps||8),rir:2,technique:tech||"Straight Sets"}).catch(e=>{setSetErr(x=>({...x,[id+n]:!e.response}))})};
@@ -46,7 +80,7 @@ function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutC
   const recMsg=recLevel==="LOW"?"Volume ajustado à sua recuperação de hoje.":recLevel==="VERY_LOW"?"Sessão adaptada à sua recuperação de hoje.":p.logic?.block_type==="deload"?"Semana de descarga — volume reduzido de propósito.":null;
   if(!items.length)return <div className="content workout-page"><div className="empty-state"data-testid="workout-empty-state"><Dumbbell size={22}/><h3>Nenhuma sessão disponível</h3><p className="muted">Gere ou aprove um programa para ver o treino de hoje.</p></div></div>;
   return <div className="content workout-page">
-    <div className="workout-head"><div><p className="eyebrow">EM EXECUÇÃO · {p.week}</p><h2>{activeSession?.label||p.session}</h2><p className="muted">Demanda {activeSession?.demand||"MODERATE"} · registre o trabalho real.</p></div></div>
+    <div className="workout-head"><div><p className="eyebrow">EM EXECUÇÃO · {p.week}</p><h2>{activeSession?.label||p.session}</h2><p className="muted">Demanda {activeSession?.demand||"MODERATE"} · registre o trabalho real.</p></div>{draftState!=="idle"&&<span className={`autosave-pill ${draftState}`}data-testid="autosave-status">{draftState==="saving"?"salvando...":draftState==="saved"?"salvo automaticamente":"sem conexão — tentando salvar"}</span>}</div>
     {recMsg&&<div className="session-banner"data-testid="session-adapted-banner"><ShieldCheck size={16}/><div><b>SESSÃO ADAPTADA</b><p>{recMsg}</p></div></div>}
     <div className={timer>0?"rest-banner active":"rest-banner"}data-testid="rest-timer">
       <div className="rest-label"><TimerReset size={14}/>{timer>0?"Descanso":"Pronto para a próxima série"}</div>

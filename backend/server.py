@@ -167,6 +167,13 @@ class WorkoutCompleteIn(BaseModel):
     profile_id: Optional[str] = None
 
 
+class WorkoutSessionDraftIn(BaseModel):
+    """Preenchimento parcial do treino em andamento (carga/reps por serie)."""
+    day: Optional[int] = None
+    inputs: Dict[str, Any] = {}
+    profile_id: Optional[str] = None
+
+
 def owned_profile_id(user: dict, requested: Optional[str]) -> str:
     """ATHLETE: always their own id. SUPER_ADMIN: may pass any id (falls back to 'demo')."""
     if user.get("role") == "SUPER_ADMIN":
@@ -520,6 +527,62 @@ async def complete_workout(payload: WorkoutCompleteIn, user=Depends(get_current_
 
     profile = await load_profile(target)
     return {"program": await build_program(profile), "completed_day": completed_day, "next_day": next_day}
+
+
+# Um treino em andamento so vale para a sessao do dia: um rascunho antigo (ciclo
+# anterior, mesmo dia do split) nao deve ressuscitar cargas velhas por cima das
+# sugestoes de progressao.
+SESSION_DRAFT_TTL_HOURS = 12
+MAX_DRAFT_ENTRIES = 400
+
+
+def _sanitize_draft_inputs(raw: Dict[str, Any]) -> Dict[str, Dict[str, str]]:
+    """So passa {chave: {weight, reps}} com texto curto: o rascunho e digitacao do
+    atleta, nao um documento livre."""
+    limpo: Dict[str, Dict[str, str]] = {}
+    for key, value in list((raw or {}).items())[:MAX_DRAFT_ENTRIES]:
+        if not isinstance(key, str) or not isinstance(value, dict):
+            continue
+        limpo[key[:80]] = {
+            "weight": str(value.get("weight", ""))[:12],
+            "reps": str(value.get("reps", ""))[:12],
+        }
+    return limpo
+
+
+@api.put("/workout/session-draft")
+async def save_session_draft(payload: WorkoutSessionDraftIn, user=Depends(get_current_user)):
+    """Autosave do preenchimento em andamento. Nao registra serie nem toca no ponteiro
+    do programa — POST /sets e POST /workout/complete seguem sendo os unicos donos
+    disso. Aqui e so o rascunho, para nada digitado se perder num refresh."""
+    target = owned_profile_id(user, payload.profile_id)
+    doc = {
+        "profile_id": target,
+        "day": payload.day,
+        "inputs": _sanitize_draft_inputs(payload.inputs),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.workout_session_drafts.replace_one({"profile_id": target}, doc, upsert=True)
+    return {"saved_at": doc["updated_at"], "entries": len(doc["inputs"])}
+
+
+@api.get("/workout/session-draft")
+async def get_session_draft(user=Depends(get_current_user), day: Optional[int] = None,
+                            profile_id: Optional[str] = None):
+    """Devolve o rascunho apenas se for da MESMA sessao e ainda recente."""
+    target = owned_profile_id(user, profile_id)
+    doc = await db.workout_session_drafts.find_one({"profile_id": target}, {"_id": 0})
+    if not doc:
+        return {"inputs": {}, "saved_at": None}
+    if day is not None and doc.get("day") is not None and int(doc["day"]) != int(day):
+        return {"inputs": {}, "saved_at": None, "reason": "other_day"}
+    try:
+        idade = datetime.now(timezone.utc) - datetime.fromisoformat(doc["updated_at"])
+        if idade > timedelta(hours=SESSION_DRAFT_TTL_HOURS):
+            return {"inputs": {}, "saved_at": None, "reason": "expired"}
+    except (KeyError, ValueError):
+        return {"inputs": {}, "saved_at": None}
+    return {"inputs": doc.get("inputs") or {}, "saved_at": doc.get("updated_at"), "day": doc.get("day")}
 
 
 @api.get("/analytics")
