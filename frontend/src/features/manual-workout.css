@@ -39,24 +39,33 @@
 .manual-chip{background:var(--surface);border:1px solid #6e4338;color:#f1b2a0;padding:7px 10px;font-size:11px;transition:border .14s,color .14s}
 .manual-chip:hover{border-color:var(--accent);color:var(--accent)}
 
+.manual-notice{border-left:2px solid var(--success);background:#1e241c;color:#cfe0bd;padding:12px 14px;font-size:12px;line-height:1.6}
 .manual-errors{border-left:2px solid var(--accent);background:#2a1a17;color:#f1b2a0;padding:12px 12px 12px 26px;font-size:12px;display:grid;gap:6px;line-height:1.6}
 
 .manual-confirm{border:1px solid var(--accent);background:var(--elevated);padding:20px;display:grid;gap:12px;margin-top:8px}
 .manual-confirm h3{font-size:16px}
 .manual-confirm p{font-size:13px;line-height:1.7;color:#dedbd3}
 
+/* Acao destrutiva: mesma altura e ritmo do .secondary-button, so que legivelmente
+   perigosa — nao compete com o botao primario de ativar. */
+.danger-button{margin-top:16px;background:transparent;border:1px solid #6e4338;color:#f1b2a0;min-height:46px;padding:0 16px;display:inline-flex;align-items:center;justify-content:center;gap:9px;font-weight:600;transition:background .14s,border .14s,color .14s}
+.danger-button:hover:not(:disabled){background:#2a1a17;border-color:#c2553a;color:#ffb9a4}
+.danger-button:disabled{opacity:.45;cursor:not-allowed}
+.manual-confirm .danger-button{margin-top:0;margin-left:auto}
+
 .spin{animation:manual-spin 1s linear infinite}
 @keyframes manual-spin{to{transform:rotate(360deg)}}
 
 @media(max-width:800px){
   .manual-tabs{flex-direction:column}
+  .builder-actions .danger-button{flex:1 1 100%}
   .manual-textarea{min-height:200px;font-size:12px}
   .manual-day{padding:12px}
   .manual-exercise{padding:12px}
   .manual-exercise-head{flex-wrap:wrap}
   .manual-exercise-head select{flex:1 1 100%;order:2}
   .manual-day-actions{margin-left:auto}
-  .manual-confirm .primary-button,.manual-confirm .secondary-button{flex:1}
+  .manual-confirm .primary-button,.manual-confirm .secondary-button,.manual-confirm .danger-button{flex:1}
 }
 
 /* Importacao de dieta e periodizacao */

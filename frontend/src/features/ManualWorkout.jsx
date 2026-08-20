@@ -31,13 +31,31 @@ const REVIEW_LABELS = {
   reps_missing: "repetições não informadas no texto",
 };
 
-const move = (list, from, to) => {
-  if (to < 0 || to >= list.length) return list;
+const moveBy = (list, idx, delta) => {
+  const to = idx + delta;
+  if (idx < 0 || to < 0 || to >= list.length) return list;
   const next = [...list];
-  const [item] = next.splice(from, 1);
+  const [item] = next.splice(idx, 1);
   next.splice(to, 0, item);
   return next;
 };
+
+// Days and exercises have no id of their own, and addressing them by position is fragile:
+// an index resolved during one render still points at the pre-edit list if a second click
+// lands before React re-renders, so it edits or deletes the wrong row. Each row gets a
+// client-side key on arrival instead, and every edit addresses it by key — which also
+// gives the lists a stable React key across removals and reordering. The server drops the
+// key on the way through, so the draft is re-keyed after each response.
+let keySeq = 0;
+const nextKey = () => `k${++keySeq}`;
+const withKeys = draft => (draft ? {
+  ...draft,
+  sessions: (draft.sessions || []).map(s => ({
+    ...s,
+    _k: s._k || nextKey(),
+    exercises: (s.exercises || []).map(x => ({ ...x, _k: x._k || nextKey() })),
+  })),
+} : draft);
 
 export default function ManualWorkout({ API, profile, exercises, onActivated, onOpenBuilder, onClose }) {
   const [tab, setTab] = useState("import");
@@ -49,6 +67,8 @@ export default function ManualWorkout({ API, profile, exercises, onActivated, on
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState("");
   const [confirming, setConfirming] = useState(false);
+  const [wiping, setWiping] = useState(false);
+  const [notice, setNotice] = useState("");
   const activationToken = useRef(null);
 
   const catalog = useMemo(() => exercises || [], [exercises]);
@@ -63,7 +83,7 @@ export default function ManualWorkout({ API, profile, exercises, onActivated, on
     axios.get(`${API}/workouts/manual/draft`)
       .then(r => {
         if (!alive || !r.data?.draft) return;
-        setDraft(r.data.draft);
+        setDraft(withKeys(r.data.draft));
         setErrors(r.data.blocking_errors || []);
       })
       .catch(() => {});
@@ -71,10 +91,10 @@ export default function ManualWorkout({ API, profile, exercises, onActivated, on
   }, [API]);
 
   const parse = async () => {
-    setMessage(""); setBusy("parse");
+    setMessage(""); setNotice(""); setBusy("parse");
     try {
       const r = await axios.post(`${API}/workouts/manual/parse`, { text, name: "Treino importado" });
-      setDraft(r.data.draft);
+      setDraft(withKeys(r.data.draft));
       setErrors(r.data.blocking_errors || []);
       if (r.data.draft?.warnings?.length) setMessage(r.data.draft.warnings.join(" · "));
     } catch (e) {
@@ -84,42 +104,77 @@ export default function ManualWorkout({ API, profile, exercises, onActivated, on
     }
   };
 
-  const patchDay = (dayIdx, patch) =>
-    setDraft(d => ({ ...d, sessions: d.sessions.map((s, i) => (i === dayIdx ? { ...s, ...patch } : s)) }));
+  // Every edit derives the next state from the state being replaced — never from the
+  // `draft` captured in this render — and finds its row by key, so a burst of clicks
+  // applies in full whether or not React re-rendered in between.
+  const patchDay = (dayKey, patch) =>
+    setDraft(d => ({ ...d, sessions: d.sessions.map(s => (s._k === dayKey ? { ...s, ...patch } : s)) }));
 
-  const patchExercise = (dayIdx, exIdx, patch) =>
-    patchDay(dayIdx, {
-      exercises: draft.sessions[dayIdx].exercises.map((x, i) => (i === exIdx ? { ...x, ...patch } : x)),
-    });
+  const patchDayExercises = (dayKey, fn, structural = false) => {
+    if (structural) setErrors([]);
+    setDraft(d => ({
+      ...d,
+      sessions: d.sessions.map(s => (s._k === dayKey ? { ...s, exercises: fn(s.exercises) } : s)),
+    }));
+  };
 
-  const removeExercise = (dayIdx, exIdx) =>
-    patchDay(dayIdx, { exercises: draft.sessions[dayIdx].exercises.filter((_, i) => i !== exIdx) });
+  const patchExercise = (dayKey, exKey, patch) =>
+    patchDayExercises(dayKey, list => list.map(x => (x._k === exKey ? { ...x, ...patch } : x)));
 
-  const moveExercise = (dayIdx, from, to) =>
-    patchDay(dayIdx, { exercises: move(draft.sessions[dayIdx].exercises, from, to) });
+  const removeExercise = (dayKey, exKey) =>
+    patchDayExercises(dayKey, list => list.filter(x => x._k !== exKey), true);
 
-  const addExercise = dayIdx =>
-    patchDay(dayIdx, {
-      exercises: [...draft.sessions[dayIdx].exercises, {
-        exercise_id: catalog[0]?.id || null, raw_name: "", sets: 3, reps: "8–12", rir: "1–2",
-        rest: "2 min", load: 0, technique: "Straight Sets", technique_id: "straight", note: "",
-        needs_review: false, review_reasons: [], suggestions: [],
-      }],
-    });
+  const moveExercise = (dayKey, exKey, delta) =>
+    patchDayExercises(dayKey, list => moveBy(list, list.findIndex(x => x._k === exKey), delta), true);
 
-  const moveDay = (from, to) => setDraft(d => ({ ...d, sessions: move(d.sessions, from, to) }));
-  const removeDay = idx => setDraft(d => ({ ...d, sessions: d.sessions.filter((_, i) => i !== idx) }));
-  const addDay = () => setDraft(d => ({
-    ...d,
-    sessions: [...d.sessions, { day: d.sessions.length + 1, label: `Sessão ${d.sessions.length + 1}`, demand: "MODERATE", focus: [], exercises: [] }],
-  }));
+  const addExercise = dayKey =>
+    patchDayExercises(dayKey, list => [...list, {
+      _k: nextKey(),
+      exercise_id: catalog[0]?.id || null, raw_name: "", sets: 3, reps: "8–12", rir: "1–2",
+      rest: "2 min", load: 0, technique: "Straight Sets", technique_id: "straight", note: "",
+      needs_review: false, review_reasons: [], suggestions: [],
+    }], true);
+
+  const moveDay = (dayKey, delta) => {
+    setErrors([]);
+    setDraft(d => ({ ...d, sessions: moveBy(d.sessions, d.sessions.findIndex(s => s._k === dayKey), delta) }));
+  };
+  const removeDay = dayKey => {
+    setErrors([]);
+    setDraft(d => ({ ...d, sessions: d.sessions.filter(s => s._k !== dayKey) }));
+  };
+  const addDay = () => {
+    setErrors([]);
+    setDraft(d => ({
+      ...d,
+      sessions: [...d.sessions, { _k: nextKey(), day: d.sessions.length + 1, label: `Sessão ${d.sessions.length + 1}`, demand: "MODERATE", focus: [], exercises: [] }],
+    }));
+  };
+
+  // Recomeçar do zero: apaga o rascunho inteiro no servidor e devolve a tela de colar.
+  const wipeDraft = async () => {
+    setBusy("wipe");
+    try {
+      await axios.delete(`${API}/workouts/manual/draft`);
+      setDraft(null);
+      setErrors([]);
+      setText("");
+      setWiping(false);
+      setMessage("");
+      setNotice("Treino apagado. Cole o treino novo abaixo.");
+    } catch {
+      setMessage("Não foi possível apagar o treino. Tente de novo.");
+    } finally {
+      setBusy("");
+    }
+  };
 
   const saveDraft = async (silent = false) => {
     if (!draft) return null;
     if (!silent) setBusy("save");
     try {
       const r = await axios.put(`${API}/workouts/manual/draft`, { draft });
-      setDraft(r.data.draft);
+      setDraft(withKeys(r.data.draft));
       setErrors(r.data.blocking_errors || []);
       if (!silent) setMessage("Rascunho salvo. Você pode voltar depois sem perder nada.");
       return r.data;
@@ -172,7 +227,11 @@ export default function ManualWorkout({ API, profile, exercises, onActivated, on
     }
   };
 
-  const reviewCount = draft?.stats?.needs_review || 0;
+  // Contagens derivadas do que esta na tela agora: draft.stats so e recalculado no
+  // servidor, e ficava mentindo (2 dias, 5 exercicios) depois de apagar tudo localmente.
+  const days = draft?.sessions || [];
+  const exerciseCount = days.reduce((n, d) => n + (d.exercises?.length || 0), 0);
+  const reviewCount = days.reduce((n, d) => n + (d.exercises || []).filter(x => x.needs_review).length, 0);
 
   return (
     <div className="coach-overlay" data-testid="manual-workout-overlay">
@@ -229,6 +288,7 @@ export default function ManualWorkout({ API, profile, exercises, onActivated, on
               </span>
             </div>
             {showExample && <pre className="manual-example" data-testid="manual-example">{EXAMPLE_TEXT}</pre>}
+            {notice && <p className="manual-notice" data-testid="manual-notice">{notice}</p>}
             {message && <p className="builder-error" data-testid="manual-error">{message}</p>}
             <button className="primary-button" data-testid="manual-parse-button" onClick={parse} disabled={!text.trim() || busy === "parse"}>
               {busy === "parse" ? <><Loader2 size={16} className="spin" /> Interpretando...</> : <>Interpretar treino <ChevronRight size={16} /></>}
@@ -236,13 +296,15 @@ export default function ManualWorkout({ API, profile, exercises, onActivated, on
           </div>
         )}
 
-        {tab === "import" && draft && !confirming && (
+        {tab === "import" && draft && !confirming && !wiping && (
           <div className="manual-preview" data-testid="manual-preview">
             <div className="manual-summary">
-              <p><b>{draft.stats?.days}</b> dias · <b>{draft.stats?.exercises}</b> exercícios</p>
+              <p><b>{days.length}</b> dias · <b>{exerciseCount}</b> exercícios</p>
               {reviewCount > 0
                 ? <p className="manual-review-warning" data-testid="manual-review-count"><AlertTriangle size={14} /> {reviewCount} item(ns) precisam da sua confirmação</p>
-                : <p className="muted">Tudo reconhecido. Revise e ative quando quiser.</p>}
+                : exerciseCount > 0
+                  ? <p className="muted">Tudo reconhecido. Revise e ative quando quiser.</p>
+                  : <p className="muted">Nada aqui ainda.</p>}
             </div>
 
             <label className="deep-field">
@@ -250,38 +312,44 @@ export default function ManualWorkout({ API, profile, exercises, onActivated, on
               <input data-testid="manual-plan-name" value={draft.name || ""} onChange={e => setDraft(d => ({ ...d, name: e.target.value }))} />
             </label>
 
+            {draft.sessions.length === 0 && (
+              <p className="muted builder-empty" data-testid="manual-empty-state">
+                O treino está vazio. Adicione um dia, ou apague o treino para colar um novo por cima.
+              </p>
+            )}
+
             {draft.sessions.map((day, dayIdx) => (
-              <section className="manual-day" key={dayIdx} data-testid={`manual-day-${dayIdx}`}>
+              <section className="manual-day" key={day._k} data-testid={`manual-day-${dayIdx}`}>
                 <div className="manual-day-head">
                   <input
                     className="manual-day-label"
                     data-testid={`manual-day-label-${dayIdx}`}
                     value={day.label}
-                    onChange={e => patchDay(dayIdx, { label: e.target.value })}
+                    onChange={e => patchDay(day._k, { label: e.target.value })}
                   />
                   <div className="manual-day-actions">
-                    <button className="icon-button" data-testid={`manual-day-up-${dayIdx}`} disabled={dayIdx === 0} onClick={() => moveDay(dayIdx, dayIdx - 1)}><ChevronUp size={15} /></button>
-                    <button className="icon-button" data-testid={`manual-day-down-${dayIdx}`} disabled={dayIdx === draft.sessions.length - 1} onClick={() => moveDay(dayIdx, dayIdx + 1)}><ChevronDown size={15} /></button>
-                    <button className="icon-button" data-testid={`manual-day-remove-${dayIdx}`} disabled={draft.sessions.length <= 1} onClick={() => removeDay(dayIdx)}><Trash2 size={15} /></button>
+                    <button className="icon-button" data-testid={`manual-day-up-${dayIdx}`} disabled={dayIdx === 0} onClick={() => moveDay(day._k, -1)}><ChevronUp size={15} /></button>
+                    <button className="icon-button" data-testid={`manual-day-down-${dayIdx}`} disabled={dayIdx === draft.sessions.length - 1} onClick={() => moveDay(day._k, +1)}><ChevronDown size={15} /></button>
+                    <button className="icon-button" data-testid={`manual-day-remove-${dayIdx}`} onClick={() => removeDay(day._k)}><Trash2 size={15} /></button>
                   </div>
                 </div>
 
                 {day.exercises.map((x, exIdx) => (
-                  <div className={x.needs_review ? "manual-exercise review" : "manual-exercise"} key={exIdx} data-testid={`manual-exercise-${dayIdx}-${exIdx}`}>
+                  <div className={x.needs_review ? "manual-exercise review" : "manual-exercise"} key={x._k} data-testid={`manual-exercise-${dayIdx}-${exIdx}`}>
                     <div className="manual-exercise-head">
                       <span className="exercise-index">{String(exIdx + 1).padStart(2, "0")}</span>
                       <select
                         data-testid={`manual-exercise-select-${dayIdx}-${exIdx}`}
                         value={x.exercise_id || ""}
-                        onChange={e => patchExercise(dayIdx, exIdx, { exercise_id: e.target.value || null })}
+                        onChange={e => patchExercise(day._k, x._k, { exercise_id: e.target.value || null })}
                       >
                         <option value="">— escolher exercício —</option>
                         {catalog.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
                       </select>
                       <div className="manual-day-actions">
-                        <button className="icon-button" data-testid={`manual-ex-up-${dayIdx}-${exIdx}`} disabled={exIdx === 0} onClick={() => moveExercise(dayIdx, exIdx, exIdx - 1)}><ChevronUp size={14} /></button>
-                        <button className="icon-button" data-testid={`manual-ex-down-${dayIdx}-${exIdx}`} disabled={exIdx === day.exercises.length - 1} onClick={() => moveExercise(dayIdx, exIdx, exIdx + 1)}><ChevronDown size={14} /></button>
-                        <button className="icon-button" data-testid={`manual-ex-remove-${dayIdx}-${exIdx}`} onClick={() => removeExercise(dayIdx, exIdx)}><Trash2 size={14} /></button>
+                        <button className="icon-button" data-testid={`manual-ex-up-${dayIdx}-${exIdx}`} disabled={exIdx === 0} onClick={() => moveExercise(day._k, x._k, -1)}><ChevronUp size={14} /></button>
+                        <button className="icon-button" data-testid={`manual-ex-down-${dayIdx}-${exIdx}`} disabled={exIdx === day.exercises.length - 1} onClick={() => moveExercise(day._k, x._k, +1)}><ChevronDown size={14} /></button>
+                        <button className="icon-button" data-testid={`manual-ex-remove-${dayIdx}-${exIdx}`} onClick={() => removeExercise(day._k, x._k)}><Trash2 size={14} /></button>
                       </div>
                     </div>
 
@@ -298,7 +366,7 @@ export default function ManualWorkout({ API, profile, exercises, onActivated, on
                         {x.suggestions.map(sid => (
                           <button key={sid} className="manual-chip"
                             data-testid={`manual-suggestion-${dayIdx}-${exIdx}-${sid}`}
-                            onClick={() => patchExercise(dayIdx, exIdx, { exercise_id: sid })}>
+                            onClick={() => patchExercise(day._k, x._k, { exercise_id: sid })}>
                             {exerciseName(sid)}
                           </button>
                         ))}
@@ -310,28 +378,28 @@ export default function ManualWorkout({ API, profile, exercises, onActivated, on
                         <span>Séries</span>
                         <input type="number" min="1" max="12" data-testid={`manual-sets-${dayIdx}-${exIdx}`}
                           value={x.sets ?? ""} placeholder="—"
-                          onChange={e => patchExercise(dayIdx, exIdx, { sets: e.target.value === "" ? null : Number(e.target.value) })} />
+                          onChange={e => patchExercise(day._k, x._k, { sets: e.target.value === "" ? null : Number(e.target.value) })} />
                       </label>
                       <label className="deep-field">
                         <span>Reps</span>
                         <input list="manual-rep-presets" data-testid={`manual-reps-${dayIdx}-${exIdx}`}
                           value={x.reps || ""} placeholder="—"
-                          onChange={e => patchExercise(dayIdx, exIdx, { reps: e.target.value })} />
+                          onChange={e => patchExercise(day._k, x._k, { reps: e.target.value })} />
                       </label>
                       <label className="deep-field">
                         <span>RIR</span>
                         <input list="manual-rir-presets" data-testid={`manual-rir-${dayIdx}-${exIdx}`}
-                          value={x.rir || ""} onChange={e => patchExercise(dayIdx, exIdx, { rir: e.target.value })} />
+                          value={x.rir || ""} onChange={e => patchExercise(day._k, x._k, { rir: e.target.value })} />
                       </label>
                       <label className="deep-field">
                         <span>Descanso</span>
                         <input list="manual-rest-presets" data-testid={`manual-rest-${dayIdx}-${exIdx}`}
-                          value={x.rest || ""} onChange={e => patchExercise(dayIdx, exIdx, { rest: e.target.value })} />
+                          value={x.rest || ""} onChange={e => patchExercise(day._k, x._k, { rest: e.target.value })} />
                       </label>
                       <label className="deep-field">
                         <span>Carga (kg)</span>
                         <input type="number" step="0.5" data-testid={`manual-load-${dayIdx}-${exIdx}`}
-                          value={x.load || 0} onChange={e => patchExercise(dayIdx, exIdx, { load: Number(e.target.value) || 0 })} />
+                          value={x.load || 0} onChange={e => patchExercise(day._k, x._k, { load: Number(e.target.value) || 0 })} />
                       </label>
                     </div>
 
@@ -339,12 +407,12 @@ export default function ManualWorkout({ API, profile, exercises, onActivated, on
                       <span>Observação</span>
                       <input data-testid={`manual-note-${dayIdx}-${exIdx}`} value={x.note || ""}
                         placeholder="Ex.: drop-set na última série"
-                        onChange={e => patchExercise(dayIdx, exIdx, { note: e.target.value })} />
+                        onChange={e => patchExercise(day._k, x._k, { note: e.target.value })} />
                     </label>
                   </div>
                 ))}
 
-                <button className="secondary-button" data-testid={`manual-add-exercise-${dayIdx}`} onClick={() => addExercise(dayIdx)}>
+                <button className="secondary-button" data-testid={`manual-add-exercise-${dayIdx}`} onClick={() => addExercise(day._k)}>
                   <Plus size={15} /> Adicionar exercício
                 </button>
               </section>
@@ -362,11 +430,38 @@ export default function ManualWorkout({ API, profile, exercises, onActivated, on
             {message && <p className="builder-error" data-testid="manual-message">{message}</p>}
 
             <div className="builder-actions">
+              <button className="danger-button" data-testid="manual-wipe-button" onClick={() => { setMessage(""); setWiping(true); }} disabled={!!busy}>
+                <Trash2 size={15} /> Apagar treino
+              </button>
               <button className="secondary-button" data-testid="manual-save-draft" onClick={() => saveDraft(false)} disabled={!!busy}>
                 <Save size={15} /> {busy === "save" ? "Salvando..." : "Salvar como rascunho"}
               </button>
               <button className="primary-button" data-testid="manual-activate-button" onClick={openConfirm} disabled={!!busy}>
                 <Zap size={16} /> {busy === "preview" ? "Preparando..." : "Ativar este treino"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {tab === "import" && wiping && (
+          <div className="manual-confirm" data-testid="manual-wipe-confirm">
+            <h3>Tem certeza que quer apagar todo o treino atual?</h3>
+            <p className="muted">
+              <b>{days.length}</b> dia(s) e <b>{exerciseCount}</b> exercício(s)
+              serão apagados deste editor.
+            </p>
+            <p>
+              Isso limpa só o treino que você está montando aqui e não dá para desfazer.
+              O treino que está <b>ativo</b> hoje, seu histórico e suas cargas <b>não</b> são apagados —
+              o treino ativo só muda quando você ativar um novo.
+            </p>
+            {message && <p className="builder-error" data-testid="manual-wipe-error">{message}</p>}
+            <div className="builder-actions">
+              <button className="secondary-button" data-testid="manual-cancel-wipe" onClick={() => setWiping(false)} disabled={busy === "wipe"}>
+                Cancelar
+              </button>
+              <button className="danger-button" data-testid="manual-confirm-wipe" onClick={wipeDraft} disabled={busy === "wipe"}>
+                {busy === "wipe" ? <><Loader2 size={16} className="spin" /> Apagando...</> : <><Trash2 size={16} /> Apagar tudo e recomeçar</>}
               </button>
             </div>
           </div>

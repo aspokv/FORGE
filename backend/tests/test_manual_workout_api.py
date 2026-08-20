@@ -298,6 +298,80 @@ def test_double_click_activates_once_and_archives_once():
     assert _run(_count("program_versions", uid)) == 1
 
 
+# --- start over ----------------------------------------------------------------------
+#
+# Regressao: nao havia NENHUMA forma de recomecar do zero. O textarea de colar so aparece
+# quando nao ha rascunho, e o rascunho nunca sumia — nao havia DELETE, e o GET devolvia
+# ate o rascunho ja ativado. Apagar dia a dia tambem nao resolvia: o PUT recusava um
+# rascunho sem dias com 400. Resultado: quem colou um treino uma vez ficava preso nele.
+
+def test_deleting_the_draft_frees_the_screen_to_paste_a_new_workout():
+    _, headers = _create_athlete("manual.wipe@forge.test")
+    _parse(headers)
+    assert requests.get(f"{MANUAL}/draft", headers=headers).json()["draft"] is not None
+
+    r = requests.delete(f"{MANUAL}/draft", headers=headers)
+    assert r.status_code == 200, r.text
+    assert r.json()["draft"] is None and r.json()["deleted"] == 1
+
+    # draft == None e exatamente o que faz a tela voltar a mostrar o campo de colar
+    assert requests.get(f"{MANUAL}/draft", headers=headers).json()["draft"] is None
+
+
+def test_draft_may_be_emptied_day_by_day_down_to_nothing():
+    _, headers = _create_athlete("manual.empty@forge.test")
+    draft = _parse(headers)["draft"]
+
+    for remaining in range(len(draft["sessions"]) - 1, -1, -1):
+        draft = {**draft, "sessions": draft["sessions"][:remaining]}
+        r = requests.put(f"{MANUAL}/draft", json={"draft": draft}, headers=headers)
+        assert r.status_code == 200, r.text  # antes: 400 no ultimo dia
+        draft = r.json()["draft"]
+        assert len(draft["sessions"]) == remaining
+
+    # vazio persiste, mas continua sem poder virar treino ativo
+    assert requests.get(f"{MANUAL}/draft", headers=headers).json()["draft"]["sessions"] == []
+    assert _activate(headers).status_code == 422
+
+
+def test_an_activated_draft_does_not_come_back_and_block_the_next_import():
+    _, headers = _create_athlete("manual.reimport@forge.test")
+    _parse(headers)
+    assert _activate(headers).status_code == 200
+    assert requests.get(f"{MANUAL}/draft", headers=headers).json()["draft"] is None
+
+
+def test_wiping_then_pasting_a_new_workout_leaves_nothing_of_the_old_one():
+    uid, headers = _create_athlete("manual.replace@forge.test")
+    _parse(headers, EXAMPLE_1, "Treino de ontem")
+
+    requests.delete(f"{MANUAL}/draft", headers=headers)
+    fresh = _parse(headers, EXAMPLE_LEGS, "Treino novo")
+    assert fresh["blocking_errors"] == []
+    assert [s["label"] for s in fresh["draft"]["sessions"]] == ["PERNAS"]
+
+    assert _activate(headers).status_code == 200
+    plan = _run(_profile(uid))["custom_program"]
+    assert plan["name"] == "Treino novo"
+    assert [s["label"] for s in plan["sessions"]] == ["PERNAS"]
+    assert sum(len(s["exercises"]) for s in plan["sessions"]) == 2
+
+
+def test_delete_draft_only_touches_the_callers_own_draft():
+    uid_a, headers_a = _create_athlete("manual.wipe.a@forge.test")
+    _, headers_b = _create_athlete("manual.wipe.b@forge.test")
+    _parse(headers_a)
+    _parse(headers_b)
+
+    assert requests.delete(f"{MANUAL}/draft", headers=headers_b).status_code == 200
+    assert requests.get(f"{MANUAL}/draft", headers=headers_a).json()["draft"] is not None
+
+
+def test_delete_draft_requires_authentication():
+    r = requests.delete(f"{MANUAL}/draft")
+    assert r.status_code in (401, 403)
+
+
 # --- authorization -------------------------------------------------------------------
 
 def test_athlete_cannot_reach_another_athletes_draft():

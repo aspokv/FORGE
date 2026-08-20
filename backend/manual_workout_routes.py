@@ -239,9 +239,23 @@ async def get_manual_draft(request: Request, user=Depends(get_current_user), pro
     db = request.app.state.db
     target = owned_workout_target(user, profile_id)
     doc = await db.manual_workout_drafts.find_one({"profile_id": target}, {"_id": 0})
-    if not doc:
+    # An activated draft is done: it already became the active plan. Returning it here
+    # would reopen the screen on the old import and hide the "paste a workout" box,
+    # which is only shown when there is no draft in progress.
+    if not doc or doc.get("status") == "activated":
         return {"draft": None, "blocking_errors": []}
     return {"draft": doc, "blocking_errors": validate_draft(doc)}
+
+
+@router.delete("/draft")
+async def delete_manual_draft(request: Request, user=Depends(get_current_user)):
+    """Throws the whole draft away — every day and every exercise — so the athlete can
+    start from scratch and paste a new workout. Only the in-progress import is removed:
+    the active plan, the archived versions and the training history are untouched."""
+    db = request.app.state.db
+    target = owned_workout_target(user)
+    result = await db.manual_workout_drafts.delete_many({"profile_id": target})
+    return {"draft": None, "blocking_errors": [], "deleted": result.deleted_count}
 
 
 @router.put("/draft")
@@ -252,8 +266,8 @@ async def save_manual_draft(payload: DraftSaveIn, request: Request, user=Depends
     target = owned_workout_target(user)
     draft = apply_learned_aliases(_rehydrate(payload.draft.model_dump()),
                                   await load_learned_aliases(db))
-    if not draft["sessions"]:
-        raise HTTPException(400, "O rascunho precisa de pelo menos um dia.")
+    # An empty draft is a legitimate state: it is how "erase everything and start over"
+    # persists. Emptiness only blocks activation, and validate_draft already says so.
     stored = await _save_draft(db, target, draft)
     return {"draft": {k: v for k, v in stored.items() if k != "_id"},
             "blocking_errors": validate_draft(stored)}
