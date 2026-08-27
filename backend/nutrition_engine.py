@@ -29,6 +29,43 @@ FORGE_COACH_METHODOLOGY = {
     # widely-used floor for avoiding a crash-diet-level carb residual, not a fixed gram
     # number applied to every athlete (it still scales with bodyweight).
     "min_carb_g_per_kg_aggressive_deficit": 1.5,
+    # -- Intensidades de emagrecimento -------------------------------------------------
+    # Escolha explicita do usuario. Antes disso, calculate_goal_calories decidia sozinha
+    # entre 20% e 30% de deficit pelo residuo de carboidrato, sem o atleta saber. Perfis
+    # sem "intensity" continuam no caminho legado (ver resolve_cut_protocol) para nao
+    # mudar o alvo calorico de quem ja tem plano gerado.
+    #
+    # leve/moderado: deficit percentual; carboidrato segue sendo o macro residual.
+    # agressivo: protocolo low-carb de verdade — o carboidrato vira TETO (nao residuo) e
+    # a gordura passa a fechar a conta calorica. Sem isso "agressivo" seria so tirar
+    # algumas gramas de carbo, que e exatamente o que este produto nao quer.
+    "cutting_intensity": {
+        "leve": {
+            "label": "Leve", "kcal_pct": 0.875, "protein_g_per_kg": 2.0,
+            "carb_mode": "residual",
+            "description": "Emagrecimento gradual, com maior flexibilidade alimentar e melhor preservacao do desempenho.",
+        },
+        "moderado": {
+            "label": "Moderado", "kcal_pct": 0.825, "protein_g_per_kg": 2.2,
+            "carb_mode": "residual", "recommended": True,
+            "description": "Reducao mais acelerada, equilibrando resultado, desempenho e aderencia.",
+        },
+        "agressivo": {
+            "label": "Agressivo/Atleta", "kcal_pct": 0.70, "protein_g_per_kg": 2.4,
+            "carb_mode": "capped",
+            "carb_target_g": 35, "carb_min_g": 20, "carb_max_g": 50,
+            # Teto por densidade: 12 g de carbo por 100 g exclui arroz, pao, massa, aveia,
+            # tapioca, mandioca, feijoes e frutas densas, e mantem vegetais folhosos,
+            # proteinas magras e gorduras. O carbo residual dos alimentos permitidos
+            # continua sendo contabilizado no total do dia.
+            "max_food_carb_g_per_100g": 12.0,
+            "advanced": True,
+            "description": "Protocolo avancado de cutting com carboidratos extremamente reduzidos, proteina elevada e estrategia alimentar rigorosa.",
+            "warning": "Protocolo extremo e temporario. Pode reduzir energia, desempenho no treino, recuperacao e hidratacao.",
+        },
+    },
+    "cutting_intensity_default": "moderado",
+    "cut_protocol_version": "cut-v1",
     "macro_tolerance_g": {"protein": 5, "carbs": 10, "fat": 5},
     "goal_directional_tolerance": {
         # allow_overshoot_pct for fat_loss matches the same 12% calorie-equivalence
@@ -455,10 +492,87 @@ def calculate_fat_target(w, goal):
 def calculate_carb_target(gc, pg, fg):
     return round(max(0, (gc - pg*4 - fg*9)/4), 1)
 
-def compute_macro_targets(w, h, age, sex, td, goal, al="moderate"):
+def _intensity_key(intensity):
+    """Normaliza a intensidade escolhida. Devolve None para perfil legado (sem escolha),
+    que segue no caminho automatico antigo de calculate_goal_calories."""
+    v = str(intensity or "").strip().lower()
+    if not v:
+        return None
+    if v.startswith("lev") or v == "light":
+        return "leve"
+    if v.startswith("mod"):
+        return "moderado"
+    if v.startswith("agr") or v.startswith("atl") or v in ("aggressive", "athlete", "extreme"):
+        return "agressivo"
+    return None
+
+
+def resolve_cut_protocol(goal, intensity):
+    """Protocolo de emagrecimento efetivo, ou None.
+
+    So existe para fat_loss: 'emagrecimento leve' num bulk nao significa nada, entao a
+    intensidade e deliberadamente ignorada nos outros objetivos."""
+    if _goal_key(goal) != "fat_loss":
+        return None
+    key = _intensity_key(intensity)
+    if key is None:
+        return None
+    cfg = FORGE_COACH_METHODOLOGY["cutting_intensity"][key]
+    return {"intensity": key,
+            "protocol_version": FORGE_COACH_METHODOLOGY["cut_protocol_version"], **cfg}
+
+
+def carb_ceiling_for(protocol):
+    """Teto diario de carboidrato em gramas, ou None quando o carbo e residual."""
+    if not protocol or protocol.get("carb_mode") != "capped":
+        return None
+    return float(protocol["carb_max_g"])
+
+
+def _targets_for_cut_protocol(bmr, af, tdee, w, protocol):
+    m = FORGE_COACH_METHODOLOGY
+    guard = m["daily_guardrails"]["fat_loss"]
+    pg = round(w * protocol["protein_g_per_kg"], 1)
+    kcal = tdee * protocol["kcal_pct"]
+
+    if protocol["carb_mode"] == "capped":
+        # Low-carb: o carboidrato e um TETO fixo e a gordura passa a ser o macro residual
+        # que fecha a caloria — o inverso do calculo normal.
+        cg = float(protocol["carb_target_g"])
+        fg = (kcal - pg * 4 - cg * 4) / 9.0
+        fat_floor = max(m["fat_min_pct"] * kcal / 9.0, guard["min_fat_g_per_kg"] * w)
+        if fg < fat_floor:
+            # Preferir subir a caloria a entregar gordura abaixo do piso de seguranca. O
+            # teto de carbo e a caracteristica que define o protocolo: nao e ele que cede.
+            fg = fat_floor
+            kcal = pg * 4 + cg * 4 + fg * 9
+    else:
+        fg = calculate_fat_target(w, "fat_loss")
+        cg = max(0.0, (kcal - pg * 4 - fg * 9) / 4.0)
+
+    pg, fg, cg, kcal = round(pg, 1), round(fg, 1), round(cg, 1), round(kcal, 0)
+    return {"bmr": bmr, "tdee": tdee, "activity_factor": af, "goal_calories": kcal,
+            "protein_g": pg, "fat_g": fg, "carbs_g": cg,
+            "protein_kcal": round(pg * 4), "fat_kcal": round(fg * 9), "carbs_kcal": round(cg * 4),
+            # Vai junto no plano persistido (generate_daily_plan devolve targets), entao a
+            # intensidade e os parametros do protocolo sobrevivem a refresh e a troca de
+            # aparelho sem precisar de colecao nova.
+            "cut_protocol": {k: protocol[k] for k in
+                             ("intensity", "protocol_version", "label", "kcal_pct",
+                              "protein_g_per_kg", "carb_mode")
+                             if k in protocol},
+            "carb_ceiling_g": carb_ceiling_for(protocol)}
+
+
+def compute_macro_targets(w, h, age, sex, td, goal, al="moderate", intensity=None):
     bmr = calculate_bmr(w,h,age,sex)
     af = calculate_activity_factor(td,al)
     tdee = calculate_tdee(bmr,af)
+    protocol = resolve_cut_protocol(goal, intensity)
+    if protocol:
+        return _targets_for_cut_protocol(bmr, af, tdee, w, protocol)
+    # Caminho legado (perfil sem intensidade escolhida): preservado byte a byte para nao
+    # mexer no alvo calorico de quem ja tem plano gerado.
     # protein/fat are computed first — they're driven purely by bodyweight/goal, never by
     # goal_calories — so calculate_goal_calories can check whether THIS profile's own
     # protein+fat minimums leave room for a more aggressive deficit (see above).
@@ -470,8 +584,19 @@ def compute_macro_targets(w, h, age, sex, td, goal, al="moderate"):
             "protein_g":pg,"fat_g":fg,"carbs_g":cg,
             "protein_kcal":round(pg*4),"fat_kcal":round(fg*9),"carbs_kcal":round(cg*4)}
 
+def food_carb_density(food):
+    """Gramas de carboidrato por 100 g do alimento."""
+    grams = food.get("grams") or 100
+    return food.get("carbs_g", 0) * 100.0 / max(1, grams)
+
+
 def _food_compatible(food, pn, used_ids):
     if food["id"] in set(pn.get("avoid_foods") or []): return False
+    # Protocolo low-carb (intensidade agressiva): exclui a fonte densa de carboidrato na
+    # origem, em vez de gerar arroz/pao/massa/aveia e tentar consertar na porcao depois.
+    # Injetado por generate_daily_plan a partir do protocolo resolvido.
+    ceiling = pn.get("_max_food_carb_g_per_100g")
+    if ceiling is not None and food_carb_density(food) > ceiling: return False
     for a in (pn.get("allergies") or []):
         if food["id"] in ALLERGY_EXCLUDE_IDS.get(str(a).lower().strip(), set()): return False
     rt = set(pn.get("dietary_restrictions") or [])
@@ -1155,6 +1280,12 @@ def _reconcile_daily(meals, targets, pn, goal, max_iterations=8):
 
 def generate_daily_plan(targets, pn, meal_count=4, goal="maintenance", variety_seed=0):
     m = FORGE_COACH_METHODOLOGY
+    # O protocolo viaja dentro de targets (compute_macro_targets ja o resolveu). Copia
+    # rasa: o dict do chamador nao e mutado.
+    protocol = (targets or {}).get("cut_protocol") or {}
+    if protocol.get("carb_mode") == "capped":
+        cfg = m["cutting_intensity"][protocol["intensity"]]
+        pn = {**pn, "_max_food_carb_g_per_100g": cfg["max_food_carb_g_per_100g"]}
     dist = m["meal_distribution"].get(meal_count, m["meal_distribution"][4])
     names = m["meal_names"].get(meal_count, m["meal_names"][4])
     gc, gp, gf = targets["goal_calories"], targets["protein_g"], targets["fat_g"]
@@ -1174,11 +1305,99 @@ def generate_daily_plan(targets, pn, meal_count=4, goal="maintenance", variety_s
                 if r == "primary_protein": dp[f2["food_id"]] = dp.get(f2["food_id"], 0) + 1
     pre_reconciliation_totals = sum_plan_totals(meals)
     meals = _reconcile_daily(meals, targets, pn, goal)
+    # Protocolo com teto de carbo: o passe abaixo roda DEPOIS da reconciliacao normal,
+    # porque e ela que infla alimento de volume por saciedade e estoura o teto.
+    meals = _apply_carb_ceiling(meals, targets)
     totals = sum_plan_totals(meals)
     for meal in meals:
         meal["coherence_score"] = calculate_meal_coherence_score(meal, _infer_meal_type(meal["name"]), goal)
     return {"meals": meals, "daily_totals": totals, "pre_reconciliation_totals": pre_reconciliation_totals,
             "targets": targets, "engine_version": m["engine_version"], "methodology_version": m["coach_version"]}
+
+def _item_macros(item):
+    """kcal/carbo/gordura de um item do plano, escalados da base do alimento."""
+    f = item.get("food") or FOOD_INDEX.get(item.get("food_id"), {})
+    base = f.get("grams") or 100
+    k = item.get("grams", 0) / max(1, base)
+    return f.get("kcal", 0) * k, f.get("carbs_g", 0) * k, f.get("fat_g", 0) * k
+
+
+def _roles_of(item):
+    f = item.get("food") or FOOD_INDEX.get(item.get("food_id"), {})
+    return set(f.get("roles") or [])
+
+
+def _apply_carb_ceiling(meals, targets):
+    """Fecha o dia dentro do teto de carboidrato do protocolo low-carb.
+
+    O pipeline normal otimiza saciedade em fat_loss inflando alimento de volume
+    (satiety_priority). Sob um teto de carbo isso e justamente o que estoura a meta: 400 g
+    de melancia sozinhos valem 30 g de carboidrato, e nenhum filtro de densidade pega isso
+    porque a densidade dela e baixa — o problema e a porcao.
+
+    Ordem: fruta sai (o protocolo nao comporta porcao relevante de fruta); vegetais
+    encolhem proporcionalmente ate o dia caber no teto, com piso por item para o prato
+    continuar real; e a caloria perdida volta como GORDURA, que e o macro residual deste
+    protocolo — nunca como carboidrato."""
+    ceiling = (targets or {}).get("carb_ceiling_g")
+    if ceiling is None:
+        return meals
+    goal_kcal = (targets or {}).get("goal_calories") or 0
+    # Mira a META do protocolo (35 g), nao o TETO (50 g): encostar no teto deixa o plano
+    # a um arredondamento de estourar, e o teto e limite duro, nao alvo.
+    aim = min(float((targets or {}).get("carbs_g") or ceiling), ceiling)
+    VEG_FLOOR_G = 40
+    FAT_ITEM_MAX_G = FORGE_COACH_METHODOLOGY["portion_limits"]["FAT"][1]
+
+    for m in meals:
+        m["foods"] = [it for it in m.get("foods", []) if "fruit" not in _roles_of(it)]
+
+    def day_carbs():
+        return sum(_item_macros(it)[1] for m in meals for it in m.get("foods", []))
+
+    # Encolhe quem carrega carboidrato sem ser a ancora proteica nem a fonte de gordura:
+    # vegetal primeiro (mais volume, menos valor no protocolo), laticinio/resto depois.
+    for roles in ({"vegetable"}, None):
+        over = day_carbs() - aim
+        if over <= 0:
+            break
+        alvo = [it for m in meals for it in m.get("foods", [])
+                if not ({"primary_protein", "fat_source"} & _roles_of(it))
+                and (roles is None or (roles & _roles_of(it)))]
+        carbs_alvo = sum(_item_macros(it)[1] for it in alvo)
+        if carbs_alvo <= 0:
+            continue
+        keep = max(0.0, (carbs_alvo - over) / carbs_alvo)
+        for it in alvo:
+            it["grams"] = max(VEG_FLOOR_G, round(it["grams"] * keep))
+            it.update(build_food_item(it["food_id"], it["grams"]))
+
+    # Recompoe a caloria com gordura, respeitando o limite de porcao por item.
+    if goal_kcal:
+        falta = goal_kcal - sum(_item_macros(it)[0] for m in meals for it in m.get("foods", []))
+        fat_items = [it for m in meals for it in m.get("foods", []) if "fat_source" in _roles_of(it)]
+        for it in fat_items:
+            if falta <= 0:
+                break
+            f = it.get("food") or FOOD_INDEX.get(it["food_id"], {})
+            base = f.get("grams") or 100
+            kcal_per_g = f.get("kcal", 0) / max(1, base)
+            if kcal_per_g <= 0:
+                continue
+            room = FAT_ITEM_MAX_G - it["grams"]
+            if room <= 0:
+                continue
+            add = min(room, falta / kcal_per_g)
+            it["grams"] = round(it["grams"] + add)
+            it.update(build_food_item(it["food_id"], it["grams"]))
+            falta -= add * kcal_per_g
+
+    for m in meals:
+        mk, mp, mc, mf = _meal_totals(m)
+        m["totals"] = {"kcal": round(mk), "protein_g": round(mp, 1),
+                       "carbs_g": round(mc, 1), "fat_g": round(mf, 1)}
+    return meals
+
 
 def sum_plan_totals(meals):
     t = {"kcal":0,"protein_g":0,"carbs_g":0,"fat_g":0,"fiber_g":0}
@@ -1297,6 +1516,30 @@ def validate_meal(meal, pn, idx):
     if pt < FORGE_COACH_METHODOLOGY["min_protein_per_meal_g"]*0.3:
         w.append(f"[{name}] Low protein: {round(pt,1)}g")
     return w
+
+def check_plan_hard_limits(plan, targets):
+    """Violacoes que IMPEDEM persistir o plano.
+
+    Diferente de validate_daily_plan, que devolve avisos informativos e nao bloqueia
+    nada. Aqui so entra o que o protocolo trata como limite duro — hoje, o teto de
+    carboidrato do modo agressivo. Um plano "agressivo" com carboidrato moderado nao e
+    um plano agressivo, entao ele nao pode ser salvo e apresentado como tal.
+
+    Deliberadamente NAO transforma a tolerancia calorica de validate_daily_plan em erro:
+    ela ja existia como aviso e promove-la a bloqueio faria a geracao falhar para
+    objetivos que hoje funcionam."""
+    errors = []
+    totals = plan.get("daily_totals") or {}
+    ceiling = (targets or {}).get("carb_ceiling_g")
+    if ceiling is not None:
+        carbs = totals.get("carbs_g", 0)
+        if carbs > ceiling:
+            label = ((targets.get("cut_protocol") or {}).get("label") or "").strip()
+            errors.append(
+                f"Carboidrato do dia ({round(carbs, 1)} g) acima do teto de {round(ceiling)} g"
+                + (f" do protocolo {label}" if label else ""))
+    return errors
+
 
 def validate_daily_plan(plan, targets, pn):
     w = []

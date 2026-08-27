@@ -9,8 +9,11 @@ from auth import get_current_user
 
 router = APIRouter(prefix="/api/nutrition", tags=["nutrition"])
 
+# Tentativas de regeneracao antes de desistir e devolver erro claro ao usuario.
+GENERATION_ATTEMPTS = 6
+
 from nutrition_engine import (
-    compute_macro_targets, generate_daily_plan, validate_daily_plan,
+    compute_macro_targets, generate_daily_plan, validate_daily_plan, check_plan_hard_limits,
     find_substitutes, recalculate_substitution_portion, FOOD_INDEX,
     FORGE_COACH_METHODOLOGY, sum_plan_totals,
     get_meal_archetype_options, redistribute_remaining_targets,
@@ -25,6 +28,10 @@ class NutritionAssessmentIn(BaseModel):
     age: int = Field(ge=10, le=120)
     sex: str = "male"
     goal: str = "maintenance"
+    # Intensidade do emagrecimento: "leve" | "moderado" | "agressivo". Opcional de
+    # proposito — perfil antigo, sem escolha, segue no calculo legado (resolve_cut_protocol
+    # devolve None) e nao tem o alvo calorico alterado por esta feature.
+    intensity: Optional[str] = None
     activity_level: str = "moderate"
     training_days: int = Field(ge=1, le=7)
     meal_count: int = Field(ge=3, le=6)
@@ -124,6 +131,27 @@ async def get_assessment(user=Depends(get_current_user)):
     return {"message": "Use POST /api/nutrition/assessment to submit"}
 
 
+@router.get("/cutting-intensities")
+async def cutting_intensities(_user=Depends(get_current_user)):
+    """Catalogo das intensidades de emagrecimento. A UI monta os cards a partir daqui em
+    vez de repetir rotulo, descricao e aviso — a metodologia continua com uma fonte so."""
+    cfg = FORGE_COACH_METHODOLOGY["cutting_intensity"]
+    return {
+        "default": FORGE_COACH_METHODOLOGY["cutting_intensity_default"],
+        "protocol_version": FORGE_COACH_METHODOLOGY["cut_protocol_version"],
+        "options": [
+            {"id": k, "label": v["label"], "description": v["description"],
+             "recommended": bool(v.get("recommended")), "advanced": bool(v.get("advanced")),
+             "warning": v.get("warning"),
+             "deficit_pct": round((1 - v["kcal_pct"]) * 100),
+             "protein_g_per_kg": v["protein_g_per_kg"],
+             "carb_range_g": ([v["carb_min_g"], v["carb_max_g"]]
+                              if v.get("carb_mode") == "capped" else None)}
+            for k, v in cfg.items()
+        ],
+    }
+
+
 @router.post("/assessment")
 async def save_assessment(payload: NutritionAssessmentIn, request: Request, user=Depends(get_current_user)):
     db = request.app.state.db
@@ -150,14 +178,32 @@ async def generate_plan(request: Request, user=Depends(get_current_user)):
         raise HTTPException(400, "Assessment nutricional nÃ£o encontrado. FaÃ§a o questionÃ¡rio primeiro.")
     targets = compute_macro_targets(
         na["weight_kg"], na["height_cm"], na["age"], na["sex"],
-        na["training_days"], na["goal"], na.get("activity_level", "moderate"))
-    # A fresh random seed on every call is what makes "Regenerar plano" actually
-    # produce a different (still coherent, still methodology-correct) plan instead of
-    # the same deterministic pick every time — see generate_daily_plan's variety_seed.
-    plan = generate_daily_plan(targets, na, na.get("meal_count", 4), na["goal"], random.randint(0, 999))
+        na["training_days"], na["goal"], na.get("activity_level", "moderate"),
+        na.get("intensity"))
+
+    # Gera -> valida -> so entao persiste. Antes, o plano era salvo primeiro e
+    # validate_daily_plan devolvia avisos que ninguem bloqueava: um plano fora dos limites
+    # do protocolo substituia um plano valido e ainda era apresentado como correto. Uma
+    # nova semente por tentativa e o proprio mecanismo de regeneracao do motor.
+    plan, errors = None, []
+    for _ in range(GENERATION_ATTEMPTS):
+        candidate = generate_daily_plan(targets, na, na.get("meal_count", 4), na["goal"],
+                                        random.randint(0, 999))
+        errors = check_plan_hard_limits(candidate, targets)
+        if not errors:
+            plan = candidate
+            break
+    if plan is None:
+        # Nada e gravado: o plano anterior, valido, continua de pe.
+        raise HTTPException(422, {
+            "message": "Nao foi possivel gerar um plano dentro dos limites do protocolo escolhido.",
+            "errors": errors})
+
     doc = {"profile_id": target, "user_id": target, "plan": plan, "created_at": datetime.now(timezone.utc).isoformat(),
            "engine_version": FORGE_COACH_METHODOLOGY["engine_version"],
-           "methodology_version": FORGE_COACH_METHODOLOGY["coach_version"]}
+           "methodology_version": FORGE_COACH_METHODOLOGY["coach_version"],
+           "intensity": (targets.get("cut_protocol") or {}).get("intensity"),
+           "cut_protocol": targets.get("cut_protocol")}
     await db.nutrition_plans.replace_one({"profile_id": target}, doc, upsert=True)
     warnings = validate_daily_plan(plan, targets, na)
     return {"plan": plan, "targets": targets, "warnings": warnings}

@@ -1,4 +1,4 @@
-"""
+﻿"""
 FORGE Training Engine v3.0 — periodization + progression + deload + readiness integration.
 """
 import json
@@ -9,7 +9,7 @@ from datetime import datetime as dt_mod, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple, Set
 
 from muscles import (
-    to_internal, to_frontend, get_profile_priorities_internal,
+    to_internal, to_frontend, get_profile_priorities_internal, get_ranked_priorities,
     get_assessment_internal, MUSCLE_IDS as ALL_MUSCLE_IDS,
     LEGACY_TO_INTERNAL, FRONTEND_MUSCLES, REVERSE_MUSCLE_MAP,
 )
@@ -64,8 +64,15 @@ OPTIONAL_MUSCLES = {"abs", "obliques", "traps"}
 VOLUME_TIERS = {
     "maintenance": {"min_sets": 4, "target_sets": 6, "max_sets": 8},
     "normal": {"min_sets": 6, "target_sets": 8, "max_sets": 12},
+    # Prioridade secundaria: enfase real (acima de "normal"), mas abaixo da principal —
+    # e o que impede que marcar tres regioes vire tres treinos de especializacao ao mesmo
+    # tempo, estourando a recuperacao.
+    "priority_secondary": {"min_sets": 8, "target_sets": 11, "max_sets": 16},
     "priority": {"min_sets": 10, "target_sets": 14, "max_sets": 20},
 }
+
+# Tiers com enfase declarada — usados onde "priority" sozinho ja nao descreve o conjunto.
+PRIORITY_TIERS = ("priority", "priority_secondary")
 
 EXERCISE_BY_MUSCLE: Dict[str, List[str]] = {
     m: [e["id"] for e in EXERCISES if e["primary_muscle"] == m]
@@ -372,14 +379,16 @@ def build_exercise_prescription(exercise: dict, profile: dict, demand: str,
 
 
 def calculate_weekly_volume(profile: dict, split_type: str, days: int) -> Dict[str, Dict[str, Any]]:
-    priorities = get_profile_priorities_internal(profile)
+    primary, secondary = get_ranked_priorities(profile)
     assessment = get_assessment_internal(profile)
     result: Dict[str, Dict[str, Any]] = {}
 
     for muscle_id in ALL_MUSCLE_IDS:
         tier = "normal"
-        if muscle_id in priorities:
+        if muscle_id == primary:
             tier = "priority"
+        elif muscle_id in secondary:
+            tier = "priority_secondary"
         else:
             muscle_assess = assessment.get(muscle_id, {})
             dev = "proporcional"
@@ -678,7 +687,7 @@ def validate_sessions(sessions: List[Dict[str, Any]], profile: dict,
         if muscle_id in OPTIONAL_MUSCLES:
             continue
         actual = weekly_vol.get(muscle_id, 0)
-        if actual == 0 and plan["tier"] in ("normal", "priority"):
+        if actual == 0 and plan["tier"] in ("normal",) + PRIORITY_TIERS:
             warnings.append(f"[weekly] Zero volume for {to_frontend(muscle_id)} (tier={plan['tier']})")
         if actual > plan["max_sets"] * 1.5:
             warnings.append(f"[weekly] Excessive volume for {to_frontend(muscle_id)}: {actual} sets (max={plan['max_sets']})")

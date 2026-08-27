@@ -21,11 +21,14 @@ export default function Nutrition({ API, profileId, db }) {
   const [targets, setTargets] = useState(null);
   const [form, setForm] = useState({
     weight_kg: "", height_cm: "", age: "", sex: "male",
-    goal: "maintenance", activity_level: "moderate", training_days: 3,
+    goal: "maintenance", intensity: "", activity_level: "moderate", training_days: 3,
     meal_count: 4, training_time: "", preferred_foods: [], disliked_foods: [],
     avoid_foods: [], allergies: [], dietary_restrictions: "", cooking_time: "medium"
   });
   const [genStep, setGenStep] = useState(1);
+  // Catalogo das intensidades servido pelo backend: rotulo, descricao, aviso e faixa de
+  // carbo saem da metodologia, nao de texto repetido aqui.
+  const [intensities, setIntensities] = useState([]);
   const [importOpen, setImportOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -58,6 +61,14 @@ export default function Nutrition({ API, profileId, db }) {
     });
   }, []);
 
+  useEffect(() => {
+    let vivo = true;
+    axios.get(`${API}/nutrition/cutting-intensities`)
+      .then(r => { if (vivo) setIntensities(r.data.options || []); })
+      .catch(() => {});
+    return () => { vivo = false; };
+  }, [API]);
+
   const submitAssessment = async () => {
     setBusy(true); setError("");
     try {
@@ -81,6 +92,8 @@ export default function Nutrition({ API, profileId, db }) {
       const detail = e.response?.data?.detail;
       const message = typeof detail === "string" ? detail
         : Array.isArray(detail) ? detail.map(d => d.msg || JSON.stringify(d)).join("; ")
+        // limites do protocolo: o backend recusa o plano em vez de salvar fora da faixa
+        : detail?.message ? [detail.message, ...(detail.errors || [])].join(" ")
         : "Erro ao salvar";
       setError(message);
     } finally { setBusy(false); }
@@ -262,6 +275,39 @@ export default function Nutrition({ API, profileId, db }) {
               { v: "maintenance", l: "Manutenção" },
               { v: "muscle_gain", l: "Ganho de massa" }
             ]} />
+            {form.goal === "fat_loss" && intensities.length > 0 && (
+              <div className="intensity-block">
+                <p className="eyebrow">INTENSIDADE DO EMAGRECIMENTO</p>
+                <div className="intensity-cards">
+                  {intensities.map(op => (
+                    <button
+                      key={op.id}
+                      type="button"
+                      data-testid={`intensity-${op.id}`}
+                      aria-pressed={form.intensity === op.id}
+                      className={`intensity-card${form.intensity === op.id ? " active" : ""}${op.advanced ? " advanced" : ""}`}
+                      onClick={() => setForm(s2 => ({ ...s2, intensity: op.id }))}
+                    >
+                      <span className="intensity-head">
+                        <b>{op.label}</b>
+                        {op.recommended && <em className="intensity-tag">recomendado</em>}
+                        {op.advanced && <em className="intensity-tag adv">avançado</em>}
+                      </span>
+                      <small>{op.description}</small>
+                      <span className="intensity-meta">
+                        {`-${op.deficit_pct}% do gasto`}
+                        {op.carb_range_g ? ` · ${op.carb_range_g[0]}–${op.carb_range_g[1]}g de carboidrato/dia` : ""}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                {intensities.find(o => o.id === form.intensity)?.warning && (
+                  <p className="intensity-warning" data-testid="intensity-warning">
+                    {intensities.find(o => o.id === form.intensity).warning}
+                  </p>
+                )}
+              </div>
+            )}
           </>}
           {genStep === 2 && <>
             <F label="Nível de atividade" k="activity_level" opts={[

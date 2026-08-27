@@ -1,4 +1,4 @@
-"""
+﻿"""
 FORGE Muscle Taxonomy — consistent muscle IDs with backward compatibility.
 Maps frontend display names to internal IDs and vice versa.
 """
@@ -83,10 +83,53 @@ def to_internal(frontend_name: str) -> str:
     return LEGACY_TO_INTERNAL.get(frontend_name, REVERSE_MUSCLE_MAP.get(frontend_name, frontend_name))
 
 
+# Teto de prioridades simultaneas. Sem isso o onboarding aceita marcar as 17 regioes
+# como "maxima", o que nao e priorizar nada: o volume extra se dilui e estoura a
+# recuperacao. A ORDEM da lista e o ranking — o primeiro item e a prioridade principal.
+MAX_PRIORITIES = 3
+
+# Ponto de partida por perfil, aplicado SOMENTE quando o atleta ainda nao declarou
+# nenhuma prioridade. Nao restringe escolha: qualquer pessoa pode priorizar qualquer
+# regiao, e a prioridade declarada sempre substitui este ponto de partida.
+DEFAULT_EMPHASIS_BY_SEX: Dict[str, List[str]] = {
+    "female": ["glutes", "hamstrings", "quads"],
+    "male": ["mid_chest", "lats", "side_delts"],
+}
+
+
+def normalize_sex(value) -> Optional[str]:
+    v = str(value or "").strip().lower()
+    if v in ("f", "female", "feminino", "mulher"):
+        return "female"
+    if v in ("m", "male", "masculino", "homem"):
+        return "male"
+    return None
+
+
+def get_ranked_priorities(profile: dict) -> tuple:
+    """(principal, [secundarias]) em IDs internos, ja com o teto aplicado.
+
+    Sem prioridade declarada, cai no ponto de partida do perfil (sexo). Perfil antigo sem
+    sexo e sem prioridade continua sem enfase nenhuma — exatamente como era antes."""
+    raw = [to_internal(p) for p in (profile.get("priorities") or [])]
+    seen, ordered = set(), []
+    for m in raw:
+        if m and m not in seen:
+            seen.add(m)
+            ordered.append(m)
+    ordered = ordered[:MAX_PRIORITIES]
+    if ordered:
+        return ordered[0], ordered[1:]
+    seed = DEFAULT_EMPHASIS_BY_SEX.get(normalize_sex(profile.get("sex")) or "", [])
+    seed = seed[:MAX_PRIORITIES]
+    return (seed[0] if seed else None), seed[1:]
+
+
 def get_profile_priorities_internal(profile: dict) -> List[str]:
-    """Extract priorities from a profile, converting legacy names to internal IDs."""
-    priorities = profile.get("priorities") or []
-    return [to_internal(p) for p in priorities]
+    """Prioridades efetivas (principal + secundarias), ja limitadas e com o ponto de
+    partida do perfil quando nada foi declarado."""
+    primary, secondary = get_ranked_priorities(profile)
+    return ([primary] if primary else []) + list(secondary)
 
 
 def get_assessment_internal(profile: dict) -> Dict[str, Dict[str, str]]:
