@@ -47,6 +47,24 @@ export default function Nutrition({ API, profileId, db }) {
   const [guidedSwap, setGuidedSwap] = useState(null);
   const [guidedPhase, setGuidedPhase] = useState("choosing");
 
+  // O questionario salvo reabre preenchido — inclusive com o objetivo e a intensidade
+  // escolhidos no onboarding, que gravam no MESMO nutrition_assessment. Sem isto a tela
+  // reabria em branco e a escolha do onboarding parecia ter sido ignorada.
+  useEffect(() => {
+    axios.get(`${API}/nutrition/assessment`).then(r => {
+      const na = r.data?.assessment;
+      if (!na) return;
+      setForm(f => ({
+        ...f,
+        ...Object.fromEntries(Object.entries(na).filter(([k, v]) =>
+          k in f && v !== null && v !== undefined && v !== "")),
+        // o formulario usa texto/select simples onde o backend guarda lista
+        dietary_restrictions: (na.dietary_restrictions || [])[0] || "",
+        allergies: Array.isArray(na.allergies) ? na.allergies.join(", ") : (na.allergies || ""),
+      }));
+    }).catch(() => {});
+  }, [API]);
+
   useEffect(() => {
     axios.get(`${API}/nutrition/plan`).then(r => {
       setPlan(r.data); setTargets(r.data.targets || r.data.daily_totals); setStep("plan");

@@ -1,4 +1,4 @@
-from dotenv import load_dotenv
+﻿from dotenv import load_dotenv
 from pathlib import Path
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
@@ -87,6 +87,11 @@ class DeepAssessment(BaseModel):
     consistency_years: float = 0
     experience: str = "Intermediário"
     goal: str = "Hipertrofia"
+    # Transporte apenas: a intensidade de emagrecimento escolhida no onboarding NAO vira
+    # um campo proprio do perfil. save_assessment a grava em nutrition_assessment.intensity,
+    # que ja e a fonte de verdade usada por compute_macro_targets — um segundo campo
+    # concorrente deixaria onboarding e Alimentacao discordarem entre si.
+    cut_intensity: Optional[str] = None
     secondary_goal: str = ""
     days: int = 3
     session_minutes: int = 60
@@ -231,13 +236,36 @@ async def bootstrap(user=Depends(get_current_user), profile_id: Optional[str] = 
     return {"profile": profile, "program": program, "exercises": EXERCISES, "muscles": MUSCLES, "techniques": TECHNIQUES, "recent_sets": recent, "demo": target == "demo", "current_user": {"id": user["id"], "email": user["email"], "role": user["role"], "name": user.get("name"), "plan": user.get("plan"), "status": user.get("status"), "expires_at": user.get("expires_at")}}
 
 
+# Objetivo de treino que corresponde a emagrecer/definir. O valor gravado continua sendo
+# o mesmo de sempre ("Recomposicao"/"Recomposição"); so o rotulo na tela mudou.
+def _is_fat_loss_goal(goal: str) -> bool:
+    g = (goal or "").lower()
+    return "recomposi" in g or "emagrec" in g
+
+
 @api.post("/assessment")
 async def save_assessment(assessment: DeepAssessment, user=Depends(get_current_user)):
     target = user["id"] if user.get("role") == "ATHLETE" else assessment.profile_id
     doc = assessment.model_dump()
+    escolha_cut = doc.pop("cut_intensity", None)  # transporte, nao campo do perfil
     doc["id"] = target
     doc["user_id"] = target
     doc["assessment_version"] = 2
+
+    # replace_one troca o documento inteiro, entao o questionario ALIMENTAR (outro
+    # questionario, com peso/altura/preferencias) era apagado sempre que o atleta
+    # refazia a avaliacao de treino. Ele e carregado adiante de proposito.
+    anterior = await db.profiles.find_one({"id": target}, {"_id": 0, "nutrition_assessment": 1})
+    nutricao = dict((anterior or {}).get("nutrition_assessment") or {})
+    if escolha_cut and _is_fat_loss_goal(assessment.goal):
+        # Mesma fonte de verdade da area de Alimentacao. A intensidade so faz sentido com
+        # objetivo alimentar de perda de gordura, entao ele e semeado junto — a area de
+        # Alimentacao continua podendo trocar os dois explicitamente depois.
+        nutricao["intensity"] = escolha_cut
+        nutricao["goal"] = "fat_loss"
+    if nutricao:
+        doc["nutrition_assessment"] = nutricao
+
     await db.profiles.replace_one({"id": target}, doc, upsert=True)
     await db.assessments.insert_one({"profile_id": target, "user_id": target, "captured_at": assessment.created_at, "assessment": doc})
     return {"profile": {k: v for k, v in doc.items() if k != "_id"}, "program": await build_program(doc), "assessment_version": 2}

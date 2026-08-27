@@ -125,10 +125,26 @@ def owned_nutrition_target(user: dict, requested: Optional[str] = None) -> str:
     return user["id"]
 
 
+# Campos sem os quais compute_macro_targets nao roda. O onboarding de treino pode
+# semear nutrition_assessment so com objetivo/intensidade; esse documento parcial nao
+# pode passar por completo, senao a geracao quebraria com KeyError em vez de pedir o
+# questionario.
+CAMPOS_OBRIGATORIOS = ("weight_kg", "height_cm", "age", "training_days")
+
+
+def _assessment_completo(na) -> bool:
+    return bool(na) and all(na.get(k) for k in CAMPOS_OBRIGATORIOS)
+
+
 @router.get("/assessment")
-async def get_assessment(user=Depends(get_current_user)):
-    db = user.get("_db") or user.get("request") if False else None
-    return {"message": "Use POST /api/nutrition/assessment to submit"}
+async def get_assessment(request: Request, user=Depends(get_current_user)):
+    """Devolve o questionario salvo para a tela abrir com as escolhas ja feitas —
+    inclusive a intensidade vinda do onboarding. Antes isto era um stub que so devolvia
+    uma mensagem, entao a area de Alimentacao sempre reabria em branco."""
+    db = request.app.state.db
+    profile = await db.profiles.find_one({"id": user["id"]}, {"_id": 0, "nutrition_assessment": 1})
+    na = (profile or {}).get("nutrition_assessment")
+    return {"assessment": na or None, "complete": _assessment_completo(na)}
 
 
 @router.get("/cutting-intensities")
@@ -157,6 +173,12 @@ async def save_assessment(payload: NutritionAssessmentIn, request: Request, user
     db = request.app.state.db
     target = user["id"] if user.get("role") == "ATHLETE" else user["id"]
     doc = payload.model_dump()
+    if not (doc.get("intensity") or "").strip():
+        # O formulario manda intensity:"" quando o campo nao foi tocado. Isso apagaria em
+        # silencio a escolha feita no onboarding, entao o valor anterior e carregado
+        # adiante. Uma escolha explicita (string preenchida) continua vencendo.
+        anterior = await db.profiles.find_one({"id": target}, {"_id": 0, "nutrition_assessment": 1})
+        doc["intensity"] = ((anterior or {}).get("nutrition_assessment") or {}).get("intensity")
     doc["profile_id"] = target
     doc["user_id"] = target
     doc["id"] = str(uuid.uuid4())
@@ -174,7 +196,7 @@ async def generate_plan(request: Request, user=Depends(get_current_user)):
     target = user["id"]
     profile = await db.profiles.find_one({"id": target}, {"_id": 0})
     na = (profile or {}).get("nutrition_assessment")
-    if not na:
+    if not _assessment_completo(na):
         raise HTTPException(400, "Assessment nutricional nÃ£o encontrado. FaÃ§a o questionÃ¡rio primeiro.")
     targets = compute_macro_targets(
         na["weight_kg"], na["height_cm"], na["age"], na["sex"],
@@ -341,7 +363,7 @@ async def reset_plan_draft(request: Request, user=Depends(get_current_user)):
     target = user["id"]
     profile = await db.profiles.find_one({"id": target}, {"_id": 0})
     na = (profile or {}).get("nutrition_assessment")
-    if not na:
+    if not _assessment_completo(na):
         raise HTTPException(400, "Assessment nutricional nao encontrado. Faca o questionario primeiro.")
     targets = compute_macro_targets(
         na["weight_kg"], na["height_cm"], na["age"], na["sex"],

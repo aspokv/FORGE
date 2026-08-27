@@ -231,3 +231,122 @@ def test_atleta_antigo_sem_sexo_e_sem_prioridade_continua_abrindo_o_plano():
     boot = requests.get(f"{API}/bootstrap", headers=headers)
     assert boot.status_code == 200
     assert boot.json()["program"]["sessions"]
+
+
+# --- onboarding -> alimentacao: uma unica fonte de verdade --------------------------
+#
+# O onboarding de treino nao pode ter um campo proprio de intensidade: se tivesse, ele
+# poderia dizer "agressivo" enquanto a area de Alimentacao estivesse em "leve". A escolha
+# do onboarding grava no MESMO nutrition_assessment.intensity que a Alimentacao usa.
+
+def _onboarding(uid, goal="Recomposicao", cut=None, sex="Feminino"):
+    corpo = _deep_assessment(uid, sex, [])
+    corpo["goal"] = goal
+    corpo["assessment"] = {"Peitoral superior": {"development": "proporcional",
+                                                 "priority": "normal"}}
+    if cut is not None:
+        corpo["cut_intensity"] = cut
+    return corpo
+
+
+def test_intensidade_do_onboarding_chega_na_geracao_alimentar():
+    email = "onb.reaches@example.com"
+    uid, headers = _athlete(email)
+    assert requests.post(f"{API}/assessment", json=_onboarding(uid, cut="agressivo"),
+                         headers=headers).status_code == 200
+
+    na = _run(_find_one("profiles", {"id": uid}))["nutrition_assessment"]
+    assert na["intensity"] == "agressivo"
+    assert na["goal"] == "fat_loss"
+
+    # completa o questionario alimentar sem tocar na intensidade
+    corpo = _assessment(None)
+    corpo["goal"] = "fat_loss"
+    assert requests.post(f"{API}/nutrition/assessment", json=corpo,
+                         headers=headers).status_code == 200
+    r = requests.post(f"{API}/nutrition/generate", headers=headers)
+    assert r.status_code == 200, r.text
+    metas = r.json()["targets"]
+    assert metas["cut_protocol"]["intensity"] == "agressivo"
+    assert 20 <= metas["carbs_g"] <= 50
+
+
+def test_alimentacao_reabre_com_a_escolha_do_onboarding():
+    email = "onb.reopen@example.com"
+    uid, headers = _athlete(email)
+    assert requests.post(f"{API}/assessment", json=_onboarding(uid, cut="leve"),
+                         headers=headers).status_code == 200
+    r = requests.get(f"{API}/nutrition/assessment", headers=headers)
+    assert r.status_code == 200, r.text
+    assert r.json()["assessment"]["intensity"] == "leve"
+    # so intensidade/objetivo: ainda falta o questionario alimentar de verdade
+    assert r.json()["complete"] is False
+
+
+def test_escolha_explicita_na_alimentacao_vence_a_do_onboarding():
+    email = "onb.override@example.com"
+    uid, headers = _athlete(email)
+    assert requests.post(f"{API}/assessment", json=_onboarding(uid, cut="agressivo"),
+                         headers=headers).status_code == 200
+    corpo = _assessment("leve")
+    corpo["goal"] = "fat_loss"
+    assert requests.post(f"{API}/nutrition/assessment", json=corpo,
+                         headers=headers).status_code == 200
+    r = requests.post(f"{API}/nutrition/generate", headers=headers)
+    assert r.json()["targets"]["cut_protocol"]["intensity"] == "leve"
+
+
+def test_outro_objetivo_nao_grava_intensidade_incompativel():
+    email = "onb.othergoal@example.com"
+    uid, headers = _athlete(email)
+    assert requests.post(f"{API}/assessment",
+                         json=_onboarding(uid, goal="Hipertrofia", cut="agressivo"),
+                         headers=headers).status_code == 200
+    perfil = _run(_find_one("profiles", {"id": uid}))
+    assert (perfil.get("nutrition_assessment") or {}).get("intensity") is None
+    # e o campo de transporte nao virou campo proprio do perfil
+    assert "cut_intensity" not in perfil
+
+
+def test_refazer_avaliacao_de_treino_nao_apaga_o_questionario_alimentar():
+    """replace_one troca o documento inteiro; o questionario alimentar e outro
+    questionario e nao pode sumir porque o atleta refez o de treino."""
+    email = "onb.keepnutrition@example.com"
+    uid, headers = _athlete(email)
+    corpo = _assessment("moderado")
+    assert requests.post(f"{API}/nutrition/assessment", json=corpo,
+                         headers=headers).status_code == 200
+    assert requests.post(f"{API}/nutrition/generate", headers=headers).status_code == 200
+
+    assert requests.post(f"{API}/assessment", json=_onboarding(uid, goal="Hipertrofia"),
+                         headers=headers).status_code == 200
+
+    na = _run(_find_one("profiles", {"id": uid}))["nutrition_assessment"]
+    assert na["weight_kg"] == 85 and na["intensity"] == "moderado"
+    assert requests.post(f"{API}/nutrition/generate", headers=headers).status_code == 200
+
+
+def test_assessment_parcial_pede_o_questionario_em_vez_de_quebrar():
+    """O onboarding semeia nutrition_assessment so com objetivo/intensidade. Esse
+    documento parcial nao pode passar pelo guard e estourar KeyError na geracao."""
+    email = "onb.partial@example.com"
+    uid, headers = _athlete(email)
+    assert requests.post(f"{API}/assessment", json=_onboarding(uid, cut="moderado"),
+                         headers=headers).status_code == 200
+    r = requests.post(f"{API}/nutrition/generate", headers=headers)
+    assert r.status_code == 400, r.text
+    assert "question" in r.text.lower()
+
+
+def test_usuario_antigo_sem_intensidade_no_onboarding_segue_no_padrao():
+    email = "onb.legacy@example.com"
+    uid, headers = _athlete(email)
+    assert requests.post(f"{API}/assessment", json=_onboarding(uid, cut=None),
+                         headers=headers).status_code == 200
+    corpo = _assessment(None)
+    corpo["goal"] = "fat_loss"
+    assert requests.post(f"{API}/nutrition/assessment", json=corpo,
+                         headers=headers).status_code == 200
+    r = requests.post(f"{API}/nutrition/generate", headers=headers)
+    assert r.status_code == 200, r.text
+    assert "cut_protocol" not in r.json()["targets"]
