@@ -14,6 +14,7 @@ import {LoginScreen,InviteScreen} from "./features/AuthScreens";
 import AdminPanel from "./features/AdminPanel";
 import Nutrition from "./features/Nutrition";
 import ManualWorkout from "./features/ManualWorkout";
+import {completeWorkout} from "./features/completeWorkout";
 const API=`${process.env.REACT_APP_BACKEND_URL || ""}/api`;
 const GROUPS={PEITORAL:["Peitoral superior","Peitoral esternal"],OMBROS:["Deltóide anterior","Deltóide lateral","Deltóide posterior"],COSTAS:["Dorsais / largura","Costas / espessura","Trapézio"],BRAÇOS:["Bíceps","Braquial","Tríceps"],PERNAS:["Quadríceps","Posteriores","Glúteos","Adutores","Panturrilhas"],CORE:["Abdômen","Oblíquos"]};
 const DEV=["muito fraco","fraco","proporcional","forte","muito forte"],PRI=["baixa","normal","alta","máxima"];
@@ -36,6 +37,8 @@ function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutC
   const[setInputs,setSetInputs]=useState({});
   const[setErr,setSetErr]=useState({});
   const[finishResult,setFinishResult]=useState(null);
+  const[finishing,setFinishing]=useState(false);
+  const finishLock=useRef(false);
   const[startedAt]=useState(()=>Date.now());
   useEffect(()=>{const init={};items.forEach(x=>{const hint=hints[x.exercise_id]||{};for(let n=0;n<x.sets;n++)init[`${x.exercise_id}-${n}`]={weight:hint.last_weight||x.load||0,reps:hint.last_reps||x.reps?.split("–")?.[0]||"8"};});setSetInputs(init)},[items,!!Object.keys(hints).length]);
   const[draftState,setDraftState]=useState("idle");
@@ -75,7 +78,7 @@ function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutC
   useEffect(()=>{if(!timer)return;const i=setInterval(()=>setTimer(x=>Math.max(0,x-1)),1000);return()=>clearInterval(i)},[timer]);
   const parseRestSeconds=r=>{if(!r)return 90;const n=parseInt(r);if(!isNaN(n))return n<10?n*60:n;const m=r.match(/(\d+)/);return m?parseInt(m[1])*60:90};
   const mark=(id,n,tech,rest)=>{setDone(x=>({...x,[id+n]:!x[id+n]}));const secs=parseRestSeconds(rest);setTimer(secs);setTimerTotal(secs);const v=setInputs[`${id}-${n}`]||{weight:0,reps:8};axios.post(`${API}/sets`,{profile_id:db.profile.id,exercise_id:id,set_number:n,weight:Number(v.weight||0),reps:Number(v.reps||8),rir:2,technique:tech||"Straight Sets"}).catch(e=>{setSetErr(x=>({...x,[id+n]:!e.response}))})};
-  const finish=async()=>{const total=items.reduce((a,x)=>a+x.sets,0);const completed=Object.values(done).filter(Boolean).length;if(completed===0){setFinishResult({error:true});return}axios.post(`${API}/recovery`,{profile_id:db.profile.id,sleep:4,energy:3,soreness:2,stress:2}).catch(()=>{});const minutes=Math.max(1,Math.round((Date.now()-startedAt)/60000));try{const r=await axios.post(`${API}/workout/complete`,{day:activeSession?.day});onWorkoutCompleted(r.data)}catch(e){}setFinishResult({completed,total,minutes})};
+  const finish=async()=>{if(finishLock.current)return;const total=items.reduce((a,x)=>a+x.sets,0);const completed=Object.values(done).filter(Boolean).length;setFinishing(true);const r=await completeWorkout({post:(u,b)=>axios.post(u,b),api:API,day:activeSession?.day,completedSets:completed,totalSets:total,startedAt,lock:finishLock,onCompleted:onWorkoutCompleted});if(r)setFinishResult(r);if(!r||r.error)setFinishing(false)};
   const recLevel=p.logic?.recovery_level;
   const recMsg=recLevel==="LOW"?"Volume ajustado à sua recuperação de hoje.":recLevel==="VERY_LOW"?"Sessão adaptada à sua recuperação de hoje.":p.logic?.block_type==="deload"?"Semana de descarga — volume reduzido de propósito.":null;
   if(!items.length)return <div className="content workout-page"><div className="empty-state"data-testid="workout-empty-state"><Dumbbell size={22}/><h3>Nenhuma sessão disponível</h3><p className="muted">Gere ou aprove um programa para ver o treino de hoje.</p></div></div>;
@@ -118,13 +121,13 @@ function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutC
       </section>
     })}
     {finishResult&&(finishResult.error
-      ?<div className="workout-feedback error"data-testid="workout-finish-msg">Complete pelo menos uma série para concluir.</div>
+      ?<div className="workout-feedback error"data-testid="workout-finish-msg">{finishResult.message}</div>
       :<div className="workout-feedback success"data-testid="workout-finish-msg">
         <Check size={20}/>
         <div><p className="eyebrow">TREINO CONCLUÍDO</p><h3>{finishResult.completed}/{finishResult.total} séries registradas</h3><p className="muted">{finishResult.minutes} min</p></div>
         <button className="text-button"data-testid="workout-finish-gohome"onClick={goHome}>Voltar para Hoje<ChevronRight size={14}/></button>
       </div>)}
-    {(!finishResult||finishResult.error)&&<button className="finish-button"data-testid="finish-workout-button"onClick={finish}><Check size={18}/> Concluir treino</button>}
+    {(!finishResult||finishResult.error)&&<button className="finish-button"data-testid="finish-workout-button"disabled={finishing}onClick={finish}><Check size={18}/> {finishing?"Concluindo…":"Concluir treino"}</button>}
     {swap&&<Swap ex={swap}close={()=>setSwap(null)}onSubstituted={onExerciseSubstituted}/>}
   </div>
 }

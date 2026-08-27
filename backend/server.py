@@ -519,14 +519,46 @@ async def complete_workout(payload: WorkoutCompleteIn, user=Depends(get_current_
 
     # Only the sequence pointer changes on the profile — sets/recovery/substitutions
     # already persisted by their own endpoints are never touched here.
-    await db.profiles.update_one({"id": target}, {"$set": {"current_session_day": next_day}}, upsert=True)
+    #
+    # Compare-and-swap: only the caller that still sees the pointer on the session being
+    # completed may advance it. A network retry, a second tab, a second device or a double
+    # tap on the phone arrive with the pointer already moved, match nothing and become a
+    # no-op — the rotation advances exactly one step and the completion is recorded exactly
+    # once. Identifying the operation by the current session (not by a client-generated id)
+    # is what makes this hold across devices, which a per-click token cannot do.
+    #
+    # The $nin arm is the bootstrap/stale case, and it also covers a missing field and null:
+    # a pointer left on a day the program no longer has (the athlete changed days/split, so
+    # day 4 of the old 5-day split is gone) must still be completable. _resolve_active_day
+    # already falls back to the first day when that happens, so without this arm the CAS
+    # would match nothing and the athlete could never complete a workout again.
+    advanced = await db.profiles.update_one(
+        {"id": target, "$or": [{"current_session_day": completed_day},
+                               {"current_session_day": {"$nin": day_values}}]},
+        {"$set": {"current_session_day": next_day}},
+    )
+
+    if advanced.matched_count == 0:
+        # Either the athlete has no stored profile document yet (load_profile answers with a
+        # synthetic dict without creating one, so the old upsert here was load-bearing), or
+        # this session was already completed.
+        if await db.profiles.find_one({"id": target}, {"_id": 1}) is None:
+            await db.profiles.update_one(
+                {"id": target}, {"$set": {"current_session_day": next_day}}, upsert=True)
+        else:
+            profile = await load_profile(target)
+            return {"program": await build_program(profile), "completed_day": completed_day,
+                    "next_day": profile.get("current_session_day", next_day),
+                    "already_completed": True}
+
     await db.workout_completions.insert_one({
         "id": str(uuid.uuid4()), "profile_id": target, "day": completed_day,
         "label": completed_session.get("label"), "completed_at": now,
     })
 
     profile = await load_profile(target)
-    return {"program": await build_program(profile), "completed_day": completed_day, "next_day": next_day}
+    return {"program": await build_program(profile), "completed_day": completed_day,
+            "next_day": next_day, "already_completed": False}
 
 
 # Um treino em andamento so vale para a sessao do dia: um rascunho antigo (ciclo

@@ -242,3 +242,112 @@ def test_completion_isolated_between_athletes():
 
     boot_a = requests.get(f"{API}/bootstrap", headers=headers_a).json()
     assert _active_label(boot_a["program"]) == "Push", "athlete A's progression changed as a side effect of athlete B completing a workout"
+
+
+# ═══════════════════ IDEMPOTENCIA: a mesma sessao concluida duas vezes ═══════════════════
+#
+# "Concluir treino" nao tinha trava: dois toques no celular disparavam dois POST, o
+# ponteiro pulava DOIS treinos (Push -> Legs) e o historico ganhava dois registros.
+# A trava do frontend nao basta — duas abas, dois aparelhos e retry de rede passam por
+# fora dela. O backend decide por compare-and-swap no proprio ponteiro: so avanca quem
+# ainda enxerga a sessao que esta concluindo como a atual.
+#
+# Nao confundir com "duas sessoes diferentes no mesmo dia", que continua permitido e
+# tem caso proprio (test_case4 acima).
+
+
+async def _count(collection: str, profile_id: str) -> int:
+    client = AsyncIOMotorClient(os.environ["MONGO_URL"])
+    db = client[os.environ["DB_NAME"]]
+    return await db[collection].count_documents({"profile_id": profile_id})
+
+
+async def _profile(profile_id: str):
+    client = AsyncIOMotorClient(os.environ["MONGO_URL"])
+    db = client[os.environ["DB_NAME"]]
+    return await db.profiles.find_one({"id": profile_id}, {"_id": 0})
+
+
+async def _uid(email: str) -> str:
+    client = AsyncIOMotorClient(os.environ["MONGO_URL"])
+    db = client[os.environ["DB_NAME"]]
+    return (await db.users.find_one({"email": email}))["id"]
+
+
+async def _set_pointer(profile_id: str, day):
+    client = AsyncIOMotorClient(os.environ["MONGO_URL"])
+    db = client[os.environ["DB_NAME"]]
+    await db.profiles.update_one({"id": profile_id}, {"$set": {"current_session_day": day}})
+
+
+def test_completing_the_same_session_twice_advances_only_one_step():
+    email = "wprog.double@example.com"
+    headers, _ = _create_athlete_with_ppl(email)
+    uid = _run(_uid(email))
+
+    first = requests.post(f"{API}/workout/complete", json={"day": 1}, headers=headers)
+    assert first.status_code == 200, first.text
+    assert first.json()["already_completed"] is False
+    assert _active_label(first.json()["program"]) == "Pull"
+
+    # segundo toque / segunda aba / retry: mesma sessao, ja concluida
+    second = requests.post(f"{API}/workout/complete", json={"day": 1}, headers=headers)
+    assert second.status_code == 200, second.text
+    assert second.json()["already_completed"] is True
+
+    # Push -> Pull, nunca Push -> Legs
+    assert _active_label(second.json()["program"]) == "Pull"
+    assert _run(_profile(uid))["current_session_day"] == 2
+    reloaded = requests.get(f"{API}/bootstrap", headers=headers).json()
+    assert _active_label(reloaded["program"]) == "Pull"
+
+
+def test_completing_the_same_session_twice_records_a_single_log():
+    email = "wprog.doublelog@example.com"
+    headers, _ = _create_athlete_with_ppl(email)
+    uid = _run(_uid(email))
+
+    for _ in range(3):  # um toque + dois repiques
+        assert requests.post(f"{API}/workout/complete", json={"day": 1}, headers=headers).status_code == 200
+
+    assert _run(_count("workout_completions", uid)) == 1, "historico duplicou a mesma sessao"
+
+
+def test_two_different_sessions_same_day_still_record_two_completions():
+    email = "wprog.twosessions@example.com"
+    headers, _ = _create_athlete_with_ppl(email)
+    uid = _run(_uid(email))
+
+    assert requests.post(f"{API}/workout/complete", json={"day": 1}, headers=headers).status_code == 200
+    assert requests.post(f"{API}/workout/complete", json={"day": 2}, headers=headers).status_code == 200
+
+    assert _run(_count("workout_completions", uid)) == 2
+    assert _run(_profile(uid))["current_session_day"] == 3
+
+
+def test_stale_pointer_from_a_changed_split_can_still_be_completed():
+    """Ponteiro parado num dia que o programa nao tem mais (o atleta trocou de split):
+    _resolve_active_day ja cai para o primeiro dia, entao concluir precisa continuar
+    funcionando — senao o CAS travaria o atleta para sempre."""
+    email = "wprog.stale@example.com"
+    headers, _ = _create_athlete_with_ppl(email)
+    uid = _run(_uid(email))
+    _run(_set_pointer(uid, 99))
+
+    r = requests.post(f"{API}/workout/complete", json={"day": 1}, headers=headers)
+    assert r.status_code == 200, r.text
+    assert r.json()["already_completed"] is False, "ponteiro obsoleto travou a conclusao"
+    assert _active_label(r.json()["program"]) == "Pull"
+    assert _run(_count("workout_completions", uid)) == 1
+
+
+def test_completing_a_workout_never_fabricates_a_recovery_entry():
+    """Bug 1: o app gravava recovery inventado (sleep 4/energy 3/soreness 2/stress 2) a
+    cada conclusao, o que jogava o motor para VERY_LOW e cortava 2 series de tudo. Concluir
+    treino e responder recovery sao operacoes independentes."""
+    email = "wprog.norecovery@example.com"
+    headers, _ = _create_athlete_with_ppl(email)
+    uid = _run(_uid(email))
+
+    assert requests.post(f"{API}/workout/complete", json={"day": 1}, headers=headers).status_code == 200
+    assert _run(_count("recovery", uid)) == 0, "conclusao criou registro de recovery sem o atleta responder"
