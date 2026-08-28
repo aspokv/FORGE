@@ -1,4 +1,4 @@
-"""Cadastro publico do FORGE.
+﻿"""Cadastro publico do FORGE.
 
 O FORGE nasceu por convite manual: o admin cria o usuario e entrega a URL por fora.
 Esse fluxo continua intacto — este arquivo ADICIONA um caminho publico para quem nunca
@@ -14,11 +14,11 @@ import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, EmailStr, Field
 
 import mailer
-from auth import create_token, hash_password, sanitize, verify_password
+from auth import create_token, hash_password, require_super_admin, sanitize, verify_password
 from billing_plans import plano_ativo
 from billing_routes import iniciar_assinatura
 
@@ -101,6 +101,30 @@ async def configuracao():
     """A interface precisa saber se o cadastro publico esta ligado antes de oferece-lo."""
     return {"enabled": mailer.cadastro_publico_ativo(),
             "delivers_email": mailer.provedor().entrega_de_verdade}
+
+
+class TesteDeEmailIn(BaseModel):
+    to: EmailStr
+
+
+@router.post("/test-email")
+async def testar_email(payload: TesteDeEmailIn, admin=Depends(require_super_admin)):
+    """Envia uma mensagem de teste. Administrativo e deliberadamente separado do
+    cadastro publico: e assim que se confirma que o Resend entrega ANTES de ligar
+    PUBLIC_SIGNUP_ENABLED — nada de descobrir que o e-mail nao sai com gente real
+    tentando se cadastrar."""
+    p = mailer.provedor()
+    entregue = await p.enviar(
+        payload.to, "Teste de envio do FORGE",
+        "Se você recebeu esta mensagem, o envio de e-mail do FORGE está funcionando.\n"
+        "Nenhuma ação é necessária.")
+    logger.info("teste de e-mail por admin=%s provedor=%s entregue=%s",
+                admin["id"], type(p).__name__, entregue)
+    return {"sent": entregue, "provider": type(p).__name__,
+            "delivers_email": p.entrega_de_verdade,
+            "note": ("Provedor console: a mensagem foi só para o log do servidor."
+                     if not p.entrega_de_verdade else
+                     "Verifique a caixa de entrada do destinatário.")}
 
 
 @router.post("/start")

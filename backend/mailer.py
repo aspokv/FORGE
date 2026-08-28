@@ -1,4 +1,4 @@
-"""Envio de e-mail do FORGE.
+﻿"""Envio de e-mail do FORGE.
 
 O FORGE nao tinha nenhuma infraestrutura de e-mail: o convite administrativo devolve a
 URL e o admin a entrega por fora. O cadastro publico precisa mandar um codigo de
@@ -16,9 +16,15 @@ dele e de outro dominio e de outra conta.
 """
 import logging
 import os
-from typing import Protocol
+from typing import Optional, Protocol
+
+import httpx
 
 logger = logging.getLogger(__name__)
+
+RESEND_API = "https://api.resend.com/emails"
+TIMEOUT = 10.0
+REMETENTE_PADRAO = "FORGE <acesso@mail.aiexec.com.br>"
 
 
 class Provedor(Protocol):
@@ -42,7 +48,62 @@ class ProvedorConsole:
         return True
 
 
-_provedor: Provedor = ProvedorConsole()
+class ProvedorResend:
+    """Envio real pelo Resend.
+
+    A chave e lida do ambiente e NUNCA aparece em log: so o codigo de status e o id da
+    mensagem sao registrados. O corpo tambem nao e logado — ele carrega o codigo de
+    verificacao.
+
+    Usa httpx, que o projeto ja tem; nao foi preciso adicionar dependencia."""
+
+    def __init__(self, api_key: str, remetente: str):
+        self._api_key = api_key
+        self._remetente = remetente
+
+    @property
+    def entrega_de_verdade(self) -> bool:
+        return True
+
+    async def enviar(self, para: str, assunto: str, texto: str) -> bool:
+        try:
+            async with httpx.AsyncClient(timeout=TIMEOUT) as cliente:
+                resposta = await cliente.post(
+                    RESEND_API,
+                    headers={"Authorization": f"Bearer {self._api_key}",
+                             "Content-Type": "application/json"},
+                    json={"from": self._remetente, "to": [para],
+                          "subject": assunto, "text": texto})
+        except httpx.HTTPError as e:
+            logger.error("[email:resend] falha de rede: %s", type(e).__name__)
+            return False
+
+        if resposta.status_code >= 400:
+            # Corpo truncado e sem cabecalhos: a chave vai no header de autorizacao.
+            logger.error("[email:resend] recusado status=%s detalhe=%s",
+                         resposta.status_code, resposta.text[:200])
+            return False
+        try:
+            id_mensagem = resposta.json().get("id")
+        except ValueError:
+            id_mensagem = None
+        logger.info("[email:resend] enviado id=%s", id_mensagem)
+        return True
+
+
+def _do_ambiente() -> Provedor:
+    """Resend quando ha chave configurada; console caso contrario.
+
+    A selecao e por presenca de credencial, e nao por mais uma flag para manter em
+    sincronia — o mesmo raciocinio do TEST-/APP_USR- do Mercado Pago."""
+    chave = (os.environ.get("RESEND_API_KEY") or "").strip()
+    if not chave:
+        return ProvedorConsole()
+    remetente = (os.environ.get("FORGE_EMAIL_FROM") or "").strip() or REMETENTE_PADRAO
+    return ProvedorResend(chave, remetente)
+
+
+_provedor: Optional[Provedor] = None
 
 
 def definir_provedor(novo: Provedor) -> None:
@@ -52,6 +113,11 @@ def definir_provedor(novo: Provedor) -> None:
 
 
 def provedor() -> Provedor:
+    """Resolvido na primeira chamada, nao no import: o processo pode subir antes das
+    variaveis existirem, e os testes precisam trocar o provedor sem reimportar."""
+    global _provedor
+    if _provedor is None:
+        _provedor = _do_ambiente()
     return _provedor
 
 
