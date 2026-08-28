@@ -190,19 +190,36 @@ function StatCard({ label, value, testid }) {
 }
 
 function CreateAthleteModal({ onClose, onCreated }) {
-  const [form, setForm] = useState({ email: "", name: "", plan: "FORGE_ACCESS", validity: "30", custom_days: 60, admin_note: "" });
+  // access_mode decide quem paga a conta. Cortesia exige confirmar e dizer por que:
+  // o backend recusa sem isso, e o formulario nao deve deixar chegar la sem.
+  const [form, setForm] = useState({
+    email: "", name: "", plan: "FORGE_ACCESS", validity: "30", custom_days: 60,
+    admin_note: "", access_mode: "courtesy", confirm_courtesy: false,
+    courtesy_reason: "", plan_code: "pro",
+  });
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const submit = async e => {
     e.preventDefault();
     setBusy(true); setErr("");
     try {
-      const payload = { ...form, custom_days: form.validity === "CUSTOM" ? Number(form.custom_days) : undefined };
+      const cortesia = form.access_mode === "courtesy";
+      const payload = {
+        ...form,
+        custom_days: form.validity === "CUSTOM" ? Number(form.custom_days) : undefined,
+        // Nao mandamos campos do outro modo: eles nao significam nada la, e mandar
+        // "confirm_courtesy" num convite para assinar so confundiria a leitura do log.
+        confirm_courtesy: cortesia ? form.confirm_courtesy : undefined,
+        courtesy_reason: cortesia ? form.courtesy_reason : undefined,
+        plan_code: cortesia ? undefined : form.plan_code,
+      };
       const { data } = await axios.post(`${API}/admin/athletes`, payload);
       onCreated(data);
     } catch (e) {
       const detail = e.response?.data?.detail;
-      setErr(typeof detail === "string" ? detail : "Não foi possível criar o atleta.");
+      if (typeof detail === "string") setErr(detail);
+      else if (detail?.message) setErr(detail.message);
+      else setErr("Não foi possível criar o atleta.");
     } finally { setBusy(false); }
   };
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
@@ -219,7 +236,40 @@ function CreateAthleteModal({ onClose, onCreated }) {
             <label className="deep-field"><span>E-mail</span><input data-testid="new-athlete-email" type="email" value={form.email} onChange={e => set("email", e.target.value)} required /></label>
           </div>
           <label className="deep-field">
-            <span>Plano</span>
+            <span>Como esta pessoa entra</span>
+            <select data-testid="new-athlete-access-mode" value={form.access_mode} onChange={e => set("access_mode", e.target.value)}>
+              <option value="courtesy">Conceder acesso cortesia</option>
+              <option value="subscription">Convidar para assinar</option>
+            </select>
+          </label>
+          {form.access_mode === "subscription" && (
+            <label className="deep-field">
+              <span>Plano sugerido</span>
+              <select data-testid="new-athlete-plan-code" value={form.plan_code} onChange={e => set("plan_code", e.target.value)}>
+                <option value="essential">FORGE Essencial — R$ 39,90/mês</option>
+                <option value="pro">FORGE Pro — R$ 69,90/mês</option>
+                <option value="elite">FORGE Elite — R$ 99,90/mês</option>
+              </select>
+            </label>
+          )}
+          {form.access_mode === "courtesy" && (
+            <>
+              <label className="deep-field">
+                <span>Motivo da cortesia</span>
+                <input data-testid="new-athlete-courtesy-reason" value={form.courtesy_reason}
+                       onChange={e => set("courtesy_reason", e.target.value)}
+                       placeholder="Ex.: parceria de divulgação" required />
+              </label>
+              <label className="deep-field checkbox-row">
+                <input type="checkbox" data-testid="new-athlete-confirm-courtesy"
+                       checked={form.confirm_courtesy}
+                       onChange={e => set("confirm_courtesy", e.target.checked)} />
+                <span>Confirmo conceder acesso gratuito, sem cobrança, por minha decisão.</span>
+              </label>
+            </>
+          )}
+          <label className="deep-field">
+            <span>Plano interno</span>
             <select data-testid="new-athlete-plan" value={form.plan} onChange={e => set("plan", e.target.value)}>
               {PLANS.map(p => <option key={p} value={p}>{p.replace("_", " ")}</option>)}
             </select>
@@ -237,7 +287,10 @@ function CreateAthleteModal({ onClose, onCreated }) {
           {err && <div className="auth-error">{err}</div>}
           <div className="builder-actions">
             <button className="secondary-button" type="button" data-testid="cancel-create-athlete" onClick={onClose}>Cancelar</button>
-            <button className="primary-button" type="submit" data-testid="submit-create-athlete" disabled={busy}>{busy ? "Criando..." : "Criar e gerar convite"} <ChevronRight size={16} /></button>
+            <button className="primary-button" type="submit" data-testid="submit-create-athlete"
+                    disabled={busy || (form.access_mode === "courtesy" && !form.confirm_courtesy)}>
+              {busy ? "Criando..." : form.access_mode === "courtesy" ? "Conceder cortesia" : "Convidar para assinar"} <ChevronRight size={16} />
+            </button>
           </div>
         </form>
       </motion.div>

@@ -253,3 +253,12 @@
   font-size: 13.5px;
   line-height: 1.65;
 }
+
+.deep-field.checkbox-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+.deep-field.checkbox-row input { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--accent); flex-shrink: 0; }
