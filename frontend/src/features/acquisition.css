@@ -1,0 +1,246 @@
+/* Aquisicao: pagina publica, funil de cadastro e tela de pagamento pendente.
+ *
+ * Tambem define a familia .btn, que Billing.jsx ja usava sem que existisse em CSS
+ * nenhum — os botoes "Assinar" estavam saindo com o estilo padrao do navegador.
+ *
+ * Usa os tokens de App.css (--bg, --surface, --accent...) para nao criar uma segunda
+ * paleta que envelhece separado.
+ */
+
+/* ── Botoes ─────────────────────────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 46px;
+  padding: 12px 22px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--text);
+  font: 500 14px "IBM Plex Sans", sans-serif;
+  letter-spacing: 0.01em;
+  transition: border-color 0.16s, background 0.16s, color 0.16s, opacity 0.16s;
+}
+.btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #17110e;
+  font-weight: 600;
+}
+.btn.primary:hover:not(:disabled) { background: #ef7d5f; border-color: #ef7d5f; color: #17110e; }
+.btn.ghost { background: transparent; color: var(--muted); }
+.btn.ghost:hover:not(:disabled) { color: var(--text); border-color: var(--text); }
+.btn.small { min-height: 38px; padding: 8px 14px; font-size: 13px; }
+
+.link {
+  background: none;
+  border: 0;
+  color: var(--accent);
+  text-decoration: underline;
+  padding: 0 0 0 6px;
+  font: inherit;
+  cursor: pointer;
+}
+.link.quiet { color: var(--muted); display: block; margin-top: 22px; padding: 0; }
+
+.form-error { color: #e8836b; font-size: 13px; line-height: 1.5; margin-top: 6px; }
+.form-note { color: var(--success); font-size: 13px; line-height: 1.5; margin-top: 6px; }
+
+/* ── Pagina publica ─────────────────────────────────────────────────────────────── */
+.landing {
+  min-height: 100vh;
+  background: radial-gradient(circle at 82% -18%, #2a2118 0, transparent 42%), var(--bg);
+  color: var(--text);
+  padding: 0 5vw 80px;
+}
+.landing-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 26px 0;
+  border-bottom: 1px solid var(--line);
+}
+.landing-hero { padding: 84px 0 72px; max-width: 760px; }
+.landing-hero h1 { margin: 18px 0 22px; }
+.landing-lead { color: var(--muted); font-size: 17px; line-height: 1.7; max-width: 620px; }
+.landing-lead.small { font-size: 15px; margin-top: 10px; }
+.landing-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 34px; }
+
+.landing-section { padding: 58px 0; border-top: 1px solid var(--line); }
+.landing-section h2 { margin: 12px 0 8px; }
+
+.landing-audience,
+.landing-benefits {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 30px;
+}
+.landing-audience article,
+.landing-benefits article {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  padding: 26px 22px;
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+.landing-benefits svg { color: var(--accent); }
+.landing-audience p,
+.landing-benefits p { color: var(--muted); font-size: 14px; line-height: 1.65; }
+
+.landing-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: 34px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font: 500 12px "IBM Plex Mono", monospace;
+  letter-spacing: 0.16em;
+}
+
+/* ── Funil de cadastro ──────────────────────────────────────────────────────────── */
+.auth-shell.signup { padding: 32px 16px; align-items: flex-start; overflow-y: auto; }
+
+.signup-card {
+  width: 100%;
+  max-width: 520px;
+  margin: 0 auto;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  padding: 32px 30px;
+  display: grid;
+  gap: 14px;
+  align-content: start;
+}
+.signup-card.wide { max-width: 720px; }
+.signup-card h2 { font-size: clamp(1.4rem, 3vw, 1.9rem); }
+
+.signup-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.signup-steps {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  font: 500 11px "IBM Plex Mono", monospace;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+.signup-steps li { display: flex; align-items: center; gap: 6px; }
+.signup-steps li span {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  font-size: 10px;
+}
+.signup-steps li.current { color: var(--text); }
+.signup-steps li.current span { border-color: var(--accent); color: var(--accent); }
+.signup-steps li.done { color: var(--success); }
+.signup-steps li.done span { border-color: var(--success); color: var(--success); }
+
+.signup-plans { display: grid; gap: 10px; }
+.signup-plan {
+  display: grid;
+  gap: 6px;
+  text-align: left;
+  background: var(--elevated);
+  border: 1px solid var(--line);
+  padding: 16px 18px;
+  color: var(--text);
+  transition: border-color 0.16s, background 0.16s;
+}
+.signup-plan:hover { border-color: var(--accent); }
+.signup-plan.selected { border-color: var(--accent); background: #241b17; }
+.signup-plan-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.signup-plan-price { font: 400 15px "IBM Plex Sans", sans-serif; color: var(--muted); }
+.signup-plan-price b { font-size: 22px; color: var(--text); }
+.signup-plan-price small { font-size: 12px; }
+.signup-plan-audience { font-size: 13px; line-height: 1.6; color: var(--muted); }
+
+.plan-flag.inline {
+  position: static;
+  transform: none;
+  font-style: normal;
+  align-self: center;
+}
+
+.signup-chosen {
+  background: var(--elevated);
+  border-left: 2px solid var(--accent);
+  padding: 12px 14px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.signup-card label { display: grid; gap: 6px; font-size: 13px; color: var(--muted); }
+.signup-card input:not([type="checkbox"]) {
+  width: 100%;
+  min-height: 48px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  color: var(--text);
+  padding: 12px 14px;
+  font-size: 15px;
+}
+.signup-card input:focus { outline: none; border-color: var(--accent); }
+
+.signup-card label.checkbox {
+  grid-template-columns: auto 1fr;
+  align-items: start;
+  gap: 10px;
+  color: var(--text);
+  line-height: 1.6;
+}
+.signup-card label.checkbox input { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--accent); }
+.signup-card label.checkbox a { color: var(--accent); }
+
+.signup-code {
+  font: 600 30px "IBM Plex Mono", monospace !important;
+  letter-spacing: 0.4em;
+  text-align: center;
+  padding: 16px 12px !important;
+}
+
+.signup-nav { display: flex; gap: 10px; flex-wrap: wrap; }
+.signup-nav .btn { flex: 1; min-width: 140px; }
+
+.eyebrow.spaced { margin-top: 12px; }
+.plan-features.soon li { color: var(--muted); font-size: 13px; }
+
+/* ── Mobile ─────────────────────────────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .landing-audience,
+  .landing-benefits { grid-template-columns: 1fr; }
+  .landing-hero { padding: 56px 0 48px; }
+  .landing-section { padding: 44px 0; }
+}
+
+@media (max-width: 560px) {
+  .landing { padding: 0 20px 60px; }
+  .landing-top { flex-wrap: wrap; }
+  .landing-actions .btn { width: 100%; }
+  .signup-card { padding: 24px 20px; }
+  .signup-steps { font-size: 10px; gap: 6px 10px; }
+  .signup-nav .btn { width: 100%; flex: none; }
+  .signup-code { font-size: 24px !important; letter-spacing: 0.3em; }
+}
