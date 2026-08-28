@@ -18,9 +18,13 @@ from llm_providers import get_coach_provider, FORGE_COACH_SYSTEM
 from auth import router as auth_router, get_current_user, seed_super_admin
 from admin_routes import router as admin_router
 from nutrition_routes import router as nutrition_router
-from nutrition_engine import resolve_intensity_protocol
+from nutrition_engine import resolve_intensity_protocol, _intensity_key
+from billing_plans import PROTOCOLOS_AGRESSIVOS
+from entitlements import exigir_capacidade
 from manual_workout_routes import router as manual_workout_router
 from nutrition_import_routes import router as nutrition_import_router
+from billing_routes import router as billing_router
+from signup_routes import router as signup_router
 from muscles import (
     to_frontend, to_internal, get_profile_priorities_internal,
     get_assessment_internal, FRONTEND_MUSCLES as MUSCLES_FRONTEND_LIST,
@@ -284,6 +288,10 @@ async def save_assessment(assessment: DeepAssessment, user=Depends(get_current_u
         doc["assessment"] = anterior["assessment"]
 
     nutricao = dict((anterior or {}).get("nutrition_assessment") or {})
+    # O ritmo Agressivo/Atleta e do plano Elite, tambem quando escolhido no onboarding.
+    if _intensity_key(escolha_ritmo) == "agressivo":
+        await exigir_capacidade(db, user, PROTOCOLOS_AGRESSIVOS)
+
     if body_goal in BODY_GOALS:
         # Mesma fonte de verdade da area de Alimentacao, que continua podendo trocar os
         # dois explicitamente depois.
@@ -802,6 +810,8 @@ app.include_router(admin_router)
 app.include_router(nutrition_router)
 app.include_router(manual_workout_router)
 app.include_router(nutrition_import_router)
+app.include_router(billing_router)
+app.include_router(signup_router)
 app.include_router(api)
 app.add_middleware(CORSMiddleware, allow_credentials=True, allow_origins=os.environ.get("CORS_ORIGINS", "*").split(","), allow_methods=["*"], allow_headers=["*"])
 
@@ -816,6 +826,16 @@ async def startup():
     await db.ai_usage.create_index([("user_id", 1), ("date", 1)])
     await db.nutrition_plan_drafts.create_index("profile_id", unique=True)
     await db.nutrition_preferences.create_index([("profile_id", 1), ("food_id", 1)], unique=True)
+    # Cobranca. Os indices unicos sao a garantia estrutural contra: duas assinaturas para
+    # o mesmo atleta, reprocessamento do mesmo evento e duas liberacoes pelo mesmo
+    # pagamento — nenhuma delas depende de o codigo "lembrar" de checar.
+    await db.subscriptions.create_index("user_id", unique=True)
+    await db.subscriptions.create_index("provider_subscription_id", sparse=True)
+    await db.billing_events.create_index("event_key", unique=True)
+    await db.subscription_attempts.create_index("reference", unique=True)
+    await db.subscription_attempts.create_index([("user_id", 1), ("created_at", -1)])
+    await db.signup_attempts.create_index("email", unique=True)
+    await db.signup_attempts.create_index("reference", sparse=True)
     email = os.environ.get("FORGE_SUPER_ADMIN_EMAIL")
     if email:
         uid, invite = await seed_super_admin(db, email)

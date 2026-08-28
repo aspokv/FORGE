@@ -7,6 +7,9 @@ from datetime import datetime, timezone
 import uuid, random
 
 from auth import get_current_user
+from billing_plans import ALIMENTACAO, PROTOCOLOS_AGRESSIVOS
+from entitlements import exigir_capacidade
+from nutrition_engine import _intensity_key
 
 logger = logging.getLogger(__name__)
 
@@ -260,6 +263,10 @@ async def save_assessment(payload: NutritionAssessmentIn, request: Request, user
     db = request.app.state.db
     target = user["id"] if user.get("role") == "ATHLETE" else user["id"]
     doc = payload.model_dump()
+    # O modo Agressivo/Atleta e do plano Elite. Checado aqui, onde a escolha e gravada:
+    # e o unico ponto por onde ela entra, entao nao ha como contornar chamando outra rota.
+    if _intensity_key(doc.get("intensity")) == "agressivo":
+        await exigir_capacidade(db, user, PROTOCOLOS_AGRESSIVOS)
     if not (doc.get("intensity") or "").strip():
         # O formulario manda intensity:"" quando o campo nao foi tocado. Isso apagaria em
         # silencio a escolha feita no onboarding, entao o valor anterior e carregado
@@ -280,6 +287,7 @@ async def save_assessment(payload: NutritionAssessmentIn, request: Request, user
 @router.post("/generate")
 async def generate_plan(request: Request, user=Depends(get_current_user)):
     db = request.app.state.db
+    await exigir_capacidade(db, user, ALIMENTACAO)
     target = user["id"]
     profile = await db.profiles.find_one({"id": target}, {"_id": 0})
     na = (profile or {}).get("nutrition_assessment")
@@ -320,6 +328,7 @@ async def generate_plan(request: Request, user=Depends(get_current_user)):
 @router.get("/plan")
 async def get_plan(request: Request, user=Depends(get_current_user)):
     db = request.app.state.db
+    await exigir_capacidade(db, user, ALIMENTACAO)
     target = user["id"]
     stored = await db.nutrition_plans.find_one({"profile_id": target}, {"_id": 0})
     if not stored:
@@ -333,6 +342,7 @@ async def substitute_food(payload: SubstituteFoodIn, request: Request, user=Depe
     # this endpoint can only ever read/write the caller's own plan (no profile_id in the
     # payload at all), which is what makes cross-athlete IDOR structurally impossible here.
     db = request.app.state.db
+    await exigir_capacidade(db, user, ALIMENTACAO)
     target = user["id"]
     profile = await db.profiles.find_one({"id": target}, {"_id": 0})
     na = (profile or {}).get("nutrition_assessment", {})
@@ -466,6 +476,7 @@ async def substitute_food(payload: SubstituteFoodIn, request: Request, user=Depe
 @router.post("/plan/reset")
 async def reset_plan_draft(request: Request, user=Depends(get_current_user)):
     db = request.app.state.db
+    await exigir_capacidade(db, user, ALIMENTACAO)
     target = user["id"]
     profile = await db.profiles.find_one({"id": target}, {"_id": 0})
     na = (profile or {}).get("nutrition_assessment")
