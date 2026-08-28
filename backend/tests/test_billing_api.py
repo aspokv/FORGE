@@ -10,6 +10,7 @@ import hashlib
 import json
 import hmac
 import os
+import re
 import sys
 import time
 import uuid
@@ -171,11 +172,12 @@ async def _garantir_indices():
 LOOP.run_until_complete(_garantir_indices())
 
 
-async def _criar_atleta(email=None, role="ATHLETE", criado_em=None, signup_source=None):
+async def _criar_atleta(email=None, role="ATHLETE", criado_em=None, signup_source=None,
+                        status="ACTIVE"):
     uid = str(uuid.uuid4())
     email = email or f"bill.{uid[:8]}@example.com"
     doc = {"id": uid, "email": email, "name": "Billing Test", "role": role,
-           "status": "ACTIVE", "created_at": criado_em or _iso(_agora()),
+           "status": status, "created_at": criado_em or _iso(_agora()),
            "ai_daily_limit": 40, "ai_monthly_limit": 800, "ai_enabled": True}
     if signup_source:
         doc["signup_source"] = signup_source
@@ -677,3 +679,114 @@ async def test_lista_de_eventos_exige_admin_e_nao_expoe_payload():
     for e in corpo["events"]:
         for proibido in ("payload", "body", "signature", "token", "card"):
             assert proibido not in e
+
+
+# ── Bloqueio de quem ainda nao pagou ─────────────────────────────────────────────────
+
+def _rotas_que_exigem_login():
+    """Descobre, pelo grafo de dependencias do FastAPI, quais rotas pedem login.
+
+    Percorrer o app e melhor do que manter uma lista escrita a mao: uma rota paga criada
+    no futuro entra nesta varredura sozinha, e o teste falha se ela ficar aberta para quem
+    nao pagou. Uma lista escrita a mao envelheceria em silencio."""
+    from auth import get_current_user, require_super_admin
+    achadas = []
+    for r in APP.routes:
+        dep = getattr(r, "dependant", None)
+        caminho = getattr(r, "path", "")
+        if not dep or not caminho.startswith("/api"):
+            continue
+        vistos, pilha, exige = set(), [dep], False
+        while pilha:
+            d = pilha.pop()
+            if id(d) in vistos:
+                continue
+            vistos.add(id(d))
+            if d.call in (get_current_user, require_super_admin):
+                exige = True
+            pilha.extend(d.dependencies)
+        if exige:
+            metodo = sorted(set(r.methods) - {"HEAD", "OPTIONS"})[0]
+            achadas.append((metodo, caminho))
+    return sorted(set(achadas))
+
+
+@asincrono
+async def test_conta_aguardando_pagamento_e_barrada_em_toda_rota_paga():
+    """Item 15/17: a protecao e do backend, e nega por padrao.
+
+    Varre TODA rota autenticada da aplicacao. Passar so nas rotas que alguem lembrou de
+    testar e o modo classico de deixar uma porta aberta."""
+    from auth import ROTAS_LIBERADAS_SEM_PAGAMENTO
+    _, h = await _criar_atleta(status="PENDING_PAYMENT", signup_source="public")
+    rotas = _rotas_que_exigem_login()
+    assert len(rotas) > 50, f"varredura suspeita: so {len(rotas)} rotas"
+
+    escaparam = []
+    async with await _cliente() as c:
+        for metodo, caminho in rotas:
+            if caminho.rstrip("/") in ROTAS_LIBERADAS_SEM_PAGAMENTO:
+                continue
+            concreto = re.sub(r"\{[^}]+\}", "x", caminho)
+            r = await c.request(metodo, concreto, headers=h,
+                                json={} if metodo in ("POST", "PUT", "PATCH") else None)
+            if r.status_code != 403:
+                escaparam.append(f"{metodo} {caminho} -> {r.status_code}")
+    assert not escaparam, "rotas alcancaveis sem pagamento: " + "; ".join(escaparam)
+
+
+@asincrono
+async def test_conta_aguardando_pagamento_alcanca_o_que_precisa_para_pagar():
+    """Item 16: bloquear tudo tambem quebraria o pagamento."""
+    _, h = await _criar_atleta(status="PENDING_PAYMENT", signup_source="public")
+    async with await _cliente() as c:
+        for caminho in ("/api/auth/me", "/api/billing/me", "/api/billing/plans"):
+            r = await c.get(caminho, headers=h)
+            assert r.status_code == 200, f"{caminho} -> {r.status_code}"
+
+
+@asincrono
+async def test_conta_aguardando_pagamento_consegue_abrir_o_checkout(mp):
+    """Item 9: retomar um checkout abandonado precisa funcionar."""
+    _, h = await _criar_atleta(status="PENDING_PAYMENT", signup_source="public")
+    async with await _cliente() as c:
+        r = await c.post("/api/billing/checkout", json={"plan_code": "pro"}, headers=h)
+    assert r.status_code == 200
+    assert r.json()["checkout_url"].startswith("https://")
+
+
+@asincrono
+async def test_o_bloqueio_diz_o_motivo_para_a_interface_saber_o_que_mostrar():
+    _, h = await _criar_atleta(status="PENDING_PAYMENT", signup_source="public")
+    async with await _cliente() as c:
+        r = await c.get("/api/bootstrap", headers=h)
+    assert r.status_code == 403
+    assert r.json()["detail"]["reason"] == "payment_pending"
+
+
+@asincrono
+async def test_trocar_o_token_no_navegador_nao_libera_nada():
+    """Item 18: o papel e o estado sao relidos do banco, nunca aceitos do token."""
+    uid, _ = await _criar_atleta(status="PENDING_PAYMENT", signup_source="public")
+    # Token forjado alegando SUPER_ADMIN para o mesmo usuario.
+    forjado = {"Authorization": f"Bearer {create_token(uid, 'SUPER_ADMIN')}"}
+    async with await _cliente() as c:
+        r = await c.get("/api/bootstrap", headers=forjado)
+    assert r.status_code == 403
+
+
+@asincrono
+async def test_conta_ativa_nao_e_afetada_pelo_bloqueio():
+    _, h = await _criar_atleta(status="ACTIVE")
+    async with await _cliente() as c:
+        r = await c.get("/api/auth/me", headers=h)
+    assert r.status_code == 200
+
+
+@asincrono
+async def test_super_admin_nunca_se_tranca_fora():
+    """Item 19, inclusive se o estado da propria conta ficar errado."""
+    _, h = await _criar_atleta(role="SUPER_ADMIN", status="PENDING_PAYMENT")
+    async with await _cliente() as c:
+        r = await c.get("/api/bootstrap", headers=h)
+    assert r.status_code != 403

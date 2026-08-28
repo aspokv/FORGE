@@ -1,4 +1,4 @@
-"""FORGE auth: JWT + bcrypt + invite flow. Bearer token in Authorization header."""
+﻿"""FORGE auth: JWT + bcrypt + invite flow. Bearer token in Authorization header."""
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, EmailStr, Field
 from motor.motor_asyncio import AsyncIOMotorDatabase
@@ -65,6 +65,25 @@ def sanitize(user: dict) -> dict:
     return {k: v for k, v in user.items() if k not in {"password_hash", "invite_token", "_id"}}
 
 
+# Conta nascida no funil publico e ainda sem pagamento confirmado. Nome proprio, separado
+# do "PENDING" do convite administrativo, que significa outra coisa (convite ainda nao
+# aceito) e nao deve herdar este bloqueio.
+AGUARDANDO_PAGAMENTO = "PENDING_PAYMENT"
+
+# As unicas rotas autenticadas que uma conta aguardando pagamento alcanca.
+#
+# Lista de PERMISSAO, nao de bloqueio. A aplicacao tem mais de noventa rotas e ganha
+# outras a cada entrega; uma lista de bloqueio liberaria cada rota nova por esquecimento,
+# e o esquecimento apareceria como acesso gratuito, nao como erro. Aqui o padrao e negar:
+# rota nova nasce fechada para quem nao pagou, e abri-la exige escrever o caminho abaixo.
+ROTAS_LIBERADAS_SEM_PAGAMENTO = frozenset({
+    "/api/auth/me",          # saber quem esta logado, para a tela renderizar
+    "/api/billing/plans",    # ver os planos
+    "/api/billing/me",       # estado da assinatura / retorno do checkout
+    "/api/billing/checkout", # pagar, inclusive retomando um checkout abandonado
+})
+
+
 def get_db(request: Request) -> AsyncIOMotorDatabase:
     return request.app.state.db
 
@@ -88,6 +107,17 @@ async def get_current_user(request: Request):
         raise HTTPException(401, "Conta não encontrada")
     if user.get("status") == "SUSPENDED":
         raise HTTPException(403, "Conta suspensa. Fale com o administrador.")
+
+    # A trava mora aqui, e nao em cada rota, porque esta e a dependencia por onde passa
+    # toda requisicao autenticada: trocar o localStorage, o corpo, a rota ou o plano no
+    # navegador nao muda nada, porque o estado e relido do banco a cada chamada.
+    if (user.get("status") == AGUARDANDO_PAGAMENTO
+            and user.get("role") != "SUPER_ADMIN"
+            and request.url.path.rstrip("/") not in ROTAS_LIBERADAS_SEM_PAGAMENTO):
+        raise HTTPException(403, {
+            "message": "Conclua o pagamento para liberar seu acesso.",
+            "reason": "payment_pending"})
+
     if is_expired(user):
         if user.get("status") != "EXPIRED":
             await db.users.update_one({"id": user["id"]}, {"$set": {"status": "EXPIRED"}})
