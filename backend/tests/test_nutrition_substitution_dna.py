@@ -65,12 +65,27 @@ def test_primary_protein_has_real_dna_alternatives_at_lunch():
 # ─── 2. carb has real equivalent alternatives ──────────────────────────────────────────
 
 def test_primary_carb_has_real_dna_alternatives_at_lunch():
+    """The DNA family must LEAD, not be the whole list.
+
+    This assertion used to be `offered <= MAIN_CARB` — DNA family only. That narrowing is
+    what left common foods with one or zero options, so the candidate pool now also spans
+    the curated tiers and the catalogue's own carb role (arroz, batata, mandioca, aveia,
+    pao, macarrao are all legitimate swaps for each other). What still has to hold is that
+    every option is a real carb and that the best-fitting DNA options come first, since
+    the list is rendered in order."""
     foods = _lunch_meal()
     pn = _profile()
     subs = _find("potato", foods, pn)
     assert subs, "potato at lunch must offer real substitution options"
-    offered = {s[0] for s in subs}
-    assert offered <= set(FOOD_FAMILIES["MAIN_CARB"]), f"non-DNA-appropriate carb offered: {offered}"
+    offered = [s[0] for s in subs]
+
+    for fid in offered:
+        assert "primary_carb" in FOOD_INDEX[fid].get("roles", []), f"{fid} is not a carb"
+
+    da_familia = [f for f in offered if f in FOOD_FAMILIES["MAIN_CARB"]]
+    assert da_familia, f"no DNA-family carb offered at all: {offered}"
+    assert offered[:len(da_familia)] == da_familia, (
+        f"DNA-family options must come first, got {offered}")
 
 
 # ─── 3. substitution recalculates grams — never a naive same-grams or calorie-copy ─────

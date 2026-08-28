@@ -1,6 +1,6 @@
 ﻿"""FORGE Nutrition Engine v1.2 — Final calibration.
 Goal-directional substitution, daily impact, protein distribution."""
-import json, random
+import json, random, unicodedata
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Set, Union
 
@@ -360,6 +360,23 @@ FRUIT_ROTATION = ["banana","papaya","apple","orange","strawberry","mango"]
 _DAIRY_IDS = {f["id"] for f in FOODS if f.get("category") == "DAIRY"} | {"whey-protein", "rice-cream-whey"}
 _GLUTEN_IDS = {f["id"] for f in FOODS
                if f.get("category") in ("CARBOHYDRATE", "MIXED") and "gluten_free" not in f.get("tags", [])}
+# O campo de alergias e texto livre, preenchido em portugues ("ovo", "leite", "amendoim").
+# As chaves abaixo eram so em ingles, entao nada digitado em portugues excluia alimento
+# nenhum — a protecao existia no codigo e nao valia na pratica. Este mapa normaliza para
+# a chave canonica; caixa, acentos, espacos e plural sao tratados em _allergy_key.
+ALLERGY_SYNONYMS = {
+    "leite": "lactose", "lacteo": "lactose", "laticinio": "lactose", "lactose": "lactose",
+    "whey": "lactose", "queijo": "lactose", "iogurte": "lactose",
+    "gluten": "gluten", "trigo": "gluten",
+    "amendoim": "peanut", "pasta de amendoim": "peanut",
+    "castanha": "nuts", "noze": "nuts", "nozes": "nuts", "oleaginosa": "nuts",
+    "castanha do para": "tree_nuts", "castanha do brasil": "tree_nuts",
+    "soja": "soy", "tofu": "soy",
+    "ovo": "egg", "clara": "egg", "clara de ovo": "egg",
+    "peixe": "fish", "frutos do mar": "shellfish", "camarao": "shellfish",
+    "marisco": "shellfish",
+}
+
 ALLERGY_EXCLUDE_IDS = {
     "lactose": _DAIRY_IDS, "dairy": _DAIRY_IDS, "milk": _DAIRY_IDS,
     "gluten": _GLUTEN_IDS, "wheat": _GLUTEN_IDS,
@@ -665,6 +682,23 @@ def food_carb_density(food):
     return food.get("carbs_g", 0) * 100.0 / max(1, grams)
 
 
+def _allergy_key(termo):
+    """Normaliza o que o atleta digitou ate a chave canonica de ALLERGY_EXCLUDE_IDS.
+
+    Caixa, acentos, espacos e plural, mais sinonimos em portugues: "Ovos", "ovo" e
+    "OVO " chegam todos em "egg". Nao depende de correspondencia exata."""
+    t = unicodedata.normalize("NFKD", str(termo or "")).encode("ascii", "ignore").decode()
+    t = " ".join(t.lower().split())
+    if not t:
+        return None
+    for candidato in (t, t[:-1] if t.endswith("s") else t):
+        if candidato in ALLERGY_EXCLUDE_IDS:
+            return candidato
+        if candidato in ALLERGY_SYNONYMS:
+            return ALLERGY_SYNONYMS[candidato]
+    return None
+
+
 def _food_compatible(food, pn, used_ids):
     if food["id"] in set(pn.get("avoid_foods") or []): return False
     # Protocolo low-carb (intensidade agressiva): exclui a fonte densa de carboidrato na
@@ -673,7 +707,8 @@ def _food_compatible(food, pn, used_ids):
     ceiling = pn.get("_max_food_carb_g_per_100g")
     if ceiling is not None and food_carb_density(food) > ceiling: return False
     for a in (pn.get("allergies") or []):
-        if food["id"] in ALLERGY_EXCLUDE_IDS.get(str(a).lower().strip(), set()): return False
+        chave = _allergy_key(a)
+        if chave and food["id"] in ALLERGY_EXCLUDE_IDS.get(chave, set()): return False
     rt = set(pn.get("dietary_restrictions") or [])
     vegetarian_ok_ids = {"eggs-whole","egg-whites","whey-protein","tofu","soy-protein",
         "beans-black","beans-carioca","lentils","chickpeas",
@@ -1680,9 +1715,20 @@ def evaluate_goal_directional_substitution(orig_fid, new_fid, orig_grams, new_gr
     tdee = targets.get("tdee") or targets.get("goal_calories", day_before.get("kcal", 0)) or 0
     min_k = guard["min_total_kcal_pct"] * tdee
     max_k = guard["max_total_kcal_pct"] * tdee
-    daily_kcal_ok = min_k <= day_after_kcal <= max_k
+    daily_kcal_ok = _daily_kcal_ok(day_before.get("kcal", 0), day_after_kcal, min_k, max_k)
     if not daily_kcal_ok:
         reasons.append("Impacto diario excede os limites seguros de calorias")
+
+    # Protocolo com teto de carboidrato (cutting agressivo): a troca de um alimento nao
+    # pode estourar a meta do dia. O guardrail acima e calorico e nao pegava isso — um
+    # substituto com carboidrato residual passaria e destruiria o protocolo.
+    carb_ok = True
+    teto_carbo = (targets or {}).get("carb_ceiling_g")
+    if teto_carbo is not None:
+        day_after_carbs = day_before.get("carbs_g", 0) + (nc - oc)
+        if day_after_carbs > teto_carbo:
+            carb_ok = False
+            reasons.append(f"Carboidrato do dia passaria de {round(teto_carbo)} g do protocolo")
 
     weight = pn.get("weight_kg")
     min_protein_g = guard["min_protein_g_per_kg"] * weight if weight else targets.get("protein_g", 0) * 0.85
@@ -1711,13 +1757,36 @@ def evaluate_goal_directional_substitution(orig_fid, new_fid, orig_grams, new_gr
         portion_ok = False
         reasons.append("Porcao resultante impraticavel")
 
-    valid = goal_compatible and daily_kcal_ok and protein_ok and fat_ok and meal_floor_ok and portion_ok
+    valid = goal_compatible and daily_kcal_ok and carb_ok and protein_ok and fat_ok and meal_floor_ok and portion_ok
     reason = "; ".join(reasons) if reasons else "Aceito: compativel com a direcao do objetivo e o impacto diario"
     return {
         "valid": valid, "direction": direction, "goal_compatible": goal_compatible,
         "local_delta_kcal": round(local_delta_kcal, 1), "daily_delta_kcal": round(daily_delta_kcal, 1),
         "reason": reason,
     }
+
+
+def _daily_kcal_ok(day_before_kcal, day_after_kcal, min_k, max_k):
+    """O dia pode ja estar FORA da faixa antes da troca.
+
+    Um plano de cutting agressivo pousa exatamente no piso (0,70 x TDEE), e o
+    arredondamento das porcoes deixa o total alguns kcal abaixo. Testar limites
+    absolutos nessa situacao reprovava TODAS as substituicoes — inclusive as que
+    aproximavam o dia da faixa — e era a maior causa de "nenhuma substituicao
+    disponivel".
+
+    Dentro da faixa, exige-se continuar dentro. Ja fora, exige-se apenas nao piorar."""
+    def distancia(v):
+        if v < min_k:
+            return min_k - v
+        if v > max_k:
+            return v - max_k
+        return 0.0
+
+    antes = distancia(day_before_kcal)
+    if antes <= 0:
+        return min_k <= day_after_kcal <= max_k
+    return distancia(day_after_kcal) <= antes + 1e-6
 
 
 def evaluate_goal_directional_substitution_meal_level(meal_before, meal_after, goal, day_before, targets, pn,
@@ -1788,9 +1857,20 @@ def evaluate_goal_directional_substitution_meal_level(meal_before, meal_after, g
     tdee = targets.get("tdee") or targets.get("goal_calories", day_before.get("kcal", 0)) or 0
     min_k = guard["min_total_kcal_pct"] * tdee
     max_k = guard["max_total_kcal_pct"] * tdee
-    daily_kcal_ok = min_k <= day_after_kcal <= max_k
+    daily_kcal_ok = _daily_kcal_ok(day_before.get("kcal", 0), day_after_kcal, min_k, max_k)
     if not daily_kcal_ok:
         reasons.append("Impacto diario excede os limites seguros de calorias")
+
+    # Protocolo com teto de carboidrato (cutting agressivo): a troca de um alimento nao
+    # pode estourar a meta do dia. O guardrail acima e calorico e nao pegava isso — um
+    # substituto com carboidrato residual passaria e destruiria o protocolo.
+    carb_ok = True
+    teto_carbo = (targets or {}).get("carb_ceiling_g")
+    if teto_carbo is not None:
+        day_after_carbs = day_before.get("carbs_g", 0) + (nc - oc)
+        if day_after_carbs > teto_carbo:
+            carb_ok = False
+            reasons.append(f"Carboidrato do dia passaria de {round(teto_carbo)} g do protocolo")
 
     weight = pn.get("weight_kg")
     min_protein_g = guard["min_protein_g_per_kg"] * weight if weight else targets.get("protein_g", 0) * 0.85
@@ -1810,7 +1890,7 @@ def evaluate_goal_directional_substitution_meal_level(meal_before, meal_after, g
         meal_floor_ok = False
         reasons.append("Substituicao reduz gordura da refeicao abaixo do minimo")
 
-    valid = goal_compatible and daily_kcal_ok and protein_ok and fat_ok and meal_floor_ok
+    valid = goal_compatible and daily_kcal_ok and carb_ok and protein_ok and fat_ok and meal_floor_ok
     reason = "; ".join(reasons) if reasons else "Aceito: compativel com a direcao do objetivo e o impacto diario"
     return {
         "valid": valid, "direction": direction, "goal_compatible": goal_compatible,
@@ -1827,6 +1907,42 @@ def _role_of_food(food):
         if r in roles:
             return r
     return roles[0] if roles else None
+
+
+def _substitution_candidates(food_id, meal_type=None):
+    """Pool ordenado de candidatos a substituto, do encaixe mais fino ao mais amplo.
+
+    Antes, um pool nao-vazio da DNA IMPEDIA o resto: se a familia daquele papel naquele
+    tipo de refeicao tivesse tres itens, eram esses tres e mais nada — no cafe da manha,
+    uma proteina so podia virar ovo, omelete ou whey, nunca frango, peixe ou carne. E um
+    alimento ausente de SUB_TIER e SUB_GROUPS ficava sem candidato nenhum.
+
+    Agora as fontes se somam, na ordem: familia da DNA (melhor encaixe no papel e na
+    refeicao), tier curado, grupo de substituicao e, por fim, TODO alimento do mesmo
+    papel no catalogo. Essa ultima camada e o que garante que nenhum alimento comum
+    devolva lista vazia por estar faltando numa tabela — e vale para qualquer alimento,
+    nao so para o que motivou o relato.
+
+    A ordem importa: quem valida e ordena depois recebe primeiro o mais equivalente."""
+    src = FOOD_INDEX.get(food_id) or {}
+    role = _role_of_food(src)
+    ordenado, vistos = [], {food_id}
+
+    def adicionar(ids):
+        for i in ids or []:
+            if i not in vistos and i in FOOD_INDEX:
+                vistos.add(i)
+                ordenado.append(i)
+
+    if role and meal_type:
+        adicionar(_dna_candidates_for_role(role, meal_type, exclude_food_id=food_id))
+    adicionar(SUB_TIER.get(food_id))
+    for _grupo, ids in SUB_GROUPS.items():
+        if food_id in ids:
+            adicionar(ids)
+    if role:
+        adicionar(FOODS_BY_ROLE.get(role))
+    return ordenado
 
 
 def _dna_candidates_for_role(role, meal_type, exclude_food_id=None):
@@ -1875,19 +1991,7 @@ def find_substitutes(food_id, pn, current_meal_foods, max_results=3, orig_grams=
     dislike = set(pn.get("disliked_foods") or [])
     used = set(current_meal_foods)
 
-    role = _role_of_food(src)
-    dna_cands = _dna_candidates_for_role(role, meal_type, exclude_food_id=food_id) if (role and meal_type) else set()
-    if dna_cands:
-        all_cands = list(dna_cands)
-    else:
-        # Safety-net fallback: no MEAL_COMBOS/MEAL_TEMPLATES entry declares this exact
-        # role+meal_type — fall back to the older substitution tier rather than zero
-        # results (item 20's "never a silent dead end", applied to substitution too).
-        tier = SUB_TIER.get(food_id, [])
-        group = None
-        for g, ids in SUB_GROUPS.items():
-            if food_id in ids: group = g; break
-        all_cands = list(tier) + ([i for i in SUB_GROUPS.get(group, []) if i != food_id and i not in tier] if group else [])
+    all_cands = _substitution_candidates(food_id, meal_type)
 
     full_context = meal is not None and daily_totals is not None and targets is not None
     meal_before = _meal_totals({"foods": meal}) if full_context else None
@@ -1897,6 +2001,21 @@ def find_substitutes(food_id, pn, current_meal_foods, max_results=3, orig_grams=
 
     has_meal_target = meal_target_cal is not None and meal_target_protein is not None
     current_ids = [it.get("food_id") for it in meal] if meal else list(current_meal_foods)
+
+    # Referencia da simulacao. Numa refeicao JA montada (plano confirmado), o alvo e o que
+    # ela entrega HOJE — nao o alvo nominal. _reconcile_daily desloca as refeicoes de
+    # proposito para o DIA fechar na meta, entao redimensionar uma delas para o alvo
+    # nominal desfaz esse ajuste e derruba o total diario em dezenas de kcal. O guardrail
+    # entao reprovava, corretamente, um dano que a propria simulacao tinha criado — e era
+    # isso que zerava as opcoes no cutting agressivo, onde o dia ja pousa no piso.
+    # No rascunho do fluxo guiado a refeicao ainda esta sendo montada, entao ali o alvo
+    # nominal continua sendo a referencia certa.
+    if full_context and validate_daily and meal_before:
+        sim_cal = meal_before["kcal"]
+        sim_protein = meal_before["protein_g"]
+        sim_fat = meal_before["fat_g"]
+    else:
+        sim_cal, sim_protein, sim_fat = meal_target_cal, meal_target_protein, meal_target_fat or 0
 
     results = []
     for cid in all_cands:
@@ -1910,8 +2029,7 @@ def find_substitutes(food_id, pn, current_meal_foods, max_results=3, orig_grams=
             # Role-aware equivalence (item 2): simulate the whole meal with cid swapped
             # in, sized by the exact same target-driven Portion Engine every meal uses.
             new_ids = [cid if fid == food_id else fid for fid in current_ids]
-            sim_portions = calculate_meal_portions(new_ids, meal_target_cal, meal_target_protein,
-                                                     meal_target_fat or 0, goal)
+            sim_portions = calculate_meal_portions(new_ids, sim_cal, sim_protein, sim_fat, goal)
             ng = sim_portions.get(cid)
             if not ng or ng <= 0:
                 continue
@@ -1931,8 +2049,34 @@ def find_substitutes(food_id, pn, current_meal_foods, max_results=3, orig_grams=
                 nk += fk; np_ += fp; nc += fc; nf += ff
             meal_after = {"kcal": nk, "protein_g": np_, "carbs_g": nc, "fat_g": nf}
             evald = evaluate_goal_directional_substitution_meal_level(
-                meal_before, meal_after, goal, daily_totals, targets, pn, meal_target_cal=meal_target_cal)
-            if not evald["valid"]: continue
+                meal_before, meal_after, goal, daily_totals, targets, pn, meal_target_cal=sim_cal)
+            if not evald["valid"]:
+                # Segunda tentativa, 1:1: so o alimento trocado muda de tamanho, igualando
+                # o macro que define a funcao dele. A simulacao da refeicao inteira e mais
+                # fiel quando cabe, mas ela redimensiona todos os itens e as vezes nao
+                # reproduz o total atual — e ai descartava candidatos perfeitamente validos.
+                eq_g, eq_reason = portion_for_equivalence(cid, food_id, orig_grams)
+                if not eq_g:
+                    continue
+                nk = np_ = nc = nf = 0.0
+                for it in meal:
+                    origem = it.get("food_id")
+                    gramas = eq_g if origem == food_id else it.get("grams", 0)
+                    alvo_id = cid if origem == food_id else origem
+                    a, b, c, d = _food_macros(alvo_id, gramas)
+                    nk += a; np_ += b; nc += c; nf += d
+                evald = evaluate_goal_directional_substitution_meal_level(
+                    meal_before, {"kcal": nk, "protein_g": np_, "carbs_g": nc, "fat_g": nf},
+                    goal, daily_totals, targets, pn, meal_target_cal=sim_cal)
+                if not evald["valid"]:
+                    continue
+                ng, reason = eq_g, eq_reason
+                evald["sizing"] = "one_to_one"
+            else:
+                evald["sizing"] = "meal_sim"
+                evald["sim_cal"] = sim_cal
+                evald["sim_protein"] = sim_protein
+                evald["sim_fat"] = sim_fat
             results.append((cid, ng, reason, evald))
         elif full_context and validate_daily:
             evald = evaluate_goal_directional_substitution(
@@ -1953,6 +2097,49 @@ def find_substitutes(food_id, pn, current_meal_foods, max_results=3, orig_grams=
         else:
             results.append((cid, ng, reason))
     return results
+
+# Prioridade de equivalencia por papel, como o protocolo define: para proteina vale a
+# proteina total (depois calorias); para carboidrato e fruta, o carboidrato; para
+# gordura, a gordura. Calorias sao o criterio dos demais.
+_MACRO_DE_EQUIVALENCIA = {
+    "primary_protein": "protein_g", "secondary_protein": "protein_g",
+    "primary_carb": "carbs_g", "fruit": "carbs_g", "legume": "carbs_g",
+    "fat_source": "fat_g",
+}
+
+
+def portion_for_equivalence(new_fid, orig_fid, orig_grams):
+    """Porcao do substituto pela FUNCAO que o alimento original exerce.
+
+    A simulacao da refeicao inteira e mais fiel quando funciona, mas ela redimensiona
+    TODOS os itens e as vezes nao consegue reproduzir o total atual — trocar uma proteina
+    de baixa densidade (clara de ovo) por uma densa derrubava a refeicao em centenas de
+    kcal, o dia saia da faixa e a opcao era descartada. Aqui a troca e 1:1: so o alimento
+    trocado muda de tamanho, igualando o macro que ele representa. O dia praticamente nao
+    se move, que e o que se espera de "Substituir".
+
+    Devolve (gramas, motivo) ou (None, motivo) quando nao ha base para calcular."""
+    src, dst = FOOD_INDEX.get(orig_fid), FOOD_INDEX.get(new_fid)
+    if not src or not dst:
+        return None, "Alimento desconhecido"
+    macro = _MACRO_DE_EQUIVALENCIA.get(_role_of_food(src)) or "kcal"
+    base_src = src.get("grams") or 100
+    base_dst = dst.get("grams") or 100
+    alvo = src.get(macro, 0) * orig_grams / max(1, base_src)
+    por_grama = dst.get(macro, 0) / max(1, base_dst)
+    if alvo <= 0 or por_grama <= 0:
+        # o substituto nao carrega o macro que define a funcao (ex.: azeite no lugar de
+        # uma proteina): cai para equivalencia calorica, que ao menos preserva o total
+        return recalculate_substitution_portion(new_fid, orig_fid, orig_grams)
+    gramas = alvo / por_grama
+    lo, hi = FORGE_COACH_METHODOLOGY["portion_limits"].get(dst.get("category", "PROTEIN"), [50, 250])
+    gramas = round(max(lo * 0.5, min(_portion_limit(dst, "hard_max"), min(hi * 1.5, gramas))))
+    rotulos = {"protein_g": "Porcao recalculada por proteina equivalente",
+               "carbs_g": "Porcao recalculada por carboidrato equivalente",
+               "fat_g": "Porcao recalculada por gordura equivalente",
+               "kcal": "Porcao recalculada por calorias equivalentes"}
+    return gramas, rotulos[macro]
+
 
 def recalculate_substitution_portion(new_fid, orig_fid, orig_grams):
     src = FOOD_INDEX.get(orig_fid,{})

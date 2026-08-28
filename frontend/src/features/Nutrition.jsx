@@ -263,8 +263,12 @@ export default function Nutrition({ API, profileId, db }) {
     if (subResult?.mealIdx === mealIdx && subResult?.foodId === foodId) { setBusy(false); return; }
     try {
       const r = await axios.post(`${API}/nutrition/substitute`, { meal_index: mealIdx, food_id: foodId });
-      setSubResult({ mealIdx, foodId, options: r.data.options || [] });
-    } catch (e) { setError("Substituição indisponível agora."); setSubResult(null); }
+      setSubResult({ mealIdx, foodId, options: r.data.options || [], original: r.data.original_macros });
+    } catch (e) {
+      // Falha tecnica NAO pode virar "nenhuma substituicao disponivel": sao coisas
+      // diferentes e exigem acoes diferentes do usuario.
+      setSubResult({ mealIdx, foodId, options: [], falhou: explicarErro(e, "buscar substitutos", "Não foi possível carregar as opções agora.") });
+    }
     finally { setBusy(false); }
   };
 
@@ -631,14 +635,29 @@ export default function Nutrition({ API, profileId, db }) {
                         ) : (subResult.options || []).length > 0 ? (
                           <div className="substitute-options">
                             {subResult.options.map((opt, k) => (
-                              <button key={k} className="substitute-option" disabled={busy} onClick={() => applySub(i, item.food_id, opt.food_id)}>
-                                <span>{opt.food?.name || opt.food_id}</span>
-                                <b>{formatQty(opt)}</b>
+                              <button key={k} className="substitute-option rich" disabled={busy}
+                                data-testid={`substitute-option-${opt.food_id}`}
+                                onClick={() => applySub(i, item.food_id, opt.food_id)}>
+                                <span className="sub-head">
+                                  <span className="sub-name">{opt.food?.name || opt.food_id}</span>
+                                  {opt.badge && <em className="sub-badge">{opt.badge}</em>}
+                                </span>
+                                <b className="sub-qty">{formatQty(opt)}</b>
+                                {opt.macros && (
+                                  <span className="sub-macros">
+                                    {opt.macros.kcal} kcal · P {opt.macros.protein_g}g · C {opt.macros.carbs_g}g · G {opt.macros.fat_g}g
+                                    {typeof opt.delta_kcal === "number" && (
+                                      <em className="sub-delta">{opt.delta_kcal === 0 ? "mesmas calorias" : `${opt.delta_kcal > 0 ? "+" : ""}${opt.delta_kcal} kcal`}</em>
+                                    )}
+                                  </span>
+                                )}
                               </button>
                             ))}
                           </div>
+                        ) : subResult.falhou ? (
+                          <p className="substitute-error" data-testid="substitute-error">{subResult.falhou}</p>
                         ) : (
-                          <p className="muted" style={{ fontSize: 12 }}>Nenhuma substituição disponível para este alimento agora.</p>
+                          <p className="muted" style={{ fontSize: 12 }} data-testid="substitute-empty">Não encontramos uma alternativa compatível com suas restrições e metas atuais.</p>
                         )}
                       </div>
                     )}

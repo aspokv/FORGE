@@ -179,6 +179,34 @@ async def get_assessment(request: Request, user=Depends(get_current_user)):
     return {"assessment": na or None, "complete": _assessment_completo(na)}
 
 
+# Suplementos proteicos do catalogo — usados so para rotular a opcao na interface.
+SUPLEMENTOS = {"whey-protein", "rice-cream-whey"}
+
+
+def _macros_da_porcao(food_id, grams):
+    f = FOOD_INDEX.get(food_id) or {}
+    k = grams / max(1, f.get("grams") or 100)
+    return {"kcal": round(f.get("kcal", 0) * k),
+            "protein_g": round(f.get("protein_g", 0) * k, 1),
+            "carbs_g": round(f.get("carbs_g", 0) * k, 1),
+            "fat_g": round(f.get("fat_g", 0) * k, 1)}
+
+
+def _selo(food_id, macros, macros_originais, mais_equivalente):
+    """Selo discreto da opcao. Deriva dos dados reais do alimento e da comparacao com o
+    original — a interface so renderiza, sem recalcular nada."""
+    if mais_equivalente:
+        return "Mais equivalente"
+    if food_id in SUPLEMENTOS:
+        return "Suplemento"
+    tags = (FOOD_INDEX.get(food_id) or {}).get("tags") or []
+    if macros["fat_g"] > macros_originais["fat_g"] + 5 or "fattier_protein" in tags:
+        return "Maior teor de gordura"
+    if "quick" in tags:
+        return "Pratica"
+    return None
+
+
 def _opcoes_de_intensidade(nome_do_conjunto):
     cfg = FORGE_COACH_METHODOLOGY[nome_do_conjunto]
     return [
@@ -340,8 +368,10 @@ async def substitute_food(payload: SubstituteFoodIn, request: Request, user=Depe
     # meal_type/meal_target_* enable role-aware DNA-family candidates and simulation-based
     # portion equivalence (item 1/2); meals persisted before this field existed simply
     # fall back to the older calorie-equivalence sizing (has_meal_target=False upstream).
+    # 6 e nao 3: o pedido e por 4 a 6 opcoes maduras para um alimento comum, e o pool
+    # de candidatos agora comporta isso (ver _substitution_candidates).
     subs = find_substitutes(
-        food_id, na, current_foods, max_results=3, orig_grams=original.get("grams", 100),
+        food_id, na, current_foods, max_results=6, orig_grams=original.get("grams", 100),
         goal=na.get("goal", "maintenance"), meal=foods,
         daily_totals=plan.get("daily_totals", {}), targets=plan.get("targets", {}),
         meal_type=_infer_meal_type(meal.get("name", "")),
@@ -358,14 +388,26 @@ async def substitute_food(payload: SubstituteFoodIn, request: Request, user=Depe
             opt.update({
                 "direction": evald.get("direction"), "goal_compatible": evald.get("goal_compatible"),
                 "local_delta_kcal": evald.get("local_delta_kcal"), "daily_delta_kcal": evald.get("daily_delta_kcal"),
-                "valid": evald.get("valid"),
+                "valid": evald.get("valid"), "sizing": evald.get("sizing"),
+                "_sim": {k: evald.get(k) for k in ("sim_cal", "sim_protein", "sim_fat")},
             })
+        opt["macros"] = _macros_da_porcao(fid, grams)
         options.append(opt)
         if payload.substitute_food_id and fid == payload.substitute_food_id:
             matched = opt
 
+    # Macros da porcao ORIGINAL: e contra ela que a diferenca e mostrada.
+    macros_orig = _macros_da_porcao(food_id, original.get("grams", 100))
+    mais_equiv = min(options, key=lambda o: abs(o["macros"]["kcal"] - macros_orig["kcal"]),
+                     default=None)
+    for o in options:
+        o["delta_kcal"] = o["macros"]["kcal"] - macros_orig["kcal"]
+        o["badge"] = _selo(o["food_id"], o["macros"], macros_orig,
+                           mais_equiv is not None and o is mais_equiv)
+
     if not payload.substitute_food_id:
-        return {"original": food_id, "options": options}
+        return {"original": food_id, "original_macros": macros_orig,
+                "options": [{k: v for k, v in o.items() if k != "_sim"} for o in options]}
 
     if not matched:
         raise HTTPException(400, "Substituicao nao permitida para este alimento e objetivo atual")
@@ -376,15 +418,21 @@ async def substitute_food(payload: SubstituteFoodIn, request: Request, user=Depe
     # since calculate_meal_portions resized the WHOLE meal around the swap (item 2:
     # "reconcilie os demais componentes da refeicao"). Leaving the other items at their
     # pre-swap grams would silently drift the persisted meal away from its own target.
-    if meal.get("target_cal") is not None and meal.get("target_protein") is not None:
+    # O que se aplica tem que ser EXATAMENTE o que foi validado. O motor informa qual
+    # dimensionamento aprovou a opcao: "meal_sim" redimensiona a refeicao inteira em torno
+    # dos totais que ela entrega HOJE (a mesma referencia da validacao — usar o alvo
+    # nominal aqui reconstruiria a refeicao de outro jeito e o dia sairia da faixa),
+    # "one_to_one" troca so o alimento escolhido e preserva os demais.
+    sim = matched.get("_sim") or {}
+    if matched.get("sizing") == "meal_sim" and sim.get("sim_cal") is not None:
         new_food_ids = [matched["food_id"] if i == food_pos else f["food_id"] for i, f in enumerate(foods)]
-        portions = calculate_meal_portions(new_food_ids, meal["target_cal"], meal["target_protein"],
-                                            meal.get("target_fat", 0), na.get("goal", "maintenance"))
+        portions = calculate_meal_portions(new_food_ids, sim["sim_cal"], sim["sim_protein"],
+                                            sim.get("sim_fat") or 0, na.get("goal", "maintenance"))
         new_foods = [build_food_item(fid, portions.get(fid, foods[i].get("grams", 100)))
                      for i, fid in enumerate(new_food_ids)]
     else:
         new_foods = list(foods)
-        new_foods[food_pos] = {"food_id": matched["food_id"], "grams": matched["grams"], "food": matched["food"]}
+        new_foods[food_pos] = build_food_item(matched["food_id"], matched["grams"])
 
     meal["foods"] = new_foods
     meals[meal_idx] = meal
