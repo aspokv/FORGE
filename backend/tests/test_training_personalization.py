@@ -145,3 +145,61 @@ def test_sexo_invalido_nao_quebra_a_geracao():
 def test_prioridade_legada_por_nome_de_frontend_continua_valendo():
     """A avaliacao antiga grava o nome em portugues, nao o id interno."""
     assert get_profile_priorities_internal(perfil(priorities=["Dorsais / largura"])) == ["lats"]
+
+
+# ═══════ sem o Muscle Map: avaliacao ausente tem que ser NEUTRA, nao inventada ═══════
+#
+# O questionario musculo a musculo saiu do onboarding. Nenhum adaptador foi criado
+# porque o motor ja trata avaliacao ausente como neutra: get_assessment_internal
+# devolve "proporcional"/"normal", e calculate_weekly_volume consulta o ranking de
+# prioridades ANTES de olhar o desenvolvimento percebido. Inventar "muito fraco" para
+# inflar volume seria desonesto — e e justamente o que estes testes impedem.
+
+def test_sem_avaliacao_individual_ninguem_e_rebaixado_para_manutencao():
+    tiers = {m: d["tier"] for m, d in calculate_weekly_volume(perfil(), "ppl", 4).items()}
+    assert "maintenance" not in tiers.values()
+    assert set(tiers.values()) == {"normal"}
+
+
+def test_avaliacao_ausente_nao_vira_musculo_fraco():
+    """Ausencia de resposta nao pode virar volume extra."""
+    sem = series(perfil())
+    assert all(v == VOLUME_TIERS["normal"]["target_sets"] for v in sem.values())
+
+
+def test_prioridades_sozinhas_bastam_para_personalizar():
+    """Sem nenhuma avaliacao individual, a lista ordenada ainda produz a hierarquia."""
+    p = perfil(priorities=["Glúteos", "Quadríceps"])
+    assert p.get("assessment") == {}
+    s = series(p)
+    assert s["glutes"] > s["quads"] > s["hamstrings"]
+    assert tier(p, "glutes") == "priority"
+    assert tier(p, "quads") == "priority_secondary"
+
+
+def test_avaliacao_legada_continua_rebaixando_quem_o_atleta_marcou_como_forte():
+    """Quem ja respondeu o Muscle Map nao perde o efeito do que respondeu."""
+    p = perfil(assessment={"Bíceps": {"development": "muito forte", "priority": "normal"}})
+    assert tier(p, "biceps") == "maintenance"
+
+
+def test_prioridade_declarada_vence_a_avaliacao_legada():
+    """Marcou Gluteos como 'muito forte' no passado e agora priorizou: prioridade manda."""
+    p = perfil(priorities=["Glúteos"],
+               assessment={"Glúteos": {"development": "muito forte", "priority": "baixa"}})
+    assert tier(p, "glutes") == "priority"
+
+
+def test_tres_prioridades_nao_recebem_todas_o_tratamento_maximo():
+    """A hierarquia precisa sobreviver: uma principal, duas secundarias."""
+    p = perfil(priorities=["Glúteos", "Quadríceps", "Bíceps"])
+    s = series(p)
+    assert s["glutes"] > s["quads"] == s["biceps"]
+    niveis = [tier(p, m) for m in ("glutes", "quads", "biceps")]
+    assert niveis == ["priority", "priority_secondary", "priority_secondary"]
+
+
+def test_volume_prioritario_respeita_o_teto_do_motor():
+    p = perfil(priorities=["Glúteos", "Quadríceps", "Bíceps"])
+    for m, d in calculate_weekly_volume(p, "ppl", 4).items():
+        assert d["target_sets"] <= d["max_sets"] <= VOLUME_TIERS["priority"]["max_sets"]

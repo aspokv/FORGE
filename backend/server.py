@@ -263,11 +263,26 @@ async def save_assessment(assessment: DeepAssessment, user=Depends(get_current_u
     doc["id"] = target
     doc["user_id"] = target
     doc["assessment_version"] = 2
+    # Quem terminou o questionario nao esta mais em onboarding. Sem isto, o atleta que
+    # escolhe "treino equilibrado" (nenhuma regiao priorizada) cairia em
+    # _is_empty_profile — sem avaliacao E sem prioridade — e receberia programa VAZIO.
+    # Mesmo campo que manual_workout_routes ja usa para dizer a mesma coisa.
+    doc["onboarding_required"] = False
 
     # replace_one troca o documento inteiro, entao o questionario ALIMENTAR (outro
     # questionario, com peso/altura/preferencias) era apagado sempre que o atleta
     # refazia a avaliacao de treino. Ele e carregado adiante de proposito.
-    anterior = await db.profiles.find_one({"id": target}, {"_id": 0, "nutrition_assessment": 1})
+    anterior = await db.profiles.find_one(
+        {"id": target}, {"_id": 0, "nutrition_assessment": 1, "assessment": 1})
+
+    # O muscle map individual saiu do onboarding, entao o formulario novo manda
+    # assessment vazio. Isso nao pode apagar a avaliacao historica de quem ja respondeu
+    # os 18 musculos: ela continua valendo para rebaixar ao tier de manutencao o que o
+    # proprio atleta marcou como ja forte. Prioridade declarada continua vencendo, porque
+    # calculate_weekly_volume checa o ranking antes de olhar o desenvolvimento.
+    if not doc.get("assessment") and (anterior or {}).get("assessment"):
+        doc["assessment"] = anterior["assessment"]
+
     nutricao = dict((anterior or {}).get("nutrition_assessment") or {})
     if body_goal in BODY_GOALS:
         # Mesma fonte de verdade da area de Alimentacao, que continua podendo trocar os
