@@ -76,8 +76,19 @@ export default function SignupFlow({ API, planoInicial, onEntrar, onCancelar, on
   const [erro, setErro] = useState("");
   const [aviso, setAviso] = useState("");
   const [ocupado, setOcupado] = useState(false);
+  const [aberto, setAberto] = useState(true);
   // Trava sincrona: dois toques no mesmo tick nao podem disparar dois cadastros.
   const emVoo = useRef(false);
+
+  // Enquanto PUBLIC_SIGNUP_ENABLED estiver desligada o funil responde 503. Perguntar
+  // antes evita deixar a pessoa preencher nome, e-mail e termos para so entao descobrir
+  // que o cadastro nem esta aberto.
+  useEffect(() => {
+    axios
+      .get(`${API}/signup/config`)
+      .then((r) => setAberto(r.data.enabled !== false))
+      .catch((e) => console.error("[FORGE signup] config:", e));
+  }, [API]);
 
   useEffect(() => {
     axios
@@ -191,6 +202,13 @@ export default function SignupFlow({ API, planoInicial, onEntrar, onCancelar, on
 
         <Trilha atual={passo} />
 
+        {!aberto && (
+          <p className="signup-closed" data-testid="signup-closed">
+            O cadastro ainda não está aberto ao público. Se você já tem conta, entre pelo
+            link acima; se recebeu um convite, use o link que enviamos.
+          </p>
+        )}
+
         {passo === PASSO_PLANO && (
           <>
             <h2>Escolha seu plano</h2>
@@ -208,7 +226,7 @@ export default function SignupFlow({ API, planoInicial, onEntrar, onCancelar, on
             <button
               type="button"
               className="btn primary"
-              disabled={!plano}
+              disabled={!plano || !aberto}
               onClick={() => setPasso(PASSO_DADOS)}
             >
               Continuar <ArrowRight size={16} />
@@ -266,7 +284,7 @@ export default function SignupFlow({ API, planoInicial, onEntrar, onCancelar, on
               <button type="button" className="btn ghost" onClick={() => setPasso(PASSO_PLANO)}>
                 <ArrowLeft size={16} /> Voltar
               </button>
-              <button type="button" className="btn primary" disabled={ocupado} onClick={enviarDados}>
+              <button type="button" className="btn primary" disabled={ocupado || !aberto} onClick={enviarDados}>
                 {ocupado ? "Enviando..." : "Continuar"}
               </button>
             </div>
