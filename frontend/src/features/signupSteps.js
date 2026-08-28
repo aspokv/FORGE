@@ -13,6 +13,8 @@ export const PASSO_PLANO = "plano";
 export const PASSO_DADOS = "dados";
 export const PASSO_CODIGO = "codigo";
 export const PASSO_SENHA = "senha";
+export const PASSO_AVALIACAO = "avaliacao";
+export const PASSO_PREVIA = "previa";
 export const PASSO_PAGAMENTO = "pagamento";
 
 export const PASSOS = [
@@ -20,6 +22,8 @@ export const PASSOS = [
   PASSO_DADOS,
   PASSO_CODIGO,
   PASSO_SENHA,
+  PASSO_AVALIACAO,
+  PASSO_PREVIA,
   PASSO_PAGAMENTO,
 ];
 
@@ -28,6 +32,8 @@ export const ROTULO_DO_PASSO = {
   [PASSO_DADOS]: "Seus dados",
   [PASSO_CODIGO]: "Confirme seu e-mail",
   [PASSO_SENHA]: "Crie sua senha",
+  [PASSO_AVALIACAO]: "Sobre você",
+  [PASSO_PREVIA]: "Seu plano",
   [PASSO_PAGAMENTO]: "Pagamento",
 };
 
@@ -139,5 +145,86 @@ export function montarRetomada(planos, escolhido) {
   return {
     escolhido: lista.find((p) => p.code === escolhido) || null,
     alternativas: lista.filter((p) => p.code !== escolhido),
+  };
+}
+
+
+/**
+ * Pre-avaliacao: o que ainda falta responder.
+ *
+ * O catalogo vem do servidor e decide QUAIS perguntas existem — a de alimentacao so
+ * aparece quando o plano escolhido a inclui. Por isso a validacao consulta o catalogo em
+ * vez de checar uma lista fixa: repetir aqui a regra de capacidade criaria uma segunda
+ * verdade, que envelhece sozinha.
+ */
+export function validarPreAvaliacao(respostas, catalogo) {
+  const r = respostas || {};
+  const cat = catalogo || {};
+  const erros = {};
+
+  if (!r.sex) erros.sex = "Escolha o perfil feminino ou masculino.";
+  if (!r.experience) erros.experience = "Escolha seu nível de experiência.";
+  if (!r.goal) erros.goal = "Escolha seu objetivo de treino.";
+  if (!r.days) erros.days = "Escolha quantos dias por semana você treina.";
+
+  const maximo = cat.max_priorities || 3;
+  if ((r.priorities || []).length > maximo) {
+    erros.priorities = `Escolha no máximo ${maximo} regiões.`;
+  }
+
+  if (cat.includes_nutrition) {
+    if (!r.body_goal) {
+      erros.body_goal = "Escolha seu objetivo alimentar.";
+    } else {
+      const objetivo = (cat.body_goals || []).find((g) => g.id === r.body_goal);
+      const ritmos = (objetivo && objetivo.intensities) || [];
+      if (ritmos.length > 0) {
+        const escolhido = ritmos.find((i) => i.id === r.goal_intensity);
+        if (!escolhido) erros.goal_intensity = "Escolha o ritmo desejado.";
+        else if (escolhido.locked) {
+          erros.goal_intensity =
+            "Esse ritmo faz parte do FORGE Elite. Escolha outro ou troque de plano.";
+        }
+      }
+    }
+  }
+
+  return { ok: Object.keys(erros).length === 0, erros };
+}
+
+/**
+ * Ritmos do objetivo escolhido, ou lista vazia. "Manter e recompor" nao tem ritmo, e
+ * perguntar por um seria inventar uma escolha que o motor ignora.
+ */
+export function ritmosDoObjetivo(catalogo, objetivo) {
+  const g = ((catalogo || {}).body_goals || []).find((x) => x.id === objetivo);
+  return (g && g.intensities) || [];
+}
+
+/** Ritmo padrao ao trocar de objetivo, para a pessoa nao ficar sem escolha nenhuma. */
+export function ritmoPadrao(catalogo, objetivo) {
+  const g = ((catalogo || {}).body_goals || []).find((x) => x.id === objetivo);
+  if (!g) return "";
+  const disponiveis = (g.intensities || []).filter((i) => !i.locked);
+  if (disponiveis.length === 0) return "";
+  const padrao = disponiveis.find((i) => i.id === g.default_intensity);
+  return (padrao || disponiveis.find((i) => i.recommended) || disponiveis[0]).id;
+}
+
+/**
+ * Quantos itens a previa mostra bloqueados. Serve so para a tela dizer "N sessões
+ * prontas" sem revelar nada do conteudo.
+ */
+export function resumoDaPrevia(previa) {
+  const p = previa || {};
+  const treino = p.training || {};
+  const sessoes = treino.sessions || [];
+  return {
+    dias: treino.days || sessoes.length,
+    split: treino.split_label || "",
+    sessoes: sessoes.length,
+    temAlimentacao: Boolean((p.nutrition || {}).included),
+    prioridades: ((p.focus || {}).regions || []).length,
+    declarou: Boolean((p.focus || {}).declared),
   };
 }

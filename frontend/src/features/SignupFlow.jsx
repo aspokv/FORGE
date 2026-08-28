@@ -3,19 +3,26 @@ import axios from "axios";
 import { ArrowLeft, ArrowRight, Check, Mail, ShieldCheck } from "lucide-react";
 
 import {
+  PASSO_AVALIACAO,
   PASSO_CODIGO,
   PASSO_DADOS,
   PASSO_PAGAMENTO,
   PASSO_PLANO,
+  PASSO_PREVIA,
   PASSO_SENHA,
   PASSOS,
   ROTULO_DO_PASSO,
   avaliarSenha,
   explicarErro,
   montarRetomada,
+  ritmoPadrao,
+  ritmosDoObjetivo,
   validarCodigo,
   validarDados,
+  validarPreAvaliacao,
 } from "./signupSteps";
+import PreAvaliacao from "./PreAvaliacao";
+import PreviaBloqueada from "./PreviaBloqueada";
 
 /**
  * Funil publico: plano -> dados -> codigo -> senha -> pagamento.
@@ -72,6 +79,10 @@ export default function SignupFlow({ API, planoInicial, onEntrar, onCancelar, on
   const [codigo, setCodigo] = useState("");
   const [senha, setSenha] = useState("");
   const [token, setToken] = useState("");
+  const [catalogo, setCatalogo] = useState(null);
+  const [respostas, setRespostas] = useState({ priorities: [] });
+  const [previa, setPrevia] = useState(null);
+  const [avisoPrioridade, setAvisoPrioridade] = useState("");
   const [erros, setErros] = useState({});
   const [erro, setErro] = useState("");
   const [aviso, setAviso] = useState("");
@@ -175,7 +186,34 @@ export default function SignupFlow({ API, planoInicial, onEntrar, onCancelar, on
       // Ja entramos autenticados: se o pagamento for abandonado, a pessoa volta pelo
       // login normal e retoma de onde parou.
       onAutenticar?.(r.data.token, r.data.user);
-      setPasso(PASSO_PAGAMENTO);
+      // A partir daqui a sessao existe, entao o catalogo ja vem com as capacidades do
+      // plano escolhido — e por isso que ele nao e buscado antes.
+      const cat = await axios.get(`${API}/preassessment`, {
+        headers: { Authorization: `Bearer ${r.data.token}` },
+      });
+      setCatalogo(cat.data.catalog);
+      if (cat.data.answers) setRespostas(cat.data.answers);
+      if (cat.data.preview) setPrevia(cat.data.preview);
+      setPasso(PASSO_AVALIACAO);
+      return true;
+    });
+
+  const enviarPreAvaliacao = () =>
+    executar(async () => {
+      const v = validarPreAvaliacao(respostas, catalogo);
+      setErros(v.erros);
+      if (!v.ok) return null;
+      const r = await axios.post(`${API}/preassessment`, {
+        sex: respostas.sex,
+        experience: respostas.experience,
+        goal: respostas.goal,
+        days: respostas.days,
+        priorities: respostas.priorities || [],
+        body_goal: respostas.body_goal,
+        goal_intensity: respostas.goal_intensity,
+      });
+      setPrevia(r.data.preview);
+      setPasso(PASSO_PREVIA);
       return true;
     });
 
@@ -337,6 +375,36 @@ export default function SignupFlow({ API, planoInicial, onEntrar, onCancelar, on
           </>
         )}
 
+        {passo === PASSO_AVALIACAO && (
+          <>
+            <h2>Sobre você</h2>
+            <p className="muted">
+              Seis perguntas rápidas. É com elas que o FORGE monta a prévia do seu plano.
+            </p>
+            <PreAvaliacao
+              catalogo={catalogo}
+              respostas={respostas}
+              onMudar={setRespostas}
+              erros={erros}
+              aviso={avisoPrioridade}
+              onAviso={setAvisoPrioridade}
+            />
+            <button type="button" className="btn primary" disabled={ocupado}
+                    onClick={enviarPreAvaliacao}>
+              {ocupado ? "Montando sua prévia..." : "Ver minha prévia"} <ArrowRight size={16} />
+            </button>
+          </>
+        )}
+
+        {passo === PASSO_PREVIA && (
+          <PreviaBloqueada previa={previa} ocupado={ocupado} onAtivar={irParaPagamento}>
+            <button type="button" className="link quiet"
+                    onClick={() => setPasso(PASSO_AVALIACAO)}>
+              Ajustar minhas respostas
+            </button>
+          </PreviaBloqueada>
+        )}
+
         {passo === PASSO_PAGAMENTO && (
           <>
             <h2>Falta o pagamento</h2>
@@ -382,7 +450,25 @@ export function PagamentoPendente({ API, user, onSair, retornando, onLiberado })
   const [erro, setErro] = useState("");
   const [ocupado, setOcupado] = useState(false);
   const [conferindo, setConferindo] = useState(Boolean(retornando));
+  const [catalogo, setCatalogo] = useState(null);
+  const [respostas, setRespostas] = useState({ priorities: [] });
+  const [previa, setPrevia] = useState(null);
+  const [erros, setErros] = useState({});
+  const [avisoPrioridade, setAvisoPrioridade] = useState("");
   const emVoo = useRef(false);
+
+  // Quem volta ja respondeu: a previa vem do servidor junto com as respostas, e a tela
+  // nao precisa perguntar de novo. Quem abandonou antes de responder ve o formulario.
+  useEffect(() => {
+    axios
+      .get(`${API}/preassessment`)
+      .then((r) => {
+        setCatalogo(r.data.catalog);
+        if (r.data.answers) setRespostas(r.data.answers);
+        if (r.data.preview) setPrevia(r.data.preview);
+      })
+      .catch((e) => console.error("[FORGE pendente] pre-avaliacao:", e));
+  }, [API]);
 
   // Volta do checkout: a tela NAO ativa nada, so pergunta ao servidor de tempos em
   // tempos se o webhook ja chegou. Enquanto nao chegar, a conta segue sem acesso.
@@ -443,6 +529,29 @@ export function PagamentoPendente({ API, user, onSair, retornando, onLiberado })
     }
   };
 
+  const salvarRespostas = async () => {
+    const v = validarPreAvaliacao(respostas, catalogo);
+    setErros(v.erros);
+    if (!v.ok || emVoo.current) return;
+    emVoo.current = true;
+    setOcupado(true);
+    setErro("");
+    try {
+      const r = await axios.post(`${API}/preassessment`, {
+        sex: respostas.sex, experience: respostas.experience, goal: respostas.goal,
+        days: respostas.days, priorities: respostas.priorities || [],
+        body_goal: respostas.body_goal, goal_intensity: respostas.goal_intensity,
+      });
+      setPrevia(r.data.preview);
+    } catch (e) {
+      console.error("[FORGE pendente] pre-avaliacao:", e?.response?.status, e?.response?.data ?? e);
+      setErro(explicarErro(e));
+    } finally {
+      emVoo.current = false;
+      setOcupado(false);
+    }
+  };
+
   const { escolhido: destaque, alternativas } = montarRetomada(planos, escolhido);
 
   return (
@@ -463,6 +572,32 @@ export function PagamentoPendente({ API, user, onSair, retornando, onLiberado })
             ? "Estamos confirmando o pagamento com o Mercado Pago. Isso costuma levar alguns segundos."
             : `Sua conta está criada, ${user?.name?.split(" ")[0] || "atleta"}. O acesso abre assim que a assinatura for confirmada.`}
         </p>
+
+        {!conferindo && previa && (
+          <PreviaBloqueada
+            previa={previa}
+            ocupado={ocupado}
+            onAtivar={() => pagar(escolhido || previa.plan_code)}
+          />
+        )}
+
+        {!conferindo && !previa && catalogo && (
+          <>
+            <p className="eyebrow spaced">Falta pouco: responda para ver sua prévia</p>
+            <PreAvaliacao
+              catalogo={catalogo}
+              respostas={respostas}
+              onMudar={setRespostas}
+              erros={erros}
+              aviso={avisoPrioridade}
+              onAviso={setAvisoPrioridade}
+            />
+            <button type="button" className="btn primary" disabled={ocupado}
+                    onClick={salvarRespostas}>
+              {ocupado ? "Montando sua prévia..." : "Ver minha prévia"}
+            </button>
+          </>
+        )}
 
         {destaque && (
           <section className="plan-card recommended" data-testid="pending-chosen">

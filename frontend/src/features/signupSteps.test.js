@@ -1,16 +1,23 @@
 import {
   PASSOS,
+  PASSO_AVALIACAO,
   PASSO_PLANO,
   PASSO_DADOS,
   PASSO_PAGAMENTO,
+  PASSO_PREVIA,
+  PASSO_SENHA,
   avaliarSenha,
   emailParece,
   explicarErro,
   montarRetomada,
   passoAnterior,
   proximoPasso,
+  resumoDaPrevia,
+  ritmoPadrao,
+  ritmosDoObjetivo,
   validarCodigo,
   validarDados,
+  validarPreAvaliacao,
 } from "./signupSteps";
 
 const erroDe = (status, detail) => ({ response: { status, data: { detail } } });
@@ -194,5 +201,163 @@ describe("retomada de quem nao pagou", () => {
 
   test("lista ausente nao quebra", () => {
     expect(montarRetomada(undefined, "pro").alternativas).toEqual([]);
+  });
+});
+
+
+// ── Pre-avaliacao ──────────────────────────────────────────────────────────────────
+
+const CATALOGO_PRO = {
+  max_priorities: 3,
+  includes_nutrition: true,
+  body_goals: [
+    {
+      id: "fat_loss",
+      default_intensity: "moderado",
+      intensities: [
+        { id: "leve", locked: false },
+        { id: "moderado", locked: false, recommended: true },
+        { id: "agressivo", locked: true },
+      ],
+    },
+    { id: "maintenance", default_intensity: null, intensities: [] },
+  ],
+};
+
+const CATALOGO_ESSENCIAL = { max_priorities: 3, includes_nutrition: false, body_goals: [] };
+
+const RESPOSTAS = {
+  sex: "female",
+  experience: "Intermediário",
+  goal: "Hipertrofia",
+  days: 4,
+  priorities: ["Glúteos"],
+  body_goal: "fat_loss",
+  goal_intensity: "moderado",
+};
+
+describe("ordem com a pre-avaliacao", () => {
+  test("a pre-avaliacao e a previa ficam entre a senha e o pagamento", () => {
+    const i = (p) => PASSOS.indexOf(p);
+    expect(i(PASSO_SENHA)).toBeLessThan(i(PASSO_AVALIACAO));
+    expect(i(PASSO_AVALIACAO)).toBeLessThan(i(PASSO_PREVIA));
+    expect(i(PASSO_PREVIA)).toBeLessThan(i(PASSO_PAGAMENTO));
+  });
+
+  test("o pagamento continua sendo o ultimo passo", () => {
+    expect(PASSOS[PASSOS.length - 1]).toBe(PASSO_PAGAMENTO);
+    expect(proximoPasso(PASSO_SENHA)).toBe(PASSO_AVALIACAO);
+    expect(passoAnterior(PASSO_PAGAMENTO)).toBe(PASSO_PREVIA);
+  });
+
+  test("o plano ainda vem primeiro", () => {
+    expect(PASSOS[0]).toBe(PASSO_PLANO);
+    expect(PASSOS.indexOf(PASSO_DADOS)).toBe(1);
+  });
+});
+
+describe("validacao da pre-avaliacao", () => {
+  test("respostas completas passam", () => {
+    expect(validarPreAvaliacao(RESPOSTAS, CATALOGO_PRO).ok).toBe(true);
+  });
+
+  test.each(["sex", "experience", "goal", "days"])("falta %s reprova", (campo) => {
+    const r = validarPreAvaliacao({ ...RESPOSTAS, [campo]: undefined }, CATALOGO_PRO);
+    expect(r.ok).toBe(false);
+    expect(r.erros[campo]).toBeTruthy();
+  });
+
+  test("nenhuma prioridade e uma resposta valida", () => {
+    expect(validarPreAvaliacao({ ...RESPOSTAS, priorities: [] }, CATALOGO_PRO).ok).toBe(true);
+  });
+
+  test("mais prioridades que o maximo reprova", () => {
+    const r = validarPreAvaliacao(
+      { ...RESPOSTAS, priorities: ["a", "b", "c", "d"] }, CATALOGO_PRO);
+    expect(r.ok).toBe(false);
+    expect(r.erros.priorities).toMatch(/3/);
+  });
+
+  test("o Essencial nao exige resposta de alimentacao", () => {
+    const semAlimentacao = { ...RESPOSTAS, body_goal: undefined, goal_intensity: undefined };
+    expect(validarPreAvaliacao(semAlimentacao, CATALOGO_ESSENCIAL).ok).toBe(true);
+  });
+
+  test("o Pro exige objetivo alimentar", () => {
+    const r = validarPreAvaliacao({ ...RESPOSTAS, body_goal: undefined }, CATALOGO_PRO);
+    expect(r.ok).toBe(false);
+    expect(r.erros.body_goal).toBeTruthy();
+  });
+
+  test("ritmo bloqueado pelo plano e recusado antes de enviar", () => {
+    const r = validarPreAvaliacao(
+      { ...RESPOSTAS, goal_intensity: "agressivo" }, CATALOGO_PRO);
+    expect(r.ok).toBe(false);
+    expect(r.erros.goal_intensity).toMatch(/Elite/);
+  });
+
+  test("objetivo sem ritmo nao exige ritmo", () => {
+    const r = validarPreAvaliacao(
+      { ...RESPOSTAS, body_goal: "maintenance", goal_intensity: undefined }, CATALOGO_PRO);
+    expect(r.ok).toBe(true);
+  });
+
+  test("catalogo ausente nao quebra a validacao", () => {
+    expect(validarPreAvaliacao(RESPOSTAS).ok).toBe(true);
+    expect(validarPreAvaliacao().ok).toBe(false);
+  });
+});
+
+describe("ritmos por objetivo", () => {
+  test("devolve os ritmos do objetivo escolhido", () => {
+    expect(ritmosDoObjetivo(CATALOGO_PRO, "fat_loss").map((i) => i.id))
+      .toEqual(["leve", "moderado", "agressivo"]);
+  });
+
+  test("manutencao nao tem ritmo", () => {
+    expect(ritmosDoObjetivo(CATALOGO_PRO, "maintenance")).toEqual([]);
+  });
+
+  test("objetivo desconhecido devolve lista vazia", () => {
+    expect(ritmosDoObjetivo(CATALOGO_PRO, "inventado")).toEqual([]);
+    expect(ritmosDoObjetivo(undefined, "fat_loss")).toEqual([]);
+  });
+
+  test("o ritmo padrao nunca cai num bloqueado", () => {
+    expect(ritmoPadrao(CATALOGO_PRO, "fat_loss")).toBe("moderado");
+    const soBloqueado = {
+      body_goals: [{ id: "x", default_intensity: "agressivo",
+                     intensities: [{ id: "agressivo", locked: true }] }],
+    };
+    expect(ritmoPadrao(soBloqueado, "x")).toBe("");
+  });
+
+  test("manutencao nao recebe ritmo padrao", () => {
+    expect(ritmoPadrao(CATALOGO_PRO, "maintenance")).toBe("");
+  });
+});
+
+describe("resumo da previa", () => {
+  const previa = {
+    training: { days: 4, split_label: "Superior / Inferior",
+                sessions: [{}, {}, {}, {}] },
+    focus: { declared: true, regions: [{}, {}] },
+    nutrition: { included: true },
+  };
+
+  test("conta o que a tela mostra sem revelar conteudo", () => {
+    const r = resumoDaPrevia(previa);
+    expect(r).toEqual({ dias: 4, split: "Superior / Inferior", sessoes: 4,
+                        temAlimentacao: true, prioridades: 2, declarou: true });
+  });
+
+  test("previa ausente nao quebra", () => {
+    expect(resumoDaPrevia().sessoes).toBe(0);
+    expect(resumoDaPrevia(null).temAlimentacao).toBe(false);
+  });
+
+  test("sem alimentacao o resumo diz que nao ha", () => {
+    expect(resumoDaPrevia({ ...previa, nutrition: { included: false } }).temAlimentacao)
+      .toBe(false);
   });
 });
