@@ -138,8 +138,7 @@ def ambiente():
 # Um unico event loop para o modulo inteiro: o cliente Motor se prende ao loop em que
 # nasce, e abrir um loop por teste faria o await estourar com "different loop". Tambem
 # evita adicionar pytest-asyncio so para isto.
-LOOP = asyncio.new_event_loop()
-asyncio.set_event_loop(LOOP)
+from loop_do_motor import LOOP  # noqa: E402
 
 
 def asincrono(fn):

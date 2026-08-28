@@ -13,6 +13,7 @@ from pymongo.errors import DuplicateKeyError
 
 import billing
 import mailer
+from auth import AGUARDANDO_PAGAMENTO as AGUARDANDO_PAGAMENTO_CONTA
 from auth import get_current_user, require_super_admin
 from billing_plans import (
     FREQUENCIA, MOEDA, TIPO_DE_FREQUENCIA, catalogo_publico, mp_plan_id, plano_ativo,
@@ -303,6 +304,21 @@ async def _aplicar_assinatura(db, recurso: Dict[str, Any], request_id: str) -> D
         {"$set": doc, "$setOnInsert": {"created_at": _agora()}}, upsert=True)
     await db.subscription_attempts.update_one(
         {"reference": referencia}, {"$set": {"status": estado, "updated_at": _agora()}})
+
+    # Assinatura confirmada promove a conta que estava esperando pagamento. A condicao no
+    # filtro importa: so sai de PENDING_PAYMENT quem estava nele. Um usuario de cortesia,
+    # ou uma conta suspensa, nao pode ser reescrito por um evento de cobranca.
+    if estado == ATIVA:
+        promovido = await db.users.update_one(
+            {"id": tentativa["user_id"], "status": AGUARDANDO_PAGAMENTO_CONTA},
+            {"$set": {"status": "ACTIVE", "plan": p["code"], "activated_at": _agora()}})
+        if promovido.modified_count:
+            logger.info("webhook %s: conta liberada user=%s plano=%s", request_id,
+                        tentativa["user_id"], p["code"])
+        else:
+            # Ja estava ativa (renovacao, ou evento repetido apos a promocao): so o plano.
+            await db.users.update_one({"id": tentativa["user_id"]},
+                                      {"$set": {"plan": p["code"]}})
 
     logger.info("webhook %s: user=%s plano=%s %s -> %s", request_id,
                 tentativa["user_id"], p["code"], estado_anterior, estado)

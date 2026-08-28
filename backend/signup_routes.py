@@ -4,7 +4,8 @@ O FORGE nasceu por convite manual: o admin cria o usuario e entrega a URL por fo
 Esse fluxo continua intacto — este arquivo ADICIONA um caminho publico para quem nunca
 teve conta, sem remover nada.
 
-Estado do cadastro, na ordem: email_verification_pending -> payment_pending -> active.
+Estado do cadastro, na ordem:
+    email_verification_pending -> email_verified -> payment_pending -> active.
 Um cadastro pendente nao acessa nada pago; so o webhook, apos confirmacao canonica no
 Mercado Pago, promove para active. O retorno visual do checkout nao ativa conta.
 """
@@ -18,9 +19,13 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, EmailStr, Field
 
 import mailer
-from auth import create_token, hash_password, require_super_admin, sanitize, verify_password
+from auth import (
+    AGUARDANDO_PAGAMENTO as AGUARDANDO_PAGAMENTO_CONTA, create_token, hash_password,
+    require_super_admin, sanitize, verify_password,
+)
 from billing_plans import plano_ativo
 from billing_routes import iniciar_assinatura
+from entitlements import ORIGEM_CADASTRO_PUBLICO
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/signup", tags=["signup"])
@@ -29,9 +34,9 @@ VALIDADE_DO_CODIGO_MIN = 15
 MAX_TENTATIVAS = 5
 MAX_REENVIOS = 3
 VALIDADE_DO_CADASTRO_H = 48
-VALIDADE_DO_TOKEN_DE_ATIVACAO_MIN = 60
 
 AGUARDANDO_EMAIL = "email_verification_pending"
+EMAIL_VERIFICADO = "email_verified"
 AGUARDANDO_PAGAMENTO = "payment_pending"
 ATIVO = "active"
 PAGAMENTO_RECUSADO = "payment_failed"
@@ -89,11 +94,6 @@ class VerifyIn(BaseModel):
 
 class TokenIn(BaseModel):
     token: str = Field(min_length=16, max_length=128)
-
-
-class ActivateIn(BaseModel):
-    token: str = Field(min_length=16, max_length=128)
-    password: str = Field(min_length=8, max_length=128)
 
 
 @router.get("/config")
@@ -180,7 +180,10 @@ async def iniciar(payload: StartIn, request: Request):
 
 @router.post("/verify")
 async def verificar(payload: VerifyIn, request: Request):
-    """Confere o codigo e cria o usuario PENDENTE."""
+    """Confere o codigo. NAO cria a conta ainda — a conta nasce junto com a senha.
+
+    Separar os dois passos evita a conta orfa: se a pessoa fecha o navegador aqui, nao
+    sobra um usuario sem senha no banco, que ninguem consegue usar nem recuperar."""
     _exigir_ativo()
     db = request.app.state.db
     email = payload.email.lower().strip()
@@ -200,31 +203,71 @@ async def verificar(payload: VerifyIn, request: Request):
         await db.signup_attempts.update_one({"email": email}, {"$inc": {"attempts": 1}})
         raise generico
 
-    # Corrida: se dois pedidos chegarem juntos, o indice unico em users.email decide.
-    ja = await db.users.find_one({"email": email})
-    if ja:
-        uid = ja["id"]
-    else:
-        uid = str(secrets.token_hex(16))
-        await db.users.insert_one({
-            "id": uid, "email": email, "name": tentativa["name"],
-            "role": "ATHLETE", "status": "PENDING", "plan": None,
-            "signup_source": "public",
-            "created_at": _iso(_agora()),
-            "ai_daily_limit": 40, "ai_monthly_limit": 800, "ai_enabled": True,
-        })
-        await db.profiles.insert_one({
-            "id": uid, "user_id": uid, "name": tentativa["name"],
-            "automation_mode": "FORGE_ASSISTED", "assessment": {}, "priorities": [],
-            "onboarding_required": True})
-
     token = secrets.token_urlsafe(32)
     await db.signup_attempts.update_one({"email": email}, {"$set": {
-        "status": AGUARDANDO_PAGAMENTO, "user_id": uid, "signup_token": token,
+        "status": EMAIL_VERIFICADO, "signup_token": token,
         "code_hash": None, "code_expires_at": None,   # uso unico: o codigo morre aqui
         "updated_at": _iso(_agora())}})
-    logger.info("cadastro publico: e-mail verificado, usuario pendente criado")
-    return {"token": token, "status": AGUARDANDO_PAGAMENTO,
+    logger.info("cadastro publico: e-mail verificado")
+    return {"token": token, "status": EMAIL_VERIFICADO,
+            "plan_code": tentativa["plan_code"]}
+
+
+class CriarSenhaIn(BaseModel):
+    token: str = Field(min_length=16, max_length=128)
+    password: str = Field(min_length=8, max_length=128)
+
+
+@router.post("/create-password")
+async def criar_senha(payload: CriarSenhaIn, request: Request):
+    """Cria a conta com a senha, ja no estado de quem ainda nao pagou.
+
+    A conta existe ANTES do pagamento de proposito: e o que permite fechar o navegador no
+    meio do checkout, voltar depois, entrar com a senha e continuar de onde parou. O que
+    ela nao tem e acesso — `PENDING_PAYMENT` e barrado no backend, em `get_current_user`.
+    """
+    _exigir_ativo()
+    db = request.app.state.db
+    tentativa = await _por_token(db, payload.token)
+    if tentativa.get("status") == ATIVO:
+        raise HTTPException(409, "Este cadastro já está ativo. Faça login.")
+    if tentativa.get("status") not in (EMAIL_VERIFICADO, AGUARDANDO_PAGAMENTO):
+        raise HTTPException(400, "Confirme seu e-mail antes de criar a senha")
+
+    email = tentativa["email"]
+    uid = tentativa.get("user_id")
+    if not uid:
+        # Corrida: se dois pedidos chegarem juntos, o indice unico em users.email decide.
+        ja = await db.users.find_one({"email": email})
+        if ja:
+            uid = ja["id"]
+        else:
+            uid = str(secrets.token_hex(16))
+            await db.users.insert_one({
+                "id": uid, "email": email, "name": tentativa["name"],
+                "role": "ATHLETE", "status": AGUARDANDO_PAGAMENTO_CONTA, "plan": None,
+                "signup_source": ORIGEM_CADASTRO_PUBLICO,
+                "plan_code_escolhido": tentativa["plan_code"],
+                "created_at": _iso(_agora()),
+                "ai_daily_limit": 40, "ai_monthly_limit": 800, "ai_enabled": True,
+            })
+            await db.profiles.insert_one({
+                "id": uid, "user_id": uid, "name": tentativa["name"],
+                "automation_mode": "FORGE_ASSISTED", "assessment": {}, "priorities": [],
+                "onboarding_required": True})
+
+    await db.users.update_one({"id": uid}, {"$set": {
+        "password_hash": hash_password(payload.password),
+        "plan_code_escolhido": tentativa["plan_code"]}})
+    await db.signup_attempts.update_one({"signup_token": payload.token}, {"$set": {
+        "status": AGUARDANDO_PAGAMENTO, "user_id": uid, "updated_at": _iso(_agora())}})
+
+    user = await db.users.find_one({"id": uid})
+    logger.info("cadastro publico: conta criada aguardando pagamento user=%s", uid)
+    # Ja devolve sessao: a pessoa entra na tela de pagamento autenticada, e se abandonar,
+    # consegue voltar pelo login normal.
+    return {"token": create_token(uid, user["role"]), "user": sanitize(user),
+            "signup_token": payload.token, "status": AGUARDANDO_PAGAMENTO,
             "plan_code": tentativa["plan_code"]}
 
 
@@ -248,6 +291,8 @@ async def checkout(payload: TokenIn, request: Request):
     tentativa = await _por_token(db, payload.token)
     if tentativa.get("status") == ATIVO:
         raise HTTPException(409, "Este cadastro já está ativo. Faça login.")
+    if not tentativa.get("user_id"):
+        raise HTTPException(400, "Crie sua senha antes de continuar para o pagamento")
     saida = await iniciar_assinatura(db, tentativa["user_id"], tentativa["email"],
                                      tentativa["plan_code"])
     await db.signup_attempts.update_one(
@@ -274,13 +319,18 @@ async def trocar_plano(payload: TrocarPlanoIn, request: Request):
     await db.signup_attempts.update_one(
         {"signup_token": payload.token},
         {"$set": {"plan_code": payload.plan_code, "updated_at": _iso(_agora())}})
+    if tentativa.get("user_id"):
+        await db.users.update_one({"id": tentativa["user_id"]},
+                                  {"$set": {"plan_code_escolhido": payload.plan_code}})
     return {"ok": True, "plan_code": payload.plan_code}
 
 
 @router.get("/status")
 async def estado(token: str, request: Request):
-    """Consultado pela tela "estamos confirmando sua assinatura". A conta so vira ativa
-    pelo webhook — este endpoint apenas LE o estado, nunca o promove."""
+    """Consultado pela tela "estamos confirmando sua assinatura".
+
+    Apenas LE o estado. Quem promove a conta e o webhook, depois de conferir a assinatura
+    na API do Mercado Pago: voltar do checkout, sozinho, nao prova pagamento nenhum."""
     db = request.app.state.db
     tentativa = await _por_token(db, token)
     assinatura = None
@@ -290,50 +340,14 @@ async def estado(token: str, request: Request):
 
     pronto = bool(assinatura and assinatura.get("status") == "active")
     if pronto and tentativa.get("status") != ATIVO:
-        # O webhook ja confirmou: liberamos a criacao de senha com token de uso unico.
-        ativacao = secrets.token_urlsafe(32)
-        await db.signup_attempts.update_one({"signup_token": token}, {"$set": {
-            "status": ATIVO, "activation_token": ativacao,
-            "activation_expires_at": _iso(
-                _agora() + timedelta(minutes=VALIDADE_DO_TOKEN_DE_ATIVACAO_MIN)),
-            "updated_at": _iso(_agora())}})
+        await db.signup_attempts.update_one(
+            {"signup_token": token},
+            {"$set": {"status": ATIVO, "updated_at": _iso(_agora())}})
         tentativa = await db.signup_attempts.find_one({"signup_token": token}, {"_id": 0})
 
     return {"status": tentativa.get("status"),
             "plan_code": tentativa.get("plan_code"),
             "subscription_status": (assinatura or {}).get("status"),
-            "activation_token": tentativa.get("activation_token") if pronto else None,
+            "ready": pronto,
             "message": ("Estamos confirmando sua assinatura com o Mercado Pago."
                         if tentativa.get("status") == AGUARDANDO_PAGAMENTO else None)}
-
-
-@router.post("/activate")
-async def ativar(payload: ActivateIn, request: Request):
-    """Cria a senha e entra. O token e curto, de uso unico e expira — e invalidado aqui
-    mesmo, para um link vazado depois nao valer nada."""
-    db = request.app.state.db
-    tentativa = await db.signup_attempts.find_one({"activation_token": payload.token})
-    if not tentativa or tentativa.get("status") != ATIVO:
-        raise HTTPException(400, "Link de ativação inválido ou já utilizado")
-    limite = _quando(tentativa.get("activation_expires_at"))
-    if not limite or _agora() > limite:
-        raise HTTPException(410, "Link de ativação expirado. Peça um novo.")
-
-    assinatura = await db.subscriptions.find_one({"user_id": tentativa["user_id"]}, {"_id": 0})
-    if not assinatura or assinatura.get("status") != "active":
-        # Cinto e suspensorio: sem assinatura confirmada, nao ha ativacao.
-        raise HTTPException(409, "Assinatura ainda não confirmada")
-
-    await db.users.update_one({"id": tentativa["user_id"]}, {"$set": {
-        "password_hash": hash_password(payload.password),
-        "status": "ACTIVE",
-        "plan": assinatura.get("plan_code"),
-        "activated_at": _iso(_agora())}})
-    await db.signup_attempts.update_one(
-        {"activation_token": payload.token},
-        {"$set": {"activation_token": None, "activated_at": _iso(_agora())}})
-
-    user = await db.users.find_one({"id": tentativa["user_id"]})
-    logger.info("cadastro publico concluido user=%s plano=%s",
-                user["id"], assinatura.get("plan_code"))
-    return {"token": create_token(user["id"], user["role"]), "user": sanitize(user)}
