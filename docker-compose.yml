@@ -22,6 +22,25 @@ services:
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       # Front e API na mesma origem: CORS deixa de existir como problema.
       CORS_ORIGINS: ${CORS_ORIGINS:-*}
+      # --- Cobranca e e-mail ---------------------------------------------------------
+      # Variavel definida no painel do Coolify que NAO estiver listada aqui simplesmente
+      # nao entra no container: o compose declara o que passa. Todas usam ":-" (opcional,
+      # vazio por padrao) e nao ":?" (obrigatorio) para o app continuar subindo sem elas —
+      # que e exatamente o estado enquanto a cobranca nao esta configurada.
+      MP_ENVIRONMENT: ${MP_ENVIRONMENT:-sandbox}
+      MP_ACCESS_TOKEN: ${MP_ACCESS_TOKEN:-}
+      MP_WEBHOOK_SECRET: ${MP_WEBHOOK_SECRET:-}
+      MP_ESSENTIAL_PLAN_ID: ${MP_ESSENTIAL_PLAN_ID:-}
+      MP_PRO_PLAN_ID: ${MP_PRO_PLAN_ID:-}
+      MP_ELITE_PLAN_ID: ${MP_ELITE_PLAN_ID:-}
+      FORGE_SITE_URL: ${FORGE_SITE_URL:-https://forge.aiexec.com.br}
+      # Padroes conservadores: sem estas definidas, ninguem e bloqueado por falta de
+      # assinatura e o cadastro publico continua desligado.
+      BILLING_ENFORCED: ${BILLING_ENFORCED:-false}
+      BILLING_GRANDFATHER_BEFORE: ${BILLING_GRANDFATHER_BEFORE:-}
+      PUBLIC_SIGNUP_ENABLED: ${PUBLIC_SIGNUP_ENABLED:-false}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      FORGE_EMAIL_FROM: ${FORGE_EMAIL_FROM:-}
     expose:
       - "8000"
     healthcheck:
