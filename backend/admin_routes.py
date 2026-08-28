@@ -1,4 +1,6 @@
 ﻿"""FORGE admin router: athlete management, audit log, AI usage."""
+import re
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, EmailStr, Field
 from datetime import datetime, timedelta, timezone
@@ -100,7 +102,10 @@ async def list_athletes(request: Request, admin=Depends(require_super_admin), st
     query: Dict[str, Any] = {"role": "ATHLETE"}
     if status: query["status"] = status.upper()
     if q:
-        query["$or"] = [{"email": {"$regex": q, "$options": "i"}}, {"name": {"$regex": q, "$options": "i"}}]
+        # re.escape: sem isto, uma busca como "(a+)+$" vira regex catastrofico e
+        # trava a consulta. E rota administrativa, mas o custo de escapar e zero.
+        alvo = re.escape(q.strip())[:80]
+        query["$or"] = [{"email": {"$regex": alvo, "$options": "i"}}, {"name": {"$regex": alvo, "$options": "i"}}]
     rows = await db.users.find(query, {"_id": 0, "password_hash": 0, "invite_token": 0}).sort("created_at", -1).to_list(500)
     return {"athletes": rows}
 

@@ -20,7 +20,9 @@ pymongo==4.6.3
 pytest-xdist>=3.6.0
 pytest>=8.0.0
 python-dotenv>=1.0.1
-python-jose>=3.3.0
+# python-jose removido: nao era importado em lugar nenhum (a autenticacao usa PyJWT)
+# e arrastava ecdsa, com falha de temporizacao Minerva sem correcao disponivel
+# (PYSEC-2026-1325). Dependencia morta e superficie de ataque de graca.
 python-multipart>=0.0.9
 requests-oauthlib>=2.0.0
 requests>=2.31.0

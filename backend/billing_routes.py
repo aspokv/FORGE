@@ -19,6 +19,7 @@ from billing_plans import (
     FREQUENCIA, MOEDA, TIPO_DE_FREQUENCIA, catalogo_publico, mp_plan_id, plano_ativo,
     preco_em_reais,
 )
+from ratelimit import limitar
 from entitlements import (
     ATIVA, CANCELADA, EM_ATRASO, ORIGEM_MERCADOPAGO, acesso_de, assinatura_do_usuario,
     cobranca_ativa,
@@ -26,6 +27,11 @@ from entitlements import (
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/billing", tags=["billing"])
+
+# Abrir o checkout de novo e legitimo (trocar de plano, cartao recusado, aba fechada).
+# O teto so precisa impedir automacao.
+MAX_CHECKOUTS_POR_JANELA = 10
+JANELA_DO_CHECKOUT_MIN = 15
 
 # Sobrescrevivel nos testes, para exercitar o fluxo inteiro sem rede nem credencial.
 _cliente: Optional[billing.ClienteMercadoPago] = None
@@ -185,6 +191,12 @@ async def iniciar_assinatura(db, user_id: str, email: str, plan_code: str) -> Di
 @router.post("/checkout")
 async def criar_checkout(payload: CheckoutIn, request: Request, user=Depends(get_current_user)):
     db = request.app.state.db
+    # Cada checkout cria uma assinatura de verdade na conta do Mercado Pago. Sem teto,
+    # um laco deixaria centenas de pre-aprovacoes pendentes la — barulho num sistema
+    # financeiro, e trabalho de limpeza que ninguem quer.
+    await limitar(db, f"checkout:{user['id']}", MAX_CHECKOUTS_POR_JANELA, JANELA_DO_CHECKOUT_MIN,
+                  mensagem="Muitas tentativas de pagamento. Aguarde alguns minutos.")
+
     p = plano_ativo(payload.plan_code)
     if not p:
         raise HTTPException(400, "Plano inválido")

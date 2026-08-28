@@ -4,7 +4,7 @@ ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
 
 from fastapi import FastAPI, APIRouter, HTTPException, UploadFile, File, Form, Depends, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field
@@ -39,7 +39,22 @@ from engine import (
 
 client = AsyncIOMotorClient(os.environ["MONGO_URL"])
 db = client[os.environ["DB_NAME"]]
-app = FastAPI(title="FORGE Training OS")
+def _docs_ligadas() -> bool:
+    """A documentacao interativa fica DESLIGADA por padrao.
+
+    /docs e /openapi.json descrevem a API inteira: cada rota, cada modelo, cada nome de
+    campo. Isso e um mapa para quem estiver procurando o que atacar, e nao serve a nenhum
+    usuario do produto. Quem precisar liga FORGE_ENABLE_DOCS=true num ambiente que nao
+    seja o de producao."""
+    return (os.environ.get("FORGE_ENABLE_DOCS") or "").strip().lower() in ("1", "true", "yes")
+
+
+app = FastAPI(
+    title="FORGE Training OS",
+    docs_url="/docs" if _docs_ligadas() else None,
+    redoc_url="/redoc" if _docs_ligadas() else None,
+    openapi_url="/openapi.json" if _docs_ligadas() else None,
+)
 app.state.db = db
 api = APIRouter(prefix="/api")
 logger = logging.getLogger("forge")
@@ -468,18 +483,56 @@ async def analyze_physique(image_bytes: bytes, mime_type: str, views: list) -> d
         return {"status": "error", "message": f"Falha na an\u00e1lise visual: {str(e)[:200]}", "observations": {}, "suggested_priorities": [], "limitations": ["Erro interno do modelo."]}
 
 
+# Tipos que o modelo de visao aceita. Allowlist, e nao lista de bloqueio: o que nao
+# estiver aqui e recusado, inclusive o que ainda nem existe.
+MIMES_DE_FOTO = {"image/jpeg", "image/jpg", "image/png", "image/webp"}
+# Assinatura real do arquivo. O content-type vem do cliente e nao prova nada; estes
+# primeiros bytes provam.
+ASSINATURAS_DE_IMAGEM = (b"\xff\xd8\xff", b"\x89PNG\r\n\x1a\n", b"RIFF")
+LIMITE_DA_FOTO = 8 * 1024 * 1024
+
+
+def _nome_seguro(nome: Optional[str]) -> str:
+    """Nome de arquivo do cliente nunca e usado como caminho, mas ele volta na resposta e
+    fica no banco. Guardar so o basename, sem separador e curto, evita que ele vire
+    caminho em algum consumidor futuro."""
+    base = os.path.basename((nome or "").replace("\\", "/"))
+    limpo = "".join(c for c in base if c.isalnum() or c in "._- ")[:80]
+    return limpo or "foto"
+
+
 @api.post("/visual-assessment")
 async def visual_assessment(user=Depends(get_current_user), profile_id: str = Form(...), consent: bool = Form(...), views: str = Form(""), photos: List[UploadFile] = File(default=[])):
     target = user["id"] if user.get("role") == "ATHLETE" else profile_id
+    try:
+        vistas = json.loads(views or "[]")
+        if not isinstance(vistas, list):
+            raise ValueError("views deve ser uma lista")
+        vistas = [str(v)[:40] for v in vistas[:6]]
+    except (ValueError, TypeError):
+        # Antes isto subia como 500. E entrada do cliente: recusar e a resposta certa.
+        raise HTTPException(400, "Campo 'views' inválido")
+
     record = {
         "id": str(uuid.uuid4()), "profile_id": target, "user_id": target,
-        "consent": consent, "views": json.loads(views or "[]"),
-        "files": [p.filename for p in photos],
+        "consent": consent, "views": vistas,
+        "files": [_nome_seguro(p.filename) for p in photos],
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     if photos and photos[0].filename:
-        contents = await photos[0].read()
-        mime = photos[0].content_type or "image/jpeg"
+        mime = (photos[0].content_type or "").split(";")[0].strip().lower()
+        if mime not in MIMES_DE_FOTO:
+            raise HTTPException(415, {"message": "Envie uma imagem JPEG, PNG ou WebP.",
+                                      "reason": "unsupported_media_type"})
+        # Le com teto: sem isto, o arquivo inteiro entra em memoria antes de qualquer
+        # verificacao, e o tamanho so seria conferido depois do estrago.
+        contents = await photos[0].read(LIMITE_DA_FOTO + 1)
+        if len(contents) > LIMITE_DA_FOTO:
+            raise HTTPException(413, {"message": "Imagem acima de 8 MB.",
+                                      "reason": "payload_too_large"})
+        if not contents.startswith(ASSINATURAS_DE_IMAGEM):
+            raise HTTPException(415, {"message": "O arquivo enviado não é uma imagem.",
+                                      "reason": "not_an_image"})
         analysis = await analyze_physique(contents, mime, record["views"])
     else:
         analysis = {"status": "unavailable", "message": "Nenhuma foto enviada.", "observations": {}, "suggested_priorities": []}
@@ -815,7 +868,64 @@ app.include_router(billing_router)
 app.include_router(signup_router)
 app.include_router(preassessment_router)
 app.include_router(api)
-app.add_middleware(CORSMiddleware, allow_credentials=True, allow_origins=os.environ.get("CORS_ORIGINS", "*").split(","), allow_methods=["*"], allow_headers=["*"])
+def _origens_permitidas() -> List[str]:
+    """Allowlist exata de origens.
+
+    O padrao anterior era "*" junto com allow_credentials=True, combinacao que a propria
+    especificacao de CORS proibe. Como o FORGE autentica por Bearer no cabecalho (e nao
+    por cookie), o navegador nao mandava credencial sozinho e o estrago pratico era
+    pequeno — mas "*" abre a API inteira para qualquer site fazer requisicao, e nao ha
+    motivo: o frontend e servido pelo MESMO dominio, atraves do nginx, entao no uso
+    normal nao existe requisicao cross-origin nenhuma.
+
+    Quem precisar de outra origem (um app, um ambiente de teste) lista em CORS_ORIGINS,
+    separado por virgula. "*" e recusado de proposito."""
+    bruto = (os.environ.get("CORS_ORIGINS") or "").strip()
+    site = (os.environ.get("FORGE_SITE_URL") or "https://forge.aiexec.com.br").rstrip("/")
+    origens = [o.strip().rstrip("/") for o in bruto.split(",") if o.strip() and o.strip() != "*"]
+    if bruto == "*":
+        logger.warning("CORS_ORIGINS='*' ignorado: allowlist exige origens explicitas")
+    if site not in origens:
+        origens.append(site)
+    return origens
+
+
+# ── Limite de tamanho do corpo ───────────────────────────────────────────────────────
+# O nginx ja corta em 25 MB, mas esse teto existe para a foto do visual assessment. Um
+# corpo JSON de 25 MB continuaria sendo lido e desserializado inteiro em memoria, e a
+# versao de starlette em uso tem falha conhecida de bufferizar campo de formulario sem
+# limite (PYSEC-2026-1943). Recusar cedo, pelo Content-Length, custa quase nada.
+LIMITE_DE_CORPO = 1 * 1024 * 1024          # 1 MB para qualquer rota
+LIMITE_DE_UPLOAD = 8 * 1024 * 1024         # 8 MB onde ha foto de verdade
+ROTAS_COM_UPLOAD = ("/api/visual-assessment",)
+
+
+@app.middleware("http")
+async def limitar_tamanho_do_corpo(request: Request, call_next):
+    declarado = request.headers.get("content-length")
+    if declarado:
+        try:
+            tamanho = int(declarado)
+        except ValueError:
+            return JSONResponse({"detail": "Content-Length inválido"}, status_code=400)
+        caminho = request.url.path
+        teto = (LIMITE_DE_UPLOAD if any(caminho.startswith(r) for r in ROTAS_COM_UPLOAD)
+                else LIMITE_DE_CORPO)
+        if tamanho > teto:
+            logger.warning("corpo recusado por tamanho: %s bytes em %s", tamanho, caminho)
+            return JSONResponse(
+                {"detail": {"message": "Conteúdo grande demais.", "reason": "payload_too_large"}},
+                status_code=413)
+    return await call_next(request)
+
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_credentials=True,
+    allow_origins=_origens_permitidas(),
+    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Requested-With"],
+)
 
 
 @app.on_event("startup")

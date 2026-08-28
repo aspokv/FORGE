@@ -1,4 +1,4 @@
-"""Rotas da pre-avaliacao do funil publico.
+﻿"""Rotas da pre-avaliacao do funil publico.
 
 Alcancaveis por quem ainda nao pagou — sao das poucas que estao em
 `ROTAS_LIBERADAS_SEM_PAGAMENTO`. Por isso valem duas precaucoes que nao seriam
@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 
 import preassessment as pa
 from auth import get_current_user
+from ratelimit import limitar
 from billing_plans import capacidades_do_plano, plano_ativo
 from entitlements import acesso_de
 
@@ -59,29 +60,9 @@ def _plano_em_questao(user: Dict[str, Any], acesso: Dict[str, Any]) -> Optional[
 
 
 async def _limitar(db, user_id: str) -> None:
-    chave = f"preassessment:{user_id}"
-    agora = _agora()
-    registro = await db.rate_limits.find_one({"key": chave})
-    inicio = None
-    if registro and registro.get("window_start"):
-        try:
-            inicio = datetime.fromisoformat(registro["window_start"])
-        except ValueError:
-            inicio = None
-
-    if inicio is None or agora - inicio > timedelta(minutes=JANELA_MINUTOS):
-        await db.rate_limits.update_one(
-            {"key": chave},
-            {"$set": {"window_start": _iso(agora), "count": 1}}, upsert=True)
-        return
-
-    if int(registro.get("count", 0)) >= MAX_GRAVACOES_POR_JANELA:
-        logger.warning("pre-avaliacao: limite de taxa atingido user=%s", user_id)
-        raise HTTPException(429, {
-            "message": "Muitas alterações seguidas. Aguarde um instante.",
-            "reason": "rate_limited"})
-
-    await db.rate_limits.update_one({"key": chave}, {"$inc": {"count": 1}})
+    await limitar(db, f"preassessment:{user_id}", MAX_GRAVACOES_POR_JANELA,
+                  JANELA_MINUTOS,
+                  mensagem="Muitas alterações seguidas. Aguarde um instante.")
 
 
 def _resposta(user: Dict[str, Any], p: Optional[Dict[str, Any]], caps: set,
