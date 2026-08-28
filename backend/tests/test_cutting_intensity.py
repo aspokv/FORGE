@@ -126,12 +126,18 @@ def test_perfil_legado_sem_intensidade_mantem_o_calculo_antigo():
     assert "cut_protocol" not in antes
 
 
-def test_intensidade_e_ignorada_fora_do_emagrecimento():
-    for goal in ("muscle_gain", "maintenance"):
-        assert resolve_cut_protocol(goal, "agressivo") is None
-        com = compute_macro_targets(W, H, AGE, "male", DAYS, goal, "moderate", "agressivo")
-        sem = compute_macro_targets(W, H, AGE, "male", DAYS, goal, "moderate")
-        assert com == sem
+def test_intensidade_e_ignorada_na_manutencao():
+    """Manter e recompor e um caminho so: nao tem leve/moderado/agressivo."""
+    assert resolve_cut_protocol("maintenance", "agressivo") is None
+    com = compute_macro_targets(W, H, AGE, "male", DAYS, "maintenance", "moderate", "agressivo")
+    sem = compute_macro_targets(W, H, AGE, "male", DAYS, "maintenance", "moderate")
+    assert com == sem
+
+
+def test_protocolo_de_cutting_nao_atravessa_para_o_ganho():
+    """resolve_cut_protocol so responde por emagrecimento — o ganho tem o proprio ritmo,
+    resolvido por resolve_intensity_protocol."""
+    assert resolve_cut_protocol("muscle_gain", "agressivo") is None
 
 
 def test_intensidade_desconhecida_cai_no_legado_em_vez_de_quebrar():

@@ -18,6 +18,7 @@ from llm_providers import get_coach_provider, FORGE_COACH_SYSTEM
 from auth import router as auth_router, get_current_user, seed_super_admin
 from admin_routes import router as admin_router
 from nutrition_routes import router as nutrition_router
+from nutrition_engine import resolve_intensity_protocol
 from manual_workout_routes import router as manual_workout_router
 from nutrition_import_routes import router as nutrition_import_router
 from muscles import (
@@ -87,10 +88,14 @@ class DeepAssessment(BaseModel):
     consistency_years: float = 0
     experience: str = "Intermediário"
     goal: str = "Hipertrofia"
-    # Transporte apenas: a intensidade de emagrecimento escolhida no onboarding NAO vira
-    # um campo proprio do perfil. save_assessment a grava em nutrition_assessment.intensity,
-    # que ja e a fonte de verdade usada por compute_macro_targets — um segundo campo
-    # concorrente deixaria onboarding e Alimentacao discordarem entre si.
+    # Transporte apenas: objetivo corporal e ritmo escolhidos no onboarding NAO viram
+    # campos proprios do perfil. save_assessment os grava em nutrition_assessment
+    # (goal/intensity), que ja e a fonte de verdade usada por compute_macro_targets — um
+    # segundo campo concorrente deixaria onboarding e Alimentacao discordarem entre si.
+    # body_goal: "muscle_gain" | "fat_loss" | "maintenance" (o enum que ja existia).
+    body_goal: Optional[str] = None
+    goal_intensity: Optional[str] = None
+    # nome anterior do mesmo transporte; aceito para nao quebrar uma aba aberta durante o deploy
     cut_intensity: Optional[str] = None
     secondary_goal: str = ""
     days: int = 3
@@ -236,6 +241,10 @@ async def bootstrap(user=Depends(get_current_user), profile_id: Optional[str] = 
     return {"profile": profile, "program": program, "exercises": EXERCISES, "muscles": MUSCLES, "techniques": TECHNIQUES, "recent_sets": recent, "demo": target == "demo", "current_user": {"id": user["id"], "email": user["email"], "role": user["role"], "name": user.get("name"), "plan": user.get("plan"), "status": user.get("status"), "expires_at": user.get("expires_at")}}
 
 
+# Objetivos corporais aceitos — os mesmos ids que NutritionAssessmentIn.goal ja usava.
+BODY_GOALS = ("muscle_gain", "fat_loss", "maintenance")
+
+
 # Objetivo de treino que corresponde a emagrecer/definir. O valor gravado continua sendo
 # o mesmo de sempre ("Recomposicao"/"Recomposição"); so o rotulo na tela mudou.
 def _is_fat_loss_goal(goal: str) -> bool:
@@ -247,7 +256,10 @@ def _is_fat_loss_goal(goal: str) -> bool:
 async def save_assessment(assessment: DeepAssessment, user=Depends(get_current_user)):
     target = user["id"] if user.get("role") == "ATHLETE" else assessment.profile_id
     doc = assessment.model_dump()
-    escolha_cut = doc.pop("cut_intensity", None)  # transporte, nao campo do perfil
+    # transportes: saem do documento, nao viram campo do perfil
+    body_goal = doc.pop("body_goal", None)
+    escolha_ritmo = doc.pop("goal_intensity", None) or doc.pop("cut_intensity", None)
+    doc.pop("cut_intensity", None)
     doc["id"] = target
     doc["user_id"] = target
     doc["assessment_version"] = 2
@@ -257,12 +269,20 @@ async def save_assessment(assessment: DeepAssessment, user=Depends(get_current_u
     # refazia a avaliacao de treino. Ele e carregado adiante de proposito.
     anterior = await db.profiles.find_one({"id": target}, {"_id": 0, "nutrition_assessment": 1})
     nutricao = dict((anterior or {}).get("nutrition_assessment") or {})
-    if escolha_cut and _is_fat_loss_goal(assessment.goal):
-        # Mesma fonte de verdade da area de Alimentacao. A intensidade so faz sentido com
-        # objetivo alimentar de perda de gordura, entao ele e semeado junto — a area de
-        # Alimentacao continua podendo trocar os dois explicitamente depois.
-        nutricao["intensity"] = escolha_cut
+    if body_goal in BODY_GOALS:
+        # Mesma fonte de verdade da area de Alimentacao, que continua podendo trocar os
+        # dois explicitamente depois.
+        nutricao["goal"] = body_goal
+        # O ritmo e validado NO CONTEXTO do objetivo: resolve_intensity_protocol devolve
+        # None para combinacao invalida ("leve" num ganho, qualquer ritmo na manutencao),
+        # entao trocar de objetivo nunca deixa o ritmo anterior ativo por engano.
+        protocolo = resolve_intensity_protocol(body_goal, escolha_ritmo)
+        nutricao["intensity"] = protocolo["intensity"] if protocolo else None
+    elif escolha_ritmo and _is_fat_loss_goal(assessment.goal):
+        # Caminho anterior (cliente que ainda envia so cut_intensity com goal de treino)
         nutricao["goal"] = "fat_loss"
+        protocolo = resolve_intensity_protocol("fat_loss", escolha_ritmo)
+        nutricao["intensity"] = protocolo["intensity"] if protocolo else None
     if nutricao:
         doc["nutrition_assessment"] = nutricao
 

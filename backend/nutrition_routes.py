@@ -147,24 +147,51 @@ async def get_assessment(request: Request, user=Depends(get_current_user)):
     return {"assessment": na or None, "complete": _assessment_completo(na)}
 
 
+def _opcoes_de_intensidade(nome_do_conjunto):
+    cfg = FORGE_COACH_METHODOLOGY[nome_do_conjunto]
+    return [
+        {"id": k, "label": v["label"], "description": v["description"],
+         "recommended": bool(v.get("recommended")), "advanced": bool(v.get("advanced")),
+         "warning": v.get("warning"),
+         # negativo = deficit, positivo = superavit; a interface so precisa do numero
+         "delta_pct": round((v["kcal_pct"] - 1) * 100),
+         "protein_g_per_kg": v["protein_g_per_kg"],
+         "carb_range_g": ([v["carb_min_g"], v["carb_max_g"]]
+                          if v.get("carb_mode") == "capped" else None)}
+        for k, v in cfg.items()
+    ]
+
+
+@router.get("/goal-catalog")
+async def goal_catalog(_user=Depends(get_current_user)):
+    """Objetivos corporais e os ritmos de cada um, numa chamada so.
+
+    A secao "Objetivo" do onboarding trata apenas do objetivo corporal/alimentar:
+    desempenho e prioridade muscular sao outras etapas. Manutencao nao tem ritmo."""
+    conjuntos = {"muscle_gain": "bulking_intensity", "fat_loss": "cutting_intensity"}
+    padroes = {"muscle_gain": FORGE_COACH_METHODOLOGY["bulking_intensity_default"],
+               "fat_loss": FORGE_COACH_METHODOLOGY["cutting_intensity_default"]}
+    return {
+        "protocol_version": FORGE_COACH_METHODOLOGY["cut_protocol_version"],
+        "goals": [
+            {**g,
+             "default_intensity": padroes.get(g["id"]),
+             "intensities": _opcoes_de_intensidade(conjuntos[g["id"]]) if g["id"] in conjuntos else []}
+            for g in FORGE_COACH_METHODOLOGY["body_goals"]
+        ],
+    }
+
+
 @router.get("/cutting-intensities")
 async def cutting_intensities(_user=Depends(get_current_user)):
     """Catalogo das intensidades de emagrecimento. A UI monta os cards a partir daqui em
     vez de repetir rotulo, descricao e aviso — a metodologia continua com uma fonte so."""
-    cfg = FORGE_COACH_METHODOLOGY["cutting_intensity"]
+    opcoes = _opcoes_de_intensidade("cutting_intensity")
     return {
         "default": FORGE_COACH_METHODOLOGY["cutting_intensity_default"],
         "protocol_version": FORGE_COACH_METHODOLOGY["cut_protocol_version"],
-        "options": [
-            {"id": k, "label": v["label"], "description": v["description"],
-             "recommended": bool(v.get("recommended")), "advanced": bool(v.get("advanced")),
-             "warning": v.get("warning"),
-             "deficit_pct": round((1 - v["kcal_pct"]) * 100),
-             "protein_g_per_kg": v["protein_g_per_kg"],
-             "carb_range_g": ([v["carb_min_g"], v["carb_max_g"]]
-                              if v.get("carb_mode") == "capped" else None)}
-            for k, v in cfg.items()
-        ],
+        # deficit_pct e mantido (positivo) para nao quebrar quem ja consome este endpoint
+        "options": [{**o, "deficit_pct": -o["delta_pct"]} for o in opcoes],
     }
 
 

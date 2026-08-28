@@ -64,6 +64,45 @@ FORGE_COACH_METHODOLOGY = {
             "warning": "Protocolo extremo e temporario. Pode reduzir energia, desempenho no treino, recuperacao e hidratacao.",
         },
     },
+    # -- Ritmos de ganho de massa ------------------------------------------------------
+    # Mesma estrutura das intensidades de emagrecimento. O carboidrato continua sendo o
+    # macro residual (carb_mode "residual"): ganho nao precisa de teto, precisa de
+    # disponibilidade energetica. Nenhum motor de calculo novo — sao os mesmos
+    # protein_range/fat_range de sempre, so com o percentual calorico variando.
+    "bulking_intensity": {
+        "controlado": {
+            "label": "Controlado", "kcal_pct": 1.065, "protein_g_per_kg": 1.8,
+            "carb_mode": "residual", "recommended": True,
+            "description": "Ganho gradual, com maior controle do acumulo de gordura.",
+        },
+        "moderado": {
+            "label": "Moderado", "kcal_pct": 1.125, "protein_g_per_kg": 1.9,
+            "carb_mode": "residual",
+            "description": "Mais calorias para acelerar o ganho de peso e massa muscular.",
+        },
+        "agressivo": {
+            "label": "Agressivo/Atleta", "kcal_pct": 1.175, "protein_g_per_kg": 2.0,
+            "carb_mode": "residual", "advanced": True,
+            "description": "Estrategia avancada com superavit elevado para maximizar peso, forca e volume.",
+            "warning": "Estrategia avancada. O aumento acelerado de calorias tambem pode elevar o ganho de gordura.",
+        },
+    },
+    "bulking_intensity_default": "controlado",
+    # -- Objetivo corporal/alimentar ----------------------------------------------------
+    # A secao "Objetivo" do onboarding trata SO disto. Objetivo de treino (performance) e
+    # prioridade muscular sao outras etapas e nao aparecem aqui. Os tres ids sao os
+    # valores que NutritionAssessmentIn.goal ja aceitava — nenhum enum novo.
+    "body_goals": [
+        {"id": "muscle_gain", "label": "Ganhar massa muscular",
+         "description": "Aumente massa muscular, forca e volume corporal com alimentacao e treino direcionados.",
+         "intensity_question": "Qual ritmo de ganho voce deseja?"},
+        {"id": "fat_loss", "label": "Emagrecer e definir",
+         "description": "Reduza gordura preservando o maximo possivel de massa muscular.",
+         "intensity_question": "Qual intensidade de emagrecimento voce deseja?"},
+        {"id": "maintenance", "label": "Manter e recompor",
+         "description": "Mantenha o peso enquanto melhora gradualmente a proporcao entre massa muscular e gordura.",
+         "intensity_question": None},
+    ],
     "cutting_intensity_default": "moderado",
     "cut_protocol_version": "cut-v1",
     "macro_tolerance_g": {"protein": 5, "carbs": 10, "fat": 5},
@@ -81,7 +120,11 @@ FORGE_COACH_METHODOLOGY = {
     "daily_guardrails": {
         "fat_loss": {"min_total_kcal_pct": 0.70, "max_total_kcal_pct": 0.90, "min_protein_g_per_kg": 1.8, "min_fat_g_per_kg": 0.6},
         "maintenance": {"min_total_kcal_pct": 0.90, "max_total_kcal_pct": 1.05, "min_protein_g_per_kg": 1.4, "min_fat_g_per_kg": 0.7},
-        "muscle_gain": {"min_total_kcal_pct": 1.02, "max_total_kcal_pct": 1.15, "min_protein_g_per_kg": 1.6, "min_fat_g_per_kg": 0.7},
+        # max ampliado de 1.15 para 1.20 por causa do ritmo agressivo de ganho (+17,5%):
+        # evaluate_goal_directional_substitution exige que goal_calories caiba dentro de
+        # [min,max]*tdee, e 1.15 nao deixava folga nenhuma. So afeta o teto de substituicao
+        # em muscle_gain; o legado (superavit 1.12) continua bem dentro da faixa.
+        "muscle_gain": {"min_total_kcal_pct": 1.02, "max_total_kcal_pct": 1.20, "min_protein_g_per_kg": 1.6, "min_fat_g_per_kg": 0.7},
     },
     "meal_distribution": {
         3: [0.30, 0.35, 0.35], 4: [0.25, 0.30, 0.20, 0.25],
@@ -492,6 +535,11 @@ def calculate_fat_target(w, goal):
 def calculate_carb_target(gc, pg, fg):
     return round(max(0, (gc - pg*4 - fg*9)/4), 1)
 
+# Qual conjunto de intensidades vale para cada objetivo. Maintenance nao tem ritmo:
+# manter e recompor e um so caminho, sem leve/moderado/agressivo.
+INTENSITY_SET_BY_GOAL = {"fat_loss": "cutting_intensity", "muscle_gain": "bulking_intensity"}
+
+
 def _intensity_key(intensity):
     """Normaliza a intensidade escolhida. Devolve None para perfil legado (sem escolha),
     que segue no caminho automatico antigo de calculate_goal_calories."""
@@ -500,6 +548,8 @@ def _intensity_key(intensity):
         return None
     if v.startswith("lev") or v == "light":
         return "leve"
+    if v.startswith("contro"):
+        return "controlado"
     if v.startswith("mod"):
         return "moderado"
     if v.startswith("agr") or v.startswith("atl") or v in ("aggressive", "athlete", "extreme"):
@@ -507,19 +557,39 @@ def _intensity_key(intensity):
     return None
 
 
-def resolve_cut_protocol(goal, intensity):
-    """Protocolo de emagrecimento efetivo, ou None.
+def default_intensity_for(goal):
+    """Padrao por objetivo. Agressivo nunca e padrao de nada."""
+    gk = _goal_key(goal)
+    if gk == "fat_loss":
+        return FORGE_COACH_METHODOLOGY["cutting_intensity_default"]
+    if gk == "muscle_gain":
+        return FORGE_COACH_METHODOLOGY["bulking_intensity_default"]
+    return None
 
-    So existe para fat_loss: 'emagrecimento leve' num bulk nao significa nada, entao a
-    intensidade e deliberadamente ignorada nos outros objetivos."""
-    if _goal_key(goal) != "fat_loss":
+
+def resolve_intensity_protocol(goal, intensity):
+    """Protocolo efetivo do objetivo (emagrecer OU ganhar), ou None.
+
+    A intensidade e validada NO CONTEXTO do objetivo: "leve" so existe em emagrecimento e
+    "controlado" so existe em ganho, entao um valor herdado da troca de objetivo nao
+    atravessa para o outro lado. Manutencao nunca tem protocolo."""
+    gk = _goal_key(goal)
+    nome_do_conjunto = INTENSITY_SET_BY_GOAL.get(gk)
+    if not nome_do_conjunto:
         return None
     key = _intensity_key(intensity)
-    if key is None:
+    conjunto = FORGE_COACH_METHODOLOGY[nome_do_conjunto]
+    if key is None or key not in conjunto:
         return None
-    cfg = FORGE_COACH_METHODOLOGY["cutting_intensity"][key]
-    return {"intensity": key,
-            "protocol_version": FORGE_COACH_METHODOLOGY["cut_protocol_version"], **cfg}
+    return {"intensity": key, "goal_key": gk,
+            "protocol_version": FORGE_COACH_METHODOLOGY["cut_protocol_version"],
+            **conjunto[key]}
+
+
+def resolve_cut_protocol(goal, intensity):
+    """Somente o protocolo de emagrecimento (mantido para quem so precisa do cutting)."""
+    protocolo = resolve_intensity_protocol(goal, intensity)
+    return protocolo if protocolo and protocolo["goal_key"] == "fat_loss" else None
 
 
 def carb_ceiling_for(protocol):
@@ -529,9 +599,10 @@ def carb_ceiling_for(protocol):
     return float(protocol["carb_max_g"])
 
 
-def _targets_for_cut_protocol(bmr, af, tdee, w, protocol):
+def _targets_for_protocol(bmr, af, tdee, w, protocol):
     m = FORGE_COACH_METHODOLOGY
-    guard = m["daily_guardrails"]["fat_loss"]
+    gk = protocol.get("goal_key", "fat_loss")
+    guard = m["daily_guardrails"][gk]
     pg = round(w * protocol["protein_g_per_kg"], 1)
     kcal = tdee * protocol["kcal_pct"]
 
@@ -547,7 +618,9 @@ def _targets_for_cut_protocol(bmr, af, tdee, w, protocol):
             fg = fat_floor
             kcal = pg * 4 + cg * 4 + fg * 9
     else:
-        fg = calculate_fat_target(w, "fat_loss")
+        # Carboidrato segue sendo o macro residual — vale para leve/moderado e para os
+        # tres ritmos de ganho. Sao as mesmas regras de gordura de sempre.
+        fg = calculate_fat_target(w, gk)
         cg = max(0.0, (kcal - pg * 4 - fg * 9) / 4.0)
 
     pg, fg, cg, kcal = round(pg, 1), round(fg, 1), round(cg, 1), round(kcal, 0)
@@ -556,10 +629,12 @@ def _targets_for_cut_protocol(bmr, af, tdee, w, protocol):
             "protein_kcal": round(pg * 4), "fat_kcal": round(fg * 9), "carbs_kcal": round(cg * 4),
             # Vai junto no plano persistido (generate_daily_plan devolve targets), entao a
             # intensidade e os parametros do protocolo sobrevivem a refresh e a troca de
-            # aparelho sem precisar de colecao nova.
+            # aparelho sem precisar de colecao nova. O nome "cut_protocol" e historico —
+            # hoje ele carrega o protocolo do objetivo, seja emagrecer ou ganhar; manter o
+            # nome evita migrar os planos ja gravados. goal_key desambigua.
             "cut_protocol": {k: protocol[k] for k in
-                             ("intensity", "protocol_version", "label", "kcal_pct",
-                              "protein_g_per_kg", "carb_mode")
+                             ("intensity", "goal_key", "protocol_version", "label",
+                              "kcal_pct", "protein_g_per_kg", "carb_mode")
                              if k in protocol},
             "carb_ceiling_g": carb_ceiling_for(protocol)}
 
@@ -568,9 +643,9 @@ def compute_macro_targets(w, h, age, sex, td, goal, al="moderate", intensity=Non
     bmr = calculate_bmr(w,h,age,sex)
     af = calculate_activity_factor(td,al)
     tdee = calculate_tdee(bmr,af)
-    protocol = resolve_cut_protocol(goal, intensity)
+    protocol = resolve_intensity_protocol(goal, intensity)
     if protocol:
-        return _targets_for_cut_protocol(bmr, af, tdee, w, protocol)
+        return _targets_for_protocol(bmr, af, tdee, w, protocol)
     # Caminho legado (perfil sem intensidade escolhida): preservado byte a byte para nao
     # mexer no alvo calorico de quem ja tem plano gerado.
     # protein/fat are computed first — they're driven purely by bodyweight/goal, never by
