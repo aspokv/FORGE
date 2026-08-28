@@ -72,10 +72,16 @@ if (config.enableHealthCheck) {
 let webpackConfig = {
   eslint: {
     configure: {
+      // `configure` como objeto SUBSTITUI a config do react-scripts em vez de estende-la,
+      // entao so vale o que estiver declarado aqui. Sem `no-undef`, uma variavel que
+      // deixou de existir (ex.: um estado removido junto com uma etapa) compilava limpo e
+      // so estourava ReferenceError em runtime, com tela preta.
+      env: { browser: true, es2021: true, jest: true, node: true },
       extends: ["plugin:react-hooks/recommended"],
       rules: {
         "react-hooks/rules-of-hooks": "error",
         "react-hooks/exhaustive-deps": "warn",
+        "no-undef": "error",
       },
     },
   },
