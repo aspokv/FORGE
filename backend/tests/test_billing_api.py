@@ -1,4 +1,4 @@
-"""Cobranca ponta a ponta: checkout, webhook, idempotencia e permissoes.
+﻿"""Cobranca ponta a ponta: checkout, webhook, idempotencia e permissoes.
 
 Roda o app EM PROCESSO (transporte ASGI do httpx), o que permite injetar um Mercado
 Pago falso: o webhook, os estados, a tolerancia e a idempotencia sao exercitados de
@@ -65,18 +65,25 @@ class MercadoPagoFalso:
     async def criar_assinatura(self, corpo):
         if self.erro:
             raise self.erro
+        # Recusa igual a da API real: com `preapproval_plan_id` e sem cartao tokenizado, o
+        # Mercado Pago responde 400. O duble antigo aceitava qualquer corpo, e foi por isso
+        # que um checkout que nunca abriria em producao passou verde na suite inteira.
+        if corpo.get("preapproval_plan_id") and not corpo.get("card_token_id"):
+            import billing
+            raise billing.ErroMercadoPago(400, '{"message":"card_token_id is required"}')
         sid = f"mp-{uuid.uuid4().hex[:10]}"
         recurso = {
             "id": sid, "status": "pending",
-            "preapproval_plan_id": corpo["preapproval_plan_id"],
+            "preapproval_plan_id": corpo.get("preapproval_plan_id"),
             "external_reference": corpo["external_reference"],
             "payer_email": corpo["payer_email"],
             "init_point": f"https://mp/checkout/{sid}",
             "sandbox_init_point": f"https://mp/sandbox/{sid}",
             "date_created": _iso(_agora()),
             "next_payment_date": _iso(_agora() + timedelta(days=30)),
-            "auto_recurring": {"frequency": 1, "frequency_type": "months",
-                                "transaction_amount": 69.90, "currency_id": "BRL"},
+            # Ecoa o que foi enviado, como a API real — devolver um valor fixo esconderia
+            # justamente a divergencia que o webhook precisa detectar.
+            "auto_recurring": dict(corpo.get("auto_recurring") or {}),
         }
         self.assinaturas[sid] = recurso
         self.criadas.append(corpo)
@@ -231,10 +238,37 @@ async def test_o_preco_vem_da_allow_list_e_nao_do_cliente(mp):
             "preapproval_plan_id": "plan-do-atacante", "currency": "USD"})
     assert r.status_code == 200
     enviado = mp.criadas[-1]
-    assert enviado["preapproval_plan_id"] == "plan-elite"
+    assert enviado["auto_recurring"]["transaction_amount"] == 99.90
+    assert enviado["auto_recurring"]["currency_id"] == "BRL"
+    assert enviado["reason"] == "FORGE ELITE"
     tentativa = await DB.subscription_attempts.find_one({"reference": enviado["external_reference"]})
     assert tentativa["amount_cents"] == 9990
     assert tentativa["currency"] == "BRL"
+
+
+@asincrono
+async def test_o_checkout_usa_o_formato_hospedado_e_nao_o_que_exige_cartao(mp):
+    """Regressao do 400 "card_token_id is required".
+
+    Mandar `preapproval_plan_id` no POST /preapproval so funciona depois de tokenizar o
+    cartao — o que exigiria o FORGE encostar em dado de cartao. O checkout hospedado nasce
+    com `auto_recurring` explicito e `status: pending`, e e assim que o Mercado Pago
+    devolve um init_point. Este teste existe porque o defeito passou por toda a suite:
+    valores certos, plano certo, e um checkout que nunca abriria."""
+    for codigo, valor in (("essential", 39.90), ("pro", 69.90), ("elite", 99.90)):
+        _, h = await _criar_atleta(email=f"hospedado.{codigo}@example.com")
+        async with await _cliente() as c:
+            r = await c.post("/api/billing/checkout", json={"plan_code": codigo}, headers=h)
+        assert r.status_code == 200, f"{codigo}: {r.status_code} {r.text[:200]}"
+        enviado = mp.criadas[-1]
+        assert "preapproval_plan_id" not in enviado, codigo
+        assert enviado["status"] == "pending", codigo
+        rec = enviado["auto_recurring"]
+        assert rec["transaction_amount"] == valor, codigo
+        assert (rec["currency_id"], rec["frequency"], rec["frequency_type"]) == ("BRL", 1, "months")
+        # A referencia tem que sobreviver: e o unico fio que liga o pagamento ao atleta.
+        assert enviado["external_reference"].startswith("forge_"), codigo
+        assert r.json()["checkout_url"].startswith("https://"), codigo
 
 
 @asincrono

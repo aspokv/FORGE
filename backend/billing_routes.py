@@ -116,6 +116,9 @@ async def iniciar_assinatura(db, user_id: str, email: str, plan_code: str) -> Di
             "message": "A assinatura ainda não está disponível. Tente novamente em instantes.",
             "reason": "misconfigured"})
 
+    # O id nao entra na requisicao (veja o corpo abaixo), mas continua sendo a prova de que
+    # este plano foi provisionado na conta do Mercado Pago; sem isso o webhook tambem nao
+    # teria contra o que conferir o `preapproval_plan_id` quando ele vier preenchido.
     plan_id = mp_plan_id(p)
     if not plan_id:
         logger.error("checkout bloqueado: %s sem id de plano configurado (%s)",
@@ -131,12 +134,28 @@ async def iniciar_assinatura(db, user_id: str, email: str, plan_code: str) -> Di
         "status": "created", "created_at": _agora(),
     })
 
+    # Nao se manda `preapproval_plan_id` aqui. O Mercado Pago so aceita esse campo no POST
+    # quando o cartao JA foi tokenizado — sem ele responde 400 "card_token_id is required" —
+    # e tokenizar exigiria o FORGE encostar em dado de cartao, que e justamente o que este
+    # desenho evita. O caminho do checkout hospedado e a assinatura nascer com o
+    # `auto_recurring` explicito e `status: pending`: o Mercado Pago devolve o init_point,
+    # so cobra quando o pagador conclui, e — o que a URL do plano nao faz — preserva o
+    # `external_reference`, que e como o webhook descobre de quem e a assinatura.
+    #
+    # Valor e periodicidade continuam vindo da allow-list, nunca do navegador, e o webhook
+    # reconfere os dois contra ela antes de liberar qualquer acesso.
     corpo = {
-        "preapproval_plan_id": plan_id,
         "payer_email": email,
         "external_reference": referencia,
         "back_url": f"{site_url()}/assinatura/retorno",
         "reason": p["nome"],
+        "status": "pending",
+        "auto_recurring": {
+            "frequency": FREQUENCIA,
+            "frequency_type": TIPO_DE_FREQUENCIA,
+            "transaction_amount": preco_em_reais(p),
+            "currency_id": MOEDA,
+        },
     }
     try:
         recurso = await cliente().criar_assinatura(corpo)
