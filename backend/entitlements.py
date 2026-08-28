@@ -34,6 +34,10 @@ ESTADOS = (PENDENTE, ATIVA, EM_ATRASO, PAUSADA, CANCELADA, EXPIRADA, RECUSADA)
 ORIGEM_MERCADOPAGO = "mercadopago"
 ORIGEM_CORTESIA = "courtesy"
 
+# Origem da conta. Quem entrou sozinho pelo site nasceu para pagar; quem foi cadastrado
+# antes da cobranca, ou recebeu cortesia do proprietario, nao.
+ORIGEM_CADASTRO_PUBLICO = "public"
+
 # Tres dias de tolerancia apos falha de renovacao: o acesso segue enquanto o atleta
 # atualiza o pagamento. Nao se aplica a cancelamento deliberado nem a recusa.
 DIAS_DE_TOLERANCIA = 3
@@ -71,6 +75,15 @@ def e_administrador(user: Dict[str, Any]) -> bool:
     por FORGE_SUPER_ADMIN_EMAIL — nenhum e-mail pessoal no codigo, muito menos no
     frontend."""
     return (user or {}).get("role") == "SUPER_ADMIN"
+
+
+def e_cadastro_publico(user: Dict[str, Any]) -> bool:
+    """Conta criada pelo funil publico do site.
+
+    Vale a pena separar de `e_usuario_antigo`: aquela responde "esta conta e anterior a
+    cobranca?", esta responde "esta conta nasceu para pagar?". A segunda NAO depende de
+    BILLING_ENFORCED — ver `resolver_acesso`."""
+    return (user or {}).get("signup_source") == ORIGEM_CADASTRO_PUBLICO
 
 
 def e_usuario_antigo(user: Dict[str, Any]) -> bool:
@@ -121,26 +134,40 @@ def resolver_acesso(user: Dict[str, Any], assinatura: Optional[Dict[str, Any]]) 
     if e_administrador(user):
         return {"plan_code": ELITE, "capabilities": sorted(CAPACIDADES_ELITE),
                 "source": "admin", "status": ATIVA, "subscription": None,
-                "grandfathered": False, "billing_enforced": cobranca_ativa()}
+                "grandfathered": False, "billing_enforced": cobranca_ativa(),
+                "awaiting_payment": False}
 
     if assinatura_da_acesso(assinatura):
         code = assinatura.get("plan_code")
         return {"plan_code": code, "capabilities": sorted(capacidades_do_plano(code)),
                 "source": assinatura.get("provider", ORIGEM_MERCADOPAGO),
                 "status": assinatura.get("status"), "subscription": assinatura,
-                "grandfathered": False, "billing_enforced": cobranca_ativa()}
+                "grandfathered": False, "billing_enforced": cobranca_ativa(),
+                "awaiting_payment": False}
+
+    # Cadastro publico sem assinatura NAO recebe cortesia, e isso independe de
+    # BILLING_ENFORCED. A flag existe para a transicao dos usuarios legados (item 23 do
+    # escopo); se ela tambem valesse aqui, qualquer pessoa que se cadastrasse no site
+    # ganharia o Elite de graca enquanto a cobranca estivesse desligada — que e exatamente
+    # o estado em que o sistema esta sendo publicado.
+    if e_cadastro_publico(user):
+        return {"plan_code": None, "capabilities": [], "source": ORIGEM_CADASTRO_PUBLICO,
+                "status": (assinatura or {}).get("status"), "subscription": assinatura,
+                "grandfathered": False, "billing_enforced": cobranca_ativa(),
+                "awaiting_payment": True}
 
     # Sem assinatura valida: cobranca desligada, ou conta anterior a cobranca, mantem
     # acesso de cortesia equivalente ao Elite. Ninguem perde o que ja usava.
     if not cobranca_ativa() or e_usuario_antigo(user):
         return {"plan_code": ELITE, "capabilities": sorted(CAPACIDADES_ELITE),
                 "source": ORIGEM_CORTESIA, "status": ATIVA, "subscription": assinatura,
-                "grandfathered": True, "billing_enforced": cobranca_ativa()}
+                "grandfathered": True, "billing_enforced": cobranca_ativa(),
+                "awaiting_payment": False}
 
     return {"plan_code": None, "capabilities": [],
             "source": None, "status": (assinatura or {}).get("status"),
             "subscription": assinatura, "grandfathered": False,
-            "billing_enforced": cobranca_ativa()}
+            "billing_enforced": cobranca_ativa(), "awaiting_payment": False}
 
 
 async def acesso_de(db, user: Dict[str, Any]) -> Dict[str, Any]:

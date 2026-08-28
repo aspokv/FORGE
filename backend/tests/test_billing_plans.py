@@ -1,4 +1,4 @@
-"""Catalogo de planos, matriz de capacidades e validacao do webhook.
+﻿"""Catalogo de planos, matriz de capacidades e validacao do webhook.
 
 Testes puros: nao precisam de banco, de servidor nem de credencial do Mercado Pago.
 """
@@ -172,6 +172,50 @@ def test_cadastro_publico_nunca_recebe_cortesia():
     publico = _atleta(signup_source="public")
     assert ent.e_usuario_antigo(publico) is False
     assert ent.resolver_acesso(publico, None)["capabilities"] == []
+
+
+def test_cadastro_publico_nao_recebe_cortesia_nem_com_a_cobranca_desligada():
+    """O caso que faltava, e que e o estado real da producao hoje.
+
+    BILLING_ENFORCED=false serve a transicao dos usuarios legados. Se ela tambem valesse
+    para o funil publico, qualquer pessoa que se cadastrasse no site receberia o Elite de
+    graca — justamente enquanto a flag esta desligada para nao cortar ninguem."""
+    for flag in ("false", "", "0", "true"):
+        os.environ["BILLING_ENFORCED"] = flag
+        acesso = ent.resolver_acesso(_atleta(signup_source="public"), None)
+        assert acesso["capabilities"] == [], flag
+        assert acesso["plan_code"] is None, flag
+        assert acesso["grandfathered"] is False, flag
+        assert acesso["awaiting_payment"] is True, flag
+
+
+def test_cadastro_publico_com_assinatura_ativa_recebe_o_plano():
+    """O bloqueio e por falta de pagamento, nao por origem: pagou, entra."""
+    os.environ["BILLING_ENFORCED"] = "false"
+    acesso = ent.resolver_acesso(_atleta(signup_source="public"), _assinatura(plan="pro"))
+    assert acesso["plan_code"] == "pro"
+    assert acesso["awaiting_payment"] is False
+    assert "nutrition" in acesso["capabilities"]
+
+
+def test_usuario_existente_continua_cortesia_com_a_cobranca_desligada():
+    """Item 11 do escopo: nenhum usuario atual pode perder acesso."""
+    os.environ["BILLING_ENFORCED"] = "false"
+    os.environ.pop("BILLING_GRANDFATHER_BEFORE", None)
+    acesso = ent.resolver_acesso(_atleta(), None)
+    assert acesso["source"] == ent.ORIGEM_CORTESIA
+    assert acesso["grandfathered"] is True
+    assert sorted(acesso["capabilities"]) == sorted(bp.CAPACIDADES_ELITE)
+
+
+def test_super_admin_continua_isento_mesmo_marcado_como_publico():
+    """Item 19: o proprietario nunca se tranca fora."""
+    for flag in ("false", "true"):
+        os.environ["BILLING_ENFORCED"] = flag
+        admin = {"id": "a", "role": "SUPER_ADMIN", "signup_source": "public"}
+        acesso = ent.resolver_acesso(admin, None)
+        assert acesso["plan_code"] == "elite", flag
+        assert acesso["awaiting_payment"] is False, flag
 
 
 def test_assinatura_ativa_libera_o_plano_contratado():
