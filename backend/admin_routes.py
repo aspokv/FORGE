@@ -1,4 +1,4 @@
-"""FORGE admin router: athlete management, audit log, AI usage."""
+﻿"""FORGE admin router: athlete management, audit log, AI usage."""
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, EmailStr, Field
 from datetime import datetime, timedelta, timezone
@@ -6,12 +6,21 @@ from typing import Optional, List, Dict, Any
 import uuid
 
 from auth import require_super_admin, new_invite_token, INVITE_TTL_DAYS
+from auth import AGUARDANDO_PAGAMENTO
+from billing_plans import plano_ativo
+from entitlements import ORIGEM_CONVITE_PARA_ASSINAR, ORIGEM_CORTESIA_CONCEDIDA
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
 VALID_PLANS = ["FORGE_ACCESS", "FORGE_PRO", "LIFETIME"]
 VALID_STATUS = ["PENDING", "ACTIVE", "SUSPENDED", "EXPIRED"]
 VALIDITY_MAP = {"30": 30, "90": 90, "180": 180, "365": 365, "LIFETIME": None}
+
+# As duas formas de trazer alguem para dentro. Nomes explicitos porque a diferenca entre
+# elas e quem paga a conta.
+CORTESIA = "courtesy"
+ASSINATURA = "subscription"
+MODOS_DE_ACESSO = (CORTESIA, ASSINATURA)
 
 
 class CreateAthlete(BaseModel):
@@ -21,6 +30,13 @@ class CreateAthlete(BaseModel):
     validity: str = "30"  # "30" | "90" | "180" | "365" | "LIFETIME" | "CUSTOM"
     custom_days: Optional[int] = None
     admin_note: str = ""
+    # "courtesy" = acesso concedido pelo proprietario; "subscription" = a pessoa paga.
+    # O padrao continua sendo cortesia para nao mudar o comportamento de quem ja usa a
+    # tela, mas agora conceder de graca exige dizer por que.
+    access_mode: str = CORTESIA
+    confirm_courtesy: bool = False
+    courtesy_reason: str = ""
+    plan_code: Optional[str] = None   # so para access_mode="subscription"
 
 
 class UpdateAthlete(BaseModel):
@@ -94,7 +110,26 @@ async def create_athlete(payload: CreateAthlete, request: Request, admin=Depends
     db = request.app.state.db
     email = payload.email.lower()
     if payload.plan not in VALID_PLANS: raise HTTPException(400, "Plano inválido")
+    if payload.access_mode not in MODOS_DE_ACESSO:
+        raise HTTPException(400, "Modo de acesso inválido")
     if await db.users.find_one({"email": email}): raise HTTPException(409, "Já existe um usuário com esse e-mail")
+
+    cortesia = payload.access_mode == CORTESIA
+    motivo = (payload.courtesy_reason or "").strip()
+    if cortesia:
+        # Dar acesso de graca e uma decisao com custo. Exigir confirmacao e motivo torna
+        # a decisao explicita e deixa rastro de quem concedeu, quando e por que.
+        if not payload.confirm_courtesy:
+            raise HTTPException(400, {
+                "message": "Confirme a concessão de acesso cortesia.",
+                "reason": "courtesy_confirmation_required"})
+        if len(motivo) < 3:
+            raise HTTPException(400, {
+                "message": "Informe o motivo da cortesia.",
+                "reason": "courtesy_reason_required"})
+    elif payload.plan_code and not plano_ativo(payload.plan_code):
+        raise HTTPException(400, "Plano inválido")
+
     uid = str(uuid.uuid4())
     invite = new_invite_token()
     doc = {
@@ -102,7 +137,9 @@ async def create_athlete(payload: CreateAthlete, request: Request, admin=Depends
         "email": email,
         "name": payload.name.strip() or "Novo atleta",
         "role": "ATHLETE",
-        "status": "PENDING",
+        # Convidado para assinar entra ja bloqueado: o convite da a conta, nao o acesso.
+        "status": "PENDING" if cortesia else AGUARDANDO_PAGAMENTO,
+        "signup_source": ORIGEM_CORTESIA_CONCEDIDA if cortesia else ORIGEM_CONVITE_PARA_ASSINAR,
         "plan": payload.plan,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "expires_at": compute_expiry(payload.validity, payload.custom_days),
@@ -110,6 +147,9 @@ async def create_athlete(payload: CreateAthlete, request: Request, admin=Depends
         "invite_expires": (datetime.now(timezone.utc) + timedelta(days=INVITE_TTL_DAYS)).isoformat(),
         "admin_note": payload.admin_note,
         "created_by": admin["id"],
+        **({"courtesy_reason": motivo, "courtesy_granted_by": admin["id"],
+            "courtesy_granted_at": datetime.now(timezone.utc).isoformat()} if cortesia
+           else {"plan_code_escolhido": payload.plan_code}),
         "ai_daily_limit": 40,
         "ai_monthly_limit": 800,
         "ai_enabled": True,
@@ -117,7 +157,11 @@ async def create_athlete(payload: CreateAthlete, request: Request, admin=Depends
     await db.users.insert_one(doc)
     # empty profile shell so the athlete lands into onboarding cleanly
     await db.profiles.insert_one({"id": uid, "user_id": uid, "name": doc["name"], "automation_mode": "FORGE_ASSISTED", "assessment": {}, "priorities": [], "onboarding_required": True})
-    await log_audit(db, admin, "athlete.created", uid, {"email": email, "plan": payload.plan, "validity": payload.validity})
+    await log_audit(db, admin, "athlete.courtesy_granted" if cortesia else "athlete.invited_to_subscribe",
+                    uid, {"email": email, "plan": payload.plan, "validity": payload.validity,
+                          "access_mode": payload.access_mode,
+                          **({"reason": motivo} if cortesia else
+                             {"plan_code": payload.plan_code})})
     doc.pop("_id", None); doc.pop("password_hash", None)
     return {"athlete": doc, "invite_url": f"/invite/{invite}"}
 

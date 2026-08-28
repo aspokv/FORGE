@@ -41,6 +41,7 @@ import billing_routes  # noqa: E402
 import mailer  # noqa: E402
 import server  # noqa: E402
 import signup_routes as sr  # noqa: E402
+from auth import create_token  # noqa: E402
 
 APP, DB = server.app, server.db
 from loop_do_motor import LOOP  # noqa: E402
@@ -567,3 +568,153 @@ async def test_cadastro_publico_desligado_recusa_o_funil(correio):
         assert config.json()["enabled"] is False
     finally:
         os.environ["PUBLIC_SIGNUP_ENABLED"] = "true"
+
+
+# ── Convite administrativo: as duas opcoes ───────────────────────────────────────────
+
+async def _admin():
+    email = "dono.teste@example.com"
+    await DB.users.delete_many({"email": email})
+    uid = str(uuid.uuid4())
+    await DB.users.insert_one({"id": uid, "email": email, "name": "Dono",
+                               "role": "SUPER_ADMIN", "status": "ACTIVE",
+                               "created_at": _iso(_agora())})
+    return uid, {"Authorization": "Bearer " + create_token(uid, "SUPER_ADMIN")}
+
+
+def _convite(email, **extra):
+    corpo = {"email": email, "name": "Convidado", "plan": "FORGE_ACCESS",
+             "validity": "30"}
+    corpo.update(extra)
+    return corpo
+
+
+@asincrono
+async def test_cortesia_exige_confirmacao_explicita():
+    email = "sem.confirmar@example.com"
+    await _limpar(email)
+    _, h = await _admin()
+    async with await _cliente() as c:
+        r = await c.post("/api/admin/athletes", headers=h,
+                         json=_convite(email, access_mode="courtesy",
+                                       courtesy_reason="amigo do dono"))
+    assert r.status_code == 400
+    assert r.json()["detail"]["reason"] == "courtesy_confirmation_required"
+    assert await DB.users.count_documents({"email": email}) == 0
+    await _limpar(email)
+
+
+@asincrono
+async def test_cortesia_exige_motivo():
+    email = "sem.motivo@example.com"
+    await _limpar(email)
+    _, h = await _admin()
+    async with await _cliente() as c:
+        r = await c.post("/api/admin/athletes", headers=h,
+                         json=_convite(email, access_mode="courtesy",
+                                       confirm_courtesy=True, courtesy_reason=" "))
+    assert r.status_code == 400
+    assert r.json()["detail"]["reason"] == "courtesy_reason_required"
+    assert await DB.users.count_documents({"email": email}) == 0
+    await _limpar(email)
+
+
+@asincrono
+async def test_cortesia_concedida_fica_registrada_em_auditoria():
+    email = "cortesia@example.com"
+    await _limpar(email)
+    admin_id, h = await _admin()
+    async with await _cliente() as c:
+        r = await c.post("/api/admin/athletes", headers=h,
+                         json=_convite(email, access_mode="courtesy",
+                                       confirm_courtesy=True,
+                                       courtesy_reason="parceria de divulgacao"))
+    assert r.status_code == 200, r.text
+    u = await DB.users.find_one({"email": email})
+    assert u["status"] == "PENDING"          # aceita o convite e vira ACTIVE
+    assert u["signup_source"] == "courtesy_granted"
+    assert u["courtesy_reason"] == "parceria de divulgacao"
+    assert u["courtesy_granted_by"] == admin_id
+    registro = await DB.admin_audit_log.find_one({"target_user_id": u["id"],
+                                                  "action": "athlete.courtesy_granted"})
+    assert registro is not None
+    assert registro["meta"]["reason"] == "parceria de divulgacao"
+    await _limpar(email)
+
+
+@asincrono
+async def test_cortesia_concedida_vale_mesmo_com_a_cobranca_ligada():
+    """Ligar BILLING_ENFORCED nao pode cortar quem recebeu acesso de proposito."""
+    import entitlements as ent
+    os.environ["BILLING_ENFORCED"] = "true"
+    try:
+        acesso = ent.resolver_acesso(
+            {"id": "x", "role": "ATHLETE", "signup_source": "courtesy_granted",
+             "created_at": _iso(_agora())}, None)
+        assert acesso["plan_code"] == "elite"
+        assert acesso["source"] == "courtesy"
+    finally:
+        os.environ["BILLING_ENFORCED"] = "false"
+
+
+@asincrono
+async def test_convidar_para_assinar_cria_conta_bloqueada():
+    email = "convidado.pagar@example.com"
+    await _limpar(email)
+    _, h = await _admin()
+    async with await _cliente() as c:
+        r = await c.post("/api/admin/athletes", headers=h,
+                         json=_convite(email, access_mode="subscription",
+                                       plan_code="pro"))
+        assert r.status_code == 200, r.text
+        u = await DB.users.find_one({"email": email})
+        assert u["status"] == "PENDING_PAYMENT"
+        assert u["signup_source"] == "invited_to_subscribe"
+        assert u["plan_code_escolhido"] == "pro"
+
+        # aceita o convite: ganha senha, nao ganha acesso
+        convite = r.json()["athlete"]["invite_token"]
+        aceite = await c.post("/api/auth/accept-invite",
+                              json={"token": convite, "password": SENHA})
+        assert aceite.status_code == 200, aceite.text
+        u = await DB.users.find_one({"email": email})
+        assert u["status"] == "PENDING_PAYMENT", "aceitar convite nao pode liberar acesso"
+
+        entrada = await c.post("/api/auth/login",
+                               json={"email": email, "password": SENHA})
+        assert entrada.status_code == 200
+        ha = {"Authorization": "Bearer " + entrada.json()["token"]}
+        assert (await c.get("/api/bootstrap", headers=ha)).status_code == 403
+        assert (await c.get("/api/billing/me", headers=ha)).status_code == 200
+    await _limpar(email)
+
+
+@asincrono
+async def test_convidado_para_assinar_e_liberado_ao_pagar(mp):
+    email = "convidado.paga@example.com"
+    await _limpar(email)
+    _, h = await _admin()
+    async with await _cliente() as c:
+        r = await c.post("/api/admin/athletes", headers=h,
+                         json=_convite(email, access_mode="subscription"))
+        convite = r.json()["athlete"]["invite_token"]
+        await c.post("/api/auth/accept-invite",
+                     json={"token": convite, "password": SENHA})
+        entrada = await c.post("/api/auth/login",
+                               json={"email": email, "password": SENHA})
+        ha = {"Authorization": "Bearer " + entrada.json()["token"]}
+        pago = await c.post("/api/billing/checkout", json={"plan_code": "elite"},
+                            headers=ha)
+        assert pago.status_code == 200
+        sid = list(mp.assinaturas)[-1]
+        mp.aprovar(sid)
+        webhook = await c.post("/api/billing/webhook",
+                               json={"type": "subscription_preapproval",
+                                     "data": {"id": sid}},
+                               headers=_assinar(sid, "req-convidado"))
+        assert webhook.json()["resultado"] == "aplicado"
+        assert (await c.get("/api/bootstrap", headers=ha)).status_code != 403
+    u = await DB.users.find_one({"email": email})
+    assert u["status"] == "ACTIVE"
+    assert u["plan"] == "elite"
+    await _limpar(email)

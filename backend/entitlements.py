@@ -37,6 +37,15 @@ ORIGEM_CORTESIA = "courtesy"
 # Origem da conta. Quem entrou sozinho pelo site nasceu para pagar; quem foi cadastrado
 # antes da cobranca, ou recebeu cortesia do proprietario, nao.
 ORIGEM_CADASTRO_PUBLICO = "public"
+ORIGEM_CONVITE_PARA_ASSINAR = "invited_to_subscribe"
+ORIGEM_CORTESIA_CONCEDIDA = "courtesy_granted"
+
+# Origens de conta que nasceram para pagar. Elas nunca recebem cortesia automatica: quem
+# entrou sozinho pelo site, e quem foi convidado justamente para assinar, so tem acesso
+# com assinatura confirmada. A cortesia continua existindo, mas passa a ser um ato
+# deliberado do proprietario, registrado em auditoria — nao um efeito colateral de flag.
+ORIGENS_QUE_EXIGEM_PAGAMENTO = frozenset({ORIGEM_CADASTRO_PUBLICO,
+                                          ORIGEM_CONVITE_PARA_ASSINAR})
 
 # Tres dias de tolerancia apos falha de renovacao: o acesso segue enquanto o atleta
 # atualiza o pagamento. Nao se aplica a cancelamento deliberado nem a recusa.
@@ -77,22 +86,22 @@ def e_administrador(user: Dict[str, Any]) -> bool:
     return (user or {}).get("role") == "SUPER_ADMIN"
 
 
-def e_cadastro_publico(user: Dict[str, Any]) -> bool:
-    """Conta criada pelo funil publico do site.
+def exige_pagamento(user: Dict[str, Any]) -> bool:
+    """Conta que nasceu para pagar: funil publico ou convite para assinar.
 
     Vale a pena separar de `e_usuario_antigo`: aquela responde "esta conta e anterior a
     cobranca?", esta responde "esta conta nasceu para pagar?". A segunda NAO depende de
     BILLING_ENFORCED — ver `resolver_acesso`."""
-    return (user or {}).get("signup_source") == ORIGEM_CADASTRO_PUBLICO
+    return (user or {}).get("signup_source") in ORIGENS_QUE_EXIGEM_PAGAMENTO
 
 
 def e_usuario_antigo(user: Dict[str, Any]) -> bool:
     """Conta anterior a cobranca. Sem BILLING_GRANDFATHER_BEFORE definido, TODO usuario
     conta como antigo: e o estado seguro durante a implantacao, quando ninguem deve ser
     cortado por uma feature que acabou de subir."""
-    # Quem entrou pelo cadastro publico NUNCA e antigo: essa conta nasceu para pagar, e
-    # trata-la como legado daria acesso de graca a todo mundo que se cadastrasse.
-    if (user or {}).get("signup_source") == "public":
+    # Conta que nasceu para pagar NUNCA e antiga: trata-la como legado daria acesso de
+    # graca a todo mundo que se cadastrasse.
+    if exige_pagamento(user):
         return False
     limite = _limite_do_grandfathering()
     if limite is None:
@@ -150,11 +159,22 @@ def resolver_acesso(user: Dict[str, Any], assinatura: Optional[Dict[str, Any]]) 
     # escopo); se ela tambem valesse aqui, qualquer pessoa que se cadastrasse no site
     # ganharia o Elite de graca enquanto a cobranca estivesse desligada — que e exatamente
     # o estado em que o sistema esta sendo publicado.
-    if e_cadastro_publico(user):
-        return {"plan_code": None, "capabilities": [], "source": ORIGEM_CADASTRO_PUBLICO,
+    if exige_pagamento(user):
+        return {"plan_code": None, "capabilities": [],
+                "source": user.get("signup_source"),
                 "status": (assinatura or {}).get("status"), "subscription": assinatura,
                 "grandfathered": False, "billing_enforced": cobranca_ativa(),
                 "awaiting_payment": True}
+
+    # Cortesia concedida pelo proprietario vale sempre, inclusive depois que a cobranca
+    # for ligada: foi uma decisao deliberada, com motivo e auditoria. Faze-la depender da
+    # flag significaria cortar, no dia da virada, exatamente quem recebeu acesso de graca
+    # de proposito.
+    if (user or {}).get("signup_source") == ORIGEM_CORTESIA_CONCEDIDA:
+        return {"plan_code": ELITE, "capabilities": sorted(CAPACIDADES_ELITE),
+                "source": ORIGEM_CORTESIA, "status": ATIVA, "subscription": assinatura,
+                "grandfathered": True, "billing_enforced": cobranca_ativa(),
+                "awaiting_payment": False}
 
     # Sem assinatura valida: cobranca desligada, ou conta anterior a cobranca, mantem
     # acesso de cortesia equivalente ao Elite. Ninguem perde o que ja usava.

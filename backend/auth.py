@@ -165,6 +165,8 @@ async def login(payload: LoginIn, request: Request):
         raise HTTPException(403, "Conta suspensa. Fale com o administrador.")
     if user.get("status") == "PENDING":
         raise HTTPException(403, "Conta ainda não ativada. Use o link de convite.")
+    # PENDING_PAYMENT entra de proposito: sem isso nao daria para voltar e concluir o
+    # pagamento. O que ela alcanca depois de entrar e decidido em get_current_user.
     if is_expired(user) and user.get("role") != "SUPER_ADMIN":
         await db.users.update_one({"id": user["id"]}, {"$set": {"status": "EXPIRED"}})
         raise HTTPException(403, "Plano expirado. Fale com o administrador.")
@@ -183,12 +185,15 @@ async def invite_lookup(token: str, request: Request):
     db = get_db(request)
     user = await db.users.find_one({"invite_token": token}, {"_id": 0, "password_hash": 0})
     if not user: raise HTTPException(404, "Convite inválido")
-    if user.get("status") != "PENDING":
+    if user.get("status") not in ("PENDING", AGUARDANDO_PAGAMENTO):
         raise HTTPException(410, "Convite já utilizado")
     exp = user.get("invite_expires")
     if exp and datetime.fromisoformat(exp) < datetime.now(timezone.utc):
         raise HTTPException(410, "Convite expirado. Peça um novo ao administrador.")
-    return {"email": user["email"], "name": user.get("name", ""), "plan": user.get("plan"), "expires_at": user.get("expires_at")}
+    return {"email": user["email"], "name": user.get("name", ""), "plan": user.get("plan"),
+            "expires_at": user.get("expires_at"),
+            "requires_payment": user.get("status") == AGUARDANDO_PAGAMENTO,
+            "plan_code": user.get("plan_code_escolhido")}
 
 
 @router.post("/accept-invite")
@@ -196,11 +201,15 @@ async def accept_invite(payload: AcceptInviteIn, request: Request):
     db = get_db(request)
     user = await db.users.find_one({"invite_token": payload.token})
     if not user: raise HTTPException(404, "Convite inválido")
-    if user.get("status") != "PENDING": raise HTTPException(410, "Convite já utilizado")
+    if user.get("status") not in ("PENDING", AGUARDANDO_PAGAMENTO):
+        raise HTTPException(410, "Convite já utilizado")
     exp = user.get("invite_expires")
     if exp and datetime.fromisoformat(exp) < datetime.now(timezone.utc):
         raise HTTPException(410, "Convite expirado")
-    updates = {"password_hash": hash_password(payload.password), "status": "ACTIVE", "invite_token": None, "invite_expires": None, "activated_at": datetime.now(timezone.utc).isoformat()}
+    # Aceitar o convite entrega a senha, nao o acesso: quem foi convidado para assinar
+    # permanece em PENDING_PAYMENT ate o webhook confirmar o pagamento.
+    estado_final = AGUARDANDO_PAGAMENTO if user.get("status") == AGUARDANDO_PAGAMENTO else "ACTIVE"
+    updates = {"password_hash": hash_password(payload.password), "status": estado_final, "invite_token": None, "invite_expires": None, "activated_at": datetime.now(timezone.utc).isoformat()}
     if payload.name: updates["name"] = payload.name.strip()
     await db.users.update_one({"id": user["id"]}, {"$set": updates})
     user.update(updates)
