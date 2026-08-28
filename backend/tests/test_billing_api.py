@@ -27,7 +27,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 SEGREDO = "segredo-do-webhook-de-teste"
 os.environ["MP_WEBHOOK_SECRET"] = SEGREDO
-os.environ["MP_ACCESS_TOKEN"] = "TEST-token-de-teste"
+os.environ["MP_ACCESS_TOKEN"] = "APP_USR-credencial-de-teste"
+os.environ["MP_ENVIRONMENT"] = "sandbox"
 os.environ["MP_ESSENTIAL_PLAN_ID"] = "plan-essential"
 os.environ["MP_PRO_PLAN_ID"] = "plan-pro"
 os.environ["MP_ELITE_PLAN_ID"] = "plan-elite"
@@ -115,7 +116,8 @@ def mp():
 @pytest.fixture(autouse=True)
 def ambiente():
     anterior = {k: os.environ.get(k) for k in
-                ("BILLING_ENFORCED", "BILLING_GRANDFATHER_BEFORE", "PUBLIC_SIGNUP_ENABLED")}
+                ("BILLING_ENFORCED", "BILLING_GRANDFATHER_BEFORE", "PUBLIC_SIGNUP_ENABLED",
+                 "MP_ENVIRONMENT")}
     yield
     for k, v in anterior.items():
         if v is None:

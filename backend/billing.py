@@ -1,14 +1,19 @@
-"""Cliente do Mercado Pago e validacao de webhook.
+﻿"""Cliente do Mercado Pago e validacao de webhook.
 
 Diferente do Omega Vault, que usa Checkout Pro com pagamento UNICO
 (`/checkout/preferences`), o FORGE usa a API de Assinaturas: `/preapproval_plan` define
 o plano recorrente e `/preapproval` cria a assinatura do atleta. Por isso nada de
 `create-preference` aqui — uma preferencia nao renova sozinha.
 
-O que foi reaproveitado conceitualmente do Omega Vault: a convencao de token
-(`TEST-` = sandbox, `APP_USR-` = producao) para escolher a URL de checkout sem flag
-separada, e o esquema de assinatura do webhook (manifest + HMAC-SHA256 + comparacao em
-tempo constante). Nenhuma credencial, tabela ou regra de autenticacao foi copiada.
+O que foi reaproveitado conceitualmente do Omega Vault: o esquema de assinatura do
+webhook (manifest + HMAC-SHA256 + comparacao em tempo constante). Nenhuma credencial,
+tabela ou regra de autenticacao foi copiada.
+
+O que NAO foi reaproveitado: la o ambiente e deduzido do prefixo do token
+("TEST-" = sandbox). Isso e frouxo — credenciais de teste de aplicacoes atuais tambem
+comecam com "APP_USR-", e o prefixo escolheria a URL errada em silencio. Aqui o
+ambiente e explicito em MP_ENVIRONMENT, validado por allow-list; o prefixo sobrou
+apenas como conferencia de contradicao.
 """
 import hashlib
 import hmac
@@ -28,17 +33,56 @@ def token_de_acesso() -> str:
     return (os.environ.get("MP_ACCESS_TOKEN") or "").strip()
 
 
+SANDBOX, PRODUCAO = "sandbox", "production"
+AMBIENTES = (SANDBOX, PRODUCAO)
+
+
+def ambiente() -> str:
+    """Ambiente do Mercado Pago, por configuracao EXPLICITA e allow-list.
+
+    Deduzir pelo prefixo do token e frouxo: credenciais de teste de aplicacoes atuais
+    tambem comecam com "APP_USR-", entao o prefixo escolheria a URL errada em silencio —
+    ou trataria credencial de producao como sandbox. Por isso quem manda e MP_ENVIRONMENT.
+
+    Falha fechada: valor invalido ou ausente cai em sandbox, que e o lado que NAO cobra
+    de ninguem. O erro fica registrado para nao passar despercebido."""
+    valor = (os.environ.get("MP_ENVIRONMENT") or "").strip().lower()
+    if valor in AMBIENTES:
+        return valor
+    if valor:
+        logger.error("MP_ENVIRONMENT invalido (%r): assumindo sandbox. "
+                     "Valores aceitos: %s", valor, ", ".join(AMBIENTES))
+    else:
+        logger.warning("MP_ENVIRONMENT nao definido: assumindo sandbox.")
+    return SANDBOX
+
+
 def modo_sandbox(token: Optional[str] = None) -> bool:
-    """Convencao do proprio Mercado Pago: token de teste comeca com "TEST-", o de
-    producao com "APP_USR-". E o que deixa o fluxo escolher sandbox ou producao sem uma
-    segunda variavel de ambiente para manter em sincronia (e para esquecer de trocar)."""
-    return (token if token is not None else token_de_acesso()).startswith("TEST-")
+    """True quando o ambiente configurado e sandbox. O parametro `token` existe apenas
+    para os testes exercitarem a deteccao de contradicao abaixo."""
+    return ambiente() == SANDBOX
+
+
+def conflito_de_credencial(token: Optional[str] = None) -> Optional[str]:
+    """Contradicao entre o ambiente declarado e o token presente, ou None.
+
+    O prefixo deixou de DECIDIR, mas ainda serve como conferencia: "TEST-" e sempre
+    credencial de teste, entao usa-lo com MP_ENVIRONMENT=production e erro de
+    configuracao certo — e o caminho em que o dinheiro e real."""
+    t = token if token is not None else token_de_acesso()
+    if not t:
+        return "MP_ACCESS_TOKEN ausente"
+    if ambiente() == PRODUCAO and t.startswith("TEST-"):
+        return "MP_ENVIRONMENT=production com token de teste (TEST-)"
+    return None
 
 
 def url_de_checkout(recurso: Dict[str, Any], token: Optional[str] = None) -> Optional[str]:
-    """Um recurso criado com token de teste so funciona pelo sandbox_init_point; um
-    criado com token de producao precisa do init_point. Trocar os dois leva a um
-    checkout que abre e falha."""
+    """Em sandbox o recurso so funciona pelo sandbox_init_point; em producao, pelo
+    init_point. Trocar os dois leva a um checkout que abre e falha.
+
+    O fallback para init_point existe porque a API de assinaturas nem sempre devolve
+    sandbox_init_point — sem ele o checkout ficaria sem URL nenhuma."""
     if modo_sandbox(token):
         return recurso.get("sandbox_init_point") or recurso.get("init_point")
     return recurso.get("init_point")

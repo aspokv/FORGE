@@ -110,7 +110,7 @@ def test_elite_tem_protocolos_avancados():
 # ── Resolucao de acesso ──────────────────────────────────────────────────────────────
 
 def _limpar_ambiente():
-    for chave in ("BILLING_ENFORCED", "BILLING_GRANDFATHER_BEFORE"):
+    for chave in ("BILLING_ENFORCED", "BILLING_GRANDFATHER_BEFORE", "MP_ENVIRONMENT"):
         os.environ.pop(chave, None)
 
 
@@ -268,19 +268,60 @@ def test_request_id_diferente_invalida():
 
 # ── Sandbox x producao ───────────────────────────────────────────────────────────────
 
-def test_token_de_teste_indica_sandbox():
-    assert billing.modo_sandbox("TEST-123") is True
-    assert billing.modo_sandbox("APP_USR-123") is False
+RECURSO = {"init_point": "https://prod", "sandbox_init_point": "https://sandbox"}
 
 
-def test_sandbox_usa_o_init_point_de_sandbox():
-    recurso = {"init_point": "https://prod", "sandbox_init_point": "https://sandbox"}
-    assert billing.url_de_checkout(recurso, "TEST-1") == "https://sandbox"
-    assert billing.url_de_checkout(recurso, "APP_USR-1") == "https://prod"
+def test_o_ambiente_vem_da_configuracao_e_nao_do_prefixo_do_token():
+    """Credencial de teste de aplicacao atual tambem comeca com APP_USR-, entao o
+    prefixo escolheria a URL errada em silencio."""
+    os.environ["MP_ENVIRONMENT"] = "sandbox"
+    assert billing.modo_sandbox("APP_USR-token-de-teste") is True
+    assert billing.url_de_checkout(RECURSO, "APP_USR-token-de-teste") == "https://sandbox"
+
+    os.environ["MP_ENVIRONMENT"] = "production"
+    assert billing.modo_sandbox("APP_USR-token-de-producao") is False
+    assert billing.url_de_checkout(RECURSO, "APP_USR-token-de-producao") == "https://prod"
+
+
+@pytest.mark.parametrize("valor", ["", "SANDBOX ", "sandbox"])
+def test_sandbox_e_aceito_em_qualquer_caixa_e_e_o_padrao(valor):
+    if valor:
+        os.environ["MP_ENVIRONMENT"] = valor
+    else:
+        os.environ.pop("MP_ENVIRONMENT", None)
+    assert billing.ambiente() == "sandbox"
+
+
+@pytest.mark.parametrize("invalido", ["prod", "producao", "test", "1", "true"])
+def test_valor_invalido_falha_fechado_em_sandbox(invalido):
+    """Sandbox e o lado que NAO cobra: e para onde uma configuracao errada deve cair."""
+    os.environ["MP_ENVIRONMENT"] = invalido
+    assert billing.ambiente() == "sandbox"
+    assert billing.modo_sandbox() is True
+
+
+def test_allow_list_do_ambiente():
+    assert billing.AMBIENTES == ("sandbox", "production")
+
+
+def test_producao_com_token_de_teste_e_contradicao():
+    os.environ["MP_ENVIRONMENT"] = "production"
+    assert billing.conflito_de_credencial("TEST-abc") is not None
+
+
+def test_sandbox_com_token_app_usr_nao_e_contradicao():
+    """O caso exato que o prefixo errava: credencial de teste com APP_USR-."""
+    os.environ["MP_ENVIRONMENT"] = "sandbox"
+    assert billing.conflito_de_credencial("APP_USR-de-teste") is None
+
+
+def test_token_ausente_e_apontado():
+    assert billing.conflito_de_credencial("") is not None
 
 
 def test_sem_sandbox_init_point_cai_no_init_point():
-    assert billing.url_de_checkout({"init_point": "https://x"}, "TEST-1") == "https://x"
+    os.environ["MP_ENVIRONMENT"] = "sandbox"
+    assert billing.url_de_checkout({"init_point": "https://x"}) == "https://x"
 
 
 # ── Traducao de estados ──────────────────────────────────────────────────────────────

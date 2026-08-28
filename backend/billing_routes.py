@@ -106,6 +106,15 @@ async def iniciar_assinatura(db, user_id: str, email: str, plan_code: str) -> Di
     if not p:
         raise HTTPException(400, "Plano inválido")
 
+    # Contradicao de configuracao barra ANTES de qualquer chamada: e melhor recusar o
+    # checkout do que abrir um que falha, ou pior, cobrar no ambiente errado.
+    conflito = billing.conflito_de_credencial()
+    if conflito:
+        logger.error("checkout bloqueado por configuracao: %s", conflito)
+        raise HTTPException(503, {
+            "message": "A assinatura ainda não está disponível. Tente novamente em instantes.",
+            "reason": "misconfigured"})
+
     plan_id = mp_plan_id(p)
     if not plan_id:
         logger.error("checkout bloqueado: %s sem id de plano configurado (%s)",
