@@ -7,6 +7,7 @@ verdade, sem rede, sem credencial e sem cobranca real.
 import asyncio
 import functools
 import hashlib
+import json
 import hmac
 import os
 import sys
@@ -568,3 +569,59 @@ async def test_cadastro_publico_nao_revela_conta_existente():
     assert existente.status_code == novo.status_code == 200
     assert existente.json() == novo.json()      # resposta identica: nao vaza existencia
     assert await DB.users.count_documents({"email": email}) == 1
+
+
+# ── Conferencia de configuracao ──────────────────────────────────────────────────────
+
+@asincrono
+async def test_config_check_exige_super_admin():
+    _, atleta = await _criar_atleta(role="ATHLETE")
+    async with await _cliente() as c:
+        sem_login = await c.get("/api/billing/config-check")
+        como_atleta = await c.get("/api/billing/config-check", headers=atleta)
+    assert sem_login.status_code in (401, 403)
+    assert como_atleta.status_code == 403
+
+
+@asincrono
+async def test_config_check_nunca_devolve_o_valor_de_um_segredo():
+    """O endpoint existe para conferir configuracao publicada; se ele vazasse o token,
+    seria pior que o problema que resolve."""
+    _, admin = await _criar_atleta(role="SUPER_ADMIN")
+    async with await _cliente() as c:
+        r = await c.get("/api/billing/config-check", headers=admin)
+    assert r.status_code == 200
+    corpo = r.json()
+    bruto = json.dumps(corpo)
+
+    for nome in ("MP_ACCESS_TOKEN", "MP_WEBHOOK_SECRET", "RESEND_API_KEY"):
+        info = corpo["variables"][nome]
+        assert "value" not in info, f"{nome} devolveu o valor"
+        if info["present"]:
+            assert isinstance(info["length"], int)
+            assert os.environ[nome].strip() not in bruto, f"{nome} vazou no corpo"
+
+
+@asincrono
+async def test_config_check_aponta_o_que_falta_para_o_checkout():
+    _, admin = await _criar_atleta(role="SUPER_ADMIN")
+    anterior = os.environ.pop("MP_PRO_PLAN_ID", None)
+    try:
+        async with await _cliente() as c:
+            r = await c.get("/api/billing/config-check", headers=admin)
+        corpo = r.json()
+        assert "MP_PRO_PLAN_ID" in corpo["missing_for_checkout"]
+        assert corpo["checkout_ready"] is False
+    finally:
+        if anterior:
+            os.environ["MP_PRO_PLAN_ID"] = anterior
+
+
+@asincrono
+async def test_config_check_mostra_id_de_plano_que_nao_e_segredo():
+    """Id de plano precisa aparecer: e conferindo ele que se descobre um valor colado
+    na variavel errada."""
+    _, admin = await _criar_atleta(role="SUPER_ADMIN")
+    async with await _cliente() as c:
+        r = await c.get("/api/billing/config-check", headers=admin)
+    assert r.json()["variables"]["MP_PRO_PLAN_ID"]["value"] == os.environ["MP_PRO_PLAN_ID"]

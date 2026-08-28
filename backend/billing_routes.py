@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 from pymongo.errors import DuplicateKeyError
 
 import billing
+import mailer
 from auth import get_current_user, require_super_admin
 from billing_plans import (
     FREQUENCIA, MOEDA, TIPO_DE_FREQUENCIA, catalogo_publico, mp_plan_id, plano_ativo,
@@ -416,6 +417,61 @@ async def webhook(request: Request):
                   "updated_at": _agora(),
                   "duration_ms": int((time.time() - inicio) * 1000)}})
     return {"received": True, **resultado}
+
+
+# ── Conferencia de configuracao (administrativa) ─────────────────────────────────────
+
+# Variaveis cujo VALOR nunca sai daqui. As demais nao sao segredo: id de plano, URL,
+# ambiente e flags aparecem porque conferir se estao certos e justamente o objetivo.
+SEGREDOS = {"MP_ACCESS_TOKEN", "MP_WEBHOOK_SECRET", "RESEND_API_KEY"}
+
+VARIAVEIS = ("MP_ENVIRONMENT", "MP_ACCESS_TOKEN", "MP_WEBHOOK_SECRET",
+             "MP_ESSENTIAL_PLAN_ID", "MP_PRO_PLAN_ID", "MP_ELITE_PLAN_ID",
+             "FORGE_SITE_URL", "RESEND_API_KEY", "FORGE_EMAIL_FROM",
+             "BILLING_ENFORCED", "PUBLIC_SIGNUP_ENABLED", "BILLING_GRANDFATHER_BEFORE")
+
+
+@router.get("/config-check")
+async def conferir_configuracao(admin=Depends(require_super_admin)):
+    """Diz o que o processo REALMENTE carregou, sem expor segredo.
+
+    Serve para conferir o ambiente publicado depois de cadastrar as variaveis no painel
+    de deploy: um valor colado com aspas, com espaco sobrando ou na variavel errada
+    aparece aqui como tamanho estranho ou ausencia — em vez de virar um checkout que
+    falha so quando um cliente tentar assinar.
+
+    Segredo nunca e devolvido: apenas presenca e numero de caracteres."""
+    estado: Dict[str, Any] = {}
+    for nome in VARIAVEIS:
+        bruto = os.environ.get(nome)
+        if bruto is None:
+            estado[nome] = {"present": False, "state": "ausente"}
+        elif not bruto.strip():
+            estado[nome] = {"present": False, "state": "vazia"}
+        elif nome in SEGREDOS:
+            estado[nome] = {"present": True, "state": "definida",
+                            "length": len(bruto.strip())}
+        else:
+            estado[nome] = {"present": True, "state": "definida",
+                            "value": bruto.strip()}
+
+    faltando = [n for n in ("MP_ACCESS_TOKEN", "MP_WEBHOOK_SECRET", "MP_ESSENTIAL_PLAN_ID",
+                            "MP_PRO_PLAN_ID", "MP_ELITE_PLAN_ID")
+                if not estado[n]["present"]]
+    conflito = billing.conflito_de_credencial()
+
+    return {
+        "variables": estado,
+        "environment": billing.ambiente(),
+        "sandbox": billing.modo_sandbox(),
+        "email_provider": type(mailer.provedor()).__name__,
+        "delivers_email": mailer.provedor().entrega_de_verdade,
+        "checkout_ready": not faltando and not conflito,
+        "missing_for_checkout": faltando,
+        "credential_conflict": conflito,
+        "billing_enforced": cobranca_ativa(),
+        "public_signup_enabled": mailer.cadastro_publico_ativo(),
+    }
 
 
 # ── Reconciliacao (administrativa) ───────────────────────────────────────────────────
