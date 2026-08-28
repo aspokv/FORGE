@@ -81,6 +81,7 @@ ROTAS_LIBERADAS_SEM_PAGAMENTO = frozenset({
     "/api/billing/plans",    # ver os planos
     "/api/billing/me",       # estado da assinatura / retorno do checkout
     "/api/billing/checkout", # pagar, inclusive retomando um checkout abandonado
+    "/api/preassessment",    # responder a pre-avaliacao e ver a previa bloqueada
 })
 
 

@@ -313,6 +313,7 @@ async def _aplicar_assinatura(db, recurso: Dict[str, Any], request_id: str) -> D
             {"id": tentativa["user_id"], "status": AGUARDANDO_PAGAMENTO_CONTA},
             {"$set": {"status": "ACTIVE", "plan": p["code"], "activated_at": _agora()}})
         if promovido.modified_count:
+            await _semear_o_perfil(db, tentativa["user_id"])
             logger.info("webhook %s: conta liberada user=%s plano=%s", request_id,
                         tentativa["user_id"], p["code"])
         else:
@@ -324,6 +325,45 @@ async def _aplicar_assinatura(db, recurso: Dict[str, Any], request_id: str) -> D
                 tentativa["user_id"], p["code"], estado_anterior, estado)
     return {"resultado": "aplicado", "de": estado_anterior, "para": estado,
             "user_id": tentativa["user_id"], "plan_code": p["code"]}
+
+
+async def _semear_o_perfil(db, user_id: str) -> None:
+    """Leva as respostas da pre-avaliacao para o perfil, na hora da liberacao.
+
+    Sem isto o questionario completo comecaria em branco e pediria de novo objetivo,
+    perfil, experiencia, dias e regioes — que a pessoa acabou de responder para ver a
+    previa. Escreve so o que ainda nao existe: se por algum caminho o perfil ja tiver
+    resposta, ela vale mais do que a pre-avaliacao."""
+    user = await db.users.find_one({"id": user_id}, {"_id": 0, "pre_assessment": 1})
+    respostas = (user or {}).get("pre_assessment")
+    if not respostas:
+        return
+
+    perfil = await db.profiles.find_one({"id": user_id}, {"_id": 0}) or {}
+    campos = {}
+    for chave in ("sex", "experience", "days", "goal"):
+        if respostas.get(chave) is not None and not perfil.get(chave):
+            campos[chave] = respostas[chave]
+    if respostas.get("priorities") and not perfil.get("priorities"):
+        campos["priorities"] = list(respostas["priorities"])
+
+    # Objetivo e ritmo alimentares moram em nutrition_assessment, a mesma fonte que a
+    # area de Alimentacao usa — um segundo campo concorrente faria as duas telas
+    # discordarem entre si.
+    nutricao = dict(perfil.get("nutrition_assessment") or {})
+    if respostas.get("body_goal") and not nutricao.get("goal"):
+        nutricao["goal"] = respostas["body_goal"]
+        if respostas.get("goal_intensity"):
+            nutricao["intensity"] = respostas["goal_intensity"]
+        campos["nutrition_assessment"] = nutricao
+
+    if not campos:
+        return
+    # O questionario completo continua necessario: faltam idade, altura, peso e o resto.
+    campos["preassessment_applied_at"] = _agora()
+    await db.profiles.update_one({"id": user_id}, {"$set": campos}, upsert=True)
+    logger.info("pre-avaliacao aplicada ao perfil user=%s campos=%s",
+                user_id, sorted(campos))
 
 
 async def _aplicar_pagamento(db, pagamento: Dict[str, Any], request_id: str) -> Dict[str, Any]:
