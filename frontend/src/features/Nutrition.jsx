@@ -140,6 +140,26 @@ export default function Nutrition({ API, profileId, db }) {
     finally { setGuidedLoadingOptions(false); }
   };
 
+  /**
+   * Preserva o motivo REAL no console e devolve texto util para a tela.
+   * Um catch generico escondia, por exemplo, "faca o questionario primeiro" atras de
+   * "Nao foi possivel refazer o plano agora." — o usuario nao tinha como saber o que
+   * fazer, e o plano antigo continuava na tela.
+   */
+  const explicarErro = (e, contexto, fallback) => {
+    const status = e?.response?.status;
+    const detail = e?.response?.data?.detail;
+    console.error(`[FORGE nutrition] ${contexto} falhou (HTTP ${status ?? "?"}):`, detail ?? e);
+    if (typeof detail === "string" && detail) return detail;
+    if (detail?.message) return [detail.message, ...(detail.errors || [])].join(" ");
+    return fallback;
+  };
+
+  /** Volta para o questionario em vez de deixar o usuario preso na tela do plano. */
+  const pedirQuestionario = (mensagem) => {
+    setGuidedDraft(null); setGenStep(1); setStep("assessment"); setError(mensagem);
+  };
+
   // "Refazer plano": only replaces the plan itself — assessment, peso, histórico,
   // alergias e restrições continuam intactos (o backend nem toca nessas coleções).
   const refazerPlano = async () => {
@@ -148,7 +168,17 @@ export default function Nutrition({ API, profileId, db }) {
       const r = await axios.post(`${API}/nutrition/plan/reset`);
       setGuidedDraft(r.data); setGuidedIdx(0); setGuidedPhase("choosing"); setStep("guided");
       await loadMealOptions(0);
-    } catch (e) { setError("Não foi possível refazer o plano agora."); }
+    } catch (e) {
+      const motivo = explicarErro(e, "refazer plano", "Não foi possível refazer o plano agora.");
+      // 400 aqui significa questionario ausente ou incompleto. O plano antigo continua
+      // na tela e a tela do plano nunca oferece o questionario, entao sem este desvio o
+      // usuario ficaria sem saida nenhuma.
+      if (e?.response?.status === 400) {
+        pedirQuestionario("Precisamos atualizar seu questionário alimentar antes de refazer o plano.");
+      } else {
+        setError(motivo);
+      }
+    }
     finally { setBusy(false); }
   };
 
@@ -216,7 +246,7 @@ export default function Nutrition({ API, profileId, db }) {
       const r = await axios.post(`${API}/nutrition/plan/draft/confirm`);
       setPlan(r.data.plan); setTargets(r.data.targets);
       setGuidedDraft(null); setStep("plan");
-    } catch (e) { setError("Não foi possível confirmar o plano agora."); }
+    } catch (e) { setError(explicarErro(e, "confirmar plano", "Não foi possível confirmar o plano agora.")); }
     finally { setBusy(false); }
   };
 

@@ -1,4 +1,5 @@
 ﻿"""FORGE Nutrition API routes."""
+import logging
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from typing import List, Optional
@@ -6,6 +7,8 @@ from datetime import datetime, timezone
 import uuid, random
 
 from auth import get_current_user
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/nutrition", tags=["nutrition"])
 
@@ -136,6 +139,35 @@ def _assessment_completo(na) -> bool:
     return bool(na) and all(na.get(k) for k in CAMPOS_OBRIGATORIOS)
 
 
+def _exigir_assessment(na, target, operacao):
+    """400 com o motivo REAL no log do servidor.
+
+    O perfil pode ter plano e nao ter questionario: ate a correcao do carry-forward em
+    save_assessment, "Refazer avaliacao" fazia replace_one do perfil inteiro e levava o
+    nutrition_assessment junto. Quem passou por isso ficava com o plano visivel e a
+    regeneracao recusada."""
+    if _assessment_completo(na):
+        return
+    faltando = [k for k in CAMPOS_OBRIGATORIOS if not (na or {}).get(k)]
+    logger.warning("%s bloqueado para profile_id=%s: nutrition_assessment %s (faltando: %s)",
+                   operacao, target, "ausente" if not na else "incompleto",
+                   ", ".join(faltando) or "-")
+    raise HTTPException(400, "Assessment nutricional nao encontrado. Faca o questionario primeiro.")
+
+
+def _com_protocolo(na, targets):
+    """Injeta no assessment o teto de carboidrato por alimento quando o protocolo tem um.
+
+    Mesmo mecanismo que generate_daily_plan usa — _food_compatible e o portao unico de
+    elegibilidade. Sem isto, o fluxo guiado ofereceria arroz e pao a quem escolheu o
+    protocolo agressivo, e a tela diria "Agressivo" sobre um plano que nao e."""
+    protocolo = (targets or {}).get("cut_protocol") or {}
+    if protocolo.get("carb_mode") != "capped":
+        return na
+    cfg = FORGE_COACH_METHODOLOGY["cutting_intensity"][protocolo["intensity"]]
+    return {**(na or {}), "_max_food_carb_g_per_100g": cfg["max_food_carb_g_per_100g"]}
+
+
 @router.get("/assessment")
 async def get_assessment(request: Request, user=Depends(get_current_user)):
     """Devolve o questionario salvo para a tela abrir com as escolhas ja feitas —
@@ -223,8 +255,7 @@ async def generate_plan(request: Request, user=Depends(get_current_user)):
     target = user["id"]
     profile = await db.profiles.find_one({"id": target}, {"_id": 0})
     na = (profile or {}).get("nutrition_assessment")
-    if not _assessment_completo(na):
-        raise HTTPException(400, "Assessment nutricional nÃ£o encontrado. FaÃ§a o questionÃ¡rio primeiro.")
+    _exigir_assessment(na, target, "gerar plano")
     targets = compute_macro_targets(
         na["weight_kg"], na["height_cm"], na["age"], na["sex"],
         na["training_days"], na["goal"], na.get("activity_level", "moderate"),
@@ -390,11 +421,13 @@ async def reset_plan_draft(request: Request, user=Depends(get_current_user)):
     target = user["id"]
     profile = await db.profiles.find_one({"id": target}, {"_id": 0})
     na = (profile or {}).get("nutrition_assessment")
-    if not _assessment_completo(na):
-        raise HTTPException(400, "Assessment nutricional nao encontrado. Faca o questionario primeiro.")
+    _exigir_assessment(na, target, "refazer plano")
+    # A intensidade faltava aqui: refazer o plano recalculava com o caminho legado e
+    # descartava o protocolo escolhido, enquanto /generate ja o respeitava.
     targets = compute_macro_targets(
         na["weight_kg"], na["height_cm"], na["age"], na["sex"],
-        na["training_days"], na["goal"], na.get("activity_level", "moderate"))
+        na["training_days"], na["goal"], na.get("activity_level", "moderate"),
+        na.get("intensity"))
     meal_count = na.get("meal_count", 4)
     draft = _build_empty_draft(targets, meal_count, na["goal"])
     doc = {"profile_id": target, "user_id": target, "created_at": datetime.now(timezone.utc).isoformat(), **draft}
@@ -426,6 +459,7 @@ async def draft_meal_options(payload: MealOptionsIn, request: Request, user=Depe
     if idx >= len(draft["meals"]):
         raise HTTPException(400, "Indice de refeicao invalido")
     goal = draft.get("goal", na.get("goal", "maintenance"))
+    na = _com_protocolo(na, draft.get("targets"))
     meal = draft["meals"][idx]
     preferences = await _load_preferences(db, target)
     # "Mostrar outras opcoes": a fresh seed shifts which concrete foods each archetype
@@ -590,6 +624,17 @@ async def confirm_plan_draft(request: Request, user=Depends(get_current_user)):
     # Same validator the legacy /generate uses — this IS the "porcoes, restricoes e
     # regras do coach foram respeitadas" confirmation surfaced to the review screen.
     warnings = validate_daily_plan(plan, draft["targets"], na)
+    # Mesmo limite duro do /generate: um plano fora do teto do protocolo nao pode ser
+    # gravado e apresentado como "Agressivo". O rascunho NAO e apagado aqui, entao o
+    # atleta ajusta as refeicoes e confirma de novo — nada do trabalho guiado se perde,
+    # e o plano anterior continua intacto ate um confirm valido.
+    erros = check_plan_hard_limits(plan, draft["targets"])
+    if erros:
+        logger.warning("confirmacao bloqueada para profile_id=%s: %s", target, "; ".join(erros))
+        raise HTTPException(422, {
+            "message": "O plano montado ficou fora dos limites do protocolo escolhido.",
+            "errors": erros})
+
     doc = {"profile_id": target, "user_id": target, "plan": plan, "created_at": datetime.now(timezone.utc).isoformat(),
            "engine_version": FORGE_COACH_METHODOLOGY["engine_version"],
            "methodology_version": FORGE_COACH_METHODOLOGY["coach_version"]}
