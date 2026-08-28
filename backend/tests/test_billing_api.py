@@ -625,3 +625,21 @@ async def test_config_check_mostra_id_de_plano_que_nao_e_segredo():
     async with await _cliente() as c:
         r = await c.get("/api/billing/config-check", headers=admin)
     assert r.json()["variables"]["MP_PRO_PLAN_ID"]["value"] == os.environ["MP_PRO_PLAN_ID"]
+
+
+@asincrono
+async def test_lista_de_eventos_exige_admin_e_nao_expoe_payload():
+    """A lista existe para provar que a notificacao chegou — nao para guardar dado
+    financeiro."""
+    _, atleta = await _criar_atleta(role="ATHLETE")
+    _, admin = await _criar_atleta(role="SUPER_ADMIN")
+    async with await _cliente() as c:
+        negado = await c.get("/api/billing/events", headers=atleta)
+        r = await c.get("/api/billing/events", headers=admin)
+    assert negado.status_code == 403
+    assert r.status_code == 200
+    corpo = r.json()
+    assert "events" in corpo and "by_status" in corpo
+    for e in corpo["events"]:
+        for proibido in ("payload", "body", "signature", "token", "card"):
+            assert proibido not in e

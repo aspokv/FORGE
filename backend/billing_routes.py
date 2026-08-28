@@ -474,6 +474,32 @@ async def conferir_configuracao(admin=Depends(require_super_admin)):
     }
 
 
+@router.get("/events")
+async def eventos_recebidos(request: Request, limit: int = 20,
+                            admin=Depends(require_super_admin)):
+    """Ultimos eventos de webhook recebidos.
+
+    Existe para responder a pergunta que nenhum teste com duble responde: "a notificacao
+    do Mercado Pago chegou mesmo no servidor publicado?". Sem isto, um teste de assinatura
+    real vira adivinhacao — se o acesso nao liberar, nao da para saber se o webhook nao
+    chegou, chegou e foi recusado, ou chegou e falhou.
+
+    Nao devolve corpo de notificacao nem dado financeiro: so o tipo, o id do recurso, em
+    que estado o processamento parou e quanto demorou."""
+    db = request.app.state.db
+    limite = max(1, min(int(limit or 20), 100))
+    eventos = await db.billing_events.find(
+        {}, {"_id": 0, "event_key": 1, "type": 1, "resource_id": 1, "status": 1,
+             "result": 1, "error_code": 1, "created_at": 1, "updated_at": 1,
+             "duration_ms": 1}
+    ).sort("created_at", -1).to_list(limite)
+    por_estado: Dict[str, int] = {}
+    for e in eventos:
+        por_estado[e.get("status", "?")] = por_estado.get(e.get("status", "?"), 0) + 1
+    return {"events": eventos, "count": len(eventos), "by_status": por_estado,
+            "pending_retry": await db.billing_events.count_documents({"status": "pending_retry"})}
+
+
 # ── Reconciliacao (administrativa) ───────────────────────────────────────────────────
 
 @router.post("/reconcile")
