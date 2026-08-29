@@ -119,8 +119,10 @@ describe("cabecalhos de seguranca", () => {
   });
 
   test("resposta de API nao pode ficar em cache de proxy", () => {
-    const api = (NGINX.match(/location \/api [^]*?add_header Cache-Control "no-store"/) || [""])[0];
+    // Resposta de API carrega dado de uma pessoa so; um proxy no caminho nao pode
+    // guardar a de um atleta e devolver a outro.
+    const api = (NGINX.match(/location \/api [^]*?\}/) || [""])[0];
     expect(api).toContain("proxy_hide_header Cache-Control");
-    expect(api).toContain('add_header Cache-Control "no-store"');
+    expect(api).toMatch(/add_header Cache-Control "[^"]*no-store[^"]*" always;/);
   });
 });
