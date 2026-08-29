@@ -104,4 +104,23 @@ describe("cabecalhos de seguranca", () => {
   test("a versao do nginx nao e anunciada", () => {
     expect(NGINX).toMatch(/server_tokens off;/);
   });
+
+  test("cada location com add_header proprio repete os de seguranca", () => {
+    // add_header dentro de location substitui TODOS os herdados do server. Repetir
+    // apenas alguns deixa o resto de fora — foi assim que os arquivos estaticos
+    // ficaram sem HSTS ate o OWASP ZAP apontar.
+    const blocos = NGINX.match(/location [^{]*\{[^}]*add_header[^}]*\}/g) || [];
+    expect(blocos.length).toBeGreaterThanOrEqual(3);
+    blocos.forEach((b) => {
+      expect(b).toMatch(/Strict-Transport-Security/);
+      expect(b).toMatch(/X-Content-Type-Options/);
+      expect(b).toMatch(/Referrer-Policy/);
+    });
+  });
+
+  test("resposta de API nao pode ficar em cache de proxy", () => {
+    const api = (NGINX.match(/location \/api [^]*?add_header Cache-Control "no-store"/) || [""])[0];
+    expect(api).toContain("proxy_hide_header Cache-Control");
+    expect(api).toContain('add_header Cache-Control "no-store"');
+  });
 });
