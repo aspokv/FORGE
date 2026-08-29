@@ -42,9 +42,66 @@ def verify_password(pw: str, hashed: str) -> bool:
 
 
 def create_token(user_id: str, role: str) -> str:
-    payload = {"sub": user_id, "role": role, "type": "access",
-               "exp": datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TTL_MIN)}
+    # "iat" existe para permitir invalidar sessoes antigas: quando a senha muda, todo
+    # token emitido ANTES daquele instante deixa de valer. Sem essa marca, trocar a senha
+    # nao expulsaria quem ja estava dentro — que e justamente o motivo de trocar.
+    agora = datetime.now(timezone.utc)
+    payload = {"sub": user_id, "role": role, "type": "access", "iat": agora,
+               "exp": agora + timedelta(minutes=ACCESS_TTL_MIN)}
     return jwt.encode(payload, secret(), algorithm=JWT_ALGO)
+
+
+def sessao_revogada(user: dict, payload: dict) -> bool:
+    """O token foi emitido antes da ultima troca de senha?
+
+    Sem `password_changed_at` no usuario nada e revogado, entao quem nunca trocou a senha
+    nao e afetado. Com a marca presente e um token sem `iat`, revoga: o token e anterior a
+    existencia deste campo, e depois de uma troca de senha o certo e fechar tudo."""
+    trocada_em = (user or {}).get("password_changed_at")
+    if not trocada_em:
+        return False
+    try:
+        limite = datetime.fromisoformat(trocada_em)
+    except (TypeError, ValueError):
+        return False
+    if limite.tzinfo is None:
+        limite = limite.replace(tzinfo=timezone.utc)
+    emitido = payload.get("iat")
+    if emitido is None:
+        return True
+    try:
+        emitido_em = datetime.fromtimestamp(float(emitido), tz=timezone.utc)
+    except (TypeError, ValueError, OSError):
+        return True
+    # 1 segundo de folga: "iat" tem resolucao de segundo e o token novo pode empatar com
+    # o carimbo da troca, o que expulsaria a pessoa da sessao recem-criada.
+    return emitido_em < limite - timedelta(seconds=1)
+
+
+SENHA_MINIMA = 8
+
+
+def senha_fraca(senha: str, email: str = "") -> Optional[str]:
+    """Diz o que falta na senha, ou None quando esta boa.
+
+    Mesma politica da tela, aplicada no servidor: a validacao do navegador serve para
+    orientar, nao para decidir."""
+    s = senha or ""
+    if len(s) < SENHA_MINIMA:
+        return f"A senha precisa de pelo menos {SENHA_MINIMA} caracteres."
+    # Antes das checagens de letra e numero, e nao depois: uma senha de um caractere so
+    # repetido sempre falharia numa delas primeiro, e este aviso — que e o util para o
+    # caso — nunca apareceria. A checagem existia e era inalcancavel.
+    if len(set(s)) == 1:
+        return "A senha precisa de caracteres variados."
+    if not any(c.isalpha() for c in s):
+        return "A senha precisa de pelo menos uma letra."
+    if not any(c.isdigit() for c in s):
+        return "A senha precisa de pelo menos um número."
+    local = (email or "").split("@")[0].lower()
+    if len(local) >= 3 and local in s.lower():
+        return "A senha não pode conter seu e-mail."
+    return None
 
 
 def new_invite_token() -> str:
@@ -108,6 +165,9 @@ async def get_current_user(request: Request):
         raise HTTPException(401, "Conta não encontrada")
     if user.get("status") == "SUSPENDED":
         raise HTTPException(403, "Conta suspensa. Fale com o administrador.")
+
+    if sessao_revogada(user, payload):
+        raise HTTPException(401, "Sua senha foi alterada. Entre novamente.")
 
     # A trava mora aqui, e nao em cada rota, porque esta e a dependencia por onde passa
     # toda requisicao autenticada: trocar o localStorage, o corpo, a rota ou o plano no

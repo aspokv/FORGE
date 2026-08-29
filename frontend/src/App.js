@@ -13,6 +13,7 @@ import {findTechnique,TECHNIQUE_FALLBACK} from "./features/techniques";
 import {AuthProvider,useAuth} from "./features/AuthContext";
 import {anteriorNaLista,passosPendentes,proximoNaLista,respostasIniciais} from "./features/onboardingResume";
 import Landing from "./features/Landing";
+import PasswordReset from "./features/PasswordReset";
 import SignupFlow,{PagamentoPendente} from "./features/SignupFlow";
 import {LoginScreen,InviteScreen} from "./features/AuthScreens";
 import AdminPanel from "./features/AdminPanel";
@@ -207,16 +208,17 @@ function Choice({label,value,options,onChange}){return <div className="choice"><
 function ProgramPreview({program,onApprove,onBack}){const p=program||{};return <div className="onboarding deep-scene"><div className="onboard-scene"><p className="eyebrow">PREVIEW DO PROGRAMA</p><h1>Seu programa FORGE ASSISTED</h1><p className="onboard-copy">{p.name||"Programa adaptativo"} · {p.week||""}</p></div><section className="panel"><div className="panel-top"><div><p className="eyebrow">LÓGICA</p><h3>{p.logic?.split||p.name}</h3></div></div><p className="muted">{p.logic?.days||0} sessões · volume ×{p.logic?.recovery_modifier||1}. Prioridade manual preservada.</p></section>{(p.sessions||[]).map((s,i)=><section className="panel"key={i}><p className="eyebrow">DIA {s.day} · {s.label} · {s.demand}</p><div className="focus-row">{(s.focus||[]).map(f=><span key={f}>{f}</span>)}</div>{(s.exercises||[]).map((x,j)=><div className="muscle-row"key={j}><div><b>{x.exercise_id}</b><p>{x.sets}×{x.reps} RIR {x.rir} · {x.rest}{x.technique_id!=="straight"?` · ${x.technique}`:""}</p></div></div>)}</section>)}<div className="deep-actions"style={{marginTop:28}}><button className="secondary-button"data-testid="preview-back-button"onClick={onBack}>Voltar e ajustar</button><button className="primary-button"data-testid="approve-program-button"onClick={onApprove}><Check size={18}/> Aprovar programa</button></div></div>}
 // Rotas publicas: a raiz passa a ser a pagina de venda, e nao um desvio para o login.
 // E o unico endereco que precisa ser divulgado.
-const ROTAS_PUBLICAS=["/","","/assinar","/login"];
+// /recuperar tem que ser publica: quem esqueceu a senha nao consegue entrar para pedi-la.
+const ROTAS_PUBLICAS=["/","","/assinar","/login","/recuperar"];
 function Router(){const{user,ready,route,navigate,signIn,signOut,reload}=useAuth();const[planoEscolhido,setPlanoEscolhido]=useState("");
   // Quem ainda nao pagou nao entra no aplicativo. A tela obedece; quem garante e o
   // backend, que devolve 403 em toda rota paga.
   const aguardandoPagamento=Boolean(user)&&user.status==="PENDING_PAYMENT"&&user.role!=="SUPER_ADMIN";
   const voltandoDoCheckout=route.startsWith("/assinatura/retorno");
-  useEffect(()=>{if(!ready)return;const inviteMatch=route.match(/^\/invite\/(.+)/);if(inviteMatch)return;if(!user){if(!ROTAS_PUBLICAS.includes(route))navigate("/",true);return}if(aguardandoPagamento){if(route!=="/assinatura"&&!route.startsWith("/assinatura/retorno"))navigate("/assinatura",true);return}if(user.role==="SUPER_ADMIN"&&(route==="/login"||route==="/"||route===""))navigate("/admin",true);if(user.role==="ATHLETE"&&(route==="/login"||route==="/admin"||route==="/"||route===""||route==="/assinar"||route.startsWith("/assinatura")))navigate("/app",true)},[user,ready,route,navigate,aguardandoPagamento]);
+  useEffect(()=>{if(!ready)return;const inviteMatch=route.match(/^\/invite\/(.+)/);if(inviteMatch)return;if(!user){if(!ROTAS_PUBLICAS.includes(route)&&!route.startsWith("/recuperar/"))navigate("/",true);return}if(aguardandoPagamento){if(route!=="/assinatura"&&!route.startsWith("/assinatura/retorno"))navigate("/assinatura",true);return}if(user.role==="SUPER_ADMIN"&&(route==="/login"||route==="/"||route===""))navigate("/admin",true);if(user.role==="ATHLETE"&&(route==="/login"||route==="/admin"||route==="/"||route===""||route==="/assinar"||route.startsWith("/assinatura")))navigate("/app",true)},[user,ready,route,navigate,aguardandoPagamento]);
   if(!ready)return <div className="auth-shell"><div className="auth-card"><p className="muted">Carregando FORGE...</p></div></div>;
   const inviteMatch=route.match(/^\/invite\/(.+)/);if(inviteMatch)return <InviteScreen token={inviteMatch[1]}/>;
-  if(!user){if(route==="/login")return <LoginScreen/>;if(route==="/assinar")return <SignupFlow API={API}planoInicial={planoEscolhido}onEntrar={()=>navigate("/login")}onCancelar={()=>navigate("/")}onAutenticar={signIn}/>;return <Landing API={API}onComecar={code=>{setPlanoEscolhido(code);navigate("/assinar")}}onEntrar={()=>navigate("/login")}/>}
+  if(!user){if(route==="/login")return <LoginScreen/>;if(route==="/recuperar"||route.startsWith("/recuperar/"))return <PasswordReset/>;if(route==="/assinar")return <SignupFlow API={API}planoInicial={planoEscolhido}onEntrar={()=>navigate("/login")}onCancelar={()=>navigate("/")}onAutenticar={signIn}/>;return <Landing API={API}onComecar={code=>{setPlanoEscolhido(code);navigate("/assinar")}}onEntrar={()=>navigate("/login")}/>}
   if(aguardandoPagamento)return <PagamentoPendente API={API}user={user}onSair={signOut}retornando={voltandoDoCheckout}onLiberado={reload}/>;
   if(user.role==="SUPER_ADMIN"&&route.startsWith("/admin"))return <AdminPanel/>;return <AthleteShell/>}
 function App(){return <AuthProvider><Router/></AuthProvider>}

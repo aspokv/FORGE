@@ -127,6 +127,19 @@ def cadastro_publico_ativo() -> bool:
     return (os.environ.get("PUBLIC_SIGNUP_ENABLED") or "").strip().lower() in ("1", "true", "yes")
 
 
+async def enviar_recuperacao(email: str, link: str) -> bool:
+    """Link de redefinicao de senha.
+
+    O corpo diz a validade e o que fazer se a pessoa nao pediu — sem isso, quem
+    recebe um pedido que nao fez nao tem como saber se deve se preocupar. O link
+    nunca entra em log: ele vale como senha ate expirar."""
+    return await provedor().enviar(
+        email,
+        "Redefinir sua senha do FORGE",
+        f"Recebemos um pedido para redefinir a senha da sua conta FORGE.\n\nAbra este link para criar uma nova senha:\n{link}\n\nO link vale por 30 minutos e só pode ser usado uma vez.\n\nSe você não pediu isso, ignore esta mensagem: sua senha atual continua valendo e nada muda.",
+    )
+
+
 async def enviar_codigo(email: str, codigo: str) -> bool:
     return await provedor().enviar(
         email,

@@ -24,6 +24,7 @@ from entitlements import exigir_capacidade
 from manual_workout_routes import router as manual_workout_router
 from nutrition_import_routes import router as nutrition_import_router
 from billing_routes import router as billing_router
+from password_reset_routes import router as password_reset_router
 from preassessment_routes import router as preassessment_router
 from signup_routes import router as signup_router
 from muscles import (
@@ -888,6 +889,7 @@ app.include_router(nutrition_import_router)
 app.include_router(billing_router)
 app.include_router(signup_router)
 app.include_router(preassessment_router)
+app.include_router(password_reset_router)
 app.include_router(api)
 def _origens_permitidas() -> List[str]:
     """Allowlist exata de origens.

@@ -49,7 +49,10 @@ export function LoginScreen() {
         <button className="primary-button auth-submit" data-testid="login-submit" disabled={busy} type="submit">
           <LogIn size={16} /> {busy ? "Entrando..." : "Entrar"} <ChevronRight size={16} />
         </button>
-        <p className="auth-hint muted"><ShieldCheck size={13} /> Acesso apenas para atletas convidados.</p>
+        <button type="button" className="text-button" data-testid="forgot-password-link" onClick={() => navigate("/recuperar")}>
+          Esqueci minha senha
+        </button>
+        <p className="auth-hint muted"><ShieldCheck size={13} /> Seus dados trafegam por conexão segura.</p>
       </motion.form>
     </div>
   );
