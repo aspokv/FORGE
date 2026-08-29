@@ -553,22 +553,43 @@ async def get_visual_assessment(profile_id: str, user=Depends(get_current_user))
     return {"latest": latest, "manual_assessment": manual, "vision_assessment": vision}
 
 
+def _desenvolvimento(valor: Any, padrao: str = "proporcional") -> str:
+    """Le o desenvolvimento tanto do formato atual quanto do legado.
+
+    O campo ja foi gravado como texto puro ("fraco") e hoje e um dicionario. Perfis
+    antigos ainda carregam a forma antiga, entao ler sem conferir o tipo quebra."""
+    if isinstance(valor, dict):
+        return str(valor.get("development", padrao))
+    if isinstance(valor, str) and valor:
+        return valor
+    return padrao
+
+
 @api.get("/visual-comparison/{profile_id}")
 async def visual_comparison(profile_id: str, user=Depends(get_current_user)):
     target = owned_profile_id(user, profile_id)
     profile = await load_profile(target)
-    manual = profile.get("assessment", {})
-    vision = profile.get("visual_assessment", {})
-    notes = profile.get("visual_notes", {})
+    # Cada um destes ja apareceu em outra forma no banco. Normalizar aqui evita que um
+    # perfil antigo derrube a rota com 500 — que e o que acontecia com visual_assessment
+    # gravado como texto.
+    manual = profile.get("assessment") if isinstance(profile.get("assessment"), dict) else {}
+    vision = profile.get("visual_assessment") if isinstance(profile.get("visual_assessment"), dict) else {}
+    notes = profile.get("visual_notes") if isinstance(profile.get("visual_notes"), dict) else {}
     comparison = []
     for m in MUSCLES:
-        md = manual.get(m, {})
-        md_dev = md.get("development", "proporcional") if isinstance(md, dict) else md
-        vd = vision.get(m, {})
-        vd_dev = vd.get("development", "proporcional") if isinstance(vd, dict) else md_dev
+        md_dev = _desenvolvimento(manual.get(m))
+        vd_dev = _desenvolvimento(vision.get(m), padrao=md_dev)
         agreement = "concordam" if md_dev == vd_dev else ("vis\u00e3o v\u00ea mais desenvolvido" if vd_dev in ("forte", "muito forte") and md_dev in ("fraco", "muito fraco", "proporcional") else "vis\u00e3o v\u00ea menos desenvolvido")
         comparison.append({"muscle": m, "manual": md_dev, "vision": vd_dev, "agreement": agreement})
-    return {"comparison": comparison, "notes": notes, "manual_priorities": profile.get("priorities", []), "vision_priorities": [m for m, v in vision.items() if v.get("priority") == "alta" if isinstance(v, dict)]}
+    # A ordem dos dois "if" importava: numa compreensao, `if v.get(...) if isinstance(...)`
+    # avalia o .get PRIMEIRO, entao um valor legado em texto levantava AttributeError e
+    # a rota respondia 500. Uma condicao so, com a guarda antes do acesso.
+    prioridades_da_visao = [m for m, v in vision.items()
+                            if isinstance(v, dict) and v.get("priority") == "alta"]
+    prioridades = profile.get("priorities")
+    return {"comparison": comparison, "notes": notes,
+            "manual_priorities": prioridades if isinstance(prioridades, list) else [],
+            "vision_priorities": prioridades_da_visao}
 
 
 @api.post("/weekly-review")
