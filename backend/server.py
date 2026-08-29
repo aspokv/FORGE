@@ -396,7 +396,21 @@ async def save_custom_program(program: CustomProgram, user=Depends(get_current_u
     target = user["id"] if user.get("role") == "ATHLETE" else program.profile_id
     doc = program.model_dump()
     doc["saved_at"] = datetime.now(timezone.utc).isoformat()
-    await db.profiles.update_one({"id": target}, {"$set": {"custom_program": doc, "automation_mode": "FORGE_PRO", "user_id": target}}, upsert=True)
+    # onboarding_required=False pelo mesmo motivo de save_assessment e do treino manual:
+    # quem montou o proprio programa ja disse o que quer. Sem isto, load_profile via um
+    # perfil sem avaliacao, marcava onboarding de volta, e build_program devolvia o
+    # programa VAZIO de ONBOARDING_REQUIRED — o treino recem-salvo era ignorado.
+    await db.profiles.update_one(
+        {"id": target},
+        {"$set": {"custom_program": doc, "automation_mode": "FORGE_PRO",
+                  "user_id": target, "onboarding_required": False},
+         # $setOnInsert e nao $set: se o perfil ja existe, o nome dele nao pode ser
+         # sobrescrito. Sem isto, um perfil criado SO pelo Program Builder nascia sem
+         # nome, e o bootstrap devolvia um perfil que a tela nao tem como rotular.
+         "$setOnInsert": {"name": "Novo atleta", "goal": "Hipertrofia",
+                          "experience": "Intermediário", "days": 3,
+                          "session_minutes": 60, "priorities": [], "assessment": {}}},
+        upsert=True)
     profile = await load_profile(target)
     return {"program": await build_program(profile), "custom": doc}
 
@@ -405,6 +419,12 @@ async def save_custom_program(program: CustomProgram, user=Depends(get_current_u
 async def clear_custom_program(profile_id: str, user=Depends(get_current_user)):
     target = owned_profile_id(user, profile_id)
     await db.profiles.update_one({"id": target}, {"$unset": {"custom_program": ""}})
+    # Sem o programa manual o motor volta a mandar, e ele precisa da avaliacao. Se o
+    # perfil nunca respondeu nada, o onboarding volta a ser exigido — senao a pessoa
+    # receberia um programa generico sem nunca ter sido perguntada.
+    perfil_atual = await db.profiles.find_one({"id": target}, {"_id": 0}) or {}
+    if engine_is_empty_profile(perfil_atual):
+        await db.profiles.update_one({"id": target}, {"$set": {"onboarding_required": True}})
     profile = await load_profile(target)
     return {"program": await build_program(profile), "cleared": True}
 
