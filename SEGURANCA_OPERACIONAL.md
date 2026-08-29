@@ -83,8 +83,8 @@ subiu, e só então remover o usuário antigo. Nessa ordem — o inverso derruba
 
 ### Por que rotacionar
 
-Nenhuma destas apareceu no histórico do Git — o Gitleaks varreu os 53 commits e não achou
-nada. Mas todas passaram por arquivos locais (`backend/.env`, dois `.env.backup-*`) e pelo
+Nenhuma destas apareceu no histórico do Git — o Gitleaks varreu o histórico inteiro e não
+achou nada. Mas todas passaram por arquivos locais (`backend/.env`, dois `.env.backup-*`) e pelo
 painel do Coolify durante a configuração. Rotacionar antes de abrir ao público é higiene,
 não emergência.
 
