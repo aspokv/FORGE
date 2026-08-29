@@ -20,8 +20,11 @@ services:
       FORGE_SUPER_ADMIN_EMAIL: ${FORGE_SUPER_ADMIN_EMAIL:?defina FORGE_SUPER_ADMIN_EMAIL}
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-      # Front e API na mesma origem: CORS deixa de existir como problema.
-      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+      # Front e API na mesma origem (o nginx faz proxy de /api), entao no uso normal nao
+      # existe requisicao cross-origin. Vazio por padrao: o backend monta a allowlist com
+      # FORGE_SITE_URL. O "*" que estava aqui e recusado pelo codigo desde a auditoria,
+      # mas deixa-lo escrito sugeria que curinga era uma configuracao aceitavel.
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
       # --- Cobranca e e-mail ---------------------------------------------------------
       # Variavel definida no painel do Coolify que NAO estiver listada aqui simplesmente
       # nao entra no container: o compose declara o que passa. Todas usam ":-" (opcional,
