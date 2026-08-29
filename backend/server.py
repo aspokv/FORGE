@@ -931,7 +931,10 @@ async def limitar_tamanho_do_corpo(request: Request, call_next):
             tamanho = int(declarado)
         except ValueError:
             return JSONResponse({"detail": "Content-Length inválido"}, status_code=400)
-        caminho = request.url.path
+        # scope["path"] pelo mesmo motivo de auth.get_current_user: e o caminho que o
+        # roteador vai casar. `request.url.path` e reconstruido, e um caminho forjado
+        # que parecesse a rota de upload renderia o teto de 8 MB em qualquer rota.
+        caminho = request.scope.get("path") or request.url.path
         teto = (LIMITE_DE_UPLOAD if any(caminho.startswith(r) for r in ROTAS_COM_UPLOAD)
                 else LIMITE_DE_CORPO)
         if tamanho > teto:
