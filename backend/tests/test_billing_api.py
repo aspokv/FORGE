@@ -687,13 +687,17 @@ def _rotas_que_exigem_login():
 
     Percorrer o app e melhor do que manter uma lista escrita a mao: uma rota paga criada
     no futuro entra nesta varredura sozinha, e o teste falha se ela ficar aberta para quem
-    nao pagou. Uma lista escrita a mao envelheceria em silencio."""
+    nao pagou. Uma lista escrita a mao envelheceria em silencio.
+
+    A enumeracao vem de tests/rotas.py porque o formato de `app.routes` mudou entre as
+    versoes do FastAPI — e quando mudou, esta varredura passou a encontrar zero rotas e
+    a aprovar sem testar coisa nenhuma."""
     from auth import get_current_user, require_super_admin
+    from rotas import rotas_da_api
     achadas = []
-    for r in APP.routes:
-        dep = getattr(r, "dependant", None)
-        caminho = getattr(r, "path", "")
-        if not dep or not caminho.startswith("/api"):
+    for metodo, caminho, objeto in rotas_da_api(APP):
+        dep = getattr(objeto, "dependant", None)
+        if not dep:
             continue
         vistos, pilha, exige = set(), [dep], False
         while pilha:
@@ -705,7 +709,6 @@ def _rotas_que_exigem_login():
                 exige = True
             pilha.extend(d.dependencies)
         if exige:
-            metodo = sorted(set(r.methods) - {"HEAD", "OPTIONS"})[0]
             achadas.append((metodo, caminho))
     return sorted(set(achadas))
 

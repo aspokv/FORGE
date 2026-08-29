@@ -4,7 +4,14 @@ black>=24.1.1
 boto3>=1.34.129
 cryptography>=42.0.8
 email-validator>=2.2.0
-fastapi==0.110.1
+# fastapi 0.110.1 fixava starlette<0.38, o que travava sete CVEs sem correcao
+# possivel (PYSEC-2026-161/248/249/1941/1943/2280/2281). A 0.141 pede
+# starlette>=0.46 sem teto, entao da para ir para uma versao ja corrigida.
+# Mudanca incompativel encontrada: app.routes passou a devolver _IncludedRouter
+# em vez das rotas achatadas — so os testes liam isso, e tests/rotas.py cobre as
+# duas formas.
+fastapi==0.141.1
+starlette==1.3.1
 flake8>=7.0.0
 isort>=5.13.2
 jq>=1.6.0
