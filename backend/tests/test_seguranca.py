@@ -391,3 +391,45 @@ def test_a_allowlist_sem_pagamento_continua_minima():
         "/api/billing/checkout",
         "/api/preassessment",
     })
+
+
+# ── Confusao de caminho na trava de pagamento ────────────────────────────────────────
+
+def test_a_trava_le_o_caminho_do_roteamento_e_nao_a_url_reconstruida():
+    """request.url.path e remontado a partir de esquema, host e caminho e reanalisado.
+
+    Nao ha bypass conhecido hoje — foi testado com socket cru, com travessia, barra
+    dupla, ponto-e-virgula e fragmento, e todos deram 403 ou 404. Mas fazer a trava
+    depender do valor reconstruido e apostar que nenhuma versao futura do starlette vai
+    deixar os dois divergirem, e ja houve CVE sobre isso (PYSEC-2026-248). O teste fixa
+    a fonte: o caminho que o roteador casou."""
+    import inspect
+    import auth
+    fonte = inspect.getsource(auth.get_current_user)
+    assert 'request.scope.get("path")' in fonte
+    assert "request.url.path.rstrip" not in fonte
+
+
+@asincrono
+async def test_caminho_forjado_nao_alcanca_rota_paga():
+    import uuid
+    from datetime import datetime, timezone
+    uid = str(uuid.uuid4())
+    email = "seg.pathconf@example.com"
+    await DB.users.delete_many({"email": email})
+    await DB.users.insert_one({
+        "id": uid, "email": email, "name": "Path", "role": "ATHLETE",
+        "status": "PENDING_PAYMENT", "signup_source": "public",
+        "created_at": datetime.now(timezone.utc).isoformat()})
+    h = {"Authorization": "Bearer " + create_token(uid, "ATHLETE")}
+
+    async with await _cliente() as c:
+        for alvo in ("/api/bootstrap",
+                     "/api/bootstrap?x=/api/preassessment",
+                     "/api/preassessment/../bootstrap",
+                     "/api/bootstrap/"):
+            # follow_redirects: a barra final gera 307 antes da autenticacao rodar, e o
+            # que importa e o destino, nao o desvio.
+            r = await c.get(alvo, headers=h, follow_redirects=True)
+            assert r.status_code in (403, 404, 405), f"{alvo} -> {r.status_code}"
+    await DB.users.delete_many({"id": uid})

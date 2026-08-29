@@ -112,9 +112,16 @@ async def get_current_user(request: Request):
     # A trava mora aqui, e nao em cada rota, porque esta e a dependencia por onde passa
     # toda requisicao autenticada: trocar o localStorage, o corpo, a rota ou o plano no
     # navegador nao muda nada, porque o estado e relido do banco a cada chamada.
+    # scope["path"], e nao request.url.path: o primeiro e o caminho que o roteador
+    # realmente casou; o segundo e reconstruido concatenando esquema, host e caminho e
+    # reanalisando o resultado. Enquanto os dois coincidirem nao ha diferenca, mas fazer
+    # a trava depender do valor reconstruido significa apostar que nenhuma versao do
+    # starlette vai deixar os dois divergirem — e ja houve CVE exatamente sobre isso
+    # (PYSEC-2026-248). Ler a fonte do roteamento elimina a duvida.
+    caminho = (request.scope.get("path") or request.url.path).rstrip("/")
     if (user.get("status") == AGUARDANDO_PAGAMENTO
             and user.get("role") != "SUPER_ADMIN"
-            and request.url.path.rstrip("/") not in ROTAS_LIBERADAS_SEM_PAGAMENTO):
+            and caminho not in ROTAS_LIBERADAS_SEM_PAGAMENTO):
         raise HTTPException(403, {
             "message": "Conclua o pagamento para liberar seu acesso.",
             "reason": "payment_pending"})
