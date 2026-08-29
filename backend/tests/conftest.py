@@ -22,7 +22,6 @@ A semeadura escreve senha em conta de administrador. Isso so pode acontecer num 
 descartavel, entao a sessao aborta se o alvo nao for local e nao se chamar como um banco
 de teste. Errar isso uma vez seria trocar a senha do dono em producao.
 """
-import asyncio
 import os
 import sys
 import uuid
@@ -127,12 +126,12 @@ def semear_banco_de_teste():
                     "A suite escreve senha de administrador e so roda em banco de teste.",
                     returncode=2)
 
+    # O MESMO laco de loop_do_motor, e nao um novo: o cliente do Motor se prende ao
+    # primeiro laco que o toca. Criar um aqui, semear e fecha-lo prendia o Motor a um
+    # laco morto, e a suite inteira passava a falhar com "attached to a different loop".
+    from loop_do_motor import LOOP
     import server
 
-    laco = asyncio.new_event_loop()
-    try:
-        laco.run_until_complete(_semear(server.db))
-    finally:
-        laco.close()
+    LOOP.run_until_complete(_semear(server.db))
     print(f"\n[conftest] contas de teste semeadas em {motivo}")
     yield
