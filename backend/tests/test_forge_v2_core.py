@@ -77,9 +77,14 @@ def test_admin_create_and_accept_invite():
 
     # create athlete
     test_email = f"testinvite{int(time.time())}@example.com"
+    # confirm_courtesy e courtesy_reason passaram a ser obrigatorios quando o convite
+    # ganhou os dois modos: conceder acesso de graca exige dizer por que, e fica em
+    # auditoria. Este teste cobre o modo cortesia, que e o comportamento anterior.
     create = requests.post(f"{API}/admin/athletes", json={
         "email": test_email, "name": "Test Invite User",
-        "plan": "FORGE_ACCESS", "validity": "30", "admin_note": "core test"
+        "plan": "FORGE_ACCESS", "validity": "30", "admin_note": "core test",
+        "access_mode": "courtesy", "confirm_courtesy": True,
+        "courtesy_reason": "conta de teste automatizado"
     }, headers=headers)
     assert create.status_code == 200, f"create failed: {create.text}"
     invite_url = create.json()["invite_url"]
@@ -118,8 +123,11 @@ def test_admin_suspend_and_reactivate():
     # create then suspend
     test_email = f"testsusp{int(time.time())}@example.com"
     r = requests.post(f"{API}/admin/athletes", json={
-        "email": test_email, "name": "Suspend Test", "plan": "FORGE_ACCESS", "validity": "30"
+        "email": test_email, "name": "Suspend Test", "plan": "FORGE_ACCESS", "validity": "30",
+        "access_mode": "courtesy", "confirm_courtesy": True,
+        "courtesy_reason": "conta de teste automatizado"
     }, headers=headers)
+    assert r.status_code == 200, f"create failed: {r.text}"
     athlete_id = r.json()["athlete"]["id"]
 
     # get athlete list and find the user

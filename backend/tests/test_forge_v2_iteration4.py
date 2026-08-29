@@ -10,12 +10,18 @@ if ENV_FILE.exists():
 
 BASE_URL = (os.environ.get("BACKEND_URL") or os.environ.get("REACT_APP_BACKEND_URL") or "http://localhost:8000").rstrip("/")
 
+# Estas rotas exigem login desde que a autenticacao foi aplicada a elas; test_seguranca
+# verifica que nenhuma responde a anonimo. A sessao carrega o Authorization.
+from sessao import sessao_admin
+
+S = sessao_admin()
+
 TECHNIQUE_IDS = {"straight","drop-set","mechanical-drop-set","rest-pause","myo-reps","cluster","top-set-backoff","pyramid","lengthened-partials","superset"}
 
 
 # --- Techniques catalog ---
 def test_techniques_catalog():
-    r = requests.get(f"{BASE_URL}/api/techniques")
+    r = S.get(f"{BASE_URL}/api/techniques")
     assert r.status_code == 200
     data = r.json()
     assert "techniques" in data
@@ -28,7 +34,7 @@ def test_techniques_catalog():
 
 
 def test_bootstrap_includes_techniques():
-    r = requests.get(f"{BASE_URL}/api/bootstrap?profile_id=demo")
+    r = S.get(f"{BASE_URL}/api/bootstrap?profile_id=demo")
     assert r.status_code == 200
     body = r.json()
     assert "techniques" in body
@@ -69,9 +75,9 @@ def _custom_program_payload():
 
 def test_custom_program_post_and_persistence():
     # Ensure clean starting state
-    requests.delete(f"{BASE_URL}/api/custom-program/{CUSTOM_PROFILE_ID}")
+    S.delete(f"{BASE_URL}/api/custom-program/{CUSTOM_PROFILE_ID}")
     payload = _custom_program_payload()
-    r = requests.post(f"{BASE_URL}/api/custom-program", json=payload)
+    r = S.post(f"{BASE_URL}/api/custom-program", json=payload)
     assert r.status_code == 200, r.text
     prog = r.json()["program"]
     assert prog["logic"]["manual"] is True
@@ -83,7 +89,7 @@ def test_custom_program_post_and_persistence():
     assert first_ex["technique"] == "Top Set + Back-off"
 
     # Persistence via bootstrap
-    b = requests.get(f"{BASE_URL}/api/bootstrap?profile_id={CUSTOM_PROFILE_ID}")
+    b = S.get(f"{BASE_URL}/api/bootstrap?profile_id={CUSTOM_PROFILE_ID}")
     assert b.status_code == 200
     bprog = b.json()["program"]
     assert bprog["logic"].get("manual") is True
@@ -95,11 +101,11 @@ def test_custom_program_post_and_persistence():
 
 def test_custom_program_delete_reverts_to_engine():
     # Precondition: program exists
-    requests.post(f"{BASE_URL}/api/custom-program", json=_custom_program_payload())
-    d = requests.delete(f"{BASE_URL}/api/custom-program/{CUSTOM_PROFILE_ID}")
+    S.post(f"{BASE_URL}/api/custom-program", json=_custom_program_payload())
+    d = S.delete(f"{BASE_URL}/api/custom-program/{CUSTOM_PROFILE_ID}")
     assert d.status_code == 200
     assert d.json().get("cleared") is True
-    b = requests.get(f"{BASE_URL}/api/bootstrap?profile_id={CUSTOM_PROFILE_ID}")
+    b = S.get(f"{BASE_URL}/api/bootstrap?profile_id={CUSTOM_PROFILE_ID}")
     assert b.status_code == 200
     prog = b.json()["program"]
     assert not prog["logic"].get("manual"), "should revert to engine program"
@@ -110,10 +116,10 @@ def test_sets_stores_technique_field():
     profile_id = "TEST_sets_tech_v4"
     payload = {"profile_id": profile_id, "exercise_id": "incline-smith", "set_number": 1,
                "weight": 90, "reps": 6, "rir": 1, "technique": "Rest-Pause"}
-    r = requests.post(f"{BASE_URL}/api/sets", json=payload)
+    r = S.post(f"{BASE_URL}/api/sets", json=payload)
     assert r.status_code == 200
     assert r.json()["technique"] == "Rest-Pause"
-    b = requests.get(f"{BASE_URL}/api/bootstrap?profile_id={profile_id}")
+    b = S.get(f"{BASE_URL}/api/bootstrap?profile_id={profile_id}")
     assert b.status_code == 200
     recent = b.json()["recent_sets"]
     assert any(s.get("technique") == "Rest-Pause" and s.get("weight") == 90 for s in recent)
@@ -133,7 +139,7 @@ def test_coach_sse_streaming():
         "baseline": [{"exercise_id": "incline-smith", "weight": 80}],
     }
     body = {"question": "Como priorizar peitoral superior nesta semana?", "context": context}
-    with requests.post(f"{BASE_URL}/api/coach", json=body, stream=True, timeout=60) as r:
+    with S.post(f"{BASE_URL}/api/coach", json=body, stream=True, timeout=60) as r:
         assert r.status_code == 200
         assert "text/event-stream" in r.headers.get("content-type", "")
         chunks = []

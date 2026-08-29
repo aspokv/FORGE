@@ -7,11 +7,13 @@ ENV_FILE = Path(__file__).parent.parent / ".env"
 if ENV_FILE.exists():
     load_dotenv(ENV_FILE)
 
+from sessao import sessao_admin
+
 BASE_URL = (os.environ.get("BACKEND_URL") or os.environ.get("REACT_APP_BACKEND_URL") or "http://localhost:8000").rstrip("/")
 
 
 def test_demo_legacy_compatibility_and_muscle_map():
-    session = requests.Session()
+    session = sessao_admin()   # mesmas rotas, agora autenticadas
     bootstrap = session.get(f"{BASE_URL}/api/bootstrap?profile_id=demo")
     assert bootstrap.status_code == 200
     assert bootstrap.json()["profile"]["id"] == "demo"
@@ -21,7 +23,7 @@ def test_demo_legacy_compatibility_and_muscle_map():
 
 
 def test_assessment_generates_requested_session_counts():
-    session = requests.Session()
+    session = sessao_admin()   # mesmas rotas, agora autenticadas
     for days in range(1, 8):
         payload = {"profile_id": f"TEST_regression_{days}", "days": days}
         response = session.post(f"{BASE_URL}/api/assessment", json=payload)
@@ -32,7 +34,7 @@ def test_assessment_generates_requested_session_counts():
 
 
 def test_v2_supporting_endpoints():
-    session = requests.Session()
+    session = sessao_admin()   # mesmas rotas, agora autenticadas
     alternatives = session.get(f"{BASE_URL}/api/exercises/incline-smith/alternatives")
     assert alternatives.status_code == 200 and alternatives.json()["alternatives"]
     review = session.post(f"{BASE_URL}/api/weekly-review", json={"profile_id": "TEST_review", "performance": 4})
