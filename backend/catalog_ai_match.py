@@ -21,6 +21,7 @@ from typing import Dict, List, Optional
 
 import httpx
 
+from llm_providers import deepseek_model
 from text_match import normalize, token_set
 
 logger = logging.getLogger("forge.catalog_ai")
@@ -86,7 +87,7 @@ async def resolve_names_with_ai(names: List[str], entries: Dict[str, str],
 
     catalogo = "\n".join(f"{item_id}|{nome}" for item_id, nome in entries.items())
     payload = {
-        "model": "deepseek-chat",
+        "model": deepseek_model(),
         "messages": [
             {"role": "system", "content": build_system_prompt(dominio)},
             {"role": "user", "content":

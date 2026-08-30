@@ -13,7 +13,7 @@ from typing import Any, Dict, List, Optional
 import os, uuid, json, logging, base64
 from google import genai as google_genai
 
-from llm_providers import get_coach_provider, FORGE_COACH_SYSTEM
+from llm_providers import deepseek_model, get_coach_provider, FORGE_COACH_SYSTEM
 
 from auth import router as auth_router, get_current_user, seed_super_admin
 from admin_routes import router as admin_router
@@ -863,7 +863,7 @@ async def check_ai_quota(user: dict) -> Optional[str]:
 
 async def bump_ai_usage(user: dict):
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    await db.ai_usage.update_one({"user_id": user["id"], "date": today}, {"$inc": {"count": 1}, "$set": {"model": "deepseek-chat", "email": user["email"]}}, upsert=True)
+    await db.ai_usage.update_one({"user_id": user["id"], "date": today}, {"$inc": {"count": 1}, "$set": {"model": deepseek_model(), "email": user["email"]}}, upsert=True)
 
 
 @api.post("/coach")

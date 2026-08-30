@@ -22,6 +22,7 @@ from typing import Dict, List, Optional
 import httpx
 
 from engine import EXERCISE_INDEX, EXERCISES as ENGINE_EXERCISES
+from llm_providers import deepseek_model
 from manual_workout import normalize, token_set
 
 logger = logging.getLogger("forge.exercise_ai")
@@ -68,7 +69,7 @@ async def resolve_names_with_ai(names: List[str]) -> Dict[str, str]:
         return {}
 
     payload = {
-        "model": "deepseek-chat",
+        "model": deepseek_model(),
         "messages": [
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content":
