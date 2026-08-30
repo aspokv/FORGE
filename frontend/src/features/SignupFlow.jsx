@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import axios from "axios";
-import { ArrowLeft, ArrowRight, Check, Mail, ShieldCheck } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, CreditCard, Mail, QrCode, ShieldCheck } from "lucide-react";
 
 import {
   PASSO_AVALIACAO,
@@ -217,9 +217,10 @@ export default function SignupFlow({ API, planoInicial, onEntrar, onCancelar, on
       return true;
     });
 
-  const irParaPagamento = () =>
+  const irParaPagamento = (metodo = "card") =>
     executar(async () => {
-      const r = await axios.post(`${API}/signup/checkout`, { token });
+      const endpoint = metodo === "pix" ? "pix" : "checkout";
+      const r = await axios.post(`${API}/signup/${endpoint}`, { token });
       window.location.href = r.data.checkout_url;
       return true;
     });
@@ -397,7 +398,7 @@ export default function SignupFlow({ API, planoInicial, onEntrar, onCancelar, on
         )}
 
         {passo === PASSO_PREVIA && (
-          <PreviaBloqueada previa={previa} ocupado={ocupado} onAtivar={irParaPagamento}>
+          <PreviaBloqueada previa={previa} ocupado={ocupado} onAtivar={() => setPasso(PASSO_PAGAMENTO)}>
             <button type="button" className="link quiet"
                     onClick={() => setPasso(PASSO_AVALIACAO)}>
               Ajustar minhas respostas
@@ -417,12 +418,19 @@ export default function SignupFlow({ API, planoInicial, onEntrar, onCancelar, on
                 <b>{escolhido.nome}</b> — R$ {brl(escolhido.preco)}/mês
               </p>
             )}
-            <button type="button" className="btn primary" disabled={ocupado} onClick={irParaPagamento}>
-              {ocupado ? "Abrindo pagamento..." : "Ir para o pagamento"}
-            </button>
+            <div className="payment-options">
+              <button type="button" className="btn primary" disabled={ocupado}
+                      onClick={() => irParaPagamento("card")}>
+                <CreditCard size={16} /> {ocupado ? "Abrindo..." : "Cartão — renovação automática"}
+              </button>
+              <button type="button" className="btn ghost" disabled={ocupado}
+                      onClick={() => irParaPagamento("pix")}>
+                <QrCode size={16} /> {ocupado ? "Gerando..." : "PIX — acesso por 30 dias"}
+              </button>
+            </div>
             <p className="plan-footnote">
               <ShieldCheck size={14} /> Pagamento pelo Mercado Pago. O FORGE não armazena
-              dados do seu cartão.
+              dados do seu cartão. PIX exige uma nova confirmação a cada 30 dias.
             </p>
           </>
         )}
@@ -512,13 +520,14 @@ export function PagamentoPendente({ API, user, onSair, retornando, onLiberado })
       });
   }, [API]);
 
-  const pagar = async (code) => {
+  const pagar = async (code, metodo = "card") => {
     if (emVoo.current) return;
     emVoo.current = true;
     setOcupado(true);
     setErro("");
     try {
-      const r = await axios.post(`${API}/billing/checkout`, { plan_code: code });
+      const endpoint = metodo === "pix" ? "pix" : "checkout";
+      const r = await axios.post(`${API}/billing/${endpoint}`, { plan_code: code });
       window.location.href = r.data.checkout_url;
     } catch (e) {
       console.error("[FORGE pendente] checkout:", e?.response?.status, e?.response?.data ?? e);
@@ -609,14 +618,16 @@ export function PagamentoPendente({ API, user, onSair, retornando, onLiberado })
               <small>/mês</small>
             </p>
             <p className="plan-audience">{destaque.para_quem}</p>
-            <button
-              type="button"
-              className="btn primary plan-cta"
-              disabled={ocupado}
-              onClick={() => pagar(destaque.code)}
-            >
-              {ocupado ? "Abrindo..." : "Continuar pagamento"} <ArrowRight size={16} />
-            </button>
+            <div className="payment-options">
+              <button type="button" className="btn primary plan-cta" disabled={ocupado}
+                onClick={() => pagar(destaque.code, "card")}>
+                <CreditCard size={15} /> {ocupado ? "Abrindo..." : "Cartão automático"}
+              </button>
+              <button type="button" className="btn ghost plan-cta" disabled={ocupado}
+                onClick={() => pagar(destaque.code, "pix")}>
+                <QrCode size={15} /> {ocupado ? "Gerando..." : "PIX — 30 dias"}
+              </button>
+            </div>
           </section>
         )}
 

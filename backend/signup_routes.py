@@ -24,7 +24,7 @@ from auth import (
     require_super_admin, sanitize, verify_password,
 )
 from billing_plans import plano_ativo
-from billing_routes import iniciar_assinatura
+from billing_routes import iniciar_assinatura, iniciar_pix
 from entitlements import ORIGEM_CADASTRO_PUBLICO
 
 logger = logging.getLogger(__name__)
@@ -298,6 +298,24 @@ async def checkout(payload: TokenIn, request: Request):
     await db.signup_attempts.update_one(
         {"signup_token": payload.token},
         {"$set": {"reference": saida["reference"], "updated_at": _iso(_agora())}})
+    return saida
+
+
+@router.post("/pix")
+async def checkout_pix(payload: TokenIn, request: Request):
+    """PIX de 30 dias para o mesmo cadastro. Nao altera a assinatura por cartao."""
+    _exigir_ativo()
+    db = request.app.state.db
+    tentativa = await _por_token(db, payload.token)
+    if tentativa.get("status") == ATIVO:
+        raise HTTPException(409, "Este cadastro já está ativo. Faça login.")
+    if not tentativa.get("user_id"):
+        raise HTTPException(400, "Crie sua senha antes de continuar para o pagamento")
+    saida = await iniciar_pix(db, tentativa["user_id"], tentativa["email"],
+                              tentativa["plan_code"])
+    await db.signup_attempts.update_one({"signup_token": payload.token}, {"$set": {
+        "reference": saida["reference"], "payment_method": "pix",
+        "updated_at": _iso(_agora())}})
     return saida
 
 

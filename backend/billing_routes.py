@@ -4,7 +4,7 @@ import os
 import secrets
 import time
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -61,6 +61,9 @@ class CheckoutIn(BaseModel):
     plan_code: str = Field(min_length=2, max_length=32)
 
 
+DIAS_DE_ACESSO_PIX = 30
+
+
 # ── Catalogo ─────────────────────────────────────────────────────────────────────────
 
 @router.get("/plans")
@@ -83,6 +86,8 @@ def _resumo(acesso: Dict[str, Any]) -> Dict[str, Any]:
         "currency": MOEDA,
         "status": acesso.get("status"),
         "source": acesso.get("source"),
+        "payment_method": ("pix" if acesso.get("source") == "mercadopago_pix" else
+                           "card" if assinatura.get("provider_subscription_id") else None),
         "grandfathered": acesso.get("grandfathered"),
         "billing_enforced": acesso.get("billing_enforced"),
         "capabilities": acesso.get("capabilities"),
@@ -209,6 +214,72 @@ async def criar_checkout(payload: CheckoutIn, request: Request, user=Depends(get
     return await iniciar_assinatura(db, user["id"], user["email"], payload.plan_code)
 
 
+async def iniciar_pix(db, user_id: str, email: str, plan_code: str) -> Dict[str, Any]:
+    """Cria um pagamento PIX unico. O cartao recorrente continua em /checkout.
+
+    Nenhum retorno do navegador libera acesso: somente o webhook, depois de consultar
+    o pagamento na API do Mercado Pago e reconferir plano, valor, moeda e referencia.
+    """
+    p = plano_ativo(plan_code)
+    if not p:
+        raise HTTPException(400, "Plano inválido")
+    conflito = billing.conflito_de_credencial()
+    if conflito:
+        logger.error("pix bloqueado por configuracao: %s", conflito)
+        raise HTTPException(503, {"message": "O PIX ainda não está disponível.",
+                                  "reason": "misconfigured"})
+
+    referencia = f"forge_pix_{secrets.token_urlsafe(24)}"
+    doc = {"reference": referencia, "user_id": user_id, "plan_code": p["code"],
+           "amount_cents": p["preco_centavos"], "currency": MOEDA,
+           "status": "created", "created_at": _agora()}
+    await db.pix_attempts.insert_one(doc)
+    corpo = {
+        "transaction_amount": preco_em_reais(p),
+        "description": f"{p['nome']} - acesso por {DIAS_DE_ACESSO_PIX} dias",
+        "payment_method_id": "pix",
+        "external_reference": referencia,
+        "notification_url": f"{site_url()}/api/billing/webhook",
+        # O QR abandonado nao fica valido indefinidamente. Isso nao e a validade do
+        # plano: os 30 dias so comecam quando o webhook confirmar `approved`.
+        "date_of_expiration": (datetime.now(timezone.utc) + timedelta(minutes=30)).isoformat(),
+        "payer": {"email": email},
+    }
+    try:
+        recurso = await cliente().criar_pagamento_pix(corpo)
+    except billing.ErroMercadoPago as e:
+        await db.pix_attempts.update_one({"reference": referencia},
+            {"$set": {"status": "failed", "updated_at": _agora()}})
+        logger.error("pix falhou user=%s plano=%s status=%s", user_id, p["code"], e.status)
+        raise HTTPException(502, {"message": "Não foi possível gerar o PIX agora.",
+                                  "reason": "provider_error"})
+
+    transacao = (recurso.get("point_of_interaction") or {}).get("transaction_data") or {}
+    url = transacao.get("ticket_url")
+    await db.pix_attempts.update_one({"reference": referencia}, {"$set": {
+        "provider_payment_id": str(recurso.get("id") or ""),
+        "status": recurso.get("status") or "pending", "updated_at": _agora()}})
+    if not url:
+        raise HTTPException(502, {"message": "O Mercado Pago não devolveu o QR Code PIX.",
+                                  "reason": "no_pix_url"})
+    return {"checkout_url": url, "payment_method": "pix", "plan_code": p["code"],
+            "reference": referencia, "expires_in_days": DIAS_DE_ACESSO_PIX}
+
+
+@router.post("/pix")
+async def criar_pix(payload: CheckoutIn, request: Request, user=Depends(get_current_user)):
+    db = request.app.state.db
+    await limitar(db, f"pix:{user['id']}", MAX_CHECKOUTS_POR_JANELA, JANELA_DO_CHECKOUT_MIN,
+                  mensagem="Muitas tentativas de pagamento. Aguarde alguns minutos.")
+    ja = await assinatura_do_usuario(db, user["id"])
+    if ja and ja.get("status") == ATIVA:
+        fim = ja.get("current_period_end")
+        if fim and datetime.fromisoformat(str(fim).replace("Z", "+00:00")) > datetime.now(timezone.utc):
+            raise HTTPException(409, {"message": "Seu plano ainda está ativo.",
+                                      "reason": "already_subscribed"})
+    return await iniciar_pix(db, user["id"], user["email"], payload.plan_code)
+
+
 @router.post("/cancel")
 async def cancelar(request: Request, user=Depends(get_current_user)):
     """Cancelamento direto, sem labirinto de telas."""
@@ -240,6 +311,7 @@ async def cancelar(request: Request, user=Depends(get_current_user)):
 
 EVENTOS_DE_ASSINATURA = {"subscription_preapproval", "preapproval"}
 EVENTOS_DE_PAGAMENTO = {"subscription_authorized_payment", "authorized_payment"}
+EVENTOS_PIX = {"payment"}
 
 
 def _periodo(recurso: Dict[str, Any]) -> Dict[str, Optional[str]]:
@@ -323,15 +395,27 @@ async def _aplicar_assinatura(db, recurso: Dict[str, Any], request_id: str) -> D
     if estado == ATIVA:
         promovido = await db.users.update_one(
             {"id": tentativa["user_id"], "status": AGUARDANDO_PAGAMENTO_CONTA},
-            {"$set": {"status": "ACTIVE", "plan": p["code"], "activated_at": _agora()}})
+            {"$set": {"status": "ACTIVE", "plan": p["code"], "activated_at": _agora()},
+             "$unset": {"expires_at": ""}})
         if promovido.modified_count:
             await _semear_o_perfil(db, tentativa["user_id"])
             logger.info("webhook %s: conta liberada user=%s plano=%s", request_id,
                         tentativa["user_id"], p["code"])
         else:
-            # Ja estava ativa (renovacao, ou evento repetido apos a promocao): so o plano.
-            await db.users.update_one({"id": tentativa["user_id"]},
-                                      {"$set": {"plan": p["code"]}})
+            # PIX vencido pode migrar para cartao. Suspensao administrativa, porem,
+            # continua soberana e um webhook nao pode desfaze-la.
+            reativado = await db.users.update_one(
+                {"id": tentativa["user_id"], "status": "EXPIRED"},
+                {"$set": {"status": "ACTIVE", "plan": p["code"]},
+                 "$unset": {"expires_at": ""}})
+            if not reativado.modified_count:
+                # Ja estava ativa (renovacao ou evento repetido): so atualiza o plano.
+                await db.users.update_one({"id": tentativa["user_id"]},
+                                          {"$set": {"plan": p["code"]}})
+        # Se a pessoa saiu do PIX para o cartao, o documento nao pode continuar parecendo
+        # um pagamento unico nem herdar o vencimento manual anterior.
+        await db.subscriptions.update_one({"user_id": tentativa["user_id"]},
+                                          {"$unset": {"provider_payment_id": ""}})
 
     logger.info("webhook %s: user=%s plano=%s %s -> %s", request_id,
                 tentativa["user_id"], p["code"], estado_anterior, estado)
@@ -414,6 +498,55 @@ async def _aplicar_pagamento(db, pagamento: Dict[str, Any], request_id: str) -> 
             "user_id": assinatura["user_id"]}
 
 
+async def _aplicar_pix(db, pagamento: Dict[str, Any], request_id: str) -> Dict[str, Any]:
+    referencia = pagamento.get("external_reference")
+    tentativa = await db.pix_attempts.find_one({"reference": referencia}, {"_id": 0})
+    if not tentativa:
+        return {"resultado": "pix_desconhecido"}
+    p = plano_ativo(tentativa.get("plan_code"))
+    if not p:
+        return {"resultado": "plano_inativo"}
+    valor = pagamento.get("transaction_amount")
+    moeda = pagamento.get("currency_id")
+    metodo = pagamento.get("payment_method_id")
+    if (valor is None or round(float(valor) * 100) != tentativa["amount_cents"]
+            or moeda != MOEDA or metodo != "pix"):
+        logger.error("webhook %s: PIX divergente reference=%s", request_id, referencia)
+        return {"resultado": "divergente"}
+
+    status = (pagamento.get("status") or "").lower()
+    await db.pix_attempts.update_one({"reference": referencia}, {"$set": {
+        "status": status, "provider_payment_id": str(pagamento.get("id") or ""),
+        "updated_at": _agora()}})
+    if status != "approved":
+        return {"resultado": "pix_pendente", "status": status}
+
+    inicio = datetime.now(timezone.utc)
+    fim = inicio + timedelta(days=DIAS_DE_ACESSO_PIX)
+    doc = {"user_id": tentativa["user_id"], "plan_code": p["code"],
+           "provider": "mercadopago_pix", "provider_payment_id": str(pagamento.get("id")),
+           "status": ATIVA, "amount_cents": p["preco_centavos"], "currency": MOEDA,
+           "reference": referencia, "current_period_start": inicio.isoformat(),
+           "current_period_end": fim.isoformat(), "last_payment_status": "approved",
+           "updated_at": _agora()}
+    await db.subscriptions.update_one({"user_id": tentativa["user_id"]},
+        {"$set": doc, "$setOnInsert": {"created_at": _agora()},
+         "$unset": {"provider_subscription_id": "", "provider_plan_id": "",
+                     "cancel_at_period_end": "", "past_due_since": ""}}, upsert=True)
+    # Nao desfaz SUSPENDED: suspensao administrativa e superior ao pagamento. ACTIVE
+    # entra no filtro porque o PIX pode vencer antes da proxima requisicao marcar EXPIRED.
+    await db.users.update_one(
+        {"id": tentativa["user_id"], "status": {"$in": [
+            AGUARDANDO_PAGAMENTO_CONTA, "EXPIRED", "ACTIVE"]}},
+        {"$set": {"status": "ACTIVE", "plan": p["code"],
+                  "expires_at": fim.isoformat(), "activated_at": _agora()}})
+    await _semear_o_perfil(db, tentativa["user_id"])
+    logger.info("webhook %s: PIX aprovado user=%s plano=%s ate=%s", request_id,
+                tentativa["user_id"], p["code"], fim.isoformat())
+    return {"resultado": "pix_aplicado", "user_id": tentativa["user_id"],
+            "plan_code": p["code"]}
+
+
 @router.post("/webhook")
 async def webhook(request: Request):
     """Webhook do Mercado Pago.
@@ -478,6 +611,9 @@ async def webhook(request: Request):
         elif tipo in EVENTOS_DE_PAGAMENTO:
             pagamento = await cliente().obter_pagamento_autorizado(str(data_id))
             resultado = await _aplicar_pagamento(db, pagamento, request_id)
+        elif tipo in EVENTOS_PIX:
+            pagamento = await cliente().obter_pagamento(str(data_id))
+            resultado = await _aplicar_pix(db, pagamento, request_id)
         else:
             resultado = {"resultado": "tipo_ignorado", "tipo": tipo}
     except billing.ErroMercadoPago as e:
@@ -498,9 +634,15 @@ async def webhook(request: Request):
         logger.exception("webhook %s: falha ao processar %s", request_id, chave)
         raise HTTPException(503, "Erro temporário ao processar o evento")
 
+    # O mesmo id de pagamento PIX pode ser notificado primeiro como pending e depois
+    # como approved. So o estado terminal vira `done`; caso contrario, a proxima
+    # notificacao com o mesmo id precisa consultar novamente a API, nao ser descartada
+    # como duplicata.
+    estado_evento = ("awaiting_payment"
+                     if resultado.get("resultado") == "pix_pendente" else "done")
     await db.billing_events.update_one(
         {"event_key": chave},
-        {"$set": {"status": "done", "result": resultado.get("resultado"),
+        {"$set": {"status": estado_evento, "result": resultado.get("resultado"),
                   "updated_at": _agora(),
                   "duration_ms": int((time.time() - inicio) * 1000)}})
     return {"received": True, **resultado}

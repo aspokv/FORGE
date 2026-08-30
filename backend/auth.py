@@ -138,6 +138,7 @@ ROTAS_LIBERADAS_SEM_PAGAMENTO = frozenset({
     "/api/billing/plans",    # ver os planos
     "/api/billing/me",       # estado da assinatura / retorno do checkout
     "/api/billing/checkout", # pagar, inclusive retomando um checkout abandonado
+    "/api/billing/pix",      # renovar acesso por 30 dias via PIX
     "/api/preassessment",    # responder a pre-avaliacao e ver a previa bloqueada
 })
 
@@ -190,7 +191,12 @@ async def get_current_user(request: Request):
         if user.get("status") != "EXPIRED":
             await db.users.update_one({"id": user["id"]}, {"$set": {"status": "EXPIRED"}})
             user["status"] = "EXPIRED"
-        if user.get("role") != "SUPER_ADMIN":
+        # Conta vencida precisa conseguir consultar os planos e pagar a renovacao.
+        # Todo o restante continua bloqueado no backend.
+        rotas_de_renovacao = {"/api/auth/me", "/api/billing/plans",
+                              "/api/billing/me", "/api/billing/checkout",
+                              "/api/billing/pix"}
+        if user.get("role") != "SUPER_ADMIN" and caminho not in rotas_de_renovacao:
             raise HTTPException(403, "Acesso expirado. Renove seu plano.")
     return user
 

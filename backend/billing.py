@@ -128,6 +128,8 @@ class ClienteMercadoPago(Protocol):
     async def obter_assinatura(self, assinatura_id: str) -> Dict[str, Any]: ...
     async def cancelar_assinatura(self, assinatura_id: str) -> Dict[str, Any]: ...
     async def obter_pagamento_autorizado(self, pagamento_id: str) -> Dict[str, Any]: ...
+    async def criar_pagamento_pix(self, corpo: Dict[str, Any]) -> Dict[str, Any]: ...
+    async def obter_pagamento(self, pagamento_id: str) -> Dict[str, Any]: ...
 
 
 class ErroMercadoPago(Exception):
@@ -181,6 +183,13 @@ class MercadoPagoHTTP:
 
     async def obter_pagamento_autorizado(self, pagamento_id: str) -> Dict[str, Any]:
         return await self._chamar("GET", f"/authorized_payments/{pagamento_id}")
+
+    async def criar_pagamento_pix(self, corpo: Dict[str, Any]) -> Dict[str, Any]:
+        return await self._chamar("POST", "/v1/payments", corpo,
+                                  idempotencia=corpo.get("external_reference"))
+
+    async def obter_pagamento(self, pagamento_id: str) -> Dict[str, Any]:
+        return await self._chamar("GET", f"/v1/payments/{pagamento_id}")
 
     async def criar_plano(self, corpo: Dict[str, Any]) -> Dict[str, Any]:
         """Cria um preapproval_plan. Usado apenas pela rotina administrativa de setup —

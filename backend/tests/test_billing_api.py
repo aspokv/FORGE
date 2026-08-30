@@ -60,6 +60,7 @@ class MercadoPagoFalso:
     def __init__(self):
         self.assinaturas = {}
         self.pagamentos = {}
+        self.pix_criados = []
         self.criadas = []
         self.erro = None
 
@@ -105,6 +106,20 @@ class MercadoPagoFalso:
     async def obter_pagamento_autorizado(self, pid):
         if self.erro:
             raise self.erro
+        return self.pagamentos[pid]
+
+    async def criar_pagamento_pix(self, corpo):
+        pid = f"pix-{uuid.uuid4().hex[:10]}"
+        recurso = {"id": pid, "status": "pending", "currency_id": "BRL",
+                   "transaction_amount": corpo["transaction_amount"],
+                   "payment_method_id": "pix", "external_reference": corpo["external_reference"],
+                   "point_of_interaction": {"transaction_data": {
+                       "ticket_url": f"https://mp/pix/{pid}", "qr_code": "000201..."}}}
+        self.pagamentos[pid] = recurso
+        self.pix_criados.append(corpo)
+        return recurso
+
+    async def obter_pagamento(self, pid):
         return self.pagamentos[pid]
 
     def aprovar(self, sid, valor=69.90, plano="plan-pro"):
@@ -159,12 +174,13 @@ async def _garantir_indices():
     url = os.environ.get("MONGO_URL", "")
     assert "localhost" in url or "127.0.0.1" in url, f"recusando limpar banco nao-local: {url[:30]}"
     assert "mongodb+srv" not in url, "recusando limpar Atlas"
-    for colecao in ("subscriptions", "subscription_attempts", "billing_events",
+    for colecao in ("subscriptions", "subscription_attempts", "pix_attempts", "billing_events",
                     "signup_attempts"):
         await DB[colecao].delete_many({})
     await DB.billing_events.create_index("event_key", unique=True)
     await DB.subscriptions.create_index("user_id", unique=True)
     await DB.subscription_attempts.create_index("reference", unique=True)
+    await DB.pix_attempts.create_index("reference", unique=True)
     await DB.signup_attempts.create_index("email", unique=True)
 
 
@@ -312,6 +328,47 @@ async def _checkout(mp, headers, plano="pro"):
         r = await c.post("/api/billing/checkout", json={"plan_code": plano}, headers=headers)
     assert r.status_code == 200, r.text
     return mp.criadas[-1]["external_reference"], list(mp.assinaturas)[-1]
+
+
+@asincrono
+async def test_pix_aprovado_libera_trinta_dias_sem_alterar_checkout_de_cartao(mp):
+    uid, h = await _criar_atleta(signup_source="public", status="PENDING_PAYMENT")
+    async with await _cliente() as c:
+        criado = await c.post("/api/billing/pix", json={"plan_code": "pro"}, headers=h)
+    assert criado.status_code == 200
+    assert criado.json()["checkout_url"].startswith("https://mp/pix/")
+    assert mp.pix_criados[-1]["payment_method_id"] == "pix"
+    assert mp.pix_criados[-1]["transaction_amount"] == 69.90
+
+    pid = next(reversed(mp.pagamentos))
+    mp.pagamentos[pid]["status"] = "approved"
+    async with await _cliente() as c:
+        evento = await c.post("/api/billing/webhook",
+            json={"type": "payment", "data": {"id": pid}},
+            headers=cabecalho_valido(pid, "pix-ok"))
+    assert evento.status_code == 200
+    assert evento.json()["resultado"] == "pix_aplicado"
+    user = await DB.users.find_one({"id": uid})
+    assinatura = await DB.subscriptions.find_one({"user_id": uid})
+    assert user["status"] == "ACTIVE"
+    assert 29 <= (datetime.fromisoformat(user["expires_at"]) - _agora()).days <= 30
+    assert assinatura["provider"] == "mercadopago_pix"
+
+
+@asincrono
+async def test_pix_adulterado_nao_libera(mp):
+    uid, h = await _criar_atleta(signup_source="public", status="PENDING_PAYMENT")
+    async with await _cliente() as c:
+        await c.post("/api/billing/pix", json={"plan_code": "elite"}, headers=h)
+    pid = next(reversed(mp.pagamentos))
+    mp.pagamentos[pid].update({"status": "approved", "transaction_amount": 1.00})
+    async with await _cliente() as c:
+        evento = await c.post("/api/billing/webhook",
+            json={"type": "payment", "data": {"id": pid}},
+            headers=cabecalho_valido(pid, "pix-falso"))
+    assert evento.json()["resultado"] == "divergente"
+    assert await DB.subscriptions.find_one({"user_id": uid}) is None
+    assert (await DB.users.find_one({"id": uid}))["status"] == "PENDING_PAYMENT"
 
 
 @asincrono

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import axios from "axios";
-import { Check, ChevronRight, Clock3, ShieldCheck, Sparkles } from "lucide-react";
+import { Check, Clock3, CreditCard, QrCode, ShieldCheck, Sparkles } from "lucide-react";
 
 /**
  * Planos e assinatura.
@@ -26,7 +26,7 @@ const ROTULO_DE_ESTADO = {
   rejected: "Pagamento recusado",
 };
 
-function CardDePlano({ plano, atual, destaque, onAssinar, ocupado }) {
+function CardDePlano({ plano, atual, destaque, onAssinar, onPix, ocupado }) {
   return (
     <section
       className={`plan-card${destaque ? " recommended" : ""}${atual ? " current" : ""}`}
@@ -62,15 +62,17 @@ function CardDePlano({ plano, atual, destaque, onAssinar, ocupado }) {
         </div>
       )}
 
-      <button
-        className={destaque ? "primary-button plan-cta" : "secondary-button plan-cta"}
-        data-testid={`subscribe-${plano.code}`}
-        disabled={ocupado || atual}
-        onClick={() => onAssinar(plano.code)}
-      >
-        {atual ? "Plano atual" : ocupado ? "Abrindo checkout..." : "Assinar"}
-        {!atual && !ocupado && <ChevronRight size={16} />}
-      </button>
+      <div className="payment-options">
+        <button className={destaque ? "primary-button plan-cta" : "secondary-button plan-cta"}
+          data-testid={`subscribe-${plano.code}`} disabled={Boolean(ocupado) || atual}
+          onClick={() => onAssinar(plano.code)}>
+          <CreditCard size={15} /> {atual ? "Plano atual" : ocupado === "card" ? "Abrindo..." : "Cartão automático"}
+        </button>
+        {!atual && <button className="secondary-button plan-cta" data-testid={`pix-${plano.code}`}
+          disabled={Boolean(ocupado)} onClick={() => onPix(plano.code)}>
+          <QrCode size={15} /> {ocupado === "pix" ? "Gerando PIX..." : "PIX — 30 dias"}
+        </button>}
+      </div>
     </section>
   );
 }
@@ -130,6 +132,21 @@ export default function Billing({ API }) {
     }
   };
 
+  const pagarPix = async (code) => {
+    if (trava.current) return;
+    trava.current = true;
+    setOcupado(`${code}:pix`); setErro("");
+    try {
+      const r = await axios.post(`${API}/billing/pix`, { plan_code: code });
+      window.location.href = r.data.checkout_url;
+    } catch (e) {
+      trava.current = false; setOcupado("");
+      const detalhe = e?.response?.data?.detail;
+      setErro(detalhe?.message || (typeof detalhe === "string" ? detalhe : "")
+        || "Não foi possível gerar o PIX agora.");
+    }
+  };
+
   const cancelar = async () => {
     setOcupado("cancel"); setErro("");
     try {
@@ -177,8 +194,8 @@ export default function Billing({ API }) {
 
           <div className="sub-grid">
             <div><span>Valor</span><b>{assinatura.price ? `R$ ${brl(assinatura.price)}/mês` : "—"}</b></div>
-            <div><span>Próxima cobrança</span><b>{assinatura.next_charge?.slice(0, 10) || "—"}</b></div>
-            <div><span>Origem</span><b>{cortesia ? "Cortesia" : "Mercado Pago"}</b></div>
+            <div><span>{assinatura.payment_method === "pix" ? "Válido até" : "Próxima cobrança"}</span><b>{assinatura.next_charge?.slice(0, 10) || "—"}</b></div>
+            <div><span>Origem</span><b>{cortesia ? "Cortesia" : assinatura.payment_method === "pix" ? "PIX — Mercado Pago" : "Mercado Pago"}</b></div>
           </div>
 
           {cortesia && (
@@ -212,15 +229,17 @@ export default function Billing({ API }) {
             plano={p}
             destaque={p.recomendado}
             atual={!cortesia && assinatura?.plan_code === p.code && assinatura?.status === "active"}
-            ocupado={ocupado === p.code}
+            ocupado={ocupado === p.code ? "card" : ocupado === `${p.code}:pix` ? "pix" : ""}
             onAssinar={assinar}
+            onPix={pagarPix}
           />
         ))}
       </div>
 
       <p className="muted plan-footnote">
         <Sparkles size={13} /> O pagamento acontece no ambiente do Mercado Pago. O FORGE
-        não recebe nem armazena os dados do seu cartão.
+        não recebe nem armazena os dados do seu cartão. No PIX, o acesso vale 30 dias e
+        a renovação é feita com um novo pagamento.
       </p>
     </div>
   );
