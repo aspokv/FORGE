@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" fill="none" role="img" aria-label="Rede neural FORGE">
+  <defs>
+    <radialGradient id="g" cx="0" cy="0" r="1" gradientTransform="translate(320 310) rotate(90) scale(285)">
+      <stop stop-color="#E2C09D" stop-opacity=".18"/>
+      <stop offset="1" stop-color="#C9A27E" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="l" x1="100" y1="90" x2="550" y2="570" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F0D0B2"/>
+      <stop offset=".5" stop-color="#B78462"/>
+      <stop offset="1" stop-color="#6F201F"/>
+    </linearGradient>
+    <filter id="glow"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  </defs>
+  <circle cx="320" cy="320" r="292" fill="url(#g)"/>
+  <g stroke="url(#l)" stroke-width="1.4" opacity=".62">
+    <path d="M166 325 222 202l91-49 104 26 73 89-7 111-73 95-113 23-101-58-30-114Z"/>
+    <path d="m222 202 28 98-84 25m84-25 63-147m-63 147 47 197m-47-197 167-121M297 497l113-23m0 0 7-295m-7 295 73-95M313 153l104 26m-120 318 120-318m-120 318-131-172m317 54L250 300m240-32L250 300m240-32-73-89M196 439l54-139m-54 139 214 35"/>
+    <path d="m203 253 97 1 56-72m-56 72 102 47 53-68m-53 68 41 105-99 26m0 0-47-82-94 32m94-32 3-96m-3 178-101 7" opacity=".75"/>
+    <path d="M128 388 54 429m438-228 92-51M465 472l75 77M188 163l-76-71" opacity=".38"/>
+  </g>
+  <g fill="#DDB995" filter="url(#glow)">
+    <circle cx="166" cy="325" r="5"/><circle cx="222" cy="202" r="4"/><circle cx="313" cy="153" r="5"/><circle cx="417" cy="179" r="4"/><circle cx="490" cy="268" r="5"/><circle cx="483" cy="379" r="4"/><circle cx="410" cy="474" r="5"/><circle cx="297" cy="497" r="4"/><circle cx="196" cy="439" r="5"/><circle cx="250" cy="300" r="6"/><circle cx="300" cy="254" r="4"/><circle cx="402" cy="301" r="5"/><circle cx="344" cy="432" r="4"/>
+  </g>
+</svg>
