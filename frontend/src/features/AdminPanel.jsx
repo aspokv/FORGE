@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import axios from "axios";
 import { motion } from "framer-motion";
-import { Copy, Plus, ShieldCheck, RotateCcw, Ban, Check, X, LogOut, ChevronRight, ClipboardCopy, Users, Activity, ScrollText } from "lucide-react";
+import { Copy, Plus, ShieldCheck, RotateCcw, Ban, Check, X, LogOut, ChevronRight, ClipboardCopy, Users, Activity, ScrollText, CreditCard } from "lucide-react";
 import { API, useAuth } from "./AuthContext";
 
 const PLANS = ["FORGE_ACCESS", "FORGE_PRO", "LIFETIME"];
@@ -14,7 +14,7 @@ const VALIDITIES = [
   { id: "CUSTOM", label: "Personalizado" },
 ];
 
-const STATUS_COLORS = { ACTIVE: "success", PENDING: "warn", SUSPENDED: "danger", EXPIRED: "danger" };
+const STATUS_COLORS = { ACTIVE: "success", PENDING: "warn", PENDING_PAYMENT: "warn", SUSPENDED: "danger", EXPIRED: "danger" };
 
 function copyToClipboard(text) {
   if (navigator.clipboard?.writeText) return navigator.clipboard.writeText(text);
@@ -71,6 +71,16 @@ export default function AdminPanel() {
 
   const suspend = async id => { await axios.post(`${API}/admin/athletes/${id}/suspend`); await load(); notify("success", "Atleta suspenso."); };
   const reactivate = async id => { await axios.post(`${API}/admin/athletes/${id}/reactivate`); await load(); notify("success", "Atleta reativado."); };
+  const requirePayment = async id => {
+    try {
+      await axios.post(`${API}/admin/athletes/${id}/require-payment`);
+      await load();
+      notify("success", "Conta liberada para escolher e comprar um novo plano.");
+    } catch (e) {
+      const detail = e.response?.data?.detail;
+      notify("error", detail?.message || detail || "Não foi possível liberar a nova assinatura.");
+    }
+  };
   const regen = async id => {
     const r = await axios.post(`${API}/admin/athletes/${id}/regenerate-invite`);
     notify("success", "Novo convite gerado.");
@@ -108,7 +118,7 @@ export default function AdminPanel() {
         <section className="admin-stats">
           <StatCard label="Total" value={stats?.total ?? "—"} testid="stat-total" />
           <StatCard label="Ativos" value={stats?.active ?? "—"} testid="stat-active" />
-          <StatCard label="Pendentes" value={stats?.pending ?? "—"} testid="stat-pending" />
+          <StatCard label="Pendentes" value={stats ? (stats.pending || 0) + (stats.pending_payment || 0) : "—"} testid="stat-pending" />
           <StatCard label="Suspensos" value={stats?.suspended ?? "—"} testid="stat-suspended" />
           <StatCard label="Novos no mês" value={stats?.new_this_month ?? "—"} testid="stat-new" />
           <StatCard label="IA hoje" value={stats?.ai_calls_today ?? "—"} testid="stat-ai" />
@@ -121,6 +131,7 @@ export default function AdminPanel() {
               <select data-testid="admin-status-filter" value={status} onChange={e => setStatus(e.target.value)}>
                 <option value="">Todos os status</option>
                 <option value="PENDING">Pendentes</option>
+                <option value="PENDING_PAYMENT">Aguardando pagamento</option>
                 <option value="ACTIVE">Ativos</option>
                 <option value="SUSPENDED">Suspensos</option>
                 <option value="EXPIRED">Expirados</option>
@@ -143,7 +154,10 @@ export default function AdminPanel() {
                     <div className="athlete-actions">
                       <button className="ghost-button" data-testid={`view-athlete-${a.id}`} onClick={() => setDetail({ athlete: a })}>Ver</button>
                       {a.status === "SUSPENDED" ? (
-                        <button className="ghost-button" data-testid={`reactivate-athlete-${a.id}`} onClick={() => reactivate(a.id)}><Check size={14} /> Reativar</button>
+                        <>
+                          <button className="ghost-button" data-testid={`reactivate-athlete-${a.id}`} onClick={() => reactivate(a.id)}><Check size={14} /> Reativar</button>
+                          <button className="ghost-button payment-action" data-testid={`require-payment-athlete-${a.id}`} onClick={() => requirePayment(a.id)}><CreditCard size={14} /> Liberar para comprar</button>
+                        </>
                       ) : (
                         <button className="ghost-button" data-testid={`suspend-athlete-${a.id}`} onClick={() => suspend(a.id)}><Ban size={14} /> Suspender</button>
                       )}

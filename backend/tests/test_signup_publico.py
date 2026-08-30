@@ -718,3 +718,54 @@ async def test_convidado_para_assinar_e_liberado_ao_pagar(mp):
     assert u["status"] == "ACTIVE"
     assert u["plan"] == "elite"
     await _limpar(email)
+
+
+@asincrono
+async def test_admin_libera_conta_suspensa_para_comprar_sem_criar_outra(mp):
+    email = "suspenso.recompra@example.com"
+    await _limpar(email)
+    uid = str(uuid.uuid4())
+    await DB.users.insert_one({
+        "id": uid, "email": email, "name": "Recompra", "role": "ATHLETE",
+        "status": "SUSPENDED", "plan": "FORGE_ACCESS",
+        "password_hash": sr.hash_password(SENHA), "activated_at": _iso(_agora()),
+        "created_at": _iso(_agora())})
+    await DB.profiles.insert_one({"id": uid, "user_id": uid, "name": "Recompra"})
+    _, admin_h = await _admin()
+
+    async with await _cliente() as c:
+        liberado = await c.post(
+            f"/api/admin/athletes/{uid}/require-payment", headers=admin_h)
+        assert liberado.status_code == 200, liberado.text
+        u = await DB.users.find_one({"id": uid})
+        assert u["status"] == "PENDING_PAYMENT"
+        assert u["plan"] is None
+        assert u["plan_code_escolhido"] == "pro"
+
+        # A mesma conta volta a entrar, mas continua sem acesso ao produto ate pagar.
+        entrada = await c.post("/api/auth/login", json={"email": email, "password": SENHA})
+        assert entrada.status_code == 200, entrada.text
+        h = {"Authorization": "Bearer " + entrada.json()["token"]}
+        assert (await c.get("/api/bootstrap", headers=h)).status_code == 403
+        checkout = await c.post("/api/billing/checkout",
+                                json={"plan_code": "essential"}, headers=h)
+        assert checkout.status_code == 200, checkout.text
+    await _limpar(email)
+
+
+@asincrono
+async def test_admin_nao_abre_recompra_com_assinatura_ativa():
+    email = "suspenso.assinatura.ativa@example.com"
+    await _limpar(email)
+    uid = str(uuid.uuid4())
+    await DB.users.insert_one({
+        "id": uid, "email": email, "name": "Ainda Assina", "role": "ATHLETE",
+        "status": "SUSPENDED", "plan": "pro", "created_at": _iso(_agora())})
+    await DB.subscriptions.insert_one({"user_id": uid, "status": "active"})
+    _, admin_h = await _admin()
+    async with await _cliente() as c:
+        r = await c.post(f"/api/admin/athletes/{uid}/require-payment", headers=admin_h)
+    assert r.status_code == 409
+    assert r.json()["detail"]["reason"] == "active_subscription"
+    assert (await DB.users.find_one({"id": uid}))["status"] == "SUSPENDED"
+    await _limpar(email)

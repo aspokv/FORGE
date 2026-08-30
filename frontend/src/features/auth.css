@@ -51,6 +51,8 @@
 .badge.warn{color:#e0c994;border-color:#6b5628;background:#29251d}
 .badge.danger{color:#f1b2a0;border-color:#6e4338;background:#2a1a17}
 .athlete-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.athlete-actions .payment-action{border-color:#6b5628;color:#e0c994}
+.athlete-actions .payment-action:hover{border-color:var(--warn);color:var(--warn)}
 .audit-list{list-style:none;padding:0;display:grid;gap:0}
 .audit-list li{display:grid;grid-template-columns:180px 1fr 90px auto;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--line);font-size:13px}
 .audit-list li:first-child{border-top:0}

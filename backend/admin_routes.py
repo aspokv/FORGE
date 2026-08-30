@@ -15,7 +15,7 @@ from entitlements import ORIGEM_CONVITE_PARA_ASSINAR, ORIGEM_CORTESIA_CONCEDIDA
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
 VALID_PLANS = ["FORGE_ACCESS", "FORGE_PRO", "LIFETIME"]
-VALID_STATUS = ["PENDING", "ACTIVE", "SUSPENDED", "EXPIRED"]
+VALID_STATUS = ["PENDING", "PENDING_PAYMENT", "ACTIVE", "SUSPENDED", "EXPIRED"]
 VALIDITY_MAP = {"30": 30, "90": 90, "180": 180, "365": 365, "LIFETIME": None}
 
 # As duas formas de trazer alguem para dentro. Nomes explicitos porque a diferenca entre
@@ -217,6 +217,45 @@ async def reactivate_athlete(athlete_id: str, request: Request, admin=Depends(re
     await db.users.update_one({"id": athlete_id}, {"$set": {"status": new_status, "reactivated_at": datetime.now(timezone.utc).isoformat()}})
     await log_audit(db, admin, "athlete.reactivated", athlete_id, {"status": new_status})
     return {"reactivated": True, "status": new_status}
+
+
+@router.post("/athletes/{athlete_id}/require-payment")
+async def require_payment(athlete_id: str, request: Request,
+                          admin=Depends(require_super_admin)):
+    """Reaproveita a conta existente e a envia ao fluxo de nova assinatura.
+
+    Suspensao continua sendo bloqueio total. Esta acao e explicita porque muda o motivo
+    do bloqueio: o atleta volta a poder entrar, mas so enxerga avaliacao, planos e
+    pagamento ate o webhook confirmar uma nova assinatura.
+    """
+    db = request.app.state.db
+    user = await db.users.find_one({"id": athlete_id, "role": "ATHLETE"})
+    if not user:
+        raise HTTPException(404, "Atleta não encontrado")
+
+    assinatura = await db.subscriptions.find_one({"user_id": athlete_id})
+    if assinatura and assinatura.get("status") in ("active", "past_due"):
+        raise HTTPException(409, {
+            "message": "Este atleta ainda tem uma assinatura ativa. Cancele-a antes de liberar uma nova compra.",
+            "reason": "active_subscription"})
+
+    plano_sugerido = user.get("plan_code_escolhido")
+    if not plano_ativo(plano_sugerido or ""):
+        plano_sugerido = "pro"
+    agora = datetime.now(timezone.utc).isoformat()
+    await db.users.update_one({"id": athlete_id}, {"$set": {
+        "status": AGUARDANDO_PAGAMENTO,
+        "plan": None,
+        "plan_code_escolhido": plano_sugerido,
+        "payment_required_at": agora,
+        "payment_required_by": admin["id"],
+    }})
+    await log_audit(db, admin, "athlete.payment_required", athlete_id,
+                    {"previous_status": user.get("status"),
+                     "previous_plan": user.get("plan"),
+                     "suggested_plan": plano_sugerido})
+    return {"payment_required": True, "status": AGUARDANDO_PAGAMENTO,
+            "plan_code": plano_sugerido}
 
 
 @router.post("/athletes/{athlete_id}/regenerate-invite")
