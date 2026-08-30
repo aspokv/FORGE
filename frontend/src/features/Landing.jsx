@@ -1,6 +1,15 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
-import { ArrowRight, Check, Dumbbell, LineChart, ShieldCheck, Utensils } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowRight,
+  Check,
+  Dumbbell,
+  LineChart,
+  ShieldCheck,
+  Sparkles,
+  Utensils,
+} from "lucide-react";
 
 /**
  * Pagina publica do FORGE: o unico endereco que o proprietario precisa divulgar.
@@ -77,8 +86,9 @@ function Plano({ plano, onComecar }) {
         type="button"
         className="btn primary plan-cta"
         onClick={() => onComecar(plano.code)}
+        data-testid={`landing-plan-cta-${plano.code}`}
       >
-        Começar agora <ArrowRight size={16} />
+        Escolher {plano.nome.replace("FORGE ", "")} <ArrowRight size={16} />
       </button>
     </section>
   );
@@ -116,42 +126,91 @@ export default function Landing({ API, onComecar, onEntrar }) {
         <div className="brand">
           <span className="brand-mark">F</span> FORGE
         </div>
-        <button type="button" className="btn ghost" onClick={onEntrar}>
-          Já tenho conta — Entrar
+        <nav className="landing-nav" aria-label="Navegação principal">
+          <a href="#metodo">O método</a>
+          <a href="#planos">Planos</a>
+        </nav>
+        <button
+          type="button"
+          className="btn ghost landing-login"
+          onClick={onEntrar}
+          data-testid="landing-login"
+        >
+          Já tenho conta <ArrowRight size={15} />
         </button>
       </header>
 
       <section className="landing-hero">
-        <p className="eyebrow">Treino e nutrição em um só lugar</p>
-        <h1>
-          Seu treino deixa de ser
-          <br />
-          um palpite.
-        </h1>
-        <p className="landing-lead">
-          O FORGE monta treino e alimentação a partir da sua avaliação, acompanha cada
-          série registrada e ajusta a progressão sozinho. Você escolhe o plano, faz a
-          avaliação e começa no mesmo dia.
-        </p>
-        <div className="landing-actions">
-          <button
-            type="button"
-            className="btn primary"
-            onClick={() => onComecar(planos.find((p) => p.recomendado)?.code || "pro")}
-          >
-            Começar agora <ArrowRight size={16} />
-          </button>
-          <button type="button" className="btn ghost" onClick={onEntrar}>
-            Já tenho conta
-          </button>
+        <div className="landing-hero-copy">
+          <p className="eyebrow landing-kicker"><span /> Sistema de performance individual</p>
+          <h1>
+            Evolução não é<br />
+            <em>acidente.</em>
+          </h1>
+          <p className="landing-lead">
+            Treino e alimentação construídos em torno do seu corpo, da sua rotina e do
+            seu histórico. O FORGE transforma cada sessão em uma decisão melhor para a
+            próxima.
+          </p>
+          <div className="landing-actions">
+            <button
+              type="button"
+              className="btn primary"
+              onClick={() => onComecar(planos.find((p) => p.recomendado)?.code || "pro")}
+              data-testid="landing-primary-cta"
+            >
+              Construir meu plano <ArrowRight size={16} />
+            </button>
+            <a className="landing-text-link" href="#metodo">
+              Conhecer o método <ArrowDown size={14} />
+            </a>
+          </div>
+          <div className="landing-proof" aria-label="Diferenciais do FORGE">
+            <span><b>01</b> Avaliação individual</span>
+            <span><b>02</b> Progressão contínua</span>
+            <span><b>03</b> Treino + nutrição</span>
+          </div>
+        </div>
+
+        <div className="landing-instrument" aria-label="Exemplo da inteligência do FORGE">
+          <div className="instrument-top">
+            <span className="eyebrow">FORGE / SESSÃO 04</span>
+            <span className="instrument-live"><i /> Plano em evolução</span>
+          </div>
+          <div className="instrument-command">
+            <span>PRÓXIMA DECISÃO</span>
+            <h2>Supino inclinado</h2>
+            <p>Seu histórico indica progressão de carga hoje.</p>
+          </div>
+          <div className="instrument-metrics">
+            <div><span>Carga alvo</span><strong>32<small>kg</small></strong></div>
+            <div><span>Repetições</span><strong>8–10</strong></div>
+            <div><span>Intensidade</span><strong>RIR 2</strong></div>
+          </div>
+          <div className="instrument-progress">
+            <div><span>Progressão do ciclo</span><b>76%</b></div>
+            <i><b /></i>
+          </div>
+          <p className="instrument-note"><Sparkles size={14} /> Ajustado a partir das últimas 6 sessões</p>
         </div>
       </section>
 
-      <section className="landing-section">
-        <p className="eyebrow">Para quem é</p>
-        <h2>Feito para quem treina com objetivo</h2>
+      <section className="landing-manifesto" id="metodo">
+        <p className="eyebrow">O método</p>
+        <p className="manifesto-copy">
+          Seu corpo muda. Sua rotina muda. Seu plano precisa acompanhar.
+          <span> O FORGE observa, registra e recalibra.</span>
+        </p>
+      </section>
+
+      <section className="landing-section landing-section-numbered">
+        <div className="section-heading">
+          <div><p className="eyebrow">01 / Para quem é</p><h2>Precisão para cada fase.</h2></div>
+          <p>Uma estrutura clara para começar — profundidade suficiente para continuar evoluindo.</p>
+        </div>
         <div className="landing-audience">
           <article>
+            <span className="audience-number">01</span>
             <h3>Está começando</h3>
             <p>
               Você recebe uma divisão pronta, com carga inicial e técnica descrita, em vez
@@ -159,6 +218,7 @@ export default function Landing({ API, onComecar, onEntrar }) {
             </p>
           </article>
           <article>
+            <span className="audience-number">02</span>
             <h3>Já treina há anos</h3>
             <p>
               Prioriza as regiões que quer desenvolver, controla intensidade e usa
@@ -166,6 +226,7 @@ export default function Landing({ API, onComecar, onEntrar }) {
             </p>
           </article>
           <article>
+            <span className="audience-number">03</span>
             <h3>Quer treino e dieta juntos</h3>
             <p>
               Ganho de massa, emagrecimento ou recomposição com metas coerentes entre o
@@ -175,13 +236,16 @@ export default function Landing({ API, onComecar, onEntrar }) {
         </div>
       </section>
 
-      <section className="landing-section">
-        <p className="eyebrow">Benefícios</p>
-        <h2>O que você recebe</h2>
+      <section className="landing-section landing-benefit-section">
+        <div className="section-heading">
+          <div><p className="eyebrow">02 / O sistema</p><h2>Uma inteligência. Três pilares.</h2></div>
+          <p>Cada escolha conversa com a próxima. Nada é montado de forma isolada.</p>
+        </div>
         <div className="landing-benefits">
-          {BENEFICIOS.map(({ icone: Icone, titulo, texto }) => (
+          {BENEFICIOS.map(({ icone: Icone, titulo, texto }, index) => (
             <article key={titulo}>
-              <Icone size={20} />
+              <div className="benefit-icon"><Icone size={20} /></div>
+              <span className="benefit-index">0{index + 1}</span>
               <h3>{titulo}</h3>
               <p>{texto}</p>
             </article>
@@ -190,17 +254,15 @@ export default function Landing({ API, onComecar, onEntrar }) {
       </section>
 
       <section className="landing-section" id="planos">
-        <p className="eyebrow">Planos</p>
-        <h2>Escolha como quer começar</h2>
-        <p className="landing-lead small">
-          Assinatura mensal. Você escolhe o plano antes de criar a conta e pode trocar
-          antes de pagar.
-        </p>
+        <div className="section-heading plans-heading">
+          <div><p className="eyebrow">03 / Planos</p><h2>Escolha o seu nível de precisão.</h2></div>
+          <p>Comece no plano certo para o seu momento. Evolua quando estiver pronto.</p>
+        </div>
 
         {carregando && <p className="muted">Carregando planos...</p>}
         {erro && <p className="form-error">{erro}</p>}
 
-        <div className="plan-grid">
+        <div className="plan-grid landing-plan-grid">
           {planos.map((p) => (
             <Plano key={p.code} plano={p} onComecar={onComecar} />
           ))}
@@ -213,10 +275,9 @@ export default function Landing({ API, onComecar, onEntrar }) {
       </section>
 
       <footer className="landing-footer">
-        <span>FORGE</span>
-        <button type="button" className="btn ghost" onClick={onEntrar}>
-          Entrar
-        </button>
+        <div className="brand"><span className="brand-mark">F</span> FORGE</div>
+        <p>Seu treino deixa de ser um palpite.</p>
+        <button type="button" className="btn ghost" onClick={onEntrar} data-testid="landing-footer-login">Entrar</button>
       </footer>
     </div>
   );

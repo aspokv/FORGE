@@ -1,14 +1,27 @@
 /* AUTH SHELL */
-.auth-shell{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 20px;background:radial-gradient(circle at 20% -20%,#2a1e19 0,transparent 40%),var(--bg)}
-.auth-brand{display:flex;flex-direction:column;align-items:center;gap:6px;margin-bottom:32px;color:var(--muted);font:600 16px 'IBM Plex Mono';letter-spacing:.14em}
-.auth-brand .brand-mark{width:44px;height:44px;font-size:22px;margin-bottom:8px}
+.auth-shell{min-height:100vh;position:relative;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:52px 20px;background:var(--bg)}
+.auth-shell::before{content:"";position:absolute;inset:0;pointer-events:none;opacity:.25;background-image:linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);background-size:72px 72px;mask-image:linear-gradient(to bottom,black,transparent 78%)}
+.auth-shell::after{content:"SECURE ACCESS / FORGE";position:absolute;left:max(20px,4vw);bottom:28px;color:#5e6264;font:8px 'IBM Plex Mono';letter-spacing:.2em;writing-mode:vertical-rl}
+.auth-brand{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:6px;margin-bottom:34px;color:var(--text);font:600 16px 'IBM Plex Mono';letter-spacing:.14em}
+.auth-brand .brand-mark{width:48px;height:48px;font-size:24px;margin-bottom:10px;box-shadow:0 14px 38px rgba(227,107,77,.16)}
 .auth-brand small{font:500 9px 'IBM Plex Mono';letter-spacing:.24em;color:var(--muted)}
-.auth-card{width:min(440px,100%);background:var(--surface);border:1px solid var(--line);padding:34px 30px;display:flex;flex-direction:column;gap:16px}
-.auth-card h1{font-size:clamp(1.9rem,4vw,2.4rem);margin-top:4px}
+.auth-card{position:relative;z-index:1;width:min(460px,100%);background:rgba(20,22,25,.96);border:1px solid #3d4146;padding:42px 38px;display:flex;flex-direction:column;gap:18px;box-shadow:0 32px 90px rgba(0,0,0,.34)}
+.auth-card::before{content:"";position:absolute;left:-1px;top:42px;width:2px;height:58px;background:var(--accent)}
+.auth-card h1{font-size:clamp(2.25rem,4vw,3rem);line-height:1;margin:5px 0 2px}
 .auth-card .deep-field{margin-top:6px}
-.auth-submit{margin-top:12px}
+.auth-card .deep-field span{font-size:9px;letter-spacing:.14em}
+.auth-card .deep-field input{min-height:52px;background:#101214;border-color:#3a3e43;transition:border-color .16s,background .16s}
+.auth-card .deep-field input:focus{outline:2px solid transparent;border-color:var(--accent);background:var(--surface)}
+.auth-submit{margin-top:14px;min-height:52px}
 .auth-hint{display:flex;align-items:center;gap:8px;font-size:12px;margin-top:12px}
 .auth-error{border-left:2px solid var(--accent);background:#2a1a17;color:#f1b2a0;padding:10px 12px;font-size:13px}
+
+@media(max-width:560px){
+  .auth-shell{padding:32px 18px}
+  .auth-shell::after{display:none}
+  .auth-brand{margin-bottom:26px}
+  .auth-card{padding:34px 24px}
+}
 
 /* ADMIN PANEL */
 .admin-shell{min-height:100vh;display:flex;background:var(--bg)}
