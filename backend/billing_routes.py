@@ -256,11 +256,14 @@ async def iniciar_pix(db, user_id: str, email: str, plan_code: str) -> Dict[str,
     await db.pix_attempts.update_one({"reference": referencia}, {"$set": {
         "provider_payment_id": str(recurso.get("id") or ""),
         "status": recurso.get("status") or "pending", "updated_at": _agora()}})
-    if not url:
+    qr_code = transacao.get("qr_code")
+    qr_base64 = transacao.get("qr_code_base64")
+    if not url and not qr_code:
         raise HTTPException(502, {"message": "O Mercado Pago não devolveu o QR Code PIX.",
                                   "reason": "no_pix_url"})
     return {"checkout_url": url, "payment_method": "pix", "plan_code": p["code"],
-            "reference": referencia, "expires_in_days": DIAS_DE_ACESSO_PIX}
+            "reference": referencia, "expires_in_days": DIAS_DE_ACESSO_PIX,
+            "qr_code": qr_code, "qr_code_base64": qr_base64}
 
 
 @router.post("/pix")

@@ -23,6 +23,7 @@ import {
 } from "./signupSteps";
 import PreAvaliacao from "./PreAvaliacao";
 import PreviaBloqueada from "./PreviaBloqueada";
+import PixPayment from "./PixPayment";
 
 /**
  * Funil publico: plano -> dados -> codigo -> senha -> pagamento.
@@ -78,6 +79,7 @@ export default function SignupFlow({ API, planoInicial, onEntrar, onCancelar, on
   const [dados, setDados] = useState({ name: "", email: "", acceptTerms: false });
   const [codigo, setCodigo] = useState("");
   const [senha, setSenha] = useState("");
+  const [pix, setPix] = useState(null);
   const [token, setToken] = useState("");
   const [catalogo, setCatalogo] = useState(null);
   const [respostas, setRespostas] = useState({ priorities: [] });
@@ -221,7 +223,8 @@ export default function SignupFlow({ API, planoInicial, onEntrar, onCancelar, on
     executar(async () => {
       const endpoint = metodo === "pix" ? "pix" : "checkout";
       const r = await axios.post(`${API}/signup/${endpoint}`, { token });
-      window.location.href = r.data.checkout_url;
+      if (metodo === "pix") setPix(r.data);
+      else window.location.href = r.data.checkout_url;
       return true;
     });
 
@@ -240,6 +243,9 @@ export default function SignupFlow({ API, planoInicial, onEntrar, onCancelar, on
         </div>
 
         <Trilha atual={passo} />
+
+        {pix && <PixPayment API={API} payment={pix} onClose={() => setPix(null)}
+          onApproved={() => window.location.assign("/app")} />}
 
         {!aberto && (
           <p className="signup-closed" data-testid="signup-closed">
@@ -463,6 +469,7 @@ export function PagamentoPendente({ API, user, onSair, retornando, onLiberado })
   const [previa, setPrevia] = useState(null);
   const [erros, setErros] = useState({});
   const [avisoPrioridade, setAvisoPrioridade] = useState("");
+  const [pix, setPix] = useState(null);
   const emVoo = useRef(false);
 
   // Quem volta ja respondeu: a previa vem do servidor junto com as respostas, e a tela
@@ -528,7 +535,8 @@ export function PagamentoPendente({ API, user, onSair, retornando, onLiberado })
     try {
       const endpoint = metodo === "pix" ? "pix" : "checkout";
       const r = await axios.post(`${API}/billing/${endpoint}`, { plan_code: code });
-      window.location.href = r.data.checkout_url;
+      if (metodo === "pix") setPix(r.data);
+      else window.location.href = r.data.checkout_url;
     } catch (e) {
       console.error("[FORGE pendente] checkout:", e?.response?.status, e?.response?.data ?? e);
       setErro(explicarErro(e));
@@ -581,6 +589,9 @@ export function PagamentoPendente({ API, user, onSair, retornando, onLiberado })
             ? "Estamos confirmando o pagamento com o Mercado Pago. Isso costuma levar alguns segundos."
             : `Sua conta está criada, ${user?.name?.split(" ")[0] || "atleta"}. O acesso abre assim que a assinatura for confirmada.`}
         </p>
+
+        {pix && <PixPayment API={API} payment={pix} onClose={() => setPix(null)}
+          onApproved={() => onLiberado?.()} />}
 
         {!conferindo && previa && (
           <PreviaBloqueada

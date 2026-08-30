@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import axios from "axios";
 import { Check, Clock3, CreditCard, QrCode, ShieldCheck, Sparkles } from "lucide-react";
+import PixPayment from "./PixPayment";
 
 /**
  * Planos e assinatura.
@@ -84,6 +85,7 @@ export default function Billing({ API }) {
   const [ocupado, setOcupado] = useState("");
   const [erro, setErro] = useState("");
   const [aviso, setAviso] = useState("");
+  const [pix, setPix] = useState(null);
   // Trava sincrona: dois toques no mesmo tick nao podem abrir dois checkouts.
   const trava = useRef(false);
 
@@ -138,7 +140,8 @@ export default function Billing({ API }) {
     setOcupado(`${code}:pix`); setErro("");
     try {
       const r = await axios.post(`${API}/billing/pix`, { plan_code: code });
-      window.location.href = r.data.checkout_url;
+      setPix(r.data);
+      trava.current = false; setOcupado("");
     } catch (e) {
       trava.current = false; setOcupado("");
       const detalhe = e?.response?.data?.detail;
@@ -178,6 +181,8 @@ export default function Billing({ API }) {
 
       {aviso && <div className="notice" data-testid="billing-notice">{aviso}</div>}
       {erro && <div className="auth-error" data-testid="billing-error">{erro}</div>}
+      {pix && <PixPayment API={API} payment={pix} onClose={() => setPix(null)}
+        onApproved={() => { setPix(null); carregar(); }} />}
 
       {assinatura && (
         <section className="panel subscription-panel" data-testid="my-subscription">
