@@ -141,11 +141,19 @@ body{
 .readiness-value{font-family:'Sora','IBM Plex Sans',sans-serif;font-size:62px;letter-spacing:-.06em;background:linear-gradient(180deg,#fff6ea,#ae9278);-webkit-background-clip:text;background-clip:text;color:transparent}
 .readiness-ring{
   width:112px;height:112px;border:0;
-  background:conic-gradient(var(--success) 0 76%,rgba(255,255,255,.08) 76% 100%);
-  box-shadow:0 0 36px rgba(168,214,109,.13),inset 0 0 0 9px #111416;
-  position:relative;
+  position:relative;isolation:isolate;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  background:conic-gradient(from -90deg,var(--accent-bright) 0 65%,var(--success) 65% 76%,#292d30 76% 100%);
+  box-shadow:0 0 34px rgba(201,162,126,.12),0 14px 30px rgba(0,0,0,.38);
 }
-.readiness-ring::after{content:"READY";position:absolute;bottom:20px;left:0;right:0;font:7px 'IBM Plex Mono';letter-spacing:.15em;color:var(--success)}
+.readiness-ring::before{
+  content:"";position:absolute;inset:9px;border-radius:50%;z-index:-1;
+  background:radial-gradient(circle at 45% 35%,#1d2022,#0b0d0e 72%);
+  border:1px solid rgba(255,255,255,.07);
+  box-shadow:inset 0 9px 20px rgba(0,0,0,.48),0 0 0 1px rgba(0,0,0,.7);
+}
+.readiness-ring>span{font:500 24px 'Sora';line-height:1;color:var(--text);text-shadow:0 2px 10px rgba(0,0,0,.7)}
+.readiness-ring>small{margin-top:4px;font:7px 'IBM Plex Mono';letter-spacing:.13em;color:var(--muted)}
+.readiness-ring::after{content:"RECOVERY";position:absolute;bottom:20px;left:0;right:0;font:6px 'IBM Plex Mono';letter-spacing:.14em;color:var(--success)}
 
 .dashboard-grid{grid-template-columns:minmax(0,1.5fr) minmax(330px,1fr);gap:18px}
 .command{min-height:310px;padding:30px;background:radial-gradient(circle at 86% 15%,rgba(201,162,126,.15),transparent 31%),linear-gradient(145deg,#17191b,#0d0f11)}
@@ -182,11 +190,21 @@ body{
 .recovery-score,.macro-strip b,.weight-current b,.stat-card b{color:var(--accent-bright)}
 .progress-card,.metric-card,.macro-strip>div,.sub-grid div{border-radius:9px;background:linear-gradient(145deg,rgba(255,255,255,.025),rgba(0,0,0,.12));box-shadow:var(--forge-inset)}
 
-.exercise{border-radius:12px;margin-top:14px;transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}
+.workout-page{max-width:1120px}
+.exercise{border:1px solid rgba(148,153,158,.22);border-radius:12px;margin-top:14px;padding:0;transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}
 .exercise:hover{transform:translateY(-2px);border-color:rgba(201,162,126,.36);box-shadow:var(--forge-inset),0 26px 50px rgba(0,0,0,.3)}
 .exercise-index{color:var(--accent-bright)}
-.set-row{border-radius:7px;background:linear-gradient(145deg,rgba(255,255,255,.024),rgba(0,0,0,.08))}
+.exercise-title{margin:0;padding:20px 22px 16px;border-bottom:1px solid rgba(148,153,158,.14);background:linear-gradient(110deg,rgba(201,162,126,.045),transparent 42%)}
+.exercise-title h3{font-size:18px;margin-top:5px}.exercise-title .muted{font-size:12px}.exercise-title .swap{border-radius:7px;min-height:38px}
+.progression-hint{margin:0;padding:12px 22px;border-top:0;border-bottom:1px solid rgba(148,153,158,.14);background:rgba(168,214,109,.025)}
+.set-grid{padding:4px 16px 14px;grid-template-columns:48px minmax(90px,1fr) 100px 100px 48px;gap:8px}
+.set-grid>span{padding:11px 8px 6px;font-size:8px;letter-spacing:.08em}
+.set-row{min-height:52px;padding:7px 8px;border-radius:7px;border-top:1px solid rgba(148,153,158,.14);grid-template-columns:48px minmax(90px,1fr) 100px 100px 48px;gap:8px;background:linear-gradient(145deg,rgba(255,255,255,.024),rgba(0,0,0,.08))}
+.set-row input{height:36px;padding:7px 10px;text-align:center}
+.set-check{width:36px;height:36px;border-radius:7px}
 .set-row.completed{border-color:rgba(168,214,109,.38);background:linear-gradient(90deg,rgba(168,214,109,.09),rgba(255,255,255,.02))}
+.session-banner{padding:11px 14px;margin-top:14px;border:1px solid rgba(168,214,109,.22);border-left:2px solid var(--success);background:linear-gradient(90deg,rgba(168,214,109,.065),rgba(255,255,255,.018));color:var(--text)}
+.session-banner b{color:var(--success)}.session-banner p{color:var(--muted)}.session-banner svg{color:var(--success)}
 .rest-banner{border-radius:10px;background:linear-gradient(145deg,#15181a,#0c0e10);box-shadow:var(--forge-inset),0 15px 30px rgba(0,0,0,.22)}
 .rest-banner.active{border-color:var(--accent);box-shadow:var(--forge-inset),0 0 35px rgba(201,162,126,.1)}
 
@@ -205,6 +223,8 @@ body{
 .coach-panel,.builder-panel{border-radius:14px;border-color:rgba(201,162,126,.25);box-shadow:0 45px 100px rgba(0,0,0,.65),var(--forge-inset)}
 .coach-panel::before,.builder-panel::before{content:"";position:absolute;inset:0 0 auto;height:1px;background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:.65}
 .coach-suggestions button{border-radius:9px;background:linear-gradient(145deg,rgba(255,255,255,.03),rgba(0,0,0,.12))}
+.coach-answer{border-radius:10px;background:radial-gradient(circle at 100% 0,rgba(201,162,126,.07),transparent 32%),#0c0e10;box-shadow:inset 0 2px 12px rgba(0,0,0,.36)}
+.coach-panel form{position:relative}.coach-panel form input{min-height:52px;border-radius:9px;padding-right:58px;background:#0c0e10}.coach-panel form .primary-button{position:absolute;right:4px;top:4px;width:44px;min-height:44px;border-radius:7px}
 .deep-field input,.deep-field select,.deep-field textarea,.set-row input,.weight-input-row input{
   border-radius:7px;
   border-color:rgba(148,153,158,.25);
@@ -235,6 +255,7 @@ body{
   .readiness{padding:24px 20px;min-height:160px}.readiness::before{display:none}.readiness-value{font-size:46px}.readiness-ring{width:88px;height:88px}
   .command,.signal,.volume,.coach-teaser{padding:22px}.command{min-height:285px}.command h2{max-width:84%;font-size:2rem}.command::after{opacity:.18}
   .session-telemetry>div{grid-template-columns:24px 1fr}.session-telemetry small{grid-column:2;white-space:normal}
+  .exercise-title{padding:18px 16px 14px}.set-grid{padding:4px 8px 12px;grid-template-columns:34px minmax(62px,1fr) 70px 64px 40px;gap:5px}.set-row{grid-template-columns:34px minmax(62px,1fr) 70px 64px 40px;gap:5px;padding:7px 5px}.set-grid>span{padding-left:4px;padding-right:4px}.set-row input{padding:7px 4px}.progression-hint{padding-left:16px;padding-right:16px}
   .panel{border-radius:10px}
   .mobile-nav{background:linear-gradient(180deg,rgba(14,16,18,.82),#08090a);backdrop-filter:blur(20px);border-color:rgba(201,162,126,.18);box-shadow:0 -18px 45px rgba(0,0,0,.38)}
   .mobile-nav .nav-item.active{background:linear-gradient(180deg,rgba(201,162,126,.13),transparent);border-color:transparent;border-top-color:var(--accent)}

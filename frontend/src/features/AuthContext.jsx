@@ -4,6 +4,24 @@ import axios from "axios";
 const API = `${process.env.REACT_APP_BACKEND_URL || ""}/api`;
 const AuthContext = createContext(null);
 
+// O Coach e alguns fluxos com streaming usam fetch (nao Axios). Centralizar a
+// autenticacao aqui evita uma classe inteira de falhas 401 silenciosas. O token so e
+// anexado ao backend FORGE; requisicoes para outros dominios nunca o recebem.
+const originalFetch = window.fetch.bind(window);
+const apiBase = new URL(API, window.location.origin);
+window.fetch = (input, init = {}) => {
+  const requestUrl = new URL(typeof input === "string" ? input : input.url, window.location.origin);
+  const isForgeApi = requestUrl.origin === apiBase.origin &&
+    requestUrl.pathname.startsWith(apiBase.pathname.replace(/\/$/, ""));
+  if (!isForgeApi) return originalFetch(input, init);
+  const isRequest = typeof Request !== "undefined" && input instanceof Request;
+  const headers = new Headers(isRequest ? input.headers : undefined);
+  new Headers(init.headers || {}).forEach((value, key) => headers.set(key, value));
+  const token = localStorage.getItem("forge_token");
+  if (token && !headers.has("Authorization")) headers.set("Authorization", `Bearer ${token}`);
+  return originalFetch(input, { ...init, headers });
+};
+
 // Axios interceptor: attach Bearer + surface 401 as auth reset
 axios.interceptors.request.use(cfg => {
   const t = localStorage.getItem("forge_token");
