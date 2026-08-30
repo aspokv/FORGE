@@ -2,7 +2,7 @@
 import {useEffect,useMemo,useRef,useState} from "react";
 import axios from "axios";
 import {motion} from "framer-motion";
-import {Activity,BarChart3,BrainCircuit,Check,ChevronRight,CircleUserRound,Clock3,Dumbbell,FileUp,Home,Info,LineChart,LockKeyhole,LogOut,Play,RotateCcw,ShieldCheck,Sliders,Sparkles,TimerReset,TrendingUp,Trophy,UserRound,Utensils,X} from "lucide-react";
+import {Activity,BarChart3,Bell,BrainCircuit,Check,ChevronRight,CircleUserRound,Dumbbell,FileUp,Home,Info,LineChart,LockKeyhole,LogOut,Play,RotateCcw,ShieldCheck,Sliders,Sparkles,TimerReset,TrendingUp,Trophy,UserRound,Utensils,X} from "lucide-react";
 import "@/App.css";
 import "./features/builder.css";
 import "./features/auth.css";
@@ -31,49 +31,42 @@ const GROUPS={PEITORAL:["Peitoral superior","Peitoral esternal"],OMBROS:["Deltó
 const FALLBACK={profile:{id:"demo",name:"Rafael Mendes",goal:"Hipertrofia com especialização",experience:"Avançado",days:4,session_minutes:70,priorities:["Deltóide lateral","Peitoral superior","Posteriores"],assessment:{}},program:{week:"Semana 3 de 6",session:"Upper A — tensão e largura",duration:"67 min",focus:["Peitoral superior","Deltóide lateral"],exercises:[{exercise_id:"incline-smith",sets:3,reps:"6–8",rir:"1–2",rest:"3 min",load:82},{exercise_id:"lat-pulldown",sets:3,reps:"8–10",rir:"1–2",rest:"2 min",load:62},{exercise_id:"lateral-raise",sets:4,reps:"12–20",rir:"1–2",rest:"90 s",load:12}]},exercises:[],muscles:[],recent_sets:[],demo:true};
 const navIcons={Hoje:Home,Treino:Dumbbell,"Alimentação":Utensils,Progresso:TrendingUp,Análise:BarChart3,Planos:ShieldCheck,Perfil:UserRound};
 function AthleteShell(){const{user,signOut}=useAuth();const profileId=user?.id;const[db,setDb]=useState(null),[tab,setTab]=useState("Hoje"),[loading,setLoading]=useState(true),[assessment,setAssessment]=useState(false),[analytics,setAnalytics]=useState(null),[report,setReport]=useState(null),[coach,setCoach]=useState(false),[coachText,setCoachText]=useState(""),[busy,setBusy]=useState(false),[builder,setBuilder]=useState(false),[manualOpen,setManualOpen]=useState(false),[techDetail,setTechDetail]=useState(null),[previewData,setPreviewData]=useState(null);useEffect(()=>{if(!user)return;axios.get(`${API}/bootstrap`).then(r=>{const data=r.data;setDb(data);if(data.profile?.onboarding_required&&user?.role==="ATHLETE")setAssessment(true)}).catch(()=>{setDb(null)}).finally(()=>setLoading(false))},[user?.id]);useEffect(()=>{if(!db)return;if(["Progresso","Análise"].includes(tab))axios.get(`${API}/analytics`).then(r=>setAnalytics(r.data));if(tab==="Análise")axios.get(`${API}/weekly-report`).then(r=>setReport(r.data))},[tab,!!db]);const context=useMemo(()=>{if(!db)return{};return{profile:db.profile,assessment:db.profile.assessment,program:db.program,priorities:db.profile.priorities,recent_sets:db.recent_sets,weekly_volume:analytics?.volume,recovery:db.profile.recovery,baseline:db.profile.baseline}},[db,analytics]);const ask=async question=>{setBusy(true);setCoachText("");try{const r=await fetch(`${API}/coach`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({question,context})}),reader=r.body.getReader(),decoder=new TextDecoder();let done=false;while(!done){const part=await reader.read();done=part.done;decoder.decode(part.value||new Uint8Array()).split("\n\n").forEach(x=>{if(x.startsWith("data: ")&&!x.includes("[DONE]")){try{const j=JSON.parse(x.slice(6));setCoachText(t=>t+(j.text||j.error||""))}catch{setCoachText("Resposta indisponível.")}}})}}catch{setCoachText("Coach temporariamente indisponível.")}finally{setBusy(false)}};const finish=async form=>{if(form.automation_mode==="FORGE_ASSISTED"){try{const r=await axios.post(`${API}/program/preview`,form);setPreviewData({form,program:r.data.program});setAssessment(false)}catch{setDb(x=>({...x,profile:{...x.profile,...form}}));setAssessment(false);setPreviewData(null)}}else{try{const payload={...form,profile_id:user?.id||form.profile_id};const r=await axios.post(`${API}/assessment`,payload);setDb(x=>({...x,profile:r.data.profile,program:r.data.program}))}catch{setDb(x=>({...x,profile:{...x.profile,...form}}))}setAssessment(false)}};const approve=async()=>{if(!previewData)return;try{const payload={...previewData.form,profile_id:user?.id||previewData.form.profile_id};const r=await axios.post(`${API}/assessment`,payload);setDb(x=>({...x,profile:r.data.profile,program:r.data.program}))}catch{setDb(x=>({...x,profile:{...x.profile,...previewData.form}}))}setPreviewData(null)};if(!db&&!loading)return <div className="auth-shell"><div className="auth-card"><p className="muted">Erro ao carregar dados do perfil. Tente novamente.</p></div></div>;if(assessment)return <DeepAssessment onDone={finish}initialForm={previewData?.form||respostasIniciais(db?.profile)}passos={passosPendentes(db?.profile)}/>;if(previewData)return <ProgramPreview program={previewData.program}onApprove={approve}onBack={()=>setAssessment(true)}/>;if(!db)return <div className="auth-shell"><div className="auth-card"><p className="muted">Carregando seu perfil...</p></div></div>;const techniques=db.techniques||TECHNIQUE_FALLBACK;const openBuilder=()=>setBuilder(true);const openManual=()=>setManualOpen(true);const manualActivated=res=>{setDb(x=>({...x,program:res.program,profile:{...x.profile,custom_program:res.custom||x.profile.custom_program,automation_mode:"FORGE_PRO",current_session_day:1,exercise_substitutions:{}}}));setManualOpen(false)};const savedProgram=res=>{setDb(x=>({...x,program:res.program,profile:{...x.profile,custom_program:res.custom||null,automation_mode:res.custom?"FORGE_PRO":x.profile.automation_mode}}));setBuilder(false)};const onExerciseSubstituted=res=>{setDb(x=>({...x,program:res.program,profile:{...x.profile,exercise_substitutions:res.exercise_substitutions}}))};const onWorkoutCompleted=res=>{setDb(x=>({...x,program:res.program}))};return <div className="forge-shell"><aside className="rail"><div className="brand"><span className="brand-mark">F</span><span>FORGE</span></div><p className="rail-caption">ADVANCED TRAINING OS</p><Nav tab={tab}setTab={setTab}/><div className="rail-bottom"><div className="status-dot"/> Engine online<br/><span>{user?.role==="ATHLETE"?"Personal profile":"Admin mode"}</span></div></aside><main className="main"><header className="topbar"><div><p className="eyebrow">{tab.toUpperCase()} / 06 JUN 2026</p><h1>{tab==="Hoje"?`Bom treino, ${(db.profile.name||"Atleta").split(" ")[0]}.`:tab}</h1></div><button className="icon-button"data-testid="profile-open-button"onClick={()=>setTab("Perfil")}><CircleUserRound size={20}/></button></header>{loading?<div className="loading"data-testid="loading-state">Carregando seu sistema...</div>:<Page tab={tab}db={db}analytics={analytics}report={report}techniques={techniques}start={()=>setTab("Treino")}openCoach={()=>setCoach(true)}openBuilder={openBuilder}openManual={openManual}openTech={setTechDetail}redo={()=>setAssessment(true)}signOut={signOut}user={user}goHome={()=>setTab("Hoje")}onExerciseSubstituted={onExerciseSubstituted}onWorkoutCompleted={onWorkoutCompleted}/>}</main><div className="mobile-nav"><Nav tab={tab}setTab={setTab}/></div>{coach&&<Coach onClose={()=>setCoach(false)}text={coachText}busy={busy}ask={ask}/>}{builder&&<ProgramBuilder API={API}profile={db.profile}exercises={db.exercises}techniques={techniques}program={db.profile.custom_program||db.program}onSaved={savedProgram}onClose={()=>setBuilder(false)}/>}{manualOpen&&<ManualWorkout API={API}profile={db.profile}exercises={db.exercises}onActivated={manualActivated}onOpenBuilder={()=>{setManualOpen(false);setBuilder(true)}}onClose={()=>setManualOpen(false)}/>}{techDetail&&<TechniqueDetail t={techDetail}onClose={()=>setTechDetail(null)}/>}</div>}
-function Nav({tab,setTab}){return <nav>{Object.entries(navIcons).map(([name,Icon])=><button key={name}className={tab===name?"nav-item active":"nav-item"}data-testid={`nav-${name.toLowerCase()}`}onClick={()=>setTab(name)}><Icon size={18}/><span>{name}</span></button>)}</nav>}
+function Nav({tab,setTab}){return <nav>{Object.entries(navIcons).map(([name,Icon])=><button key={name}className={tab===name?"nav-item active":"nav-item"}data-testid={`nav-${name.toLowerCase()}`}onClick={()=>setTab(name)}><Icon size={18}/><span>{name==="Hoje"?"Início":name==="Alimentação"?"Nutrição":name}</span></button>)}</nav>}
 function Page({tab,db,analytics,report,techniques,start,openCoach,openBuilder,openManual,openTech,redo,signOut,user,goHome,onExerciseSubstituted,onWorkoutCompleted}){if(tab==="Treino")return <Workout db={db}techniques={techniques}openTech={openTech}goHome={goHome}onExerciseSubstituted={onExerciseSubstituted}onWorkoutCompleted={onWorkoutCompleted}/>;if(tab==="Planos")return <Billing API={API}/>;if(tab==="Progresso")return <Progress analytics={analytics}profileId={db?.profile?.id}/>;if(tab==="Análise")return <Analysis db={db}analytics={analytics}report={report}openCoach={openCoach}/>;if(tab==="Perfil")return <Profile db={db}redo={redo}openBuilder={openBuilder}openManual={openManual}signOut={signOut}user={user}/>;if(tab==="Alimentação")return <Nutrition db={db}API={API}profileId={db?.profile?.id}/>;return <Today db={db}start={start}openCoach={openCoach}openBuilder={openBuilder}openManual={openManual}/>}
 function Today({db,start,openCoach,openBuilder,openManual}){
   const p=db.program||{};
   const manual=p.logic?.manual;
   const activeSession=p.sessions?.find(s=>s.day===p.active_day)||p.sessions?.[0];
   const exercises=activeSession?.exercises||p.exercises||[];
-  const effectiveSets=exercises.reduce((total,x)=>total+(Number(x.sets)||0),0);
-  const focus=p.focus||db.profile.priorities||[];
-  return <div className="content performance-home">
+  const preview=(exercises.length?exercises:[{exercise_id:"supino",sets:4,reps:"6–8",load:80,rir:"1–2"},{exercise_id:"remada",sets:4,reps:"8–10",load:90,rir:"1–2"},{exercise_id:"agachamento",sets:4,reps:"6–8",load:140,rir:"1–2"},{exercise_id:"elevacao",sets:3,reps:"12–15",load:12,rir:"2"}]).slice(0,4);
+  return <div className="content performance-home forge-home-final">
+    <div className="forge-mobile-mast"><span>FORGE</span><Bell size={18}/></div>
     <div className="performance-heading">
       <div><p className="eyebrow">FORGE / PERFORMANCE OS</p><h2>Seu próximo nível começa agora.</h2></div>
       <span className="live-pill"><i/> SISTEMA ADAPTATIVO ATIVO</span>
     </div>
-    <section className="readiness">
-      <div><p className="eyebrow">RECUPERAÇÃO / HOJE</p><div className="readiness-value">3.8 <span>/ 5</span></div><p className="muted">Pronto para treinar · recuperação muscular dentro do alvo</p></div>
-      <div className="readiness-ring"><span>76</span><small>%</small></div>
+    <section className="panel signal forge-coach-hero">
+      <div className="coach-signal-head"><div className="coach-icon"><BrainCircuit size={20}/></div><p className="eyebrow">COACH IA</p></div>
+      <h3>Plano ajustado para sua hipertrofia.</h3>
+      <p className="muted">{p.logic?.days||db.profile.days} sessões · {manual?"estrutura manual preservada":"carga, volume e recuperação recalibrados"}.</p>
+      <button className="coach-arrow"data-testid="open-coach-button"onClick={openCoach}aria-label="Falar com o Coach IA"><ChevronRight size={16}/></button>
     </section>
-    <div className="metric-deck" aria-label="Indicadores de performance">
-      <article><span>HIPERTROFIA</span><b>{effectiveSets||24}</b><small>séries efetivas</small></article>
-      <article><span>VOLUME SEMANAL</span><b>18.240</b><small>kg · +12%</small></article>
-      <article><span>NUTRIÇÃO</span><b>2.850</b><small>kcal planejadas</small></article>
-      <article><span>PROGRESSO</span><b>+1,2</b><small>kg no ciclo</small></article>
+    <div className="today-section-label"><span><Dumbbell size={14}/> Treino de hoje</span><button onClick={start}>Ver plano <ChevronRight size={13}/></button></div>
+    <section className="panel command forge-workout-preview">
+      <div className="preview-list">
+        {preview.map((x,i)=><div key={x.exercise_id||i}><span className="preview-icon"><Dumbbell size={16}/></span><div><small>{["PUSH","PULL","LEGS","DELT"][i]}</small><b>{x.name||x.exercise_name||["Supino inclinado","Remada curvada","Agachamento","Elevação lateral"][i]}</b><em>{x.sets} × {x.reps} · {x.load?`${x.load} kg · `:""}RIR {x.rir}</em></div></div>)}
+      </div>
+      <div className="preview-progress"><div className="performance-dial"><span>78<small>%</small></span><em>Concluído</em></div></div>
+      <button className="primary-button"data-testid="start-workout-button"onClick={start}>Iniciar treino <ChevronRight size={18}/></button>
+    </section>
+    <div className="forge-metric-grid" aria-label="Indicadores de performance">
+      <article className="metric-wide"><span>HIPERTROFIA</span><small>Foco do ciclo</small><b>18.240 <em>kg</em></b><i className="metric-bars"/><small className="positive">+12% vs semana anterior</small></article>
+      <article className="metric-wide"><span>FORÇA</span><small>1RM estimado</small><b>147,5 <em>kg</em></b><i className="metric-line"/><small className="positive">+2,5 kg</small></article>
+      <article><span>NUTRIÇÃO</span><b>2.850 <em>kcal</em></b><small>215P / 350C / 80G</small></article>
+      <article><span>RECUPERAÇÃO</span><b>87<em>%</em></b><small>Pronto para treinar</small></article>
+      <article><span>PROGRESSO</span><b>+1,2 <em>kg</em></b><small>Esta semana</small></article>
     </div>
-    <div className="dashboard-grid">
-      <section className="panel command">
-        <div className="panel-top"><div><p className="eyebrow">TREINO DE HOJE · {p.week}</p><h2>{activeSession?.label||p.session||"Hipertrofia estruturada"}</h2></div><span className="session-time"><Clock3 size={15}/> {p.duration||"70 min"}</span></div>
-        <div className="focus-row">{focus.slice(0,3).map(x=><span key={x}data-testid={`priority-${x}`}>{x}</span>)}</div>
-        <div className="session-telemetry">
-          {(exercises.slice(0,3).length?exercises.slice(0,3):[{exercise_id:"supino",sets:4,reps:"6–8",load:80,rir:"1–2"},{exercise_id:"remada",sets:4,reps:"8–10",load:90,rir:"1–2"}]).map((x,i)=><div key={x.exercise_id||i}><span>0{i+1}</span><b>{x.name||x.exercise_name||["Supino inclinado","Remada","Elevação lateral"][i]}</b><small>{x.sets} × {x.reps} · {x.load?`${x.load} kg · `:""}RIR {x.rir}</small></div>)}
-        </div>
-        <button className="primary-button"data-testid="start-workout-button"onClick={start}><Play size={18}/> Iniciar treino <ChevronRight size={18}/></button>
-      </section>
-      <section className="panel signal">
-        <div className="coach-signal-head"><div className="coach-icon"><BrainCircuit size={20}/></div><p className="eyebrow">COACH IA</p></div>
-        <h3>Plano ajustado para sua hipertrofia.</h3>
-        <p className="muted">{p.logic?.days||db.profile.days} sessões · {manual?"estrutura manual preservada":"carga, volume e recuperação recalibrados"}.</p>
-        <div className="mini-chart"><i/><i/><i/><i/><i/><i/><i/></div>
-        <button className="text-button"data-testid="open-coach-button"onClick={openCoach}>Falar com o Coach IA <ChevronRight size={15}/></button>
-      </section>
-      <section className="panel volume"><p className="eyebrow">VOLUME / SEMANA</p>{[["Peitoral superior",10,12],["Costas",16,16],["Deltóide lateral",12,14],["Posteriores",8,10]].map(([n,v,t])=><div className="volume-line"key={n}><div><span>{n}</span><strong>{v} <em>/ {t}</em></strong></div><div className="bar"><b style={{width:`${Math.min(100,v/t*100)}%`}}/></div></div>)}</section>
-      <section className="panel coach-teaser"><div className="coach-icon"><Activity size={19}/></div><div><p className="eyebrow">CONTROLE DO CICLO</p><h3>Progressão, RIR e recuperação em uma única leitura.</h3><button className="text-button"data-testid="open-builder-today"onClick={openBuilder}><Sliders size={13}/> {manual?"Editar programa":"Abrir Program Builder"}</button><button className="text-button"data-testid="open-manual-today"onClick={openManual}><FileUp size={13}/> Estrutura manual</button></div></section>
-    </div>
+    <div className="forge-home-tools"><button className="text-button"data-testid="open-builder-today"onClick={openBuilder}><Sliders size={13}/> {manual?"Editar programa":"Program Builder"}</button><button className="text-button"data-testid="open-manual-today"onClick={openManual}><FileUp size={13}/> Estrutura manual</button></div>
   </div>
 }
 const LOAD_LABEL={FIRST_TIME:"Primeira vez",LOAD_UP:"Aumentar carga",KEEP_LOAD:"Manter carga",ADD_REPS:"Buscar mais reps",REDUCE_LOAD:"Reduzir carga"};
@@ -133,9 +126,16 @@ function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutC
   const finish=async()=>{if(finishLock.current)return;const total=items.reduce((a,x)=>a+x.sets,0);const completed=Object.values(done).filter(Boolean).length;setFinishing(true);const r=await completeWorkout({post:(u,b)=>axios.post(u,b),api:API,day:activeSession?.day,completedSets:completed,totalSets:total,startedAt,lock:finishLock,onCompleted:onWorkoutCompleted});if(r)setFinishResult(r);if(!r||r.error)setFinishing(false)};
   const recLevel=p.logic?.recovery_level;
   const recMsg=recLevel==="LOW"?"Volume ajustado à sua recuperação de hoje.":recLevel==="VERY_LOW"?"Sessão adaptada à sua recuperação de hoje.":p.logic?.block_type==="deload"?"Semana de descarga — volume reduzido de propósito.":null;
+  const totalSessionSets=items.reduce((sum,x)=>sum+(Number(x.sets)||0),0);
+  const estimatedLoad=items.reduce((sum,x)=>sum+(Number(x.load)||0)*(Number(x.sets)||0)*(parseInt(x.reps)||8),0);
   if(!items.length)return <div className="content workout-page"><div className="empty-state"data-testid="workout-empty-state"><Dumbbell size={22}/><h3>Nenhuma sessão disponível</h3><p className="muted">Gere ou aprove um programa para ver o treino de hoje.</p></div></div>;
   return <div className="content workout-page">
     <div className="workout-head"><div><p className="eyebrow">EM EXECUÇÃO · {p.week}</p><h2>{activeSession?.label||p.session}</h2><p className="muted">Demanda {activeSession?.demand||"MODERATE"} · registre o trabalho real.</p></div>{draftState!=="idle"&&<span className={`autosave-pill ${draftState}`}data-testid="autosave-status">{draftState==="saving"?"salvando...":draftState==="saved"?"salvo automaticamente":"sem conexão — tentando salvar"}</span>}</div>
+    <section className="workout-overview">
+      <div className="muscle-map" role="img" aria-label="Mapa muscular frontal e posterior"/>
+      <div className="workout-overview-copy"><span>GRUPO MUSCULAR</span><b>{activeSession?.label?.split(/[—-]/)?.[0]||"Hipertrofia"}</b><small>Duração estimada · {p.duration||"70 min"}</small></div>
+      <div className="workout-kpis"><div><span>VOLUME</span><b>{estimatedLoad.toLocaleString("pt-BR")} <small>kg</small></b><em>+8% vs anterior</em></div><div><span>CARGA TOTAL</span><b>{Math.round(estimatedLoad*.72).toLocaleString("pt-BR")} <small>kg</small></b><em>+7% vs anterior</em></div><div><span>SÉRIES EFETIVAS</span><b>{totalSessionSets}</b><em>+2 vs anterior</em></div><div><span>DESCANSO MÉDIO</span><b>90<small>s</small></b><em>Ótimo</em></div></div>
+    </section>
     {recMsg&&<div className="session-banner"data-testid="session-adapted-banner"><ShieldCheck size={16}/><div><b>SESSÃO ADAPTADA</b><p>{recMsg}</p></div></div>}
     <div className={timer>0?"rest-banner active":"rest-banner"}data-testid="rest-timer">
       <div className="rest-label"><TimerReset size={14}/>{timer>0?"Descanso":"Pronto para a próxima série"}</div>

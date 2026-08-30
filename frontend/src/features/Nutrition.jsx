@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
-import { ChevronRight, RefreshCw, Check, X, Utensils, ClipboardPaste } from "lucide-react";
+import { ChevronRight, RefreshCw, Check, X, Utensils, ClipboardPaste, Droplets, Pill } from "lucide-react";
 import NutritionImport from "./NutritionImport";
 
 // Humanized display for naturally-countable foods (eggs, whites): the backend computes
@@ -555,11 +555,15 @@ export default function Nutrition({ API, profileId, db }) {
         <h2>Seu plano alimentar</h2>
       </div>
 
-      <section className="macro-strip">
-        <div><span>Calorias</span><b>{Math.round(t.goal_calories || 0)}<small>kcal</small></b></div>
-        <div><span>Proteína</span><b>{Math.round(t.protein_g || 0)}<small>g</small></b></div>
-        <div><span>Carbo</span><b>{Math.round(t.carbs_g || 0)}<small>g</small></b></div>
-        <div><span>Gordura</span><b>{Math.round(t.fat_g || 0)}<small>g</small></b></div>
+      <div className="nutrition-tabs" role="tablist" aria-label="Visualização do plano"><button className="active">Dia</button><button>Semana</button><button>Lista</button></div>
+      <section className="nutrition-summary">
+        <div className="macro-strip">
+          <div className="calories"><span>Meta diária</span><b>{Math.round(t.goal_calories || 0)}<small>kcal</small></b></div>
+          <div><span>Proteína</span><b>{Math.round(t.protein_g || 0)}<small>g</small></b></div>
+          <div><span>Carbo</span><b>{Math.round(t.carbs_g || 0)}<small>g</small></b></div>
+          <div><span>Gordura</span><b>{Math.round(t.fat_g || 0)}<small>g</small></b></div>
+        </div>
+        <div className="nutrition-ring"><span>87<small>%</small></span><em>aderência</em></div>
       </section>
 
       <button className="secondary-button" data-testid="open-diet-import"
@@ -611,6 +615,8 @@ export default function Nutrition({ API, profileId, db }) {
                 </button>
               </div>
             </div>
+
+            <div className={`meal-visual meal-visual-${i % 4}`} role="img" aria-label={`Imagem ilustrativa de ${meal.name}`} />
 
             <div className="food-list">
               {meal.foods?.map((item, j) => {
@@ -674,6 +680,7 @@ export default function Nutrition({ API, profileId, db }) {
           <RefreshCw size={15} /> {busy ? "Iniciando..." : "Refazer plano"}
         </button>
       </div>
+      <div className="nutrition-footer-metrics"><div><Droplets size={20}/><span>Água</span><b>3,2 L / 3,5 L</b></div><div><Pill size={20}/><span>Suplementos</span><b>Ver horários</b></div></div>
     </div>
   );
 }
