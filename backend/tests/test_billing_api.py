@@ -339,6 +339,7 @@ async def test_pix_aprovado_libera_trinta_dias_sem_alterar_checkout_de_cartao(mp
     assert criado.json()["checkout_url"].startswith("https://mp/pix/")
     assert mp.pix_criados[-1]["payment_method_id"] == "pix"
     assert mp.pix_criados[-1]["transaction_amount"] == 69.90
+    assert "date_of_expiration" not in mp.pix_criados[-1]
 
     pid = next(reversed(mp.pagamentos))
     mp.pagamentos[pid]["status"] = "approved"

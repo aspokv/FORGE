@@ -240,9 +240,6 @@ async def iniciar_pix(db, user_id: str, email: str, plan_code: str) -> Dict[str,
         "payment_method_id": "pix",
         "external_reference": referencia,
         "notification_url": f"{site_url()}/api/billing/webhook",
-        # O QR abandonado nao fica valido indefinidamente. Isso nao e a validade do
-        # plano: os 30 dias so comecam quando o webhook confirmar `approved`.
-        "date_of_expiration": (datetime.now(timezone.utc) + timedelta(minutes=30)).isoformat(),
         "payer": {"email": email},
     }
     try:
