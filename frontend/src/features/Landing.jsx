@@ -142,7 +142,7 @@ export default function Landing({ API, onComecar, onEntrar }) {
 
       <section className="landing-hero">
         <div className="landing-hero-copy">
-          <p className="eyebrow landing-kicker"><span /> Sistema de performance individual</p>
+          <p className="eyebrow landing-kicker">Sistema de performance individual</p>
           <h1>
             Evolução não é<br />
             <em>acidente.</em>
