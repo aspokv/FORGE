@@ -1,0 +1,44 @@
+name: Apply Vision Model Fix
+
+on:
+  push:
+    branches:
+      - fix/vision-gemini-37
+    paths:
+      - .github/scripts/apply_vision_model_fix.py
+      - .github/workflows/apply-vision-model-fix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch-verify-commit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/vision-gemini-37
+          fetch-depth: 0
+
+      - name: Apply Vision model patch
+        run: python3 .github/scripts/apply_vision_model_fix.py
+
+      - name: Compile backend
+        run: python3 -m py_compile backend/server.py
+
+      - name: Verify retired model is gone
+        run: |
+          ! grep -R 'gemini-2.0-flash' backend/server.py
+          grep -q 'GEMINI_VISION_MODEL' backend/server.py
+          grep -q 'gemini-3.7-flash' backend/server.py
+
+      - name: Commit verified fix
+        run: |
+          git config user.name "forge-ci"
+          git config user.email "forge-ci@users.noreply.github.com"
+          git rm .github/scripts/apply_vision_model_fix.py .github/workflows/apply-vision-model-fix.yml
+          git add backend/server.py
+          git commit -m "fix(vision): migrate physique analysis to Gemini 3.7 Flash"
+          git push origin HEAD:fix/vision-gemini-37
