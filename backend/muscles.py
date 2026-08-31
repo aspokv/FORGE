@@ -1,4 +1,4 @@
-﻿"""
+"""
 FORGE Muscle Taxonomy — consistent muscle IDs with backward compatibility.
 Maps frontend display names to internal IDs and vice versa.
 """
@@ -25,7 +25,6 @@ MUSCLE_MAP: Dict[str, str] = {
 }
 
 REVERSE_MUSCLE_MAP: Dict[str, str] = {v: k for k, v in MUSCLE_MAP.items()}
-
 MUSCLE_IDS: List[str] = list(MUSCLE_MAP.keys())
 
 FRONTEND_MUSCLES = [
@@ -36,8 +35,6 @@ FRONTEND_MUSCLES = [
     "Panturrilhas", "Abdômen", "Oblíquos",
 ]
 
-# Backward compatibility: old schema uses frontend names in assessment
-# This mapping helps convert old profile assessment keys to internal IDs
 LEGACY_TO_INTERNAL: Dict[str, str] = {
     "Peitoral superior": "upper_chest",
     "Peitoral esternal": "mid_chest",
@@ -83,17 +80,14 @@ def to_internal(frontend_name: str) -> str:
     return LEGACY_TO_INTERNAL.get(frontend_name, REVERSE_MUSCLE_MAP.get(frontend_name, frontend_name))
 
 
-# Teto de prioridades simultaneas. Sem isso o onboarding aceita marcar as 17 regioes
-# como "maxima", o que nao e priorizar nada: o volume extra se dilui e estoura a
-# recuperacao. A ORDEM da lista e o ranking — o primeiro item e a prioridade principal.
 MAX_PRIORITIES = 3
 
-# Ponto de partida por perfil, aplicado SOMENTE quando o atleta ainda nao declarou
-# nenhuma prioridade. Nao restringe escolha: qualquer pessoa pode priorizar qualquer
-# regiao, e a prioridade declarada sempre substitui este ponto de partida.
+# Kept as a compatibility symbol for older imports. V5 deliberately does not infer
+# aesthetic/training priorities from sex. Any athlete may explicitly prioritize any
+# region; without a declared priority the training volume starts neutral.
 DEFAULT_EMPHASIS_BY_SEX: Dict[str, List[str]] = {
-    "female": ["glutes", "hamstrings", "quads"],
-    "male": ["mid_chest", "lats", "side_delts"],
+    "female": [],
+    "male": [],
 }
 
 
@@ -107,27 +101,26 @@ def normalize_sex(value) -> Optional[str]:
 
 
 def get_ranked_priorities(profile: dict) -> tuple:
-    """(principal, [secundarias]) em IDs internos, ja com o teto aplicado.
+    """Return (primary, [secondary]) from explicit athlete-selected priorities.
 
-    Sem prioridade declarada, cai no ponto de partida do perfil (sexo). Perfil antigo sem
-    sexo e sem prioridade continua sem enfase nenhuma — exatamente como era antes."""
+    Sex is retained as profile data but never used as a shortcut for aesthetic goals.
+    This keeps programming driven by the athlete's declared priorities instead of a
+    gender stereotype.
+    """
     raw = [to_internal(p) for p in (profile.get("priorities") or [])]
     seen, ordered = set(), []
-    for m in raw:
-        if m and m not in seen:
-            seen.add(m)
-            ordered.append(m)
+    for muscle in raw:
+        if muscle and muscle not in seen:
+            seen.add(muscle)
+            ordered.append(muscle)
     ordered = ordered[:MAX_PRIORITIES]
-    if ordered:
-        return ordered[0], ordered[1:]
-    seed = DEFAULT_EMPHASIS_BY_SEX.get(normalize_sex(profile.get("sex")) or "", [])
-    seed = seed[:MAX_PRIORITIES]
-    return (seed[0] if seed else None), seed[1:]
+    if not ordered:
+        return None, []
+    return ordered[0], ordered[1:]
 
 
 def get_profile_priorities_internal(profile: dict) -> List[str]:
-    """Prioridades efetivas (principal + secundarias), ja limitadas e com o ponto de
-    partida do perfil quando nada foi declarado."""
+    """Explicit effective priorities, already ordered and capped."""
     primary, secondary = get_ranked_priorities(profile)
     return ([primary] if primary else []) + list(secondary)
 
@@ -141,5 +134,8 @@ def get_assessment_internal(profile: dict) -> Dict[str, Dict[str, str]]:
         if isinstance(value, dict):
             result[internal] = value
         else:
-            result[internal] = {"development": value if value else "proporcional", "priority": "normal"}
+            result[internal] = {
+                "development": value if value else "proporcional",
+                "priority": "normal",
+            }
     return result
