@@ -41,22 +41,23 @@ function Nav({tab,setTab}){return <nav>{Object.entries(navIcons).map(([name,Icon
 function Page({tab,db,analytics,report,techniques,start,openCoach,openBuilder,openManual,openTech,redo,signOut,user,goHome,onExerciseSubstituted,onWorkoutCompleted}){if(tab==="Treino")return <Workout db={db}techniques={techniques}openTech={openTech}goHome={goHome}onExerciseSubstituted={onExerciseSubstituted}onWorkoutCompleted={onWorkoutCompleted}/>;if(tab==="Planos")return <Billing API={API}/>;if(tab==="Progresso")return <Progress analytics={analytics}profileId={db?.profile?.id}/>;if(tab==="Análise")return <Analysis db={db}analytics={analytics}report={report}openCoach={openCoach}/>;if(tab==="Perfil")return <Profile db={db}redo={redo}openBuilder={openBuilder}openManual={openManual}signOut={signOut}user={user}/>;if(tab==="Alimentação")return <Nutrition db={db}API={API}profileId={db?.profile?.id}/>;return <Today db={db}analytics={analytics}report={report}start={start}openCoach={openCoach}openBuilder={openBuilder}openManual={openManual}/>}
 function Today({db,analytics,report,start,openCoach,openBuilder,openManual}){
   const p=db.program||{},manual=p.logic?.manual;
-  const[showExercises,setShowExercises]=useState(false),[nutrition,setNutrition]=useState(null),[homeAnalytics,setHomeAnalytics]=useState(analytics),[homeReport,setHomeReport]=useState(report);
-  useEffect(()=>{let alive=true;Promise.allSettled([axios.get(`${API}/nutrition/plan`),axios.get(`${API}/analytics`),axios.get(`${API}/weekly-report`)]).then(([n,a,r])=>{if(!alive)return;if(n.status==="fulfilled")setNutrition(n.value.data);if(a.status==="fulfilled")setHomeAnalytics(a.value.data);if(r.status==="fulfilled")setHomeReport(r.value.data)});return()=>{alive=false}},[]);
+  const[showExercises,setShowExercises]=useState(false),[nutrition,setNutrition]=useState(null),[mealLog,setMealLog]=useState([]);
+  useEffect(()=>{let alive=true;const today=new Date().toISOString().slice(0,10);Promise.allSettled([axios.get(`${API}/nutrition/plan`),axios.get(`${API}/nutrition/adherence/${today}`)]).then(([n,a])=>{if(!alive)return;if(n.status==="fulfilled")setNutrition(n.value.data);if(a.status==="fulfilled")setMealLog(a.value.data.meals||[])});return()=>{alive=false}},[]);
   const activeSession=p.sessions?.find(s=>s.day===p.active_day)||p.sessions?.[0];
   const exercises=activeSession?.exercises||p.exercises||[];
   const preview=exercises.map(x=>({...x,name:db.exercises?.find(e=>e.id===x.exercise_id)?.name||x.name||x.exercise_name||x.exercise_id}));
   const plannedSets=exercises.reduce((sum,x)=>sum+Number(x.sets||0),0);
   const duration=activeSession?.duration||p.duration||`${Math.max(35,Math.round(plannedSets*3.4))} min`;
   const focus=activeSession?.focus||p.focus||[],sessionName=activeSession?.label||p.session||"Treino de hoje";
-  const logs=db.recent_sets||[],points=(homeAnalytics?.trend||[]).filter(x=>Number(x.load)>0);
-  const performanceChange=points.length>1&&Number(points[0].load)>0?Math.round((Number(points.at(-1).load)-Number(points[0].load))/Number(points[0].load)*100):null;
-  const recoveryLabel={HIGH:"Alta",NORMAL:"Normal",LOW:"Baixa",VERY_LOW:"Muito baixa"}[p.logic?.recovery_level]||"Sem check-in";
+  const logs=db.recent_sets||[];
   const recoveryAction={HIGH:"Aproveite a prontidão: execute as progressões previstas.",NORMAL:"Siga a prescrição e preserve o RIR planejado.",LOW:"Mantenha carga e priorize execução limpa.",VERY_LOW:"Reduza a ambição de carga e proteja a técnica."}[p.logic?.recovery_level]||"Faça o check-in para o plano ajustar a sessão.";
   const hour=new Date().getHours(),greeting=hour<12?"Bom dia":hour<18?"Boa tarde":"Boa noite",firstName=(db.profile?.name||"Atleta").split(" ")[0];
   const briefing=p.logic?.recovery_level==="VERY_LOW"?`Hoje, vencer é treinar com inteligência. ${recoveryAction}`:`${sessionName} está pronto. ${recoveryAction}`;
   const daily=nutrition?.daily_totals||{},targets=nutrition?.targets||{};
-  const targetCalories=Number(targets.goal_calories||daily.kcal||0),protein=Number(daily.protein||daily.protein_g||0),targetProtein=Number(targets.protein_g||0),nutritionReady=Boolean(targetCalories||targetProtein);
+  const targetCalories=Number(targets.goal_calories||daily.kcal||0),targetProtein=Number(targets.protein_g||0),nutritionReady=Boolean(targetCalories||targetProtein);
+  const completedMeals=new Set(mealLog.filter(x=>x.status==="completed").map(x=>Number(x.meal_index)));
+  const consumedCalories=(nutrition?.meals||[]).reduce((sum,meal,i)=>sum+(completedMeals.has(i)?Number(meal.target_cal||0):0),0);
+  const remainingCalories=Math.max(0,targetCalories-consumedCalories),nutritionProgress=targetCalories?Math.min(100,Math.round(consumedCalories/targetCalories*100)):0;
   return <div className="content performance-home forge-home-final decision-home">
     <div className="forge-mobile-mast"><span>FORGE</span><Bell size={18}/></div>
     <header className="daily-context"><p>{greeting}, {firstName}.</p><h2>Hoje é dia de evoluir {focus.length?focus.slice(0,2).join(" e ").toLowerCase():"com precisão"}.</h2><span>{p.week||"Seu ciclo atual"} · sessão {p.active_day||1} de {p.sessions?.length||db.profile?.days||1}</span></header>
@@ -68,12 +69,7 @@ function Today({db,analytics,report,start,openCoach,openBuilder,openManual}){
       <button className="exercise-disclosure"onClick={()=>setShowExercises(x=>!x)}aria-expanded={showExercises}>{showExercises?"Ocultar exercícios":`Ver exercícios (${exercises.length})`} <ChevronRight size={14}/></button>
       {showExercises&&<div className="decision-exercises">{preview.map((x,i)=><div key={x.exercise_id||i}><span>{String(i+1).padStart(2,"0")}</span><div><b>{x.name}</b><small>{x.sets} × {x.reps} · RIR {x.rir}</small></div></div>)}</div>}
     </section>
-    <section className="panel daily-status"data-testid="daily-status"><div className="status-heading"><div><span className="decision-kicker">Seu momento</span><h3>O sistema em uma leitura.</h3></div><Activity size={18}/></div><div className="status-signals">
-      <article><span>Recuperação</span><b>{recoveryLabel}</b><small>{recoveryAction}</small></article>
-      <article><span>Aderência semanal</span><b>{homeReport?.adherence==null?"—":`${homeReport.adherence}%`}</b><small>{homeReport?`${homeReport.completed} de ${homeReport.planned} sessões planejadas`:"Calculando com seus treinos"}</small></article>
-      <article><span>Tendência de força</span><b>{performanceChange==null?"Em formação":`${performanceChange>=0?"+":""}${performanceChange}%`}</b><small>{performanceChange==null?"Registre cargas para criar a linha de base":"Últimas quatro semanas"}</small></article>
-    </div></section>
-    <section className="panel home-nutrition"><div><span className="decision-kicker">Nutrição hoje</span><h3>{nutritionReady?`${Math.round(targetCalories).toLocaleString("pt-BR")} kcal planejadas`:"Seu plano alimentar, no mesmo sistema."}</h3><p>{nutritionReady?`${Math.round(protein)}g de proteína no plano · meta de ${Math.round(targetProtein)}g`:"Abra Nutrição para gerar ou revisar suas metas."}</p></div><Utensils size={22}/></section>
+    <section className="panel home-nutrition nutrition-progress-card"data-testid="home-nutrition-progress"><div className="nutrition-progress-copy"><span className="decision-kicker">Nutrição hoje</span><h3>{nutritionReady?`${Math.round(consumedCalories).toLocaleString("pt-BR")} de ${Math.round(targetCalories).toLocaleString("pt-BR")} kcal`:"Seu plano alimentar, no mesmo sistema."}</h3><p>{nutritionReady?`${completedMeals.size} de ${nutrition?.meals?.length||0} refeições concluídas · faltam ${Math.round(remainingCalories).toLocaleString("pt-BR")} kcal`:"Abra Nutrição para gerar ou revisar suas metas."}</p><div className="nutrition-progress-track"><i style={{width:`${nutritionProgress}%`}}/></div><small>{nutritionReady?`${nutritionProgress}% do plano de hoje · meta de ${Math.round(targetProtein)}g de proteína`:"Aguardando seu plano"}</small></div><div className="nutrition-progress-ring"style={{"--nutrition-progress":`${nutritionProgress*3.6}deg`}}><span>{nutritionProgress}<small>%</small></span><em>consumido</em></div></section>
     <section className="daily-insight"><Trophy size={17}/><div><span>Leitura do Forge</span><b>{logs.length?`${logs.length} séries recentes já refinam suas próximas decisões.`:"Seu primeiro treino transforma o plano em sistema adaptativo."}</b></div></section>
     <div className="forge-home-tools"><button className="text-button"data-testid="open-builder-today"onClick={openBuilder}><Sliders size={13}/> {manual?"Editar programa":"Program Builder"}</button><button className="text-button"data-testid="open-manual-today"onClick={openManual}><FileUp size={13}/> Estrutura manual</button></div>
   </div>

@@ -557,6 +557,9 @@ export default function Nutrition({ API, profileId, db }) {
   // Plan view
   const t = targets || {};
   const meals = plan?.meals || [];
+  const completedCalories = meals.reduce((sum, meal, i) => sum + (mealStatus[i] === "completed" ? Number(meal.target_cal || 0) : 0), 0);
+  const calorieGoal = Number(t.goal_calories || 0);
+  const dayProgress = calorieGoal ? Math.min(100, Math.round(completedCalories / calorieGoal * 100)) : 0;
   return (
     <div className="content nutrition-page">
       <div className="section-intro">
@@ -572,7 +575,7 @@ export default function Nutrition({ API, profileId, db }) {
           <div><span>Carbo</span><b>{Math.round(t.carbs_g || 0)}<small>g</small></b></div>
           <div><span>Gordura</span><b>{Math.round(t.fat_g || 0)}<small>g</small></b></div>
         </div>
-        <div className="nutrition-ring"><span>87<small>%</small></span><em>aderência</em></div>
+        <div className="nutrition-ring" style={{ background: `conic-gradient(var(--success) 0 ${dayProgress}%, #24282b ${dayProgress}% 100%)` }}><span>{dayProgress}<small>%</small></span><em>consumido</em></div>
       </section>
 
       <button className="secondary-button" data-testid="open-diet-import"
