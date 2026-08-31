@@ -50,13 +50,22 @@ export function respostasIniciais(perfil) {
   const p = perfil || {};
   const inicial = {};
 
-  ["sex", "experience", "goal", "days", "name", "age", "height_cm", "weight_kg"]
+  ["sex", "experience", "goal", "days", "name", "age", "height_cm", "weight_kg",
+   "training_years", "consistency_years", "secondary_goal", "session_minutes", "split",
+   "split_preference", "training_method", "trains_near_failure", "uses_rir", "tracks_loads",
+   "gym_complete", "automation_mode", "microcycle_days"]
     .forEach((campo) => {
       if (respondido(p[campo])) inicial[campo] = p[campo];
     });
 
   if (respondido(p.priorities)) inicial.priorities = [...p.priorities];
   else if (prioridadesRespondidas(p)) inicial.priorities = [];
+
+  if (p.recovery && typeof p.recovery === "object") inicial.recovery = { ...p.recovery };
+  if (Array.isArray(p.equipment)) inicial.equipment = [...p.equipment];
+  if (Array.isArray(p.baseline)) inicial.baseline = [...p.baseline];
+  if (Array.isArray(p.limitations)) inicial.limitations = [...p.limitations];
+  if (p.assessment && typeof p.assessment === "object") inicial.assessment = { ...p.assessment };
 
   // Objetivo e ritmo alimentares moram em nutrition_assessment; o formulario os chama de
   // body_goal e goal_intensity. Traduzir aqui evita que a tela conheca as duas grafias.
