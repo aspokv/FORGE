@@ -10,6 +10,7 @@ import "./features/acquisition.css";
 import "./features/manual-workout.css";
 import "./features/performance-os.css";
 import ProgramBuilder from "./features/ProgramBuilder";
+import MuscleSessionMap from "./features/MuscleSessionMap";
 import {findTechnique,TECHNIQUE_FALLBACK} from "./features/techniques";
 import {AuthProvider,useAuth} from "./features/AuthContext";
 import {anteriorNaLista,proximoNaLista,respostasIniciais} from "./features/onboardingResume";
@@ -169,7 +170,7 @@ function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutC
   return <div className="content workout-page">
     <div className="workout-head"><div><p className="eyebrow">EM EXECUÇÃO · {p.week}</p><h2>{activeSession?.label||p.session}</h2><p className="muted">Demanda {activeSession?.demand||"MODERATE"} · registre o trabalho real.</p></div>{draftState!=="idle"&&<span className={`autosave-pill ${draftState}`}data-testid="autosave-status">{draftState==="saving"?"salvando...":draftState==="saved"?"salvo automaticamente":"sem conexão — tentando salvar"}</span>}</div>
     <section className="workout-overview">
-      <div className="muscle-map" role="img" aria-label="Mapa muscular frontal e posterior"/>
+      <MuscleSessionMap items={items} exercises={db.exercises||[]} focus={activeSession?.focus||[]} />
       <div className="workout-overview-copy"><span>GRUPO MUSCULAR</span><b>{activeSession?.label?.split(/[—-]/)?.[0]||"Hipertrofia"}</b><small>Duração estimada · {p.duration||"70 min"}</small></div>
       <div className="workout-kpis"><div><span>VOLUME REAL</span><b>{Math.round(actualVolume).toLocaleString("pt-BR")} <small>kg</small></b><em>{completedEntries.length?"carga × reps registradas":"aguardando séries"}</em></div><div><span>ADERÊNCIA</span><b>{completedEntries.length}<small>/{totalSessionSets}</small></b><em>séries concluídas</em></div><div><span>RIR MÉDIO</span><b>{averageRir==null?"—":averageRir.toFixed(1)}</b><em>{averageRir==null?"sem histórico nesta sessão":"esforço informado"}</em></div><div><span>DESCANSO ALVO</span><b>{averageRest}<small>s</small></b><em>prescrição média</em></div></div>
     </section>
