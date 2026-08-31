@@ -598,6 +598,7 @@ export default function Nutrition({ API, profileId, db }) {
         </div>
       )}
 
+      <div className="nutrition-meal-grid">
       {meals.map((meal, i) => {
         const status = mealStatus[i];
         return (
@@ -683,6 +684,7 @@ export default function Nutrition({ API, profileId, db }) {
           </section>
         );
       })}
+      </div>
 
       <div className="action-row" style={{ marginTop: 24 }}>
         <button className="secondary-button" onClick={refazerPlano} disabled={busy}>

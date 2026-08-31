@@ -873,9 +873,18 @@ async def analytics(user=Depends(get_current_user), profile_id: Optional[str] = 
     for s in recent:
         m = ex_index.get(s["exercise_id"], {}).get("muscle", "")
         if m: volume[m] = volume.get(m, 0) + 1
-        prev = prs_map.get(s["exercise_id"])
-        if not prev or s["weight"] > prev["weight"]:
-            prs_map[s["exercise_id"]] = {"weight": s["weight"], "reps": s["reps"], "date": s["created_at"][:10]}
+        weight = float(s.get("weight") or 0)
+        if weight <= 0:
+            continue
+        current = prs_map.setdefault(s["exercise_id"], {
+            "weight": weight, "reps": s["reps"], "date": s["created_at"][:10],
+            "start_weight": weight,
+        })
+        # A consulta vem do registro mais novo para o mais antigo. Assim, a última
+        # passagem guarda a linha de base e o melhor peso continua sendo o recorde.
+        current["start_weight"] = weight
+        if weight > float(current["weight"]):
+            current.update({"weight": weight, "reps": s["reps"], "date": s["created_at"][:10]})
     trend = []
     for w in range(3, -1, -1):
         wk_start = (now - timedelta(days=now.weekday() + 1 + w*7)).strftime("%Y-%m-%d")
@@ -884,7 +893,12 @@ async def analytics(user=Depends(get_current_user), profile_id: Optional[str] = 
         avg = round(sum(float(s["weight"]) for s in wk_sets) / max(1, len(wk_sets)), 1)
         trend.append({"week": f"S{w+1}", "load": avg, "volume": sum(s["reps"] for s in wk_sets)})
     volume_list = [{"name": m, "value": v, "target": max(v, 10)} for m, v in sorted(volume.items(), key=lambda kv: -kv[1])[:10]]
-    prs_list = [{"exercise": ex_index.get(eid, {}).get("name", eid), "value": f"{p['weight']} kg \u00d7 {p['reps']}", "date": p["date"]} for eid, p in sorted(prs_map.items(), key=lambda kv: -float(kv[1]["weight"]))[:5]]
+    prs_list = [{
+        "exercise": ex_index.get(eid, {}).get("name", eid),
+        "value": f"{p['weight']:g} kg \u00d7 {p['reps']}", "date": p["date"],
+        "weight": p["weight"], "reps": p["reps"], "start_weight": p["start_weight"],
+        "delta_weight": round(float(p["weight"]) - float(p["start_weight"]), 1),
+    } for eid, p in sorted(prs_map.items(), key=lambda kv: -float(kv[1]["weight"]))[:5]]
     return {"volume": volume_list or [{"name": "Sem dados", "value": 0, "target": 10}], "trend": trend, "prs": prs_list}
 
 

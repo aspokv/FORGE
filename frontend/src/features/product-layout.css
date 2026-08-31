@@ -1,0 +1,20 @@
+/* A largura adicional vira densidade útil; textos continuam limitados para leitura. */
+.content{width:min(100%,1100px);max-width:1100px}
+.forge-home-final{max-width:1100px}
+.workout-page{max-width:1100px}
+.section-intro>p.muted,.progress-hero p,.nutrition-coach-note{max-width:720px}
+.exercise-grid,.nutrition-meal-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:start}
+.exercise-grid .exercise,.nutrition-meal-grid>.meal-card{margin-top:0}
+.exercise-grid .exercise{min-width:0}
+.exercise-grid .set-grid{padding-inline:8px;grid-template-columns:32px minmax(58px,1fr) 67px 56px 50px 38px;gap:4px}
+.exercise-grid .set-row{grid-template-columns:32px minmax(58px,1fr) 67px 56px 50px 38px;gap:4px;padding-inline:3px}
+.progress-page{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(330px,.9fr);gap:14px;align-items:start}
+.progress-page>.section-intro,.progress-page>.progress-hero{grid-column:1/-1}
+.progress-hero{position:relative;overflow:hidden;padding:30px;background:radial-gradient(circle at 88% 10%,rgba(168,214,109,.12),transparent 30%),linear-gradient(145deg,#17191b,#090a0b)}
+.progress-hero::after{content:"";position:absolute;right:-35px;bottom:-70px;width:210px;height:210px;border:1px solid rgba(168,214,109,.14);border-radius:50%;box-shadow:0 0 0 28px rgba(168,214,109,.025),0 0 0 56px rgba(168,214,109,.018)}
+.progress-hero strong{position:relative;z-index:1;display:block;max-width:780px;margin:13px 0 7px;font:500 clamp(2rem,4.5vw,4rem) 'Sora';line-height:1;color:var(--text);letter-spacing:-.045em}
+.progress-hero p{position:relative;z-index:1;color:var(--muted);line-height:1.55}
+.progress-results{grid-column:1}.progress-detail{grid-column:2;margin:0}.progress-detail .chart{height:205px}
+.progress-page>.weight-panel{grid-column:1/-1}
+@media(max-width:1050px){.exercise-grid{grid-template-columns:1fr}.progress-page{grid-template-columns:1fr}.progress-results,.progress-detail{grid-column:1}.nutrition-meal-grid{grid-template-columns:1fr}}
+@media(max-width:800px){.content,.forge-home-final,.workout-page{width:100%;max-width:430px}.exercise-grid,.nutrition-meal-grid{display:block}.exercise-grid .exercise,.nutrition-meal-grid>.meal-card{margin-top:10px}.progress-page{display:block}.progress-page>*{margin-bottom:10px}.progress-hero{padding:22px 18px}.progress-hero strong{font-size:29px}.exercise-grid .set-grid{padding-inline:7px;grid-template-columns:30px minmax(45px,1fr) 62px 50px 45px 37px}.exercise-grid .set-row{grid-template-columns:30px minmax(45px,1fr) 62px 50px 45px 37px}}
