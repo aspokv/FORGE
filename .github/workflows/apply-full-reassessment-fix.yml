@@ -7,12 +7,16 @@ on:
     paths:
       - .github/scripts/apply_full_reassessment_fix.py
       - .github/workflows/apply-full-reassessment-fix.yml
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: write
 
 jobs:
   patch-test-commit:
+    if: github.head_ref == 'fix/full-reassessment-modes' || github.ref_name == 'fix/full-reassessment-modes'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
