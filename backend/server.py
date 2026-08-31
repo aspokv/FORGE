@@ -899,7 +899,35 @@ async def analytics(user=Depends(get_current_user), profile_id: Optional[str] = 
         "weight": p["weight"], "reps": p["reps"], "start_weight": p["start_weight"],
         "delta_weight": round(float(p["weight"]) - float(p["start_weight"]), 1),
     } for eid, p in sorted(prs_map.items(), key=lambda kv: -float(kv[1]["weight"]))[:5]]
-    return {"volume": volume_list or [{"name": "Sem dados", "value": 0, "target": 10}], "trend": trend, "prs": prs_list}
+    # Product analytics: decision-oriented signals, never decorative estimates.
+    # Every series below is derived from persisted athlete records and may be empty.
+    logged_dates = {s.get("created_at", "")[:10] for s in recent if s.get("created_at")}
+    adherence_calendar = []
+    for offset in range(27, -1, -1):
+        day = (now - timedelta(days=offset)).strftime("%Y-%m-%d")
+        adherence_calendar.append({"date": day, "trained": day in logged_dates})
+    recovery_rows = await db.recovery.find(
+        {"profile_id": target}, {"_id": 0}
+    ).sort("created_at", -1).to_list(28)
+    recovery_by_day = {}
+    for row in recovery_rows:
+        day = str(row.get("created_at") or row.get("date") or "")[:10]
+        if day and day not in recovery_by_day:
+            recovery_by_day[day] = round((float(row.get("energy", 3)) + float(row.get("recovery", 3))) / 2, 1)
+    recovery_load = []
+    for offset in range(13, -1, -1):
+        day = (now - timedelta(days=offset)).strftime("%Y-%m-%d")
+        day_sets = [s for s in recent if str(s.get("created_at", ""))[:10] == day]
+        recovery_load.append({"date": day, "sets": len(day_sets), "readiness": recovery_by_day.get(day)})
+    weights = await db.nutrition_weight_logs.find(
+        {"profile_id": target}, {"_id": 0, "date": 1, "weight_kg": 1}
+    ).sort("date", 1).to_list(90)
+    body_trend = [{"date": w.get("date"), "weight": w.get("weight_kg")} for w in weights if w.get("weight_kg")]
+    milestones = [{"date": p["date"], "title": ex_index.get(eid, {}).get("name", eid), "detail": f"{p['weight']:g} kg × {p['reps']}"}
+                  for eid, p in sorted(prs_map.items(), key=lambda kv: kv[1]["date"], reverse=True)[:6]]
+    return {"volume": volume_list or [], "trend": trend, "prs": prs_list,
+            "adherence_calendar": adherence_calendar, "recovery_load": recovery_load,
+            "body_trend": body_trend, "milestones": milestones}
 
 
 @api.get("/exercise-history/{exercise_id}")
