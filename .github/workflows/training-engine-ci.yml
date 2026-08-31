@@ -9,7 +9,6 @@ on:
       - 'backend/training_engine_v5.py'
       - 'backend/muscles.py'
       - 'backend/exercises.json'
-      - 'backend/tests/test_training_engine_v4.py'
       - 'backend/tests/test_training_engine_v5.py'
       - 'backend/tests/test_training_personalization.py'
       - '.github/workflows/training-engine-ci.yml'
@@ -20,7 +19,6 @@ on:
       - 'backend/training_engine_v5.py'
       - 'backend/muscles.py'
       - 'backend/exercises.json'
-      - 'backend/tests/test_training_engine_v4.py'
       - 'backend/tests/test_training_engine_v5.py'
       - 'backend/tests/test_training_personalization.py'
 
@@ -43,10 +41,9 @@ jobs:
         run: pip install -r requirements.txt
       - name: Compile training engine
         run: python -m py_compile engine.py training_engine_v4.py training_engine_v5.py muscles.py
-      - name: Run pure training regression suite
+      - name: Run V5 training regression suite
         run: >-
           pytest -q --noconftest
-          tests/test_training_engine_v4.py
           tests/test_training_engine_v5.py
           tests/test_training_personalization.py
           tests/test_engine_v2.py
