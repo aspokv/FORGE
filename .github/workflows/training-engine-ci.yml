@@ -41,9 +41,9 @@ jobs:
         run: pip install -r requirements.txt
       - name: Compile training engine
         run: python -m py_compile engine.py training_engine_v4.py training_engine_v5.py muscles.py
-      - name: Run training regression suite
+      - name: Run pure training regression suite
         run: >-
-          pytest -q
+          pytest -q --noconftest
           tests/test_training_engine_v4.py
           tests/test_training_engine_v5.py
           tests/test_training_personalization.py
