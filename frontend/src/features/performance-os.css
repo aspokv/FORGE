@@ -334,3 +334,12 @@ body{
 
   .nutrition-page .section-intro{margin-bottom:15px}.nutrition-page .section-intro .eyebrow{display:none}.nutrition-page .section-intro h2{font-size:25px}.nutrition-tabs{margin-bottom:9px}.nutrition-tabs button{flex:1;min-width:0;padding:8px}.nutrition-summary{grid-template-columns:1fr 82px;gap:8px;padding:12px}.nutrition-summary .macro-strip{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}.nutrition-summary .macro-strip>div{padding:6px;border:0}.nutrition-summary .macro-strip .calories{grid-column:1/-1}.nutrition-summary .macro-strip b{font-size:15px}.nutrition-summary .macro-strip .calories b{font-size:22px}.nutrition-ring{width:72px;height:72px}.nutrition-ring::before{inset:6px}.nutrition-ring span{font-size:17px}.nutrition-page>.secondary-button{min-height:38px;font-size:10px;margin-top:9px}.nutrition-page>.meal-card{grid-template-columns:minmax(0,1fr) 96px;column-gap:9px;padding:11px;margin-top:8px}.meal-visual{width:96px;min-height:105px}.nutrition-page>.meal-card .meal-head h3{font-size:13px}.nutrition-page>.meal-card .meal-status{gap:4px}.nutrition-page>.meal-card .meal-status-btn{width:27px;height:27px}.nutrition-page>.meal-card .food-row{padding:4px 0}.nutrition-page>.meal-card .food-row-info b{font-size:10px}.nutrition-page>.meal-card .food-row-info span{font-size:8px}.nutrition-page>.meal-card .food-sub-btn{font-size:0;width:26px;height:26px;padding:0;display:grid;place-items:center}.nutrition-footer-metrics>div{padding:11px}.nutrition-footer-metrics span{font-size:9px}.nutrition-footer-metrics b{font-size:10px}
 }
+
+
+/* full-reassessment automation mode cards */
+.automation-mode-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:10px}
+.automation-mode-card{min-height:92px;padding:14px;border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.025);color:inherit;text-align:left;display:flex;flex-direction:column;gap:8px;justify-content:flex-start}
+.automation-mode-card b{font-size:12px;letter-spacing:.04em}
+.automation-mode-card small{font-size:11px;line-height:1.45;color:var(--muted,#8f8f8f);font-weight:400}
+.automation-mode-card.selected{border-color:rgba(207,151,111,.72);background:rgba(207,151,111,.09);box-shadow:inset 0 0 0 1px rgba(207,151,111,.12)}
+@media(max-width:640px){.automation-mode-grid{grid-template-columns:1fr}.automation-mode-card{min-height:74px}}
