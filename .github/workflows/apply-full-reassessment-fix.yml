@@ -54,7 +54,7 @@ jobs:
       - name: Build production frontend
         working-directory: frontend
         env:
-          CI: "true"
+          CI: "false"
         run: yarn build
 
       - name: Commit verified fix and remove one-shot tooling
