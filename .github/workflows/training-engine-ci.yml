@@ -1,0 +1,51 @@
+name: Training Engine CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/engine.py'
+      - 'backend/training_engine_v4.py'
+      - 'backend/training_engine_v5.py'
+      - 'backend/muscles.py'
+      - 'backend/exercises.json'
+      - 'backend/tests/test_training_engine_v4.py'
+      - 'backend/tests/test_training_engine_v5.py'
+      - 'backend/tests/test_training_personalization.py'
+      - '.github/workflows/training-engine-ci.yml'
+  pull_request:
+    paths:
+      - 'backend/engine.py'
+      - 'backend/training_engine_v4.py'
+      - 'backend/training_engine_v5.py'
+      - 'backend/muscles.py'
+      - 'backend/exercises.json'
+      - 'backend/tests/test_training_engine_v4.py'
+      - 'backend/tests/test_training_engine_v5.py'
+      - 'backend/tests/test_training_personalization.py'
+
+jobs:
+  training-engine:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: backend/requirements.txt
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Compile training engine
+        run: python -m py_compile engine.py training_engine_v4.py training_engine_v5.py muscles.py
+      - name: Run training regression suite
+        run: >-
+          pytest -q
+          tests/test_training_engine_v4.py
+          tests/test_training_engine_v5.py
+          tests/test_training_personalization.py
+          tests/test_engine_v2.py
+          tests/test_engine_v3.py
