@@ -2,13 +2,14 @@
 import {useEffect,useMemo,useRef,useState} from "react";
 import axios from "axios";
 import {motion} from "framer-motion";
-import {Activity,BarChart3,Bell,BrainCircuit,Check,ChevronRight,CircleUserRound,Dumbbell,FileUp,Home,Info,LineChart,LockKeyhole,LogOut,Play,RotateCcw,ShieldCheck,Sliders,Sparkles,TimerReset,TrendingUp,Trophy,UserRound,Utensils,X} from "lucide-react";
+import {Activity,BarChart3,Bell,BrainCircuit,Check,ChevronRight,CircleUserRound,Dumbbell,FileUp,Home,Info,LineChart,LockKeyhole,LogOut,RotateCcw,ShieldCheck,Sliders,Sparkles,TimerReset,TrendingUp,Trophy,UserRound,Utensils,X} from "lucide-react";
 import "@/App.css";
 import "./features/builder.css";
 import "./features/auth.css";
 import "./features/acquisition.css";
 import "./features/manual-workout.css";
 import "./features/performance-os.css";
+import "./features/product-layout.css";
 import ProgramBuilder from "./features/ProgramBuilder";
 import MuscleSessionMap from "./features/MuscleSessionMap";
 import {findTechnique,TECHNIQUE_FALLBACK} from "./features/techniques";
@@ -50,6 +51,8 @@ function Today({db,start,openCoach,openBuilder,openManual}){
   const currentVolume=volumeIn(now-weekMs,now),previousVolume=volumeIn(now-2*weekMs,now-weekMs);
   const volumeChange=previousVolume?Math.round((currentVolume-previousVolume)/previousVolume*100):null;
   const bestSet=logs.reduce((best,x)=>{const e1rm=Number(x.weight||0)*(1+Number(x.reps||0)/30);return e1rm>(best?.e1rm||0)?{...x,e1rm}:best},null);
+  const bestExercise=bestSet&&(db.exercises?.find(e=>e.id===bestSet.exercise_id)?.name||"Seu melhor exercício");
+  const coachHeadline=bestSet?`${bestExercise}: ${Number(bestSet.weight||0).toLocaleString("pt-BR")} kg em ${bestSet.reps} reps. Isso é progresso com prova.`:volumeChange!=null?`Seu volume mudou ${volumeChange>=0?"+":""}${volumeChange}% nesta semana. O plano responde ao que você entrega.`:"Seu próximo dado nasce no treino de hoje — complete a primeira série e o FORGE começa a medir.";
   const recoveryLabel={HIGH:"Alta",NORMAL:"Normal",LOW:"Baixa",VERY_LOW:"Muito baixa"}[p.logic?.recovery_level]||"Sem check-in";
   return <div className="content performance-home forge-home-final">
     <div className="forge-mobile-mast"><span>FORGE</span><Bell size={18}/></div>
@@ -59,7 +62,7 @@ function Today({db,start,openCoach,openBuilder,openManual}){
     </div>
     <section className="panel signal forge-coach-hero">
       <div className="coach-signal-head"><div className="coach-icon"><BrainCircuit size={20}/></div><p className="eyebrow">COACH IA</p></div>
-      <h3>Plano ajustado para sua hipertrofia.</h3>
+      <h3>{coachHeadline}</h3>
       <p className="muted">{p.logic?.days||db.profile.days} sessões · {manual?"estrutura manual preservada":"carga, volume e recuperação recalibrados"}.</p>
       <button className="coach-arrow"data-testid="open-coach-button"onClick={openCoach}aria-label="Falar com o Coach IA"><ChevronRight size={16}/></button>
     </section>
@@ -170,7 +173,7 @@ function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutC
   return <div className="content workout-page">
     <div className="workout-head"><div><p className="eyebrow">EM EXECUÇÃO · {p.week}</p><h2>{activeSession?.label||p.session}</h2><p className="muted">Demanda {activeSession?.demand||"MODERATE"} · registre o trabalho real.</p></div>{draftState!=="idle"&&<span className={`autosave-pill ${draftState}`}data-testid="autosave-status">{draftState==="saving"?"salvando...":draftState==="saved"?"salvo automaticamente":"sem conexão — tentando salvar"}</span>}</div>
     <section className="workout-overview">
-      <MuscleSessionMap items={items} exercises={db.exercises||[]} focus={activeSession?.focus||[]} />
+      <MuscleSessionMap items={items} exercises={db.exercises||[]} focus={activeSession?.focus||[]} sessionLabel={activeSession?.label||p.session||""} />
       <div className="workout-overview-copy"><span>GRUPO MUSCULAR</span><b>{activeSession?.label?.split(/[—-]/)?.[0]||"Hipertrofia"}</b><small>Duração estimada · {p.duration||"70 min"}</small></div>
       <div className="workout-kpis"><div><span>VOLUME REAL</span><b>{Math.round(actualVolume).toLocaleString("pt-BR")} <small>kg</small></b><em>{completedEntries.length?"carga × reps registradas":"aguardando séries"}</em></div><div><span>ADERÊNCIA</span><b>{completedEntries.length}<small>/{totalSessionSets}</small></b><em>séries concluídas</em></div><div><span>RIR MÉDIO</span><b>{averageRir==null?"—":averageRir.toFixed(1)}</b><em>{averageRir==null?"sem histórico nesta sessão":"esforço informado"}</em></div><div><span>DESCANSO ALVO</span><b>{averageRest}<small>s</small></b><em>prescrição média</em></div></div>
     </section>
@@ -180,6 +183,7 @@ function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutC
       <div className="rest-time">{timer>0?`${Math.floor(timer/60)}:${String(timer%60).padStart(2,"0")}`:"—"}</div>
       {timer>0&&<div className="rest-bar"><b style={{width:`${100-(timer/Math.max(1,timerTotal)*100)}%`}}/></div>}
     </div>
+    <div className="exercise-grid">
     {items.map((x,i)=>{
       const ex=db.exercises?.find(e=>e.id===x.exercise_id)||{name:x.exercise_id};
       const tech=findTechnique(techniques,x.technique_id,x.technique);
@@ -211,6 +215,7 @@ function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutC
         </div>
       </section>
     })}
+    </div>
     <section className="session-checkout">
       <div><p className="eyebrow">COMO O CORPO RESPONDEU?</p><p className="muted">Esse sinal melhora os próximos ajustes sem inventar recuperação.</p></div>
       <div className="discomfort-options"role="group"aria-label="Desconforto na sessão">
@@ -259,17 +264,21 @@ function Progress({analytics,profileId}){
   if(!analytics)return <div className="content"><div className="skeleton-block"style={{height:88}}/><div className="skeleton-block"style={{height:160,marginTop:16}}/></div>;
   const points=(analytics.trend||[]).filter(x=>Number(x.load)>0);
   const trendChange=points.length>1&&Number(points[0].load)>0?((Number(points.at(-1).load)-Number(points[0].load))/Number(points[0].load)*100):null;
-  return <div className="content">
-    <div className="section-intro"><p className="eyebrow">PROGRESSÃO</p><h2>O que está subindo?</h2><p className="muted">Histórico por exercício e tendência de performance.</p></div>
-    <section className="panel chart-panel">
-      <div className="panel-top"><div><p className="eyebrow">CARGA EFETIVA</p><h3>{trendChange==null?"Linha de base":`${trendChange>=0?"+":""}${trendChange.toFixed(1).replace(".",",")}%`} <span className="trend">{trendChange==null?"histórico insuficiente":"últimas 4 semanas"}</span></h3></div><LineChart size={21}/></div>
-      {analytics?.trend?.length?<div className="chart"><div className="chart-line">{analytics.trend.map((p,i)=><div key={p.week}style={{height:`${35+i*17}%`}}><b>{p.load}</b><span>{p.week}</span></div>)}</div></div>
-        :<p className="muted"style={{marginTop:12}}>Ainda sem histórico suficiente para um gráfico.</p>}
+  const results=(analytics.prs||[]).filter(p=>Number(p.weight??String(p.value||"").replace(",",".").match(/[\d.]+/)?.[0])>0);
+  const heroValue=trendChange==null?"Seu histórico começa no próximo treino":`${trendChange>=0?"+":""}${trendChange.toFixed(1).replace(".",",")}% de carga`;
+  const heroCopy=trendChange==null?"Registre séries com carga para o FORGE mostrar uma evolução real, sem preencher o painel com zeros.":"Comparação das últimas quatro semanas com registros válidos.";
+  return <div className="content progress-page">
+    <div className="section-intro"><p className="eyebrow">PROGRESSO</p><h2>Onde você mais evoluiu.</h2><p className="muted">Resultados claros primeiro; detalhes técnicos quando você quiser aprofundar.</p></div>
+    <section className="panel progress-hero"data-testid="progress-hero"><p className="eyebrow">SUA EVOLUÇÃO</p><strong>{heroValue}</strong><p>{heroCopy}</p></section>
+    <section className="panel progress-results">
+      <p className="eyebrow">SEUS MELHORES RESULTADOS</p>
+      {results.length?results.map(p=>{const delta=Number(p.delta_weight)||0;return <div className="pr-row"key={p.exercise}><div className="pr-icon"><Trophy size={16}/></div><div><b>{p.exercise}</b><p className="muted">{delta>0?`${Number(p.weight).toLocaleString("pt-BR")} kg · +${delta.toLocaleString("pt-BR")} kg desde o início`:`${p.value} · melhor série registrada`}</p></div><strong>{delta>0?`+${delta.toLocaleString("pt-BR")} kg`:p.value}</strong></div>})
+        :<p className="muted"data-testid="prs-empty-state">Complete séries com carga para ver seus melhores resultados aqui.</p>}
     </section>
-    <section className="panel">
-      <p className="eyebrow">PRs / HISTÓRICO POR EXERCÍCIO</p>
-      {(analytics?.prs||[]).length?(analytics.prs||[]).map(p=><div className="pr-row"key={p.exercise}><div className="pr-icon"><Trophy size={16}/></div><div><b>{p.exercise}</b><p className="muted">{p.date} · tendência disponível</p></div><strong>{p.value}</strong></div>)
-        :<p className="muted"data-testid="prs-empty-state">Registre séries no treino para ver seus PRs aqui.</p>}
+    <section className="panel chart-panel progress-detail">
+      <div className="panel-top"><div><p className="eyebrow">DETALHE DAS ÚLTIMAS 4 SEMANAS</p><h3>{trendChange==null?"Aguardando dados":`${trendChange>=0?"+":""}${trendChange.toFixed(1).replace(".",",")}%`} <span className="trend">carga média</span></h3></div><LineChart size={21}/></div>
+      {points.length?<div className="chart"><div className="chart-line">{points.map((p,i)=><div key={p.week}style={{height:`${Math.max(24,Math.min(100,35+i*17))}%`}}><b>{p.load}</b><span>{p.week}</span></div>)}</div></div>
+        :<p className="muted"style={{marginTop:12}}>O gráfico aparece quando houver registros válidos de carga.</p>}
     </section>
     <WeightTracker profileId={profileId}/>
   </div>

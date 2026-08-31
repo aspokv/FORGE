@@ -1,4 +1,4 @@
-import {buildSessionMuscles,getSessionZone,normalizeMuscle} from "./MuscleSessionMap";
+import {buildSessionMuscles,getAnatomyAssetKey,getSessionZone,normalizeMuscle} from "./MuscleSessionMap";
 
 describe("dynamic workout zone map",()=>{
   test("normaliza nomes internos e nomes exibidos",()=>{
@@ -41,5 +41,18 @@ describe("dynamic workout zone map",()=>{
     expect(load.quads).toBe(.75);
     expect(load.glutes).toBe(.75);
     expect(getSessionZone(load)).toBe("lower");
+  });
+
+  test("nome da sessão escolhe os assets finais específicos",()=>{
+    expect(getAnatomyAssetKey({mid_chest:6,triceps:3},"Push 1")).toBe("push");
+    expect(getAnatomyAssetKey({lats:6,biceps:3},"B · Costas e bíceps")).toBe("pull");
+    expect(getAnatomyAssetKey({quads:5,hamstrings:5},"Full Body A")).toBe("full-body");
+    expect(getAnatomyAssetKey({front_delts:5,side_delts:6},"D · Ombros e braços")).toBe("shoulders");
+  });
+
+  test("carga real escolhe especializações e mantém fallback por zona",()=>{
+    expect(getAnatomyAssetKey({quads:10,hamstrings:2,glutes:1})).toBe("quads");
+    expect(getAnatomyAssetKey({hamstrings:8,glutes:5,quads:2})).toBe("legs-posterior");
+    expect(getAnatomyAssetKey({upper_chest:4,lats:4,side_delts:2,biceps:2,triceps:2})).toBe("upper");
   });
 });

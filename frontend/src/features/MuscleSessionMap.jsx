@@ -1,6 +1,5 @@
-import "./muscle-session-map.css";
+import "./anatomy-assets.css";
 import "./workout-premium.css";
-import "./anatomy-hotfix.css";
 
 const ALIASES={
   "peitoral superior":"upper_chest","upper chest":"upper_chest",upper_chest:"upper_chest",
@@ -33,6 +32,7 @@ const UPPER=new Set(["upper_chest","mid_chest","front_delts","side_delts","rear_
 const LOWER=new Set(["quads","hamstrings","glutes","adductors","calves"]);
 const CORE=new Set(["abs","obliques"]);
 const ZONE_LABEL={upper:"SUPERIOR",lower:"INFERIOR",full:"FULL BODY"};
+const ASSET_KEYS=new Set(["push","pull","upper","lower","full-body","chest","back-width","back-thickness","shoulders","arms","glutes","hamstrings","quads","calves","core","legs-quads","legs-posterior"]);
 
 function strip(value){return String(value||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim().toLowerCase()}
 export function normalizeMuscle(value){const raw=String(value||"").trim();return ALIASES[raw.toLowerCase()]||ALIASES[strip(raw)]||null}
@@ -70,27 +70,64 @@ export function getSessionZone(load={}){
   return "full";
 }
 
-function AnatomyAsset({side,zone}){
-  const src=`${process.env.PUBLIC_URL||""}/images/anatomy/premium-${side}.webp`;
-  return <div
-    className={`premium-anatomy premium-anatomy--${side} premium-anatomy--${zone}`}
-    style={{"--anatomy-mask":`url("${src}")`}}
-  >
+export function getAnatomyAssetKey(load={},sessionLabel=""){
+  const label=strip(sessionLabel);
+  const named=[
+    [/full\s*body/,"full-body"],[/push|peito.*triceps/,"push"],[/pull|costas.*biceps/,"pull"],
+    [/upper|superior/,"upper"],[/lower|inferior/,"lower"],[/pernas|legs/,"lower"],
+    [/peito|chest/,"chest"],[/costas|back/,"back-width"],[/ombros|shoulders/,"shoulders"],[/bracos|arms/,"arms"],
+  ];
+  const namedMatch=named.find(([pattern])=>pattern.test(label));
+  if(namedMatch)return namedMatch[1];
+  const value=id=>Number(load[id])||0;
+  const scores={
+    chest:value("upper_chest")+value("mid_chest"),
+    "back-width":value("lats"),"back-thickness":value("upper_back")+value("traps"),
+    shoulders:value("front_delts")+value("side_delts")+value("rear_delts"),
+    arms:value("biceps")+value("brachialis")+value("triceps"),
+    quads:value("quads"),hamstrings:value("hamstrings"),glutes:value("glutes"),calves:value("calves"),
+    core:value("abs")+value("obliques"),
+  };
+  const zone=getSessionZone(load);
+  const ranked=Object.entries(scores).sort((a,b)=>b[1]-a[1]);
+  const total=ranked.reduce((sum,[,amount])=>sum+amount,0);
+  if(ranked[0]?.[1]>0&&ranked[0][1]>=total*.58)return ranked[0][0];
+  if(zone==="upper"){
+    const push=scores.chest+value("front_delts")+value("side_delts")+value("triceps");
+    const pull=scores["back-width"]+scores["back-thickness"]+value("rear_delts")+value("biceps")+value("brachialis");
+    if(push>pull*1.35)return "push";
+    if(pull>push*1.35)return "pull";
+    return "upper";
+  }
+  if(zone==="lower"){
+    const anterior=scores.quads+value("adductors")*.4;
+    const posterior=scores.hamstrings+scores.glutes+scores.calves*.25;
+    if(anterior>posterior*1.2)return "legs-quads";
+    if(posterior>anterior*1.2)return "legs-posterior";
+    return "lower";
+  }
+  return "full-body";
+}
+
+function AnatomyAsset({side,assetKey}){
+  const safeKey=ASSET_KEYS.has(assetKey)?assetKey:"full-body";
+  const src=`${process.env.PUBLIC_URL||""}/images/anatomy/${safeKey}-${side}.webp`;
+  return <div className={`premium-anatomy premium-anatomy--${side}`}>
     <img src={src} alt={side==="front"?"Anatomia frontal":"Anatomia posterior"}/>
-    <span className="premium-anatomy__tone" aria-hidden="true"/>
     <small>{side==="front"?"FRENTE":"COSTAS"}</small>
   </div>
 }
 
-export default function MuscleSessionMap({items=[],exercises=[],focus=[]}){
+export default function MuscleSessionMap({items=[],exercises=[],focus=[],sessionLabel=""}){
   const load=buildSessionMuscles(items,exercises,focus);
   const zone=getSessionZone(load);
+  const assetKey=getAnatomyAssetKey(load,sessionLabel);
   const ranked=Object.entries(load).sort((a,b)=>b[1]-a[1]).slice(0,5);
-  return <div className="session-muscle-map" data-testid="session-muscle-map" data-zone={zone}>
+  return <div className="session-muscle-map" data-testid="session-muscle-map" data-zone={zone} data-asset={assetKey}>
     <div className="session-muscle-map__zone"><i/>{ZONE_LABEL[zone]}</div>
     <div className="session-muscle-map__views">
-      <AnatomyAsset side="front" zone={zone}/>
-      <AnatomyAsset side="back" zone={zone}/>
+      <AnatomyAsset side="front" assetKey={assetKey}/>
+      <AnatomyAsset side="back" assetKey={assetKey}/>
     </div>
     <div className="session-muscle-map__target-label">MÚSCULOS-ALVO</div>
     <div className="session-muscle-map__legend" aria-label="Músculos trabalhados hoje">
