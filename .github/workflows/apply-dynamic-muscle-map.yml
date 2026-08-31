@@ -1,0 +1,61 @@
+name: Apply Dynamic Muscle Map
+on:
+  push:
+    branches: [feat/dynamic-muscle-map]
+permissions:
+  contents: write
+jobs:
+  patch-build-commit:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/dynamic-muscle-map
+          fetch-depth: 0
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Enable Yarn
+        run: corepack enable
+      - name: Wire dynamic map into workout
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('frontend/src/App.js')
+          s=p.read_text(encoding='utf-8-sig')
+          imp='import ProgramBuilder from "./features/ProgramBuilder";'
+          new_imp=imp+'\nimport MuscleSessionMap from "./features/MuscleSessionMap";'
+          if 'import MuscleSessionMap from "./features/MuscleSessionMap";' not in s:
+              if imp not in s: raise SystemExit('ProgramBuilder import anchor not found')
+              s=s.replace(imp,new_imp,1)
+          old='<div className="muscle-map" role="img" aria-label="Mapa muscular frontal e posterior"/>'
+          new='<MuscleSessionMap items={items} exercises={db.exercises||[]} focus={activeSession?.focus||[]} />'
+          if new not in s:
+              if old not in s: raise SystemExit('static muscle map anchor not found')
+              s=s.replace(old,new,1)
+          p.write_text(s,encoding='utf-8')
+          PY
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: yarn install --frozen-lockfile || yarn install
+      - name: Run focused muscle map tests
+        working-directory: frontend
+        env:
+          CI: true
+        run: yarn test --watchAll=false --runTestsByPath src/features/MuscleSessionMap.test.js
+      - name: Build production frontend
+        working-directory: frontend
+        env:
+          CI: false
+        run: yarn build
+      - name: Commit verified implementation and remove one-shot workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/apply-dynamic-muscle-map.yml
+          git add frontend/src/App.js frontend/src/features/MuscleSessionMap.jsx frontend/src/features/muscle-session-map.css frontend/src/features/MuscleSessionMap.test.js
+          git commit -m "feat(workout): render muscles from active session"
+          git push origin HEAD:feat/dynamic-muscle-map
