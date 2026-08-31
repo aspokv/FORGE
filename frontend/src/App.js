@@ -24,6 +24,7 @@ import ManualWorkout from "./features/ManualWorkout";
 import {completeWorkout} from "./features/completeWorkout";
 import {LEGACY_TRAINING_GOAL,DEFAULT_BODY_GOAL,goalFromCatalog,intensityForSubmit,intensityOnGoalChange} from "./features/onboardingGoals";
 import {ONBOARDING_STEPS,RANK_LABEL,togglePriority,roleFor,nextStep,previousStep} from "./features/musclePriorities";
+import {splitOptions,TRAINING_METHODS} from "./features/trainingSplits";
 const API=`${process.env.REACT_APP_BACKEND_URL || ""}/api`;
 const GROUPS={PEITORAL:["Peitoral superior","Peitoral esternal"],OMBROS:["Deltóide anterior","Deltóide lateral","Deltóide posterior"],COSTAS:["Dorsais / largura","Costas / espessura","Trapézio"],BRAÇOS:["Bíceps","Braquial","Tríceps"],PERNAS:["Quadríceps","Posteriores","Glúteos","Adutores","Panturrilhas"],CORE:["Abdômen","Oblíquos"]};
 
@@ -38,7 +39,14 @@ function Today({db,start,openCoach,openBuilder,openManual}){
   const manual=p.logic?.manual;
   const activeSession=p.sessions?.find(s=>s.day===p.active_day)||p.sessions?.[0];
   const exercises=activeSession?.exercises||p.exercises||[];
-  const preview=(exercises.length?exercises:[{exercise_id:"supino",sets:4,reps:"6–8",load:80,rir:"1–2"},{exercise_id:"remada",sets:4,reps:"8–10",load:90,rir:"1–2"},{exercise_id:"agachamento",sets:4,reps:"6–8",load:140,rir:"1–2"},{exercise_id:"elevacao",sets:3,reps:"12–15",load:12,rir:"2"}]).slice(0,4);
+  const preview=exercises.slice(0,4).map(x=>({...x,name:db.exercises?.find(e=>e.id===x.exercise_id)?.name||x.name||x.exercise_name||x.exercise_id}));
+  const plannedSets=exercises.reduce((sum,x)=>sum+Number(x.sets||0),0);
+  const logs=db.recent_sets||[],now=Date.now(),weekMs=7*24*60*60*1000;
+  const volumeIn=(from,to)=>logs.filter(x=>{const t=Date.parse(x.created_at);return t>=from&&t<to}).reduce((sum,x)=>sum+Number(x.weight||0)*Number(x.reps||0),0);
+  const currentVolume=volumeIn(now-weekMs,now),previousVolume=volumeIn(now-2*weekMs,now-weekMs);
+  const volumeChange=previousVolume?Math.round((currentVolume-previousVolume)/previousVolume*100):null;
+  const bestSet=logs.reduce((best,x)=>{const e1rm=Number(x.weight||0)*(1+Number(x.reps||0)/30);return e1rm>(best?.e1rm||0)?{...x,e1rm}:best},null);
+  const recoveryLabel={HIGH:"Alta",NORMAL:"Normal",LOW:"Baixa",VERY_LOW:"Muito baixa"}[p.logic?.recovery_level]||"Sem check-in";
   return <div className="content performance-home forge-home-final">
     <div className="forge-mobile-mast"><span>FORGE</span><Bell size={18}/></div>
     <div className="performance-heading">
@@ -56,15 +64,15 @@ function Today({db,start,openCoach,openBuilder,openManual}){
       <div className="preview-list">
         {preview.map((x,i)=><div key={x.exercise_id||i}><span className="preview-icon"><Dumbbell size={16}/></span><div><small>{["PUSH","PULL","LEGS","DELT"][i]}</small><b>{x.name||x.exercise_name||["Supino inclinado","Remada curvada","Agachamento","Elevação lateral"][i]}</b><em>{x.sets} × {x.reps} · {x.load?`${x.load} kg · `:""}RIR {x.rir}</em></div></div>)}
       </div>
-      <div className="preview-progress"><div className="performance-dial"><span>78<small>%</small></span><em>Concluído</em></div></div>
+      <div className="preview-progress"><div className="performance-dial planned"><span>{plannedSets||"—"}<small>{plannedSets?" séries":""}</small></span><em>prescrição de hoje</em></div></div>
       <button className="primary-button"data-testid="start-workout-button"onClick={start}>Iniciar treino <ChevronRight size={18}/></button>
     </section>
     <div className="forge-metric-grid" aria-label="Indicadores de performance">
-      <article className="metric-wide"><span>HIPERTROFIA</span><small>Foco do ciclo</small><b>18.240 <em>kg</em></b><i className="metric-bars"/><small className="positive">+12% vs semana anterior</small></article>
-      <article className="metric-wide"><span>FORÇA</span><small>1RM estimado</small><b>147,5 <em>kg</em></b><i className="metric-line"/><small className="positive">+2,5 kg</small></article>
-      <article><span>NUTRIÇÃO</span><b>2.850 <em>kcal</em></b><small>215P / 350C / 80G</small></article>
-      <article><span>RECUPERAÇÃO</span><b>87<em>%</em></b><small>Pronto para treinar</small></article>
-      <article><span>PROGRESSO</span><b>+1,2 <em>kg</em></b><small>Esta semana</small></article>
+      <article className="metric-wide"><span>VOLUME REAL</span><small>Últimos 7 dias</small><b>{Math.round(currentVolume).toLocaleString("pt-BR")} <em>kg</em></b><i className="metric-bars"/><small className={volumeChange!=null&&volumeChange>=0?"positive":""}>{volumeChange==null?"Criando sua linha de base":`${volumeChange>=0?"+":""}${volumeChange}% vs semana anterior`}</small></article>
+      <article className="metric-wide"><span>PERFORMANCE</span><small>Melhor e1RM registrado</small><b>{bestSet?bestSet.e1rm.toFixed(1):"—"} <em>{bestSet?"kg":"sem histórico"}</em></b><i className="metric-line"/><small className="positive">{bestSet?(db.exercises?.find(e=>e.id===bestSet.exercise_id)?.name||"Série registrada"):"Complete séries para calcular"}</small></article>
+      <article><span>MÉTODO</span><b>{p.logic?.quality_gate?.method_profile?.label||"FORGE"}</b><small>{p.logic?.split||"Divisão adaptativa"}</small></article>
+      <article><span>RECUPERAÇÃO</span><b>{recoveryLabel}</b><small>{p.logic?.recovery_level?"check-in mais recente":"Sem dados inventados"}</small></article>
+      <article><span>PROGRESSO</span><b>{logs.length}</b><small>séries no histórico recente</small></article>
     </div>
     <div className="forge-home-tools"><button className="text-button"data-testid="open-builder-today"onClick={openBuilder}><Sliders size={13}/> {manual?"Editar programa":"Program Builder"}</button><button className="text-button"data-testid="open-manual-today"onClick={openManual}><FileUp size={13}/> Estrutura manual</button></div>
   </div>
@@ -83,9 +91,12 @@ function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutC
   const[setErr,setSetErr]=useState({});
   const[finishResult,setFinishResult]=useState(null);
   const[finishing,setFinishing]=useState(false);
+  const[partialReason,setPartialReason]=useState("");
+  const[showPartial,setShowPartial]=useState(false);
+  const[discomfort,setDiscomfort]=useState("none");
   const finishLock=useRef(false);
-  const[startedAt]=useState(()=>Date.now());
-  useEffect(()=>{const init={};items.forEach(x=>{const hint=hints[x.exercise_id]||{};for(let n=0;n<x.sets;n++)init[`${x.exercise_id}-${n}`]={weight:hint.last_weight||x.load||0,reps:hint.last_reps||x.reps?.split("–")?.[0]||"8"};});setSetInputs(init)},[items,!!Object.keys(hints).length]);
+  const[startedAt,setStartedAt]=useState(()=>Date.now());
+  useEffect(()=>{const init={};items.forEach(x=>{const hint=hints[x.exercise_id]||{};for(let n=0;n<x.sets;n++)init[`${x.exercise_id}-${n}`]={weight:hint.last_weight||x.load||0,reps:hint.last_reps||x.reps?.split("–")?.[0]||"8",rir:String(x.rir||"2").match(/\d+/)?.[0]||"2"};});setSetInputs(init)},[items,!!Object.keys(hints).length]);
   const[draftState,setDraftState]=useState("idle");
   const draftTimer=useRef(null),draftReady=useRef(false),lastSaved=useRef("");
   const draftDay=activeSession?.day;
@@ -122,19 +133,42 @@ function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutC
   },[setInputs,draftDay]);
   useEffect(()=>{if(!timer)return;const i=setInterval(()=>setTimer(x=>Math.max(0,x-1)),1000);return()=>clearInterval(i)},[timer]);
   const parseRestSeconds=r=>{if(!r)return 90;const n=parseInt(r);if(!isNaN(n))return n<10?n*60:n;const m=r.match(/(\d+)/);return m?parseInt(m[1])*60:90};
-  const mark=(id,n,tech,rest)=>{setDone(x=>({...x,[id+n]:!x[id+n]}));const secs=parseRestSeconds(rest);setTimer(secs);setTimerTotal(secs);const v=setInputs[`${id}-${n}`]||{weight:0,reps:8};axios.post(`${API}/sets`,{profile_id:db.profile.id,exercise_id:id,set_number:n,weight:Number(v.weight||0),reps:Number(v.reps||8),rir:2,technique:tech||"Straight Sets"}).catch(e=>{setSetErr(x=>({...x,[id+n]:!e.response}))})};
-  const finish=async()=>{if(finishLock.current)return;const total=items.reduce((a,x)=>a+x.sets,0);const completed=Object.values(done).filter(Boolean).length;setFinishing(true);const r=await completeWorkout({post:(u,b)=>axios.post(u,b),api:API,day:activeSession?.day,completedSets:completed,totalSets:total,startedAt,lock:finishLock,onCompleted:onWorkoutCompleted});if(r)setFinishResult(r);if(!r||r.error)setFinishing(false)};
+  const mark=(id,n,tech,rest)=>{if(done[id+n])return;const v=setInputs[`${id}-${n}`]||{weight:0,reps:8,rir:2};const rir=Math.max(0,Math.min(5,Number(v.rir)));if(!Number.isFinite(rir)){setSetErr(x=>({...x,[id+n]:true}));return}setDone(x=>({...x,[id+n]:true}));const secs=parseRestSeconds(rest);setTimer(secs);setTimerTotal(secs);axios.post(`${API}/sets`,{profile_id:db.profile.id,exercise_id:id,set_number:n+1,weight:Number(v.weight||0),reps:Number(v.reps||8),rir,session_day:activeSession?.day,technique:tech||"Straight Sets"}).catch(()=>{setDone(x=>({...x,[id+n]:false}));setSetErr(x=>({...x,[id+n]:true}))})};
+  const completedEntries=items.flatMap(x=>Array.from({length:x.sets},(_,n)=>({key:x.exercise_id+n,value:setInputs[`${x.exercise_id}-${n}`]}))).filter(x=>done[x.key]);
+  const actualVolume=completedEntries.reduce((sum,x)=>sum+Number(x.value?.weight||0)*Number(x.value?.reps||0),0);
+  const averageRir=completedEntries.length?completedEntries.reduce((sum,x)=>sum+Number(x.value?.rir||0),0)/completedEntries.length:null;
+  const finish=async()=>{if(finishLock.current)return;const total=items.reduce((a,x)=>a+x.sets,0);const completed=completedEntries.length;if(completed<total&&!partialReason.trim()){setShowPartial(true);return}setFinishing(true);const r=await completeWorkout({post:(u,b)=>axios.post(u,b),api:API,day:activeSession?.day,completedSets:completed,totalSets:total,startedAt,lock:finishLock,onCompleted:onWorkoutCompleted,partialReason,discomfort,volumeKg:actualVolume,averageRir:averageRir==null?null:Number(averageRir.toFixed(1))});if(r)setFinishResult(r);if(!r||r.error)setFinishing(false)};
+  const openNextWorkout=()=>{setFinishResult(null);setDone({});setSetErr({});setPartialReason("");setShowPartial(false);setDiscomfort("none");setTimer(0);setTimerTotal(0);setStartedAt(Date.now());finishLock.current=false};
   const recLevel=p.logic?.recovery_level;
   const recMsg=recLevel==="LOW"?"Volume ajustado à sua recuperação de hoje.":recLevel==="VERY_LOW"?"Sessão adaptada à sua recuperação de hoje.":p.logic?.block_type==="deload"?"Semana de descarga — volume reduzido de propósito.":null;
   const totalSessionSets=items.reduce((sum,x)=>sum+(Number(x.sets)||0),0);
-  const estimatedLoad=items.reduce((sum,x)=>sum+(Number(x.load)||0)*(Number(x.sets)||0)*(parseInt(x.reps)||8),0);
+  const averageRest=Math.round(items.reduce((sum,x)=>sum+parseRestSeconds(x.rest)*(Number(x.sets)||0),0)/Math.max(1,totalSessionSets));
   if(!items.length)return <div className="content workout-page"><div className="empty-state"data-testid="workout-empty-state"><Dumbbell size={22}/><h3>Nenhuma sessão disponível</h3><p className="muted">Gere ou aprove um programa para ver o treino de hoje.</p></div></div>;
+  if(finishResult&&!finishResult.error)return <div className="content workout-page workout-complete-page"data-testid="workout-complete-page">
+    <section className="completion-hero">
+      <span className="completion-seal"><Check size={30}/></span>
+      <p className="eyebrow">SESSÃO REGISTRADA · PERFORMANCE REAL</p>
+      <h2>{finishResult.completedSession?.label||"Treino concluído"}</h2>
+      <p className="muted">O motor já atualizou sua sequência e preparou a próxima sessão.</p>
+      <div className="completion-metrics">
+        <div><span>SÉRIES</span><b>{finishResult.completed}/{finishResult.total}</b><small>{finishResult.adherence}% de aderência</small></div>
+        <div><span>VOLUME REAL</span><b>{finishResult.volumeKg.toLocaleString("pt-BR")}<em> kg</em></b><small>carga × repetições</small></div>
+        <div><span>RIR MÉDIO</span><b>{finishResult.averageRir??"—"}</b><small>{finishResult.averageRir==null?"sem leitura":"esforço registrado"}</small></div>
+        <div><span>DURAÇÃO</span><b>{finishResult.minutes}<em> min</em></b><small>tempo da sessão</small></div>
+      </div>
+    </section>
+    <section className="next-session-card">
+      <div><p className="eyebrow">PRÓXIMA SESSÃO</p><h3>{finishResult.nextSession?.label||"Próximo treino"}</h3><p className="muted">Já disponível na sua sequência FORGE.</p></div>
+      <button className="primary-button"data-testid="workout-open-next"onClick={openNextWorkout}>Ver próximo treino <ChevronRight size={17}/></button>
+    </section>
+    <button className="text-button completion-home"data-testid="workout-finish-gohome"onClick={goHome}>Voltar para Hoje</button>
+  </div>;
   return <div className="content workout-page">
     <div className="workout-head"><div><p className="eyebrow">EM EXECUÇÃO · {p.week}</p><h2>{activeSession?.label||p.session}</h2><p className="muted">Demanda {activeSession?.demand||"MODERATE"} · registre o trabalho real.</p></div>{draftState!=="idle"&&<span className={`autosave-pill ${draftState}`}data-testid="autosave-status">{draftState==="saving"?"salvando...":draftState==="saved"?"salvo automaticamente":"sem conexão — tentando salvar"}</span>}</div>
     <section className="workout-overview">
       <div className="muscle-map" role="img" aria-label="Mapa muscular frontal e posterior"/>
       <div className="workout-overview-copy"><span>GRUPO MUSCULAR</span><b>{activeSession?.label?.split(/[—-]/)?.[0]||"Hipertrofia"}</b><small>Duração estimada · {p.duration||"70 min"}</small></div>
-      <div className="workout-kpis"><div><span>VOLUME</span><b>{estimatedLoad.toLocaleString("pt-BR")} <small>kg</small></b><em>+8% vs anterior</em></div><div><span>CARGA TOTAL</span><b>{Math.round(estimatedLoad*.72).toLocaleString("pt-BR")} <small>kg</small></b><em>+7% vs anterior</em></div><div><span>SÉRIES EFETIVAS</span><b>{totalSessionSets}</b><em>+2 vs anterior</em></div><div><span>DESCANSO MÉDIO</span><b>90<small>s</small></b><em>Ótimo</em></div></div>
+      <div className="workout-kpis"><div><span>VOLUME REAL</span><b>{Math.round(actualVolume).toLocaleString("pt-BR")} <small>kg</small></b><em>{completedEntries.length?"carga × reps registradas":"aguardando séries"}</em></div><div><span>ADERÊNCIA</span><b>{completedEntries.length}<small>/{totalSessionSets}</small></b><em>séries concluídas</em></div><div><span>RIR MÉDIO</span><b>{averageRir==null?"—":averageRir.toFixed(1)}</b><em>{averageRir==null?"sem histórico nesta sessão":"esforço informado"}</em></div><div><span>DESCANSO ALVO</span><b>{averageRest}<small>s</small></b><em>prescrição média</em></div></div>
     </section>
     {recMsg&&<div className="session-banner"data-testid="session-adapted-banner"><ShieldCheck size={16}/><div><b>SESSÃO ADAPTADA</b><p>{recMsg}</p></div></div>}
     <div className={timer>0?"rest-banner active":"rest-banner"}data-testid="rest-timer">
@@ -162,23 +196,25 @@ function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutC
           {hint.suggested_load&&hint.suggested_load!==hint.last_weight?<div className="suggest"><span>Sugestão</span><b>{hint.suggested_load}kg × {hint.last_reps}</b></div>:<div className="suggest"><span>{LOAD_LABEL[hint.action]||hint.action}</span><b className="reason">{hint.reason}</b></div>}
         </div>}
         <div className="set-grid">
-          <span>SÉRIE</span><span>ALVO</span><span>CARGA</span><span>REPS</span><span>STATUS</span>
+          <span>SÉRIE</span><span>ALVO</span><span>CARGA</span><span>REPS</span><span>RIR</span><span>STATUS</span>
           {Array.from({length:x.sets},(_,n)=><div className={done[x.exercise_id+n]?"set-row completed":"set-row"}key={n}>
             <b>{n+1}</b><span>{x.reps}</span>
             <input aria-label={`Carga ${ex.name} ${n+1}`}data-testid={`weight-${x.exercise_id}-${n+1}`}type="text"inputMode="decimal"value={setInputs[`${x.exercise_id}-${n}`]?.weight??x.load??0}onChange={e=>setSetInputs(p=>({...p,[`${x.exercise_id}-${n}`]:{...p[`${x.exercise_id}-${n}`],weight:e.target.value}}))}/>
             <input aria-label={`Reps ${ex.name} ${n+1}`}data-testid={`reps-${x.exercise_id}-${n+1}`}type="text"inputMode="numeric"value={setInputs[`${x.exercise_id}-${n}`]?.reps??x.reps?.split("–")?.[0]??"8"}onChange={e=>setSetInputs(p=>({...p,[`${x.exercise_id}-${n}`]:{...p[`${x.exercise_id}-${n}`],reps:e.target.value}}))}/>
+            <input aria-label={`RIR ${ex.name} ${n+1}`}data-testid={`rir-${x.exercise_id}-${n+1}`}type="number"inputMode="numeric"min="0"max="5"value={setInputs[`${x.exercise_id}-${n}`]?.rir??"2"}onChange={e=>setSetInputs(p=>({...p,[`${x.exercise_id}-${n}`]:{...p[`${x.exercise_id}-${n}`],rir:e.target.value}}))}/>
             <button className="set-check"data-testid={`complete-set-${x.exercise_id}-${n+1}`}onClick={()=>mark(x.exercise_id,n,tech.name,x.rest)}>{done[x.exercise_id+n]?<Check size={17}/>:<span/>}{setErr[x.exercise_id+n]&&<span style={{color:"var(--accent)",fontSize:9,marginLeft:4}}>!</span>}</button>
           </div>)}
         </div>
       </section>
     })}
-    {finishResult&&(finishResult.error
-      ?<div className="workout-feedback error"data-testid="workout-finish-msg">{finishResult.message}</div>
-      :<div className="workout-feedback success"data-testid="workout-finish-msg">
-        <Check size={20}/>
-        <div><p className="eyebrow">TREINO CONCLUÍDO</p><h3>{finishResult.completed}/{finishResult.total} séries registradas</h3><p className="muted">{finishResult.minutes} min</p></div>
-        <button className="text-button"data-testid="workout-finish-gohome"onClick={goHome}>Voltar para Hoje<ChevronRight size={14}/></button>
-      </div>)}
+    <section className="session-checkout">
+      <div><p className="eyebrow">COMO O CORPO RESPONDEU?</p><p className="muted">Esse sinal melhora os próximos ajustes sem inventar recuperação.</p></div>
+      <div className="discomfort-options"role="group"aria-label="Desconforto na sessão">
+        {[{id:"none",label:"Sem desconforto"},{id:"mild",label:"Leve desconforto"},{id:"stop",label:"Dor limitante"}].map(x=><button type="button"key={x.id}className={discomfort===x.id?"active":""}onClick={()=>setDiscomfort(x.id)}>{x.label}</button>)}
+      </div>
+    </section>
+    {showPartial&&<section className="partial-completion"data-testid="partial-completion-panel"><p className="eyebrow">CONCLUSÃO PARCIAL · {completedEntries.length}/{totalSessionSets} SÉRIES</p><h3>O que interrompeu a sessão?</h3><div className="partial-reasons">{["Faltou tempo","Fadiga acima do esperado","Dor ou desconforto","Equipamento indisponível","Outro"].map(reason=><button type="button"key={reason}className={partialReason===reason?"active":""}onClick={()=>setPartialReason(reason)}>{reason}</button>)}</div><p className="muted">O FORGE registra a aderência real e usa o motivo na revisão — nunca transforma um treino parcial em treino completo.</p></section>}
+    {finishResult?.error&&<div className="workout-feedback error"data-testid="workout-finish-msg">{finishResult.message}</div>}
     {(!finishResult||finishResult.error)&&<button className="finish-button"data-testid="finish-workout-button"disabled={finishing}onClick={finish}><Check size={18}/> {finishing?"Concluindo…":"Concluir treino"}</button>}
     {swap&&<Swap ex={swap}close={()=>setSwap(null)}onSubstituted={onExerciseSubstituted}/>}
   </div>
@@ -217,10 +253,12 @@ function WeightTracker({profileId}){
 }
 function Progress({analytics,profileId}){
   if(!analytics)return <div className="content"><div className="skeleton-block"style={{height:88}}/><div className="skeleton-block"style={{height:160,marginTop:16}}/></div>;
+  const points=(analytics.trend||[]).filter(x=>Number(x.load)>0);
+  const trendChange=points.length>1&&Number(points[0].load)>0?((Number(points.at(-1).load)-Number(points[0].load))/Number(points[0].load)*100):null;
   return <div className="content">
     <div className="section-intro"><p className="eyebrow">PROGRESSÃO</p><h2>O que está subindo?</h2><p className="muted">Histórico por exercício e tendência de performance.</p></div>
     <section className="panel chart-panel">
-      <div className="panel-top"><div><p className="eyebrow">CARGA EFETIVA</p><h3>+11,4% <span className="trend">últimas 4 semanas</span></h3></div><LineChart size={21}/></div>
+      <div className="panel-top"><div><p className="eyebrow">CARGA EFETIVA</p><h3>{trendChange==null?"Linha de base":`${trendChange>=0?"+":""}${trendChange.toFixed(1).replace(".",",")}%`} <span className="trend">{trendChange==null?"histórico insuficiente":"últimas 4 semanas"}</span></h3></div><LineChart size={21}/></div>
       {analytics?.trend?.length?<div className="chart"><div className="chart-line">{analytics.trend.map((p,i)=><div key={p.week}style={{height:`${35+i*17}%`}}><b>{p.load}</b><span>{p.week}</span></div>)}</div></div>
         :<p className="muted"style={{marginTop:12}}>Ainda sem histórico suficiente para um gráfico.</p>}
     </section>
@@ -233,9 +271,31 @@ function Progress({analytics,profileId}){
   </div>
 }
 function Analysis({db,analytics,report,openCoach}){const[rows,setRows]=useState([]),[explain,setExplain]=useState(false);useEffect(()=>{axios.get(`${API}/muscle-map/${db.profile.id}`).then(r=>setRows(r.data.rows))},[db.profile.id]);return <div className="content"><div className="section-intro"><p className="eyebrow">MEU FÍSICO / MUSCLE MAP</p><h2>Leitura do seu bloco.</h2><p className="muted">Desenvolvimento × prioridade × volume × frequência.</p></div><section className="panel"><div className="panel-top"><div><p className="eyebrow">MUSCLE MAP</p><h3>Regiões que orientam o engine</h3></div><Activity size={20}/></div><div className="muscle-grid">{rows.filter(x=>x.priority!=="normal"||x.score>3).slice(0,14).map(r=><div className="muscle-row"key={r.muscle}data-testid={`muscle-row-${r.muscle}`}><div><b>{r.muscle}</b><p>{r.development} · {r.status}</p></div><span>{r.volume} séries · {r.frequency}x</span><strong>{r.priority}</strong></div>)}</div></section><div className="analysis-grid"><section className="panel"><p className="eyebrow">VOLUME POR REGIÃO</p>{(analytics?.volume||[]).map(v=><div className="volume-line"key={v.name}><div><span>{v.name}</span><strong>{v.value} <em>/ {v.target}</em></strong></div><div className="bar"><b style={{width:`${Math.min(100,v.value/v.target*100)}%`}}/></div></div>)}</section><section className="panel recovery-panel"><p className="eyebrow">RECOVERY SIGNAL</p><div className="recovery-score">3.8 <span>/ 5</span></div><p className="muted">Sobreposição indireta e sono entram no ajuste.</p></section></div>{report&&<section className="panel report"><p className="eyebrow">WEEKLY TRAINING REPORT</p><h3>{report.headline}</h3>{report.signals.map(s=><p className="report-line"key={s}><Check size={15}/>{s}</p>)}</section>}<div className="action-row"><button className="secondary-button"data-testid="explain-program-button"onClick={()=>setExplain(!explain)}>Por que meu treino é assim?</button><button className="secondary-button"data-testid="analysis-coach-button"onClick={openCoach}><BrainCircuit size={17}/> Analisar com Forge Coach</button></div>{explain&&<section className="panel explanation"data-testid="program-explanation"><p className="eyebrow">EXPLAINABLE PROGRAMMING</p><p>Prioridades manuais têm peso elevado. O engine aumenta frequência ou posição na sessão sem inflar séries indefinidamente; pontos fortes recebem manutenção e a distribuição considera recuperação, sobreposição e disponibilidade.</p></section>}</div>}
-function Profile({db,redo,openBuilder,openManual,signOut,user}){const[visual,setVisual]=useState(false),[file,setFile]=useState(null),[notice,setNotice]=useState(false),[visionResult,setVisionResult]=useState(null);const send=async()=>{const f=new FormData();f.append("profile_id",db.profile.id);f.append("consent","true");f.append("views",JSON.stringify(["frente"]));if(file)f.append("photos",file);try{const r=await fetch(`${API}/visual-assessment`,{method:"POST",body:f,headers:{Authorization:`Bearer ${localStorage.getItem("forge_token")||""}`}});const data=await r.json();setNotice(true);setVisionResult(data)}catch{setNotice(true);setVisionResult(null)}};const manual=db.program?.logic?.manual;return <div className="content"><div className="section-intro"><p className="eyebrow">PERFIL LOCAL</p><h2>{db.profile.name}</h2><p className="muted">{db.profile.experience} · {db.profile.goal} · {db.profile.days} dias por ciclo</p></div><section className="panel profile-panel"><div className="avatar">{(db.profile.name||"AF").split(" ").map(x=>x[0]).slice(0,2).join("")}</div><div><p className="eyebrow">CONFIGURAÇÃO ATUAL</p><h3>{db.profile.session_minutes} min · {manual?"FORGE_PRO (manual)":db.profile.automation_mode||"FORGE_ASSISTED"}</h3><p className="muted">{user?`${user.email} · ${user.plan||"—"} · ${user.status||"—"}`:"Assessment V2 salvo"}</p></div></section><section className="panel"><p className="eyebrow">AÇÕES</p><div className="action-row"><button className="secondary-button"data-testid="redo-assessment-button"onClick={redo}>Refazer avaliação</button><button className="secondary-button"data-testid="open-builder-button"onClick={openBuilder}><Sliders size={16}/> {manual?"Editar programa manual":"Program Builder Pro"}</button><button className="secondary-button"data-testid="open-manual-button"onClick={openManual}><FileUp size={16}/> Criar meu próprio treino</button><button className="secondary-button"data-testid="visual-assessment-button"onClick={()=>setVisual(!visual)}><FileUp size={16}/> Analisar meu físico</button>{signOut&&<button className="secondary-button"data-testid="signout-button"onClick={signOut}><LogOut size={16}/> Sair da conta</button>}</div>{visual&&<div className="visual-upload"><p className="muted">Análise visual estimada. Pose, luz, ângulo e roupa alteram a interpretação; não mede composição nem diagnostica condições médicas.</p><label className="upload-box"data-testid="photo-upload-label"><FileUp size={20}/>{file?file.name:"Adicionar foto"}<input data-testid="photo-upload-input"type="file"accept="image/*"onChange={e=>setFile(e.target.files[0])}/></label><button className="primary-button"data-testid="submit-visual-assessment"onClick={send}>Enviar com consentimento</button>{notice&&(visionResult?.status==="completed"?<div className="notice"data-testid="visual-result-notice"><b>Análise concluída</b><span className="muted"> · Gemini Vision · {visionResult.suggested_priorities?.length||0} prioridades sugeridas</span><div className="priority-list"style={{marginTop:8}}>{(visionResult.suggested_priorities||[]).map((p,i)=><div key={p}><span>0{i+1}</span>{p}<b>Foco</b></div>)}</div>{visionResult.symmetry_notes&&<p className="muted"style={{marginTop:6,fontSize:11}}>{visionResult.symmetry_notes}</p>}{visionResult.proportion_notes&&<p className="muted"style={{fontSize:11}}>{visionResult.proportion_notes}</p>}{visionResult.limitations?.length>0&&<p className="muted"style={{fontSize:10,marginTop:4}}>Limitações: {visionResult.limitations.join("; ")}</p>}<p className="muted"style={{fontSize:10,marginTop:6}}>A avaliação manual continua válida. O Vision complementa, não substitui.</p></div>:<div className="notice"data-testid="visual-unavailable-notice">{visionResult?.status==="error"?`Erro: ${visionResult.message}`:"Análise visual indisponível. Verifique se GEMINI_API_KEY está configurada."}</div>)}</div>}</section><section className="panel"><p className="eyebrow">PRIORIDADES MANUAIS</p><div className="priority-list">{(db.profile.priorities||[]).map((p,i)=><div key={p}><span>0{i+1}</span>{p}<b>Alta</b></div>)}</div></section></div>}
+function Profile({db,redo,openBuilder,openManual,signOut,user}){
+  const[visual,setVisual]=useState(false),[file,setFile]=useState(null),[notice,setNotice]=useState(false),[visionResult,setVisionResult]=useState(null);
+  const manual=db.program?.logic?.manual;
+  const splits=splitOptions(db.profile.days,db.profile.experience);
+  const[split,setSplit]=useState(db.program?.logic?.split_id||db.profile.split_preference||splits[0]?.id||"full_body");
+  const[method,setMethod]=useState(db.profile.training_method||db.program?.logic?.quality_gate?.method_profile?.id||"balanced_hypertrophy");
+  const[savingTraining,setSavingTraining]=useState(false),[trainingNotice,setTrainingNotice]=useState("");
+  const saveTraining=async()=>{setSavingTraining(true);setTrainingNotice("");try{const r=await axios.put(`${API}/training/preferences`,{split_preference:split,training_method:method});setTrainingNotice(r.data.manual_program_active?"Preferência salva. Ela será aplicada quando você voltar ao programa automático.":"Método salvo. Recalculando seu programa…");setTimeout(()=>window.location.reload(),650)}catch(e){setTrainingNotice(e?.response?.data?.detail||"Não foi possível salvar agora.")}finally{setSavingTraining(false)}};
+  const send=async()=>{const f=new FormData();f.append("profile_id",db.profile.id);f.append("consent","true");f.append("views",JSON.stringify(["frente"]));if(file)f.append("photos",file);try{const r=await fetch(`${API}/visual-assessment`,{method:"POST",body:f,headers:{Authorization:`Bearer ${localStorage.getItem("forge_token")||""}`}});const data=await r.json();setNotice(true);setVisionResult(data)}catch{setNotice(true);setVisionResult(null)}};
+  return <div className="content">
+    <div className="section-intro"><p className="eyebrow">PERFIL LOCAL</p><h2>{db.profile.name}</h2><p className="muted">{db.profile.experience} · {db.profile.goal} · {db.profile.days} dias por ciclo</p></div>
+    <section className="panel profile-panel"><div className="avatar">{(db.profile.name||"AF").split(" ").map(x=>x[0]).slice(0,2).join("")}</div><div><p className="eyebrow">CONFIGURAÇÃO ATUAL</p><h3>{db.profile.session_minutes} min · {manual?"FORGE_PRO (manual)":db.profile.automation_mode||"FORGE_ASSISTED"}</h3><p className="muted">{user?`${user.email} · ${user.plan||"—"} · ${user.status||"—"}`:"Assessment V2 salvo"}</p></div></section>
+    <section className="panel training-preferences"data-testid="training-preferences"><div className="panel-top"><div><p className="eyebrow">ARQUITETURA DO TREINO</p><h3>Divisão e método FORGE</h3></div><span className="live-pill"><i/> MOTOR DETERMINÍSTICO</span></div><p className="muted">Você escolhe a preferência; o FORGE limita as opções ao que cabe nos seus dias e na sua recuperação.</p>
+      <div className="training-setting"><p className="eyebrow">DIVISÃO · {db.profile.days} DIAS</p><div className="training-option-grid">{splits.map(x=><button type="button"key={x.id}className={split===x.id?"active":""}data-testid={`split-${x.id}`}onClick={()=>setSplit(x.id)}><b>{x.label}</b><small>{x.recommended?"Recomendação FORGE":"Opção compatível"}</small></button>)}</div></div>
+      <div className="training-setting"><p className="eyebrow">MÉTODO DE PROGRESSÃO</p><div className="training-option-grid methods">{TRAINING_METHODS.map(x=><button type="button"key={x.id}className={method===x.id?"active":""}data-testid={`method-${x.id}`}onClick={()=>setMethod(x.id)}><b>{x.label}</b><small>{x.description}</small></button>)}</div></div>
+      {manual&&<p className="notice">Seu programa manual permanece intocado. Esta preferência vale quando o modo automático for reativado.</p>}{trainingNotice&&<p className="notice"data-testid="training-preferences-notice">{trainingNotice}</p>}<button className="primary-button"data-testid="save-training-preferences"disabled={savingTraining}onClick={saveTraining}>{savingTraining?"Salvando…":"Aplicar divisão e recalcular"}</button>
+    </section>
+    <section className="panel"><p className="eyebrow">AÇÕES</p><div className="action-row"><button className="secondary-button"data-testid="redo-assessment-button"onClick={redo}>Refazer avaliação</button><button className="secondary-button"data-testid="open-builder-button"onClick={openBuilder}><Sliders size={16}/> {manual?"Editar programa manual":"Program Builder Pro"}</button><button className="secondary-button"data-testid="open-manual-button"onClick={openManual}><FileUp size={16}/> Criar meu próprio treino</button><button className="secondary-button"data-testid="visual-assessment-button"onClick={()=>setVisual(!visual)}><FileUp size={16}/> Analisar meu físico</button>{signOut&&<button className="secondary-button"data-testid="signout-button"onClick={signOut}><LogOut size={16}/> Sair da conta</button>}</div>
+      {visual&&<div className="visual-upload"><p className="muted">Análise visual estimada. Pose, luz, ângulo e roupa alteram a interpretação; não mede composição nem diagnostica condições médicas.</p><label className="upload-box"data-testid="photo-upload-label"><FileUp size={20}/>{file?file.name:"Adicionar foto"}<input data-testid="photo-upload-input"type="file"accept="image/*"onChange={e=>setFile(e.target.files[0])}/></label><button className="primary-button"data-testid="submit-visual-assessment"onClick={send}>Enviar com consentimento</button>{notice&&(visionResult?.status==="completed"?<div className="notice"data-testid="visual-result-notice"><b>Análise concluída</b><span className="muted"> · Gemini Vision · {visionResult.suggested_priorities?.length||0} prioridades sugeridas</span><div className="priority-list"style={{marginTop:8}}>{(visionResult.suggested_priorities||[]).map((p,i)=><div key={p}><span>0{i+1}</span>{p}<b>Foco</b></div>)}</div>{visionResult.symmetry_notes&&<p className="muted"style={{marginTop:6,fontSize:11}}>{visionResult.symmetry_notes}</p>}{visionResult.proportion_notes&&<p className="muted"style={{fontSize:11}}>{visionResult.proportion_notes}</p>}{visionResult.limitations?.length>0&&<p className="muted"style={{fontSize:10,marginTop:4}}>Limitações: {visionResult.limitations.join("; ")}</p>}<p className="muted"style={{fontSize:10,marginTop:6}}>A avaliação manual continua válida. O Vision complementa, não substitui.</p></div>:<div className="notice"data-testid="visual-unavailable-notice">{visionResult?.status==="error"?`Erro: ${visionResult.message}`:"Análise visual indisponível. Verifique se GEMINI_API_KEY está configurada."}</div>)}</div>}
+    </section>
+    <section className="panel"><p className="eyebrow">PRIORIDADES MANUAIS</p><div className="priority-list">{(db.profile.priorities||[]).map((p,i)=><div key={p}><span>0{i+1}</span>{p}<b>Alta</b></div>)}</div></section>
+  </div>
+}
 function Coach({onClose,text,busy,ask}){const[q,setQ]=useState(""),suggestions=["Por que tenho este volume?","Meu peito superior está evoluindo?","Devo aumentar o deltoide lateral?"];return <div className="coach-overlay"><div className="coach-panel"><div className="coach-header"><div><p className="eyebrow">FORGE COACH · CONTEXTO REAL</p><h2>O que você quer entender?</h2></div><button className="icon-button"data-testid="close-coach-button"onClick={onClose}><X size={20}/></button></div><div className="coach-suggestions">{suggestions.map(x=><button key={x}data-testid={`coach-suggestion-${x.slice(0,5)}`}onClick={()=>{setQ(x);ask(x)}}>{x}</button>)}</div><div className="coach-answer">{busy?<div className="loading"><Sparkles size={16}/> Lendo assessment e histórico...</div>:text?<p data-testid="coach-response">{text}</p>:<p className="muted">Pergunte sobre progressão, volume, recovery ou substituição.</p>}</div><form onSubmit={e=>{e.preventDefault();ask(q)}}><input data-testid="coach-question-input"value={q}onChange={e=>setQ(e.target.value)}placeholder="Ex.: Estou estagnado no supino..."/><button data-testid="coach-submit-button"className="primary-button"type="submit"><ChevronRight size={18}/></button></form></div></div>}
-function DeepAssessment({onDone,initialForm,passos}){const lista=(passos&&passos.length)?passos:ONBOARDING_STEPS;const[screen,setScreen]=useState(lista[0]),[avisoPrioridade,setAvisoPrioridade]=useState(""),[form,setForm]=useState(()=>({...{profile_id:crypto.randomUUID(),name:"Novo atleta",age:"",sex:"",height_cm:"",weight_kg:"",training_years:"",consistency_years:"",experience:"Intermediário",body_goal:DEFAULT_BODY_GOAL,goal_intensity:"",secondary_goal:"",days:3,session_minutes:60,split:"",trains_near_failure:true,uses_rir:true,tracks_loads:true,equipment:["Academia completa"],gym_complete:true,recovery:{sleep_hours:7,stress:3},assessment:{},priorities:[],baseline:[],automation_mode:"FORGE_ASSISTED"},...(initialForm||{})})),[file,setFile]=useState(null);const[goalCatalog,setGoalCatalog]=useState([]);
+function DeepAssessment({onDone,initialForm,passos}){const lista=(passos&&passos.length)?passos:ONBOARDING_STEPS;const[screen,setScreen]=useState(lista[0]),[avisoPrioridade,setAvisoPrioridade]=useState(""),[form,setForm]=useState(()=>({...{profile_id:crypto.randomUUID(),name:"Novo atleta",age:"",sex:"",height_cm:"",weight_kg:"",training_years:"",consistency_years:"",experience:"Intermediário",body_goal:DEFAULT_BODY_GOAL,goal_intensity:"",secondary_goal:"",days:3,session_minutes:60,split:"",split_preference:"",training_method:"balanced_hypertrophy",trains_near_failure:true,uses_rir:true,tracks_loads:true,equipment:["Academia completa"],gym_complete:true,recovery:{sleep_hours:7,stress:3},assessment:{},priorities:[],baseline:[],automation_mode:"FORGE_ASSISTED"},...(initialForm||{})})),[file,setFile]=useState(null);const[goalCatalog,setGoalCatalog]=useState([]);
   useEffect(()=>{let vivo=true;axios.get(`${API}/nutrition/goal-catalog`).then(r=>{if(vivo)setGoalCatalog(r.data.goals||[])}).catch(()=>{});return()=>{vivo=false}},[]);
   const objetivoAtual=goalFromCatalog(goalCatalog,form.body_goal);
   const ritmos=objetivoAtual?.intensities||[];

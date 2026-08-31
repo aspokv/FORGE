@@ -35,7 +35,8 @@ from muscles import (
 from engine import (
     FRONTEND_EXERCISE_LIST, EXERCISE_INDEX, build_program_v2,
     _is_empty_profile as engine_is_empty_profile,
-    validate_sessions, determine_split, EXERCISES as ENGINE_EXERCISES,
+    validate_sessions, determine_split, compatible_splits, TRAINING_METHOD_PROFILES,
+    EXERCISES as ENGINE_EXERCISES,
 )
 
 client = AsyncIOMotorClient(os.environ["MONGO_URL"])
@@ -86,7 +87,8 @@ class SetLog(BaseModel):
     set_number: int
     weight: float
     reps: int
-    rir: int = 2
+    rir: int = Field(default=2, ge=0, le=5)
+    session_day: Optional[int] = None
     technique: str = "Straight Sets"
     note: str = ""
 
@@ -122,6 +124,8 @@ class DeepAssessment(BaseModel):
     days: int = 3
     session_minutes: int = 60
     split: str = ""
+    split_preference: str = ""
+    training_method: str = "balanced_hypertrophy"
     muscles_by_day: Dict[str, List[str]] = {}
     trains_near_failure: bool = True
     uses_rir: bool = True
@@ -196,12 +200,24 @@ class ExerciseSubstituteIn(BaseModel):
 class WorkoutCompleteIn(BaseModel):
     day: Optional[int] = None
     profile_id: Optional[str] = None
+    completed_sets: Optional[int] = Field(default=None, ge=0, le=200)
+    total_sets: Optional[int] = Field(default=None, ge=0, le=200)
+    duration_seconds: Optional[int] = Field(default=None, ge=0, le=43200)
+    started_at: Optional[str] = Field(default=None, max_length=40)
+    partial_reason: str = Field(default="", max_length=160)
+    discomfort: str = Field(default="none", max_length=24)
 
 
 class WorkoutSessionDraftIn(BaseModel):
     """Preenchimento parcial do treino em andamento (carga/reps por serie)."""
     day: Optional[int] = None
     inputs: Dict[str, Any] = {}
+    profile_id: Optional[str] = None
+
+
+class TrainingPreferencesIn(BaseModel):
+    split_preference: str = Field(default="", max_length=40)
+    training_method: str = Field(default="balanced_hypertrophy", max_length=40)
     profile_id: Optional[str] = None
 
 
@@ -224,8 +240,9 @@ def score_priority(profile: Dict[str, Any], muscle: str) -> int:
     return weights.get(str(manual).lower(), 2) + weakness + (3 if internal in priorities else 0)
 
 
-def choose_split(days: int, experience: str, priorities: List[str] = None) -> str:
-    return determine_split(days, experience, "Hipertrofia")
+def choose_split(days: int, experience: str, priorities: List[str] = None,
+                 preference: Optional[str] = None) -> str:
+    return determine_split(days, experience, "Hipertrofia", preference)
 
 
 async def build_program(profile: Dict[str, Any]) -> Dict[str, Any]:
@@ -336,6 +353,39 @@ async def assessment_history(profile_id: str, user=Depends(get_current_user)):
     target = owned_profile_id(user, profile_id)
     rows = await db.assessments.find({"profile_id": target}, {"_id": 0, "profile_id": 1, "captured_at": 1, "assessment_version": 1}).sort("captured_at", -1).to_list(30)
     return {"history": rows}
+
+
+@api.put("/training/preferences")
+async def update_training_preferences(payload: TrainingPreferencesIn,
+                                      user=Depends(get_current_user)):
+    """Change the algorithmic programming style without rewriting athlete history."""
+    target = owned_profile_id(user, payload.profile_id)
+    profile = await load_profile(target)
+    days = max(1, min(7, int(profile.get("days", 3))))
+    experience = profile.get("experience", "Intermediário")
+    allowed = compatible_splits(days, experience)
+    if payload.split_preference not in allowed:
+        raise HTTPException(422, "Divisão incompatível com seus dias disponíveis")
+    if payload.training_method not in TRAINING_METHOD_PROFILES:
+        raise HTTPException(422, "Método de treino inválido")
+    manual_active = bool(profile.get("custom_program", {}).get("sessions"))
+    fields = {
+        "split_preference": payload.split_preference,
+        "training_method": payload.training_method,
+    }
+    if not manual_active:
+        fields["current_session_day"] = 1
+    await db.profiles.update_one(
+        {"id": target},
+        {"$set": fields},
+        upsert=False,
+    )
+    updated = await load_profile(target)
+    return {
+        "profile": updated,
+        "program": await build_program(updated),
+        "manual_program_active": manual_active,
+    }
 
 
 @api.get("/muscle-map/{profile_id}")
@@ -682,7 +732,25 @@ async def complete_workout(payload: WorkoutCompleteIn, user=Depends(get_current_
     completed_session = next(s for s in sessions if s["day"] == completed_day)
     idx = day_values.index(completed_day)
     next_day = day_values[(idx + 1) % len(day_values)]
+    next_session = next(s for s in sessions if s["day"] == next_day)
     now = datetime.now(timezone.utc).isoformat()
+
+    completed_sets = payload.completed_sets
+    total_sets = payload.total_sets
+    if (completed_sets is not None and total_sets is not None and
+            completed_sets < total_sets and not payload.partial_reason.strip()):
+        raise HTTPException(400, "Informe por que o treino foi concluído parcialmente")
+    adherence = None
+    if completed_sets is not None and total_sets:
+        adherence = round(min(100, completed_sets / total_sets * 100))
+    summary = {
+        "completed_sets": completed_sets,
+        "total_sets": total_sets,
+        "adherence_pct": adherence,
+        "duration_seconds": payload.duration_seconds,
+        "partial_reason": payload.partial_reason.strip(),
+        "discomfort": payload.discomfort,
+    }
 
     # Only the sequence pointer changes on the profile — sets/recovery/substitutions
     # already persisted by their own endpoints are never touched here.
@@ -716,16 +784,22 @@ async def complete_workout(payload: WorkoutCompleteIn, user=Depends(get_current_
             profile = await load_profile(target)
             return {"program": await build_program(profile), "completed_day": completed_day,
                     "next_day": profile.get("current_session_day", next_day),
-                    "already_completed": True}
+                    "next_session": {"day": next_session["day"], "label": next_session.get("label")},
+                    "completed_session": {"day": completed_day, "label": completed_session.get("label")},
+                    "summary": summary, "already_completed": True}
 
     await db.workout_completions.insert_one({
         "id": str(uuid.uuid4()), "profile_id": target, "day": completed_day,
         "label": completed_session.get("label"), "completed_at": now,
+        "started_at": payload.started_at, "summary": summary,
     })
 
     profile = await load_profile(target)
     return {"program": await build_program(profile), "completed_day": completed_day,
-            "next_day": next_day, "already_completed": False}
+            "next_day": next_day,
+            "next_session": {"day": next_session["day"], "label": next_session.get("label")},
+            "completed_session": {"day": completed_day, "label": completed_session.get("label")},
+            "summary": summary, "already_completed": False}
 
 
 # Um treino em andamento so vale para a sessao do dia: um rascunho antigo (ciclo
@@ -736,7 +810,7 @@ MAX_DRAFT_ENTRIES = 400
 
 
 def _sanitize_draft_inputs(raw: Dict[str, Any]) -> Dict[str, Dict[str, str]]:
-    """So passa {chave: {weight, reps}} com texto curto: o rascunho e digitacao do
+    """So passa {chave: {weight, reps, rir}} com texto curto: o rascunho e digitacao do
     atleta, nao um documento livre."""
     limpo: Dict[str, Dict[str, str]] = {}
     for key, value in list((raw or {}).items())[:MAX_DRAFT_ENTRIES]:
@@ -745,6 +819,7 @@ def _sanitize_draft_inputs(raw: Dict[str, Any]) -> Dict[str, Dict[str, str]]:
         limpo[key[:80]] = {
             "weight": str(value.get("weight", ""))[:12],
             "reps": str(value.get("reps", ""))[:12],
+            "rir": str(value.get("rir", ""))[:4],
         }
     return limpo
 
@@ -827,7 +902,8 @@ async def preview_program(profile: Dict[str, Any], user=Depends(get_current_user
     doc.setdefault("experience", doc.get("experience", "Intermedi\u00e1rio"))
     doc.setdefault("assessment", doc.get("assessment", {}))
     program = await build_program(doc)
-    split = choose_split(doc["days"], doc.get("experience", "Intermedi\u00e1rio"), doc.get("priorities", []))
+    split = choose_split(doc["days"], doc.get("experience", "Intermedi\u00e1rio"),
+                         doc.get("priorities", []), doc.get("split_preference"))
     return {"program": program, "split": split, "preview": True, "profile_snapshot": {k: doc[k] for k in ["days", "priorities", "experience", "assessment", "session_minutes"] if k in doc}}
 
 

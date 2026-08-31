@@ -31,20 +31,36 @@ export const FALHOU = "Não foi possível concluir o treino. Tente novamente.";
  *          ou null quando o toque foi ignorado por ja haver uma conclusao em voo.
  */
 export async function completeWorkout({
-  post, api, day, completedSets, totalSets, startedAt, lock, onCompleted, now = Date.now,
+  post, api, day, completedSets, totalSets, startedAt, lock, onCompleted,
+  partialReason = "", discomfort = "none", volumeKg = 0, averageRir = null,
+  now = Date.now,
 }) {
   if (!completedSets) return { error: true, message: SEM_SERIES };
   if (lock.current) return null;
   lock.current = true;
   try {
-    const r = await post(`${api}/workout/complete`, { day });
+    const durationSeconds = Math.max(1, Math.round((now() - startedAt) / 1000));
+    const r = await post(`${api}/workout/complete`, {
+      day,
+      completed_sets: completedSets,
+      total_sets: totalSets,
+      duration_seconds: durationSeconds,
+      started_at: new Date(startedAt).toISOString(),
+      partial_reason: partialReason,
+      discomfort,
+    });
     if (onCompleted) onCompleted(r.data);
     // Trava mantida de proposito no sucesso: o botao sai da tela enquanto ela atualiza,
     // e liberar aqui reabriria a janela para um segundo toque atrasado.
     return {
       completed: completedSets,
       total: totalSets,
-      minutes: Math.max(1, Math.round((now() - startedAt) / 60000)),
+      minutes: Math.max(1, Math.round(durationSeconds / 60)),
+      volumeKg: Math.round(volumeKg),
+      averageRir,
+      nextSession: r.data?.next_session || null,
+      completedSession: r.data?.completed_session || null,
+      adherence: r.data?.summary?.adherence_pct ?? Math.round(completedSets / Math.max(1, totalSets) * 100),
     };
   } catch (e) {
     lock.current = false;

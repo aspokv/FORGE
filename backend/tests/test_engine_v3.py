@@ -5,13 +5,14 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from engine import (
     EXERCISES, EXERCISE_INDEX, EXERCISE_BY_MUSCLE, FRONTEND_EXERCISE_LIST,
-    determine_split, get_day_targets, calculate_session_capacity,
+    determine_split, compatible_splits, profile_split_preference, get_day_targets, calculate_session_capacity,
     select_exercises_for_day, build_exercise_prescription,
     calculate_weekly_volume, build_all_sessions, validate_sessions,
     count_weekly_sets_per_muscle, count_effective_sets_per_muscle,
     count_training_frequency, build_program_quality_report,
     performance_volume_factor, summarize_training_memory,
     SPLIT_FULL_BODY, SPLIT_UPPER_LOWER, SPLIT_PUSH_PULL_LEGS,
+    SPLIT_ABC, SPLIT_ABCD, SPLIT_ABCDE,
     UPPER_TARGETS, PULL_TARGETS, LEGS_TARGETS,
     _equipment_ok, _filter_candidates, advance_periodization,
     _compute_block_modifier, build_program_v2,
@@ -41,6 +42,27 @@ def test_db_calf_exists():
 
 def test_db_adductor_exists():
     assert "db-adductor-lunge" in EXERCISE_INDEX or "side-lying-adduction" in EXERCISE_INDEX
+
+
+def test_split_preference_is_applied_only_when_compatible():
+    assert determine_split(5, "Avançado", preference=SPLIT_ABCDE) == SPLIT_ABCDE
+    assert determine_split(3, "Avançado", preference=SPLIT_ABCDE) != SPLIT_ABCDE
+    assert SPLIT_ABCD in compatible_splits(4, "Intermediário")
+    assert SPLIT_ABCDE in compatible_splits(5, "Bodybuilder")
+
+
+def test_legacy_free_text_split_is_understood_without_guessing_unknown_text():
+    assert profile_split_preference({"split": "Push / Pull / Legs"}) == SPLIT_PUSH_PULL_LEGS
+    assert profile_split_preference({"split": "ABCDE"}) == SPLIT_ABCDE
+    assert profile_split_preference({"split": "meu treino antigo"}) is None
+
+
+def test_new_split_targets_cover_every_requested_day():
+    for split, days in ((SPLIT_ABC, 3), (SPLIT_ABCD, 4), (SPLIT_ABCDE, 5)):
+        rows = [get_day_targets(split, i, days) for i in range(days)]
+        assert len(rows) == days
+        assert all(label and targets for label, targets in rows)
+        assert len({label for label, _ in rows}) == days
 
 # ─── Progression tests ─────────────────────────────────────────────────
 

@@ -48,6 +48,20 @@ SPLIT_UPPER_LOWER = "upper_lower"
 SPLIT_PUSH_PULL_LEGS = "ppl"
 SPLIT_UL_PPL = "ul_ppl"
 SPLIT_UPPER_LOWER_PPL = "upper_lower_ppl"
+SPLIT_ABC = "abc"
+SPLIT_ABCD = "abcd"
+SPLIT_ABCDE = "abcde"
+
+SPLIT_LABELS = {
+    SPLIT_FULL_BODY: "Full Body",
+    SPLIT_UPPER_LOWER: "Upper / Lower",
+    SPLIT_PUSH_PULL_LEGS: "Push / Pull / Legs",
+    SPLIT_UL_PPL: "Upper / Lower + PPL",
+    SPLIT_UPPER_LOWER_PPL: "Upper / Lower + PPL",
+    SPLIT_ABC: "ABC clássico",
+    SPLIT_ABCD: "ABCD",
+    SPLIT_ABCDE: "ABCDE",
+}
 
 UPPER_TARGETS = ["mid_chest", "upper_chest", "lats", "upper_back", "front_delts", "side_delts", "rear_delts", "biceps", "triceps"]
 LOWER_TARGETS = ["quads", "hamstrings", "glutes", "adductors", "calves"]
@@ -94,6 +108,12 @@ TRAINING_METHOD_PROFILES = {
         "progression": "double_progression",
         "volume_strategy": "priority_biased",
     },
+    "progressive_volume": {
+        "label": "Volume progressivo",
+        "rir_range": "1-3",
+        "progression": "double_progression",
+        "volume_strategy": "gradual_volume_build",
+    },
 }
 
 # Tiers com enfase declarada — usados onde "priority" sozinho ja nao descreve o conjunto.
@@ -118,16 +138,60 @@ def _equipment_ok(exercise: dict, profile: dict) -> bool:
     return any(eq in ex_equip for eq in equipment)
 
 
-def determine_split(days: int, experience: str, goal: str = "Hipertrofia") -> str:
-    if days <= 0: days = 3
-    if days == 1: return SPLIT_FULL_BODY
-    if days == 2: return SPLIT_FULL_BODY
+def compatible_splits(days: int, experience: str = "Intermediário") -> List[str]:
+    """Return only divisions that fit the athlete's real weekly availability.
+
+    The athlete may express a preference, but the engine never accepts a five-day
+    division for a three-day schedule. The order is deliberate: the first option is
+    the default recommendation and the remaining options are valid trade-offs.
+    """
+    days = max(1, min(7, int(days or 3)))
+    advanced = (experience or "").lower() in ("avançado", "avancado", "bodybuilder")
+    if days == 1:
+        return [SPLIT_FULL_BODY]
+    if days == 2:
+        return [SPLIT_FULL_BODY, SPLIT_UPPER_LOWER]
     if days == 3:
-        return SPLIT_PUSH_PULL_LEGS if experience.lower() in ("avançado", "bodybuilder") else SPLIT_FULL_BODY
-    if days == 4: return SPLIT_UPPER_LOWER
+        return ([SPLIT_PUSH_PULL_LEGS, SPLIT_FULL_BODY, SPLIT_ABC]
+                if advanced else [SPLIT_FULL_BODY, SPLIT_PUSH_PULL_LEGS, SPLIT_ABC])
+    if days == 4:
+        return [SPLIT_UPPER_LOWER, SPLIT_ABCD]
     if days == 5:
-        return SPLIT_UL_PPL if experience.lower() in ("avançado", "bodybuilder") else SPLIT_UPPER_LOWER_PPL
-    if days >= 6: return SPLIT_PUSH_PULL_LEGS
+        return ([SPLIT_UL_PPL, SPLIT_ABCDE, SPLIT_UPPER_LOWER_PPL]
+                if advanced else [SPLIT_UPPER_LOWER_PPL, SPLIT_UL_PPL, SPLIT_ABCDE])
+    # Six or seven scheduled sessions use a repeated three-day structure; readiness
+    # and periodization still own volume reductions and deloads.
+    return [SPLIT_PUSH_PULL_LEGS, SPLIT_ABC]
+
+
+def determine_split(days: int, experience: str, goal: str = "Hipertrofia",
+                    preference: Optional[str] = None) -> str:
+    if days <= 0: days = 3
+    options = compatible_splits(days, experience)
+    return preference if preference in options else options[0]
+
+
+def profile_split_preference(profile: dict) -> Optional[str]:
+    """Accept the new stable id and understand the legacy free-text assessment field."""
+    explicit = str(profile.get("split_preference") or "").strip().lower()
+    if explicit in SPLIT_LABELS:
+        return explicit
+    raw = str(profile.get("split") or "").strip().lower()
+    normalized = (raw.replace("–", "-").replace("—", "-")
+                  .replace(" ", "").replace("/", ""))
+    aliases = {
+        "fullbody": SPLIT_FULL_BODY,
+        "upperlower": SPLIT_UPPER_LOWER,
+        "superiorinferior": SPLIT_UPPER_LOWER,
+        "ppl": SPLIT_PUSH_PULL_LEGS,
+        "pushpulllegs": SPLIT_PUSH_PULL_LEGS,
+        "ulppl": SPLIT_UL_PPL,
+        "upperlower+ppl": SPLIT_UL_PPL,
+        "abc": SPLIT_ABC,
+        "abcd": SPLIT_ABCD,
+        "abcde": SPLIT_ABCDE,
+    }
+    return aliases.get(normalized)
 
 
 def get_day_targets(split_type: str, day_index: int, days: int) -> Tuple[str, List[str]]:
@@ -161,6 +225,35 @@ def get_day_targets(split_type: str, day_index: int, days: int) -> Tuple[str, Li
         idx = day_index % 5
         return mapping[idx][1], list(mapping[idx][2])
 
+    if split_type == SPLIT_ABC:
+        mapping = [("A · Peito, ombros e tríceps", PUSH_TARGETS),
+                   ("B · Costas e bíceps", PULL_TARGETS),
+                   ("C · Pernas", LEGS_TARGETS)]
+        label, targets = mapping[day_index % 3]
+        cycle = day_index // 3 + 1
+        return (f"{label} {cycle}" if days >= 6 else label), list(targets)
+
+    if split_type == SPLIT_ABCD:
+        mapping = [
+            ("A · Peito e tríceps", ["mid_chest", "upper_chest", "triceps"]),
+            ("B · Costas e bíceps", ["lats", "upper_back", "rear_delts", "biceps"]),
+            ("C · Pernas", LEGS_TARGETS),
+            ("D · Ombros e braços", ["front_delts", "side_delts", "rear_delts", "biceps", "triceps"]),
+        ]
+        label, targets = mapping[day_index % 4]
+        return label, list(targets)
+
+    if split_type == SPLIT_ABCDE:
+        mapping = [
+            ("A · Peito", ["mid_chest", "upper_chest", "front_delts", "triceps"]),
+            ("B · Costas", ["lats", "upper_back", "rear_delts", "biceps"]),
+            ("C · Pernas", LEGS_TARGETS),
+            ("D · Ombros", ["front_delts", "side_delts", "rear_delts", "triceps"]),
+            ("E · Braços", ["biceps", "triceps", "side_delts"]),
+        ]
+        label, targets = mapping[day_index % 5]
+        return label, list(targets)
+
     return f"Sessão {day_index + 1}", list(UPPER_TARGETS)
 
 
@@ -183,6 +276,12 @@ def _get_day_type(split_type: str, day_index: int, days: int) -> str:
         if day_index >= 5:
             return get_day_targets(split_type, day_index, days)[0].split()[0].lower()
         return get_day_targets(split_type, day_index, days)[0].split()[0].lower()
+    if split_type == SPLIT_ABC:
+        return ["push", "pull", "legs"][day_index % 3]
+    if split_type == SPLIT_ABCD:
+        return ["push", "pull", "legs", "upper"][day_index % 4]
+    if split_type == SPLIT_ABCDE:
+        return ["push", "pull", "legs", "upper", "upper"][day_index % 5]
     return "upper"
 
 
@@ -649,12 +748,13 @@ def _apply_recovery_adjustment(set_count: int, rir: str, demand: str,
                                recovery_level: str, category: str) -> Tuple[int, str]:
     s = set_count
     r = rir
+    rir_floor = next((int(ch) for ch in str(rir) if ch.isdigit()), 2)
     if recovery_level == "LOW":
         if category == "compound":
             s = max(2, s - 1)
         elif s >= 4:
             s = s - 1
-        r = str(max(3, int(r.split("-")[0]) + 1))
+        r = str(max(3, rir_floor + 1))
     elif recovery_level == "VERY_LOW":
         s = max(1, s - 2)
         r = "3+"
@@ -671,6 +771,10 @@ def build_all_sessions(profile: dict, split_type: str, days: int,
     block_type = block_type or profile.get("periodization", {}).get("block_type", "accumulation")
     vol_mod, rir_base, override_rir = _compute_block_modifier(block_type)
     recovery_level = recovery_data.get("level", "NORMAL") if recovery_data else "NORMAL"
+    method = profile.get("training_method") or ("specialization" if priorities else "balanced_hypertrophy")
+    if method not in TRAINING_METHOD_PROFILES:
+        method = "balanced_hypertrophy"
+    method_set_factor = {"high_intensity": 0.78, "progressive_volume": 1.10}.get(method, 1.0)
 
     for day_index in range(days):
         demand = "HIGH" if day_index % 3 == 0 else ("LOW" if days >= 6 and day_index % 3 == 2 else "MODERATE")
@@ -711,10 +815,18 @@ def build_all_sessions(profile: dict, split_type: str, days: int,
             category = ex.get("category", "compound")
             scription = build_exercise_prescription(ex, profile, demand, is_priority, current_weekly)
 
-            sets = max(2, round(scription["sets"] * vol_mod))
+            sets = max(2, round(scription["sets"] * vol_mod * method_set_factor))
             rir_val = override_rir if override_rir else scription["rir"]
             if not override_rir and int(scription["rir"].split("-")[0]) > rir_base:
                 rir_val = str(int(rir_base))
+
+            # Method choice changes a bounded prescription, never the safety rules.
+            # High intensity reduces volume before it lowers RIR; progressive volume
+            # adds at most one practical set per exercise through the factor above.
+            if not override_rir and method == "high_intensity":
+                rir_val = "1" if category == "compound" else "0–1"
+            elif not override_rir and method == "progressive_volume":
+                rir_val = "2"
 
             sets, rir_val = _apply_recovery_adjustment(sets, rir_val, demand, recovery_level, category)
 
@@ -972,12 +1084,9 @@ async def build_program_v2(profile: dict, db=None) -> Dict[str, Any]:
     goal = profile.get("goal", "Hipertrofia")
     session_minutes = int(profile.get("session_minutes", 60))
 
-    split_type = determine_split(days, experience, goal)
-    split_name = {
-        SPLIT_FULL_BODY: "Full Body", SPLIT_UPPER_LOWER: "Upper / Lower",
-        SPLIT_PUSH_PULL_LEGS: "Push / Pull / Legs", SPLIT_UL_PPL: "UL + PPL",
-        SPLIT_UPPER_LOWER_PPL: "Upper / Lower + PPL",
-    }.get(split_type, split_type)
+    split_preference = profile_split_preference(profile)
+    split_type = determine_split(days, experience, goal, split_preference)
+    split_name = SPLIT_LABELS.get(split_type, split_type)
 
     recovery = profile.get("recovery", {}) or {}
     sleep = float(recovery.get("sleep_hours", 7) or 7)
@@ -1091,6 +1200,12 @@ async def build_program_v2(profile: dict, db=None) -> Dict[str, Any]:
         "progression_hints": progression_hints,
         "logic": {
             "split": split_name, "days": days,
+            "split_id": split_type,
+            "split_preference_applied": split_preference == split_type,
+            "compatible_splits": [
+                {"id": option, "label": SPLIT_LABELS.get(option, option)}
+                for option in compatible_splits(days, experience)
+            ],
             "priority_scores": {to_frontend(m): 5 for m in priorities_list},
             "recovery_modifier": volume_factor,
             "mode": profile.get("automation_mode", "FORGE_ASSISTED"),

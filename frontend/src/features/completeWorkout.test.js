@@ -28,12 +28,23 @@ describe("um toque", () => {
     await completeWorkout(base(post));
     expect(post).toHaveBeenCalledTimes(1);
     expect(post.mock.calls[0][0]).toBe("/api/workout/complete");
-    expect(post.mock.calls[0][1]).toEqual({day: 1});
+    expect(post.mock.calls[0][1]).toEqual({
+      day: 1,
+      completed_sets: 3,
+      total_sets: 4,
+      duration_seconds: 120,
+      started_at: "1970-01-01T00:00:00.000Z",
+      partial_reason: "",
+      discomfort: "none",
+    });
   });
 
   it("devolve o resumo da sessao com os minutos decorridos", async () => {
     const r = await completeWorkout(base(ok()));
-    expect(r).toEqual({completed: 3, total: 4, minutes: 2});
+    expect(r).toEqual({
+      completed: 3, total: 4, minutes: 2, volumeKg: 0, averageRir: null,
+      nextSession: null, completedSession: null, adherence: 75,
+    });
   });
 });
 
