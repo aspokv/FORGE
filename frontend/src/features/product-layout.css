@@ -5,6 +5,10 @@
 .section-intro>p.muted,.progress-hero p,.nutrition-coach-note{max-width:720px}
 .exercise-grid,.nutrition-meal-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:start}
 .exercise-grid .exercise,.nutrition-meal-grid>.meal-card{margin-top:0}
+.nutrition-meal-grid>.meal-card{display:grid;grid-template-columns:minmax(0,1fr) 150px;column-gap:14px;position:relative;padding:16px 16px 14px}
+.nutrition-meal-grid>.meal-card .meal-head{grid-column:1}
+.nutrition-meal-grid>.meal-card .food-list{grid-column:1}
+.nutrition-meal-grid>.meal-card .meal-visual{grid-column:2;grid-row:1/3;width:150px;min-height:132px}
 .exercise-grid .exercise{min-width:0}
 .exercise-grid .set-grid{padding-inline:8px;grid-template-columns:32px minmax(58px,1fr) 67px 56px 50px 38px;gap:4px}
 .exercise-grid .set-row{grid-template-columns:32px minmax(58px,1fr) 67px 56px 50px 38px;gap:4px;padding-inline:3px}
@@ -17,4 +21,4 @@
 .progress-results{grid-column:1}.progress-detail{grid-column:2;margin:0}.progress-detail .chart{height:205px}
 .progress-page>.weight-panel{grid-column:1/-1}
 @media(max-width:1050px){.exercise-grid{grid-template-columns:1fr}.progress-page{grid-template-columns:1fr}.progress-results,.progress-detail{grid-column:1}.nutrition-meal-grid{grid-template-columns:1fr}}
-@media(max-width:800px){.content,.forge-home-final,.workout-page{width:100%;max-width:430px}.exercise-grid,.nutrition-meal-grid{display:block}.exercise-grid .exercise,.nutrition-meal-grid>.meal-card{margin-top:10px}.progress-page{display:block}.progress-page>*{margin-bottom:10px}.progress-hero{padding:22px 18px}.progress-hero strong{font-size:29px}.exercise-grid .set-grid{padding-inline:7px;grid-template-columns:30px minmax(45px,1fr) 62px 50px 45px 37px}.exercise-grid .set-row{grid-template-columns:30px minmax(45px,1fr) 62px 50px 45px 37px}}
+@media(max-width:800px){.content{width:100%}.forge-home-final,.nutrition-page{width:100%;max-width:none;margin:0;padding-left:10px;padding-right:10px}.workout-page{width:100%}.exercise-grid,.nutrition-meal-grid{display:block}.exercise-grid .exercise,.nutrition-meal-grid>.meal-card{margin-top:10px}.nutrition-meal-grid>.meal-card{grid-template-columns:minmax(0,1fr) clamp(104px,28vw,132px);column-gap:12px;padding:13px}.nutrition-meal-grid>.meal-card .meal-visual{width:clamp(104px,28vw,132px);min-height:132px;align-self:start}.nutrition-meal-grid>.meal-card .meal-head h3{font-size:15px}.nutrition-meal-grid>.meal-card .food-row{padding:7px 0}.nutrition-meal-grid>.meal-card .food-row-info b{font-size:11px}.nutrition-meal-grid>.meal-card .food-row-info span{font-size:9px}.nutrition-meal-grid>.meal-card .food-sub-btn{font-size:0;width:29px;height:29px;padding:0;display:grid;place-items:center}.progress-page{display:block}.progress-page>*{margin-bottom:10px}.progress-hero{padding:22px 18px}.progress-hero strong{font-size:29px}.exercise-grid .set-grid{padding-inline:7px;grid-template-columns:30px minmax(45px,1fr) 62px 50px 45px 37px}.exercise-grid .set-row{grid-template-columns:30px minmax(45px,1fr) 62px 50px 45px 37px}}

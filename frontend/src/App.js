@@ -52,18 +52,13 @@ function Today({db,start,openCoach,openBuilder,openManual}){
   const volumeChange=previousVolume?Math.round((currentVolume-previousVolume)/previousVolume*100):null;
   const bestSet=logs.reduce((best,x)=>{const e1rm=Number(x.weight||0)*(1+Number(x.reps||0)/30);return e1rm>(best?.e1rm||0)?{...x,e1rm}:best},null);
   const bestExercise=bestSet&&(db.exercises?.find(e=>e.id===bestSet.exercise_id)?.name||"Seu melhor exercício");
-  const coachHeadline=bestSet?`${bestExercise}: ${Number(bestSet.weight||0).toLocaleString("pt-BR")} kg em ${bestSet.reps} reps. Isso é progresso com prova.`:volumeChange!=null?`Seu volume mudou ${volumeChange>=0?"+":""}${volumeChange}% nesta semana. O plano responde ao que você entrega.`:"Seu próximo dado nasce no treino de hoje — complete a primeira série e o FORGE começa a medir.";
+  const coachProof=bestSet?`${bestExercise} · ${Number(bestSet.weight||0).toLocaleString("pt-BR")} kg × ${bestSet.reps}. O próximo alvo já está sendo calculado.`:volumeChange!=null?`Seu volume mudou ${volumeChange>=0?"+":""}${volumeChange}% nesta semana. O plano já respondeu.`:"Complete a primeira série de hoje. A partir dela, nenhuma decisão será genérica.";
   const recoveryLabel={HIGH:"Alta",NORMAL:"Normal",LOW:"Baixa",VERY_LOW:"Muito baixa"}[p.logic?.recovery_level]||"Sem check-in";
   return <div className="content performance-home forge-home-final">
     <div className="forge-mobile-mast"><span>FORGE</span><Bell size={18}/></div>
-    <div className="performance-heading">
-      <div><p className="eyebrow">FORGE / PERFORMANCE OS</p><h2>Seu próximo nível começa agora.</h2></div>
-      <span className="live-pill"><i/> SISTEMA ADAPTATIVO ATIVO</span>
-    </div>
     <section className="panel signal forge-coach-hero">
-      <div className="coach-signal-head"><div className="coach-icon"><BrainCircuit size={20}/></div><p className="eyebrow">COACH IA</p></div>
-      <h3>{coachHeadline}</h3>
-      <p className="muted">{p.logic?.days||db.profile.days} sessões · {manual?"estrutura manual preservada":"carga, volume e recuperação recalibrados"}.</p>
+      <h3>Você não abriu o FORGE para continuar igual.</h3>
+      <p className="coach-proof">{coachProof}</p>
       <button className="coach-arrow"data-testid="open-coach-button"onClick={openCoach}aria-label="Falar com o Coach IA"><ChevronRight size={16}/></button>
     </section>
     <div className="today-section-label"><span><Dumbbell size={14}/> Treino de hoje</span><button onClick={start}>Ver plano <ChevronRight size={13}/></button></div>
