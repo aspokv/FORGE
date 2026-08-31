@@ -1,0 +1,1 @@
+Premium anatomy zone assets. Generated specifically for FORGE workout execution. The UI selects upper/lower/full front/back renders directly; no global color mask is applied.
