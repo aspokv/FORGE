@@ -1,0 +1,61 @@
+name: Apply Vision Loading Fix
+
+on:
+  push:
+    branches:
+      - fix/vision-loading
+    paths:
+      - .github/scripts/apply_vision_loading_fix.py
+      - .github/workflows/apply-vision-loading-fix.yml
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  patch-build-commit:
+    if: github.head_ref == 'fix/vision-loading' || github.ref_name == 'fix/vision-loading'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/vision-loading
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: yarn
+          cache-dependency-path: frontend/yarn.lock
+
+      - name: Enable Yarn
+        run: |
+          corepack enable
+          corepack prepare yarn@1.22.22 --activate
+
+      - name: Apply loading patch
+        run: python3 .github/scripts/apply_vision_loading_fix.py
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: yarn install --frozen-lockfile
+
+      - name: Build production frontend
+        working-directory: frontend
+        env:
+          CI: "false"
+        run: yarn build
+
+      - name: Commit verified fix and remove one-shot tooling
+        run: |
+          git config user.name "forge-ci"
+          git config user.email "forge-ci@users.noreply.github.com"
+          git rm .github/scripts/apply_vision_loading_fix.py .github/workflows/apply-vision-loading-fix.yml
+          git add frontend/src/App.js frontend/src/features/performance-os.css
+          git commit -m "fix(vision): add analysis loading feedback"
+          git push origin HEAD:fix/vision-loading
