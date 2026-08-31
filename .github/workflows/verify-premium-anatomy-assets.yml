@@ -1,0 +1,27 @@
+name: Verify Premium Anatomy Assets
+
+on:
+  push:
+    branches:
+      - feat/premium-anatomy-assets
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: yarn
+          cache-dependency-path: frontend/yarn.lock
+      - run: corepack enable
+      - run: yarn install --frozen-lockfile
+      - name: Test workout anatomy
+        run: CI=true yarn test --watchAll=false --runInBand MuscleSessionMap.test.js
+      - name: Build production frontend
+        run: CI=false yarn build
