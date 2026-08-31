@@ -1,5 +1,6 @@
 import "./muscle-session-map.css";
 import "./workout-premium.css";
+import "./anatomy-hotfix.css";
 
 const ALIASES={
   "peitoral superior":"upper_chest","upper chest":"upper_chest",upper_chest:"upper_chest",

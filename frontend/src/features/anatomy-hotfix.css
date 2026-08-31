@@ -1,0 +1,33 @@
+/* Fix red rectangle: tint a duplicate of the neutral anatomy image instead of masking a solid color with an opaque-background WebP. */
+.premium-anatomy__tone{
+  position:absolute;
+  z-index:2;
+  width:116px;
+  height:138px;
+  left:50%;
+  top:7px;
+  transform:translateX(-50%);
+  pointer-events:none;
+  background-color:transparent;
+  background-image:var(--anatomy-mask);
+  background-repeat:no-repeat;
+  background-position:center top;
+  background-size:116px auto;
+  -webkit-mask-image:none;
+  mask-image:none;
+  mix-blend-mode:normal;
+  opacity:.9;
+  filter:sepia(1) saturate(6.6) hue-rotate(326deg) brightness(1.13) contrast(1.08) drop-shadow(0 0 7px rgba(231,94,63,.18));
+}
+.premium-anatomy--upper .premium-anatomy__tone{clip-path:inset(0 0 32% 0)}
+.premium-anatomy--lower .premium-anatomy__tone{clip-path:inset(57% 0 0 0)}
+.premium-anatomy--full .premium-anatomy__tone{clip-path:inset(0)}
+.premium-anatomy>img{
+  filter:grayscale(1) contrast(1.08) brightness(.86) drop-shadow(0 11px 13px rgba(0,0,0,.54));
+}
+@media(max-width:720px){
+  .premium-anatomy__tone{width:108px;height:130px;background-size:108px auto}
+}
+@media(max-width:390px){
+  .premium-anatomy__tone{width:101px;background-size:101px auto}
+}
