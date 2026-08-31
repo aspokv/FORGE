@@ -23,5 +23,6 @@ USER forge
 
 EXPOSE 8000
 
-# server.py exige MONGO_URL e DB_NAME no import; sem eles o container morre no boot.
-CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*"]
+# runtime_server instala as regras estruturais do Training Engine antes de server.py
+# importar os simbolos do modulo engine. server.py exige MONGO_URL e DB_NAME no import.
+CMD ["uvicorn", "runtime_server:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*"]
