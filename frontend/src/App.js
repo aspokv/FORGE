@@ -50,6 +50,7 @@ function Today({db,analytics,report,start,openCoach,openBuilder,openManual}){
   const duration=activeSession?.duration||p.duration||`${Math.max(35,Math.round(plannedSets*3.4))} min`;
   const focus=activeSession?.focus||p.focus||[],sessionName=activeSession?.label||p.session||"Treino de hoje";
   const logs=db.recent_sets||[];
+  const recoveryLabel={HIGH:"Alta",NORMAL:"Boa",LOW:"Baixa",VERY_LOW:"Muito baixa"}[p.logic?.recovery_level]||"Sem check-in";
   const recoveryAction={HIGH:"Aproveite a prontidão: execute as progressões previstas.",NORMAL:"Siga a prescrição e preserve o RIR planejado.",LOW:"Mantenha carga e priorize execução limpa.",VERY_LOW:"Reduza a ambição de carga e proteja a técnica."}[p.logic?.recovery_level]||"Faça o check-in para o plano ajustar a sessão.";
   const hour=new Date().getHours(),greeting=hour<12?"Bom dia":hour<18?"Boa tarde":"Boa noite",firstName=(db.profile?.name||"Atleta").split(" ")[0];
   const briefing=p.logic?.recovery_level==="VERY_LOW"?`Hoje, vencer é treinar com inteligência. ${recoveryAction}`:`${sessionName} está pronto. ${recoveryAction}`;
@@ -60,17 +61,20 @@ function Today({db,analytics,report,start,openCoach,openBuilder,openManual}){
   const remainingCalories=Math.max(0,targetCalories-consumedCalories),nutritionProgress=targetCalories?Math.min(100,Math.round(consumedCalories/targetCalories*100)):0;
   return <div className="content performance-home forge-home-final decision-home">
     <div className="forge-mobile-mast"><span>FORGE</span><Bell size={18}/></div>
-    <header className="daily-context"><p>{greeting}, {firstName}.</p><h2>Hoje é dia de evoluir {focus.length?focus.slice(0,2).join(" e ").toLowerCase():"com precisão"}.</h2><span>{p.week||"Seu ciclo atual"} · sessão {p.active_day||1} de {p.sessions?.length||db.profile?.days||1}</span></header>
-    <section className="panel daily-briefing"data-testid="daily-briefing"><div><span className="decision-kicker">Direção de hoje</span><h3>{briefing}</h3><p>O FORGE cruzou seu plano, histórico e recuperação para definir o próximo passo.</p></div><button className="text-button ask-forge"data-testid="open-coach-button"onClick={openCoach}>Perguntar ao Forge <ChevronRight size={14}/></button></section>
-    <section className="panel decision-workout"data-testid="today-workout-card">
-      <div className="decision-workout-top"><div><span className="decision-kicker">Seu treino agora</span><h3>{sessionName}</h3><p>{focus.join(" · ")||"Foco definido pelo seu programa"}</p></div><div className="workout-time"><TimerReset size={18}/><b>{duration}</b><span>estimados</span></div></div>
-      <div className="workout-facts"><span><b>{plannedSets||"—"}</b> séries</span><span><b>{exercises.length||"—"}</b> exercícios</span><span><b>{activeSession?.demand||"Planejada"}</b> intensidade</span></div>
-      <button className="primary-button decision-start"data-testid="start-workout-button"onClick={start}>Iniciar treino <ChevronRight size={18}/></button>
-      <button className="exercise-disclosure"onClick={()=>setShowExercises(x=>!x)}aria-expanded={showExercises}>{showExercises?"Ocultar exercícios":`Ver exercícios (${exercises.length})`} <ChevronRight size={14}/></button>
+    <header className="daily-context premium-context"><h2>{greeting}, {firstName}.</h2><span>{p.week||"Seu ciclo atual"} · {db.profile?.goal||"Performance"} · sessão {p.active_day||1} de {p.sessions?.length||db.profile?.days||1}</span></header>
+    <section className="panel daily-briefing premium-command"data-testid="daily-briefing">
+      <div className="command-copy"><span className="decision-kicker">Direção de hoje</span><h3>{briefing}</h3><button className="text-button ask-forge"data-testid="open-coach-button"onClick={openCoach}>Entender esta decisão <ChevronRight size={14}/></button></div>
+      <div className="command-metrics"><div><Activity size={18}/><b>{recoveryLabel}</b><span>recuperação</span></div><div><Dumbbell size={18}/><b>{plannedSets||"—"}</b><span>séries</span></div><div><TimerReset size={18}/><b>{duration}</b><span>estimados</span></div></div>
+      <button className="primary-button command-start"data-testid="start-workout-button"onClick={start}>Começar treino <ChevronRight size={19}/></button>
+    </section>
+    <section className="panel compact-workout"data-testid="today-workout-card">
+      <div className="compact-workout-head"><span className="workout-orbit"><Dumbbell size={24}/></span><div><span className="decision-kicker">Treino de hoje</span><h3>{sessionName}</h3><p>{focus.join(" · ")||"Foco definido pelo seu programa"}</p></div></div>
+      <div className="exercise-peek">{preview.slice(0,3).map((x,i)=><span key={x.exercise_id||i}><b>{i+1}</b>{x.name}</span>)}</div>
+      <button className="exercise-disclosure compact-disclosure"onClick={()=>setShowExercises(x=>!x)}aria-expanded={showExercises}>{showExercises?"Ocultar lista":`Ver ${exercises.length} exercícios`} <ChevronRight size={14}/></button>
       {showExercises&&<div className="decision-exercises">{preview.map((x,i)=><div key={x.exercise_id||i}><span>{String(i+1).padStart(2,"0")}</span><div><b>{x.name}</b><small>{x.sets} × {x.reps} · RIR {x.rir}</small></div></div>)}</div>}
     </section>
     <section className="panel home-nutrition nutrition-progress-card"data-testid="home-nutrition-progress"><div className="nutrition-progress-copy"><span className="decision-kicker">Nutrição hoje</span><h3>{nutritionReady?`${Math.round(consumedCalories).toLocaleString("pt-BR")} de ${Math.round(targetCalories).toLocaleString("pt-BR")} kcal`:"Seu plano alimentar, no mesmo sistema."}</h3><p>{nutritionReady?`${completedMeals.size} de ${nutrition?.meals?.length||0} refeições concluídas · faltam ${Math.round(remainingCalories).toLocaleString("pt-BR")} kcal`:"Abra Nutrição para gerar ou revisar suas metas."}</p><div className="nutrition-progress-track"><i style={{width:`${nutritionProgress}%`}}/></div><small>{nutritionReady?`${nutritionProgress}% do plano de hoje · meta de ${Math.round(targetProtein)}g de proteína`:"Aguardando seu plano"}</small></div><div className="nutrition-progress-ring"style={{"--nutrition-progress":`${nutritionProgress*3.6}deg`}}><span>{nutritionProgress}<small>%</small></span><em>consumido</em></div></section>
-    <section className="daily-insight"><Trophy size={17}/><div><span>Leitura do Forge</span><b>{logs.length?`${logs.length} séries recentes já refinam suas próximas decisões.`:"Seu primeiro treino transforma o plano em sistema adaptativo."}</b></div></section>
+    <section className="daily-insight next-milestone"><span className="milestone-icon"><Trophy size={18}/></span><div><span>Próximo marco</span><b>{logs.length?`Complete a sessão de hoje para consolidar ${logs.length+plannedSets} séries no histórico recente.`:"Seu primeiro treino transforma o plano em sistema adaptativo."}</b></div><ChevronRight size={18}/></section>
     <div className="forge-home-tools"><button className="text-button"data-testid="open-builder-today"onClick={openBuilder}><Sliders size={13}/> {manual?"Editar programa":"Program Builder"}</button><button className="text-button"data-testid="open-manual-today"onClick={openManual}><FileUp size={13}/> Estrutura manual</button></div>
   </div>
 }
@@ -255,11 +259,11 @@ function Progress({analytics,profileId}){
   const points=(analytics.trend||[]).filter(x=>Number(x.load)>0);
   const trendChange=points.length>1&&Number(points[0].load)>0?((Number(points.at(-1).load)-Number(points[0].load))/Number(points[0].load)*100):null;
   const results=(analytics.prs||[]).filter(p=>Number(p.weight??String(p.value||"").replace(",",".").match(/[\d.]+/)?.[0])>0);
-  const heroValue=trendChange==null?"Seu histórico começa no próximo treino":`${trendChange>=0?"+":""}${trendChange.toFixed(1).replace(".",",")}% de carga`;
-  const heroCopy=trendChange==null?"Registre séries com carga para o FORGE mostrar uma evolução real, sem preencher o painel com zeros.":"Comparação das últimas quatro semanas com registros válidos.";
+  const heroValue=trendChange==null?(results.length?`${results.length} marcas consolidadas`:"Primeira linha de base criada"):`${trendChange>=0?"+":""}${trendChange.toFixed(1).replace(".",",")}% de carga`;
+  const heroCopy=trendChange==null?(results.length?"Seus melhores resultados já estão organizados. A tendência aparece após a próxima semana comparável.":"A próxima sessão começa a transformar execução em tendência."):"Comparação das últimas quatro semanas com registros válidos.";
   const stimulus=(analytics.volume||[]).filter(x=>x.name!=="Sem dados"&&Number(x.value)>0).slice(0,8);
   const calendar=analytics.adherence_calendar||[],trainedDays=calendar.filter(x=>x.trained).length;
-  const recoveryLoad=(analytics.recovery_load||[]).filter(x=>x.readiness!=null||x.sets>0);
+  const weeklyExecution=[0,1,2,3].map(i=>calendar.slice(i*7,i*7+7).filter(x=>x.trained).length);
   const bodyTrend=analytics.body_trend||[],milestones=analytics.milestones||[];
   return <div className="content progress-page">
     <div className="section-intro"><p className="eyebrow">PROGRESSO</p><h2>Onde você mais evoluiu.</h2><p className="muted">Resultados claros primeiro; detalhes técnicos quando você quiser aprofundar.</p></div>
@@ -269,16 +273,15 @@ function Progress({analytics,profileId}){
       {results.length?results.map(p=>{const delta=Number(p.delta_weight)||0;return <div className="pr-row"key={p.exercise}><div className="pr-icon"><Trophy size={16}/></div><div><b>{p.exercise}</b><p className="muted">{delta>0?`${Number(p.weight).toLocaleString("pt-BR")} kg · +${delta.toLocaleString("pt-BR")} kg desde o início`:`${p.value} · melhor série registrada`}</p></div><strong>{delta>0?`+${delta.toLocaleString("pt-BR")} kg`:p.value}</strong></div>})
         :<p className="muted"data-testid="prs-empty-state">Complete séries com carga para ver seus melhores resultados aqui.</p>}
     </section>
-    <section className="panel chart-panel progress-detail">
+    {points.length>1&&<section className="panel chart-panel progress-detail">
       <div className="panel-top"><div><p className="eyebrow">DETALHE DAS ÚLTIMAS 4 SEMANAS</p><h3>{trendChange==null?"Aguardando dados":`${trendChange>=0?"+":""}${trendChange.toFixed(1).replace(".",",")}%`} <span className="trend">carga média</span></h3></div><LineChart size={21}/></div>
-      {points.length?<div className="chart"><div className="chart-line">{points.map((p,i)=><div key={p.week}style={{height:`${Math.max(24,Math.min(100,35+i*17))}%`}}><b>{p.load}</b><span>{p.week}</span></div>)}</div></div>
-        :<p className="muted"style={{marginTop:12}}>O gráfico aparece quando houver registros válidos de carga.</p>}
-    </section>
+      <div className="chart"><div className="chart-line">{points.map((p,i)=><div key={p.week}style={{height:`${Math.max(24,Math.min(100,35+i*17))}%`}}><b>{p.load}</b><span>{p.week}</span></div>)}</div></div>
+    </section>}
     <div className="progress-intelligence">
       <section className="panel stimulus-map"><div className="panel-top"><div><p className="eyebrow">MAPA DE ESTÍMULO</p><h3>Onde o treino está concentrado.</h3></div><Activity size={19}/></div>{stimulus.length?<div className="stimulus-grid">{stimulus.map(x=><div key={x.name}><span>{x.name}</span><div><i style={{width:`${Math.min(100,Math.round(x.value/Math.max(1,...stimulus.map(y=>y.value))*100))}%`}}/></div><b>{x.value} séries</b></div>)}</div>:<p className="muted">O mapa aparece depois das primeiras séries concluídas.</p>}</section>
       <section className="panel adherence-map"><p className="eyebrow">CONSISTÊNCIA · 28 DIAS</p><h3>{trainedDays?`${trainedDays} dias com treino registrado.`:"Sua sequência começa no próximo treino."}</h3><div className="calendar-dots"aria-label="Calendário de aderência">{calendar.map(x=><i key={x.date}className={x.trained?"trained":""}title={x.date}/>)}</div><small>Cada ponto aceso representa um dia com execução real.</small></section>
     </div>
-    {recoveryLoad.length>0&&<section className="panel recovery-load"><div className="panel-top"><div><p className="eyebrow">RECUPERAÇÃO × CARGA</p><h3>Quando apertar — e quando preservar.</h3></div><TrendingUp size={19}/></div><div className="recovery-load-bars">{recoveryLoad.map(x=><div key={x.date}title={`${x.date}: ${x.sets} séries${x.readiness?` · prontidão ${x.readiness}/5`:""}`}><i style={{height:`${Math.max(4,Math.min(100,x.sets*7))}%`}}/><b style={{bottom:`${Math.max(4,Math.min(88,(x.readiness||0)*17))}%`}}/></div>)}</div><div className="chart-legend"><span><i/> séries</span><span><b/> prontidão</span></div></section>}
+    <section className="panel execution-rhythm"><div className="execution-copy"><p className="eyebrow">RITMO DE EXECUÇÃO</p><h3>{trainedDays?`${trainedDays} dias transformaram plano em resultado.`:"Seu ritmo começa na primeira sessão."}</h3><p>As barras mostram presença real por semana — a métrica que sustenta força, volume e composição corporal.</p></div><div className="weekly-rhythm">{weeklyExecution.map((value,i)=><div key={i}><span><i style={{height:`${Math.max(8,value/7*100)}%`}}/></span><b>S{i+1}</b><em>{value}/7</em></div>)}</div></section>
     {bodyTrend.length>1&&<section className="panel body-trend"><p className="eyebrow">TENDÊNCIA CORPORAL</p><h3>{Number(bodyTrend.at(-1).weight).toLocaleString("pt-BR")} kg <span>{Number(bodyTrend.at(-1).weight)-Number(bodyTrend[0].weight)>=0?"+":""}{(Number(bodyTrend.at(-1).weight)-Number(bodyTrend[0].weight)).toFixed(1).replace(".",",")} kg no período</span></h3><div className="body-sparkline">{bodyTrend.slice(-16).map((x,i,arr)=><i key={`${x.date}-${i}`}style={{height:`${25+((Number(x.weight)-Math.min(...arr.map(y=>Number(y.weight))))/Math.max(1,Math.max(...arr.map(y=>Number(y.weight)))-Math.min(...arr.map(y=>Number(y.weight)))))*70}%`}}/>)}</div></section>}
     {milestones.length>0&&<section className="panel milestone-line"><p className="eyebrow">MARCOS</p>{milestones.map(x=><div key={`${x.date}-${x.title}`}><Trophy size={14}/><span>{x.date}</span><b>{x.title}</b><em>{x.detail}</em></div>)}</section>}
     <WeightTracker profileId={profileId}/>
