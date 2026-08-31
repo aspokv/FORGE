@@ -1,4 +1,4 @@
-﻿from dotenv import load_dotenv
+from dotenv import load_dotenv
 from pathlib import Path
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
@@ -526,12 +526,15 @@ async def analyze_physique(image_bytes: bytes, mime_type: str, views: list) -> d
     key = os.environ.get("GEMINI_API_KEY", "").strip()
     if not key:
         return {"status": "unavailable", "message": "GEMINI_API_KEY n\u00e3o configurada."}
+    # Vision model is configurable so a provider retirement does not require another
+    # emergency code change. The default tracks Google's current stable multimodal Flash.
+    model = os.environ.get("GEMINI_VISION_MODEL", "gemini-3.7-flash").strip() or "gemini-3.7-flash"
     client = google_genai.Client(api_key=key)
     parts = [FORGE_MUSCLE_PROMPT]
     parts.append(google_genai.types.Part.from_bytes(data=image_bytes, mime_type=mime_type or "image/jpeg"))
     try:
         response = client.models.generate_content(
-            model="gemini-2.0-flash",
+            model=model,
             contents=parts,
             config=google_genai.types.GenerateContentConfig(
                 temperature=0.2,
@@ -546,7 +549,7 @@ async def analyze_physique(image_bytes: bytes, mime_type: str, views: list) -> d
             if m not in result.get("observations", {}):
                 result.setdefault("observations", {})[m] = {"development": "proporcional", "confidence": "baixa"}
         result["status"] = "completed"
-        result["model"] = "gemini-2.0-flash"
+        result["model"] = model
         result["views_analyzed"] = views
         return result
     except Exception as e:
