@@ -22,7 +22,7 @@ import pytest
 from nutrition_engine import (
     FOOD_INDEX, FOODS_BY_ROLE, _allergy_key, _daily_kcal_ok, _food_macros, _infer_meal_type,
     _role_of_food, _substitution_candidates, calculate_meal_portions, compute_macro_targets,
-    find_substitutes, generate_daily_plan, portion_for_equivalence, sum_plan_totals,
+    build_food_item, find_substitutes, generate_daily_plan, portion_for_equivalence, sum_plan_totals,
 )
 
 BASE = {"weight_kg": 85, "height_cm": 178, "age": 30, "sex": "male", "goal": "fat_loss",
@@ -140,6 +140,47 @@ def test_tilapia_oferece_alternativas_reais_de_proteina():
     assert opts, "tilapia ficou sem opcao — era exatamente o relato"
     ids = {o[0] for o in opts}
     assert ids & CARNES_E_PEIXES, f"nenhuma carne/peixe entre {ids}"
+
+
+def test_tilapia_onivoro_nunca_oferece_tofu_e_prioriza_frango_e_carne():
+    opts = opcoes_de("tilapia", maximo=12)
+    ids = {o[0] for o in opts}
+    assert "tofu" not in ids
+    assert "soy-protein" not in ids
+    assert "chicken-breast" in ids
+    assert ids & {"beef-grill", "beef-ground"}
+
+
+def test_azeite_e_sempre_fracionado_em_cinco_gramas():
+    assert build_food_item("olive-oil", 7)["grams"] == 5
+    assert build_food_item("olive-oil", 13)["grams"] == 15
+
+
+def test_plano_expoe_acompanhamento_e_hidratacao_personalizada():
+    _targets, generated = plano()
+    guidance = generated["coach_guidance"]
+    assert 2.0 <= guidance["hydration_target_l"] <= 5.0
+    assert "jejum" in guidance["weekly_weigh_in"].lower()
+    assert "fotos" in guidance["progress_photos"].lower()
+    assert generated["quality_gate"]["authority"] == "FORGE deterministic nutrition engine"
+
+
+def test_carne_vermelha_compensa_azeite_em_vez_de_duplicar_gordura():
+    portions = calculate_meal_portions(
+        ["beef-grill", "potato", "pumpkin", "olive-oil", "broccoli"],
+        target_cal=514, target_protein=56, target_fat=21, goal="fat_loss")
+    assert portions["beef-grill"] >= 150
+    assert portions["olive-oil"] <= 10
+
+
+def test_seis_refeicoes_incluem_lanche_jantar_e_ceia_reais():
+    t = compute_macro_targets(BASE["weight_kg"], BASE["height_cm"], BASE["age"],
+                              BASE["sex"], BASE["training_days"], BASE["goal"])
+    generated = generate_daily_plan(t, {**BASE, "meal_count": 6}, 6, BASE["goal"], 4)
+    names = [meal["name"] for meal in generated["meals"]]
+    assert "Lanche da tarde" in names
+    assert "Jantar" in names
+    assert "Ceia" in names
 
 
 def test_whey_aparece_quando_permitido():

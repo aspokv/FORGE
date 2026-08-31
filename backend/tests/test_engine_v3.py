@@ -8,7 +8,9 @@ from engine import (
     determine_split, get_day_targets, calculate_session_capacity,
     select_exercises_for_day, build_exercise_prescription,
     calculate_weekly_volume, build_all_sessions, validate_sessions,
-    count_weekly_sets_per_muscle,
+    count_weekly_sets_per_muscle, count_effective_sets_per_muscle,
+    count_training_frequency, build_program_quality_report,
+    performance_volume_factor, summarize_training_memory,
     SPLIT_FULL_BODY, SPLIT_UPPER_LOWER, SPLIT_PUSH_PULL_LEGS,
     UPPER_TARGETS, PULL_TARGETS, LEGS_TARGETS,
     _equipment_ok, _filter_candidates, advance_periodization,
@@ -192,3 +194,48 @@ def test_schema_fields_still_present():
         for e in s["exercises"]:
             for key in ("exercise_id","sets","reps","rir","rest","load","technique","technique_id"):
                 assert key in e, f"Missing {key}"
+
+
+def test_quality_gate_counts_indirect_work_without_inflating_direct_volume():
+    sessions = [{"day": 1, "label": "Push", "exercises": [
+        {"exercise_id": "bb-bench-press", "sets": 4},
+    ]}]
+    direct = count_weekly_sets_per_muscle(sessions)
+    effective = count_effective_sets_per_muscle(sessions)
+    assert direct["mid_chest"] == 4
+    assert effective["mid_chest"] == 4
+    assert any(v == 2 for k, v in effective.items() if k != "mid_chest")
+
+
+def test_algorithmic_program_exposes_professional_quality_gate():
+    profile = {"id": "quality", "experience": "Avançado", "days": 4,
+               "session_minutes": 75, "equipment": ["Academia completa"],
+               "priorities": ["Peitoral superior"], "assessment": {}}
+    split = determine_split(profile["days"], profile["experience"])
+    sessions = build_all_sessions(profile, split, 4, 75)
+    report = build_program_quality_report(sessions, profile, split, 4, 75)
+    assert 0 <= report["score"] <= 100
+    assert report["authority"] == "FORGE deterministic training engine"
+    assert report["method_profile"]["id"] == "specialization"
+    assert report["weekly_effective_sets"]
+    assert report["frequency"]
+
+
+def test_training_memory_is_factual_and_does_not_invent_history():
+    assert summarize_training_memory([])["signal"] == "insufficient_history"
+    rows = [{"exercise_id": "bb-squat", "rir": 1, "weight": 100,
+             "reps": 8, "created_at": "2026-08-30T10:00:00+00:00"}]
+    memory = summarize_training_memory(rows)
+    assert memory["logged_sets"] == 1
+    assert memory["exercises"] == 1
+    assert memory["average_rir"] == 1.0
+
+
+def test_volume_factor_compares_each_exercise_only_with_itself():
+    rows = []
+    for i in range(6):
+        rows.append({"exercise_id": "bb-squat", "weight": 100, "reps": 8,
+                     "created_at": "2026-08-30T10:00:00+00:00"})
+        rows.append({"exercise_id": "lateral-raise", "weight": 10, "reps": 15,
+                     "created_at": "2026-08-20T10:00:00+00:00"})
+    assert performance_volume_factor(rows) == 1.0

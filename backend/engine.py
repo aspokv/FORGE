@@ -71,6 +71,31 @@ VOLUME_TIERS = {
     "priority": {"min_sets": 10, "target_sets": 14, "max_sets": 20},
 }
 
+# Public, evidence-oriented programming styles. These are method families, not copied
+# personalities or proprietary programs from individual coaches. The deterministic
+# engine remains the authority; the LLM may explain the result but cannot bypass this
+# contract.
+TRAINING_METHOD_PROFILES = {
+    "balanced_hypertrophy": {
+        "label": "Hipertrofia equilibrada",
+        "rir_range": "1-3",
+        "progression": "double_progression",
+        "volume_strategy": "minimum_effective_to_recoverable",
+    },
+    "high_intensity": {
+        "label": "Alta intensidade e volume controlado",
+        "rir_range": "0-2",
+        "progression": "double_progression",
+        "volume_strategy": "lower_volume_high_effort",
+    },
+    "specialization": {
+        "label": "Especializacao de prioridades",
+        "rir_range": "1-3",
+        "progression": "double_progression",
+        "volume_strategy": "priority_biased",
+    },
+}
+
 # Tiers com enfase declarada — usados onde "priority" sozinho ja nao descreve o conjunto.
 PRIORITY_TIERS = ("priority", "priority_secondary")
 
@@ -420,6 +445,98 @@ def count_weekly_sets_per_muscle(sessions: List[Dict[str, Any]]) -> Dict[str, in
     return counts
 
 
+def count_effective_sets_per_muscle(sessions: List[Dict[str, Any]]) -> Dict[str, float]:
+    """Direct sets count 1.0 and secondary work counts 0.5.
+
+    This is intentionally a planning estimate, not a claim that every indirect set is
+    biologically identical. It prevents the quality gate from prescribing redundant
+    front-delt/triceps work after presses or biceps work after every pull just to make a
+    raw direct-set counter look larger.
+    """
+    counts: Dict[str, float] = {}
+    for session in sessions:
+        for item in session.get("exercises", []):
+            ex = EXERCISE_INDEX.get(item.get("exercise_id", ""))
+            if not ex:
+                continue
+            sets = max(0, int(item.get("sets", 0)))
+            primary = ex.get("primary_muscle")
+            if primary:
+                counts[primary] = counts.get(primary, 0.0) + sets
+            for secondary in ex.get("secondary_muscles", []):
+                counts[secondary] = counts.get(secondary, 0.0) + sets * 0.5
+    return {muscle: round(value, 1) for muscle, value in counts.items()}
+
+
+def count_training_frequency(sessions: List[Dict[str, Any]]) -> Dict[str, int]:
+    frequency: Dict[str, int] = {}
+    for session in sessions:
+        touched = set()
+        for item in session.get("exercises", []):
+            ex = EXERCISE_INDEX.get(item.get("exercise_id", ""))
+            if not ex:
+                continue
+            touched.add(ex.get("primary_muscle"))
+            touched.update(ex.get("secondary_muscles", []))
+        for muscle in touched - {None}:
+            frequency[muscle] = frequency.get(muscle, 0) + 1
+    return frequency
+
+
+def build_program_quality_report(sessions: List[Dict[str, Any]], profile: dict,
+                                 split_type: str, days: int,
+                                 session_minutes: int) -> Dict[str, Any]:
+    """Deterministic final gate shared by every algorithmic plan.
+
+    The score rewards recoverable target coverage and frequency. It does not reward
+    adding sets forever: session density and excessive volume lower the score.
+    """
+    direct = count_weekly_sets_per_muscle(sessions)
+    effective = count_effective_sets_per_muscle(sessions)
+    frequency = count_training_frequency(sessions)
+    targets = calculate_weekly_volume(profile, split_type, days)
+    priorities = set(get_profile_priorities_internal(profile))
+    warnings = validate_sessions(sessions, profile, split_type, days, session_minutes)
+
+    evaluated = [m for m in ALL_MUSCLE_IDS if m not in OPTIONAL_MUSCLES and effective.get(m, 0) > 0]
+    coverage = []
+    for muscle in evaluated:
+        plan = targets[muscle]
+        minimum = plan["min_sets"]
+        actual = effective.get(muscle, 0)
+        coverage.append(min(1.0, actual / max(1, minimum)))
+
+    score = 100.0
+    if coverage:
+        score -= (1 - sum(coverage) / len(coverage)) * 45
+    score -= min(25, 7 * len([w for w in warnings if "[ERROR]" in w]))
+    score -= min(15, 2 * len([w for w in warnings if "Excessive volume" in w]))
+    if days >= 4:
+        priority_low_freq = [m for m in priorities if frequency.get(m, 0) < 2]
+        score -= 6 * len(priority_low_freq)
+    else:
+        priority_low_freq = []
+
+    total_sets = sum(direct.values())
+    per_session = round(total_sets / max(1, len(sessions)), 1)
+    style_id = profile.get("training_method") or ("specialization" if priorities else "balanced_hypertrophy")
+    if style_id not in TRAINING_METHOD_PROFILES:
+        style_id = "balanced_hypertrophy"
+    return {
+        "score": round(max(0, min(100, score))),
+        "status": "approved" if score >= 80 and not any("[ERROR]" in w for w in warnings) else "review",
+        "method_profile": {"id": style_id, **TRAINING_METHOD_PROFILES[style_id]},
+        "weekly_direct_sets": direct,
+        "weekly_effective_sets": effective,
+        "frequency": frequency,
+        "total_weekly_sets": total_sets,
+        "average_sets_per_session": per_session,
+        "priority_frequency_flags": [to_frontend(m) for m in priority_low_freq],
+        "warnings": warnings,
+        "authority": "FORGE deterministic training engine",
+    }
+
+
 # ─── PERIODIZATION ─────────────────────────────────────────────────────
 
 BLOCK_TYPES = ["accumulation", "progression", "intensification", "deload"]
@@ -739,6 +856,72 @@ def _resolve_active_day(sessions: List[Dict[str, Any]], profile: dict) -> Option
     return current if current in day_values else day_values[0]
 
 
+def summarize_training_memory(recent_sets: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Compact athlete memory derived only from logged performance.
+
+    It is deliberately factual: no fabricated coach persona and no invented history.
+    The summary is safe to expose to the Coach LLM and to future deterministic rules.
+    """
+    if not recent_sets:
+        return {"logged_sets": 0, "exercises": 0, "average_rir": None,
+                "signal": "insufficient_history"}
+    valid_rir = []
+    exercise_ids = set()
+    for row in recent_sets:
+        if row.get("exercise_id"):
+            exercise_ids.add(row["exercise_id"])
+        try:
+            valid_rir.append(float(row.get("rir")))
+        except (TypeError, ValueError):
+            pass
+    avg_rir = round(sum(valid_rir) / len(valid_rir), 1) if valid_rir else None
+    if len(recent_sets) < 12:
+        signal = "building_baseline"
+    elif avg_rir is not None and avg_rir < 0.5:
+        signal = "effort_above_target"
+    else:
+        signal = "usable_history"
+    return {"logged_sets": len(recent_sets), "exercises": len(exercise_ids),
+            "average_rir": avg_rir, "signal": signal}
+
+
+def performance_volume_factor(recent_sets: List[Dict[str, Any]]) -> float:
+    """Conservative fatigue signal using within-exercise performance only.
+
+    The old implementation averaged kilograms from unrelated exercises, so changing
+    from squat to lateral raise could look like a catastrophic strength loss. Here each
+    exercise is compared only with itself using an estimated-rep-max proxy.
+    """
+    if len(recent_sets) < 12:
+        return 1.0
+    cutoff = (dt_mod.now(timezone.utc) - timedelta(days=7)).strftime("%Y-%m-%d")
+    by_exercise: Dict[str, Dict[str, List[float]]] = {}
+    for row in recent_sets:
+        eid = row.get("exercise_id")
+        if not eid:
+            continue
+        try:
+            weight = float(row.get("weight", 0))
+            reps = int(row.get("reps", 0))
+        except (TypeError, ValueError):
+            continue
+        if weight <= 0 or reps <= 0:
+            continue
+        bucket = "recent" if str(row.get("created_at", ""))[:10] >= cutoff else "older"
+        by_exercise.setdefault(eid, {"recent": [], "older": []})[bucket].append(
+            weight * (1 + reps / 30.0))
+    regressions = progressions = 0
+    for values in by_exercise.values():
+        if not values["recent"] or not values["older"]:
+            continue
+        ratio = max(values["recent"]) / max(values["older"])
+        if ratio < 0.92:
+            regressions += 1
+        elif ratio > 1.02:
+            progressions += 1
+    return 0.90 if regressions >= 2 and regressions > progressions else 1.0
+
+
 async def build_program_v2(profile: dict, db=None) -> Dict[str, Any]:
     if profile.get("onboarding_required") is True and _is_empty_profile(profile):
         return {
@@ -804,13 +987,7 @@ async def build_program_v2(profile: dict, db=None) -> Dict[str, Any]:
     recent_sets = []
     if pid and db is not None:
         recent_sets = await db.set_logs.find({"profile_id": pid}).sort("created_at", -1).to_list(100)
-        if len(recent_sets) >= 10:
-            wk_ago = (dt_mod.now(timezone.utc) - timedelta(days=7)).strftime("%Y-%m-%d")
-            this_week = [float(s.get("weight", 0)) for s in recent_sets if s["created_at"][:10] >= wk_ago]
-            last_week = [float(s.get("weight", 0)) for s in recent_sets if s["created_at"][:10] < wk_ago]
-            if this_week and last_week:
-                if (sum(this_week)/len(this_week)) < (sum(last_week)/max(1,len(last_week))) * 0.88:
-                    volume_factor = min(volume_factor, 0.70)
+        volume_factor = min(volume_factor, performance_volume_factor(recent_sets))
 
     # advance_periodization() steps the block forward by exactly one real week per
     # call (see test_perio_initial_state) — it must NOT be called once per bootstrap,
@@ -853,6 +1030,10 @@ async def build_program_v2(profile: dict, db=None) -> Dict[str, Any]:
             item["sets"] = max(2, round(sets * volume_factor))
 
     sessions = _apply_exercise_substitutions(sessions, profile)
+
+    quality = build_program_quality_report(
+        sessions, profile, split_type, days, session_minutes)
+    training_memory = summarize_training_memory(recent_sets)
 
     import logging as _logging
     logger = _logging.getLogger("forge.engine")
@@ -917,5 +1098,8 @@ async def build_program_v2(profile: dict, db=None) -> Dict[str, Any]:
             "block_type": block_type, "block_week": block_week,
             "recovery_level": recovery_data.get("level", "NORMAL"),
             "periodization": perio_state,
+            "quality_gate": quality,
+            "training_memory": training_memory,
+            "generation_strategy": "structured_engine_with_ai_explanation",
         },
     }

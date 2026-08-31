@@ -15,6 +15,15 @@ function formatQty(item) {
   return `${item?.grams ?? 0}g`;
 }
 
+function mealVisualKey(name = "") {
+  const n = name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  if (n.includes("jantar")) return "dinner";
+  if (n.includes("lanche") || n.includes("ceia")) return "snack";
+  if (n.includes("almoco") || n.includes("pos-treino")) return "chicken";
+  if (n.includes("cafe") || n.includes("pre-treino")) return "breakfast";
+  return "beef";
+}
+
 export default function Nutrition({ API, profileId, db }) {
   const [step, setStep] = useState("loading");
   const [plan, setPlan] = useState(null);
@@ -616,7 +625,7 @@ export default function Nutrition({ API, profileId, db }) {
               </div>
             </div>
 
-            <div className={`meal-visual meal-visual-${i % 4}`} role="img" aria-label={`Imagem ilustrativa de ${meal.name}`} />
+            <div className={`meal-visual meal-visual-${mealVisualKey(meal.name)}`} role="img" aria-label={`Imagem ilustrativa de ${meal.name}`} />
 
             <div className="food-list">
               {meal.foods?.map((item, j) => {
@@ -680,7 +689,13 @@ export default function Nutrition({ API, profileId, db }) {
           <RefreshCw size={15} /> {busy ? "Iniciando..." : "Refazer plano"}
         </button>
       </div>
-      <div className="nutrition-footer-metrics"><div><Droplets size={20}/><span>Água</span><b>3,2 L / 3,5 L</b></div><div><Pill size={20}/><span>Suplementos</span><b>Ver horários</b></div></div>
+      <div className="nutrition-footer-metrics"><div><Droplets size={20}/><span>Meta inicial de água</span><b>{plan?.coach_guidance?.hydration_target_l || "—"} L/dia</b></div><div><Pill size={20}/><span>Opção prática</span><b>Whey + aveia/farinha de arroz</b></div></div>
+      {plan?.coach_guidance && <section className="nutrition-coach-note" data-testid="nutrition-coach-guidance">
+        <p className="eyebrow">ACOMPANHAMENTO FORGE</p>
+        <p>{plan.coach_guidance.weekly_weigh_in}</p>
+        <p>{plan.coach_guidance.progress_photos}</p>
+        <small>{plan.coach_guidance.hydration_note}</small>
+      </section>}
     </div>
   );
 }

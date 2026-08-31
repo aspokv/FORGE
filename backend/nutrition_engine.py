@@ -17,7 +17,7 @@ for f in FOODS:
 R = random.Random()
 
 FORGE_COACH_METHODOLOGY = {
-    "engine_version": "1.2", "coach_version": "v1.2-forge-brazilian",
+    "engine_version": "1.3", "coach_version": "v1.3-forge-performance",
     "bmr_formula": "mifflin_st_jeor",
     "protein_range_g_per_kg": {"fat_loss": [2.0, 2.4], "maintenance": [1.6, 2.0], "muscle_gain": [1.8, 2.2]},
     "fat_range_g_per_kg": {"fat_loss": [0.8, 1.0], "maintenance": [0.8, 1.2], "muscle_gain": [0.8, 1.2]},
@@ -128,13 +128,13 @@ FORGE_COACH_METHODOLOGY = {
     },
     "meal_distribution": {
         3: [0.30, 0.35, 0.35], 4: [0.25, 0.30, 0.20, 0.25],
-        5: [0.25, 0.18, 0.22, 0.12, 0.23], 6: [0.20, 0.18, 0.18, 0.10, 0.14, 0.20],
+        5: [0.25, 0.18, 0.22, 0.12, 0.23], 6: [0.20, 0.17, 0.22, 0.13, 0.18, 0.10],
     },
     "meal_names": {
         3: ["Cafe da manha", "Almoco", "Jantar"],
         4: ["Cafe da manha", "Almoco", "Lanche", "Jantar"],
         5: ["Cafe da manha", "Lanche manha", "Almoco", "Lanche tarde", "Jantar"],
-        6: ["Cafe da manha", "Lanche", "Almoco", "Pre-treino", "Pos-treino", "Jantar"],
+        6: ["Cafe da manha / Pre-treino", "Pos-treino", "Almoco", "Lanche da tarde", "Jantar", "Ceia"],
     },
     "portion_limits": {"PROTEIN": [50, 300], "CARBOHYDRATE": [50, 350], "FAT": [5, 40],
                        "FRUIT": [80, 350], "VEGETABLE": [80, 400], "DAIRY": [100, 300], "LEGUME": [50, 250], "MIXED": [50, 300]},
@@ -151,7 +151,7 @@ FORGE_COACH_METHODOLOGY = {
     # concentrate a whole day's protein deficit into one oversized portion — the day's
     # protein need should spread across meals/sources instead. Applies only to
     # MEAT_FISH_MAIN_IDS; eggs/whey/plant proteins are unaffected.
-    "meat_fish_single_meal_max_g": 250,
+    "meat_fish_single_meal_max_g": 220,
     "carb_hierarchy": {"tier_1": ["potato","sweet-potato"], "tier_2": ["cassava","rice-white","rice-brown"], "tier_3_contextual": ["rice-flour"]},
     "carb_meal_context": {
         "breakfast": ["oats","tapioca","rice-flour","corn-flour","sweet-potato"],
@@ -185,6 +185,29 @@ FORGE_COACH_METHODOLOGY = {
     # guardrail-filtered set, never resurrect an excluded food or bury a required one.
     "preference_bonus_cap": 15,
     "redistribution_cap_multiplier": 1.8,
+    # Base alimentar do produto. Restricoes, alergias e preferencias continuam
+    # soberanas; o bonus apenas prioriza o padrao pratico do coach entre alimentos que
+    # ja passaram por todos os guardrails.
+    "core_food_priority": [
+        "chicken-breast", "beef-grill", "beef-ground", "tilapia", "eggs-whole",
+        "egg-whites", "whey-protein", "yogurt-natural", "yogurt-greek",
+        "rice-flour", "rice-white", "banana", "honey", "oats", "sweet-potato",
+        "potato", "pumpkin", "apple", "papaya", "strawberry", "mango", "watermelon",
+        "olive-oil", "peanut-butter", "broccoli", "zucchini", "cauliflower",
+        "carrot", "spinach", "lettuce",
+    ],
+    "core_food_score_bonus": 18,
+    "olive_oil_increment_g": 5,
+    "coach_checkin": {
+        "weekly_weigh_in": "Pesar 1x por semana, em jejum e nas mesmas condicoes.",
+        "progress_photos": "Registrar fotos de evolucao com luz, pose e distancia consistentes.",
+    },
+    # Hidratacao nao pode ser um numero universal. A faixa parte do peso e recebe uma
+    # margem de treino; suor, clima e condicoes clinicas continuam determinantes.
+    "hydration_ml_per_kg": 35,
+    "hydration_training_bonus_l": 0.5,
+    "hydration_min_l": 2.0,
+    "hydration_max_l": 5.0,
 }
 
 # FORGE NUTRITION DNA — food_families.py-equivalent: named groups of concrete food IDs
@@ -219,6 +242,7 @@ FOOD_FAMILIES = {
 # (tofu/soy-protein) which don't carry the "carne/peixe numa unica refeicao" concern.
 MEAT_FISH_MAIN_IDS = {"chicken-breast", "beef-grill", "tilapia", "pork-loin", "salmon",
                       "chicken-thigh", "beef-ground"}
+PLANT_PROTEIN_IDS = {"tofu", "soy-protein"}
 
 # REAL_MEAL_COMPOSITION — explicit roles per meal, so a meal is built from a small set of
 # culinarily coherent slots instead of a solver free to inflate whichever single food
@@ -302,6 +326,12 @@ MEAL_COMBOS = [
          {"role": "primary_protein", "category": "PROTEIN", "family": "OMELET_FAMILY", "required": True},
          {"role": "primary_carb", "category": "CARBOHYDRATE", "family": "MAIN_CARB", "required": False},
      ]},
+    {"id": "forge_snack_solid", "label": "Lanche sólido FORGE", "meal_types": ["snack"],
+     "components": [
+         {"role": "primary_protein", "category": "PROTEIN", "family": "LEAN_PROTEIN_SOLID", "required": True},
+         {"role": "primary_carb", "category": "CARBOHYDRATE", "family": "MAIN_CARB", "required": False},
+         {"role": "vegetable", "category": "VEGETABLE", "family": "VEGETABLE_FAMILY", "required": True},
+     ]},
     {"id": "forge_solid_meal", "label": "Refeição sólida", "meal_types": ["lunch", "dinner", "post_workout"],
      "components": [
          {"role": "primary_protein", "category": "PROTEIN", "family": "LEAN_PROTEIN_SOLID", "required": True},
@@ -344,9 +374,9 @@ SUB_TIER = {
     "cassava": ["potato","sweet-potato","rice-white","rice-brown"],
     "rice-white": ["potato","sweet-potato","cassava","rice-brown"],
     "rice-brown": ["potato","sweet-potato","cassava","rice-white"],
-    "chicken-breast": ["beef-grill","tilapia","pork-loin","chicken-thigh"],
-    "beef-grill": ["chicken-breast","tilapia","pork-loin","chicken-thigh"],
-    "tilapia": ["chicken-breast","beef-grill","pork-loin"],
+    "chicken-breast": ["beef-grill","beef-ground","tilapia","pork-loin","chicken-thigh"],
+    "beef-grill": ["chicken-breast","beef-ground","tilapia","pork-loin","chicken-thigh"],
+    "tilapia": ["chicken-breast","beef-grill","beef-ground","pork-loin","tuna-can"],
     "eggs-whole": ["egg-whites","chicken-breast","beef-grill"],
     "egg-whites": ["eggs-whole","chicken-breast","beef-grill"],
     "chicken-thigh": ["chicken-breast","beef-ground","salmon"],
@@ -475,6 +505,9 @@ def build_food_item(fid, grams):
     """Single place every meal-food entry is built, so display_quantity/display_unit
     (item 3) show up consistently everywhere a food item is returned — generation,
     guided-flow options, swap-food, choose, confirm — never just some of them."""
+    if fid == "olive-oil":
+        step = FORGE_COACH_METHODOLOGY["olive_oil_increment_g"]
+        grams = max(step, round(float(grams) / step) * step)
     item = {"food_id": fid, "grams": grams, "food": FOOD_INDEX.get(fid, {})}
     item.update(_display_fields(fid, grams))
     return item
@@ -728,6 +761,8 @@ def _score_food(food, meal_type, pn, goal="maintenance"):
     if fid in m.get("methodology_exclude_default",[]): score -= 80
     if fid in set(pn.get("preferred_foods") or []): score += 35
     if fid in set(pn.get("disliked_foods") or []): score -= 80
+    if fid in m.get("core_food_priority", []):
+        score += m.get("core_food_score_bonus", 0)
     if fid in m.get("carb_hierarchy",{}).get("tier_1",[]): score += 25
     if fid in m.get("carb_hierarchy",{}).get("tier_2",[]): score += 15
     ctx = m.get("carb_meal_context",{}).get(meal_type,[])
@@ -849,7 +884,16 @@ def calculate_meal_portions(food_ids, target_cal, target_protein, target_fat=0, 
         if fpg > 0:
             hard_max = _portion_limit(f, "hard_max")
             lo, _ = FORGE_COACH_METHODOLOGY["portion_limits"].get(f.get("category", "FAT"), [5, 40])
-            grams = max(lo, min(hard_max, round(target_fat / fpg, -1)))
+            # A fonte de gordura completa o que a proteina (e eventual helper) ainda nao
+            # entregou. Antes o motor dimensionava o azeite pelo alvo TOTAL, ignorando a
+            # gordura do patinho/salmao/ovos; uma troca valida de tilapia por carne podia
+            # então duplicar gordura e ser recusada pelo proprio guardrail.
+            fat_already_allocated = sum(
+                _food_macros(fid, portions.get(fid, 0))[3]
+                for fid in sized
+            )
+            remaining_fat_target = max(0, target_fat - fat_already_allocated)
+            grams = max(lo, min(hard_max, round(remaining_fat_target / fpg, -1)))
             cpg = f.get("kcal", 100) / max(1, f.get("grams", 100))
             max_kcal = target_cal * kcal_cap["fat_source"]
             if cpg > 0 and grams * cpg > max_kcal:
@@ -964,6 +1008,20 @@ def calculate_meal_portions(food_ids, target_cal, target_protein, target_fat=0, 
 
     for fid in remaining_ids:
         portions[fid] = comfortable_grams[fid]
+    if gk != "fat_loss":
+        # A refeicao densa pode levar o carboidrato ao teto OU ampliar o vegetal, mas
+        # nunca os dois ao hard_max. Se o carbo já absorveu toda a capacidade, vegetais
+        # ficam no limite confortável — volume de comida plausível, sem prato artificial.
+        carb_at_hard_max = any(
+            FOOD_INDEX.get(fid, {}).get("category") in ("CARBOHYDRATE", "MIXED")
+            and portions.get(fid, 0) >= _portion_limit(FOOD_INDEX.get(fid, {}), "hard_max")
+            for fid in food_ids
+        )
+        if carb_at_hard_max:
+            for fid in food_ids:
+                food = FOOD_INDEX.get(fid, {})
+                if food.get("category") == "VEGETABLE":
+                    portions[fid] = min(portions.get(fid, 0), _portion_limit(food, "comfortable"))
     return portions
 
 def _food_macros(fid, grams):
@@ -983,7 +1041,7 @@ def _infer_meal_type(meal_name):
     if "pre" in tn and "trein" in tn: return "pre_workout"
     if "pos" in tn and "trein" in tn: return "post_workout"
     if "cafe" in tn or "manha" in tn: return "breakfast"
-    if "lanche" in tn or "tarde" in tn or "snack" in tn: return "snack"
+    if "lanche" in tn or "tarde" in tn or "snack" in tn or "ceia" in tn: return "snack"
     if "jantar" in tn: return "dinner"
     return "lunch"
 
@@ -1388,6 +1446,41 @@ def _reconcile_daily(meals, targets, pn, goal, max_iterations=8):
                     protein_room += step_grams * ppg
     return meals
 
+def _coach_guidance(pn):
+    weight = max(0.0, float(pn.get("weight_kg") or 0))
+    base_l = weight * FORGE_COACH_METHODOLOGY["hydration_ml_per_kg"] / 1000
+    if int(pn.get("training_days") or 0) >= 4:
+        base_l += FORGE_COACH_METHODOLOGY["hydration_training_bonus_l"]
+    target_l = min(FORGE_COACH_METHODOLOGY["hydration_max_l"],
+                   max(FORGE_COACH_METHODOLOGY["hydration_min_l"], base_l))
+    return {
+        "hydration_target_l": round(target_l, 1),
+        "hydration_note": "Meta inicial personalizada; ajuste por suor, clima e orientacao profissional.",
+        "practical_option": "Cafe/pre-treino, lanche e ceia oferecem alternativa solida e pratica; a pratica usa whey com aveia ou farinha de arroz.",
+        **FORGE_COACH_METHODOLOGY["coach_checkin"],
+    }
+
+
+def build_nutrition_quality_report(meals, totals, targets, pn):
+    """Gate deterministico: a IA pode explicar o plano, nunca alterar suas metas."""
+    plan = {"meals": meals, "daily_totals": totals}
+    warnings = validate_daily_plan(plan, targets, pn)
+    hard_errors = check_plan_hard_limits(plan, targets)
+    scores = [float(meal.get("coherence_score", 0)) for meal in meals]
+    minimum = min(scores, default=0)
+    average = round(sum(scores) / max(1, len(scores)), 1)
+    approved = not hard_errors and minimum >= FORGE_COACH_METHODOLOGY["min_archetype_coherence"]
+    return {
+        "status": "approved" if approved else "review",
+        "average_meal_coherence": average,
+        "minimum_meal_coherence": minimum,
+        "warnings": warnings,
+        "hard_errors": hard_errors,
+        "authority": "FORGE deterministic nutrition engine",
+        "generation_strategy": "structured_engine_with_ai_explanation",
+    }
+
+
 def generate_daily_plan(targets, pn, meal_count=4, goal="maintenance", variety_seed=0):
     m = FORGE_COACH_METHODOLOGY
     # O protocolo viaja dentro de targets (compute_macro_targets ja o resolveu). Copia
@@ -1421,8 +1514,11 @@ def generate_daily_plan(targets, pn, meal_count=4, goal="maintenance", variety_s
     totals = sum_plan_totals(meals)
     for meal in meals:
         meal["coherence_score"] = calculate_meal_coherence_score(meal, _infer_meal_type(meal["name"]), goal)
+    quality = build_nutrition_quality_report(meals, totals, targets, pn)
     return {"meals": meals, "daily_totals": totals, "pre_reconciliation_totals": pre_reconciliation_totals,
-            "targets": targets, "engine_version": m["engine_version"], "methodology_version": m["coach_version"]}
+            "targets": targets, "engine_version": m["engine_version"], "methodology_version": m["coach_version"],
+            "coach_guidance": _coach_guidance(pn), "quality_gate": quality,
+            "generation_strategy": quality["generation_strategy"]}
 
 def _item_macros(item):
     """kcal/carbo/gordura de um item do plano, escalados da base do alimento."""
@@ -1733,8 +1829,8 @@ def evaluate_goal_directional_substitution(orig_fid, new_fid, orig_grams, new_gr
     weight = pn.get("weight_kg")
     min_protein_g = guard["min_protein_g_per_kg"] * weight if weight else targets.get("protein_g", 0) * 0.85
     min_fat_g = guard["min_fat_g_per_kg"] * weight if weight else targets.get("fat_g", 0) * 0.7
-    protein_ok = day_after_protein >= min_protein_g
-    fat_ok = day_after_fat >= min_fat_g
+    protein_ok = _daily_minimum_ok(day_before.get("protein_g", 0), day_after_protein, min_protein_g)
+    fat_ok = _daily_minimum_ok(day_before.get("fat_g", 0), day_after_fat, min_fat_g)
     if not protein_ok: reasons.append("Proteina diaria abaixo do minimo")
     if not fat_ok: reasons.append("Gordura diaria abaixo do minimo")
 
@@ -1787,6 +1883,17 @@ def _daily_kcal_ok(day_before_kcal, day_after_kcal, min_k, max_k):
     if antes <= 0:
         return min_k <= day_after_kcal <= max_k
     return distancia(day_after_kcal) <= antes + 1e-6
+
+
+def _daily_minimum_ok(day_before_value, day_after_value, minimum):
+    """If a legacy/generated day is already under a floor, a swap may not worsen it.
+
+    This mirrors _daily_kcal_ok: substitution validation must not hide every equivalent
+    food merely because the persisted plan needs a separate regeneration.
+    """
+    if day_before_value >= minimum:
+        return day_after_value >= minimum
+    return day_after_value >= day_before_value - 1e-6
 
 
 def evaluate_goal_directional_substitution_meal_level(meal_before, meal_after, goal, day_before, targets, pn,
@@ -1875,8 +1982,8 @@ def evaluate_goal_directional_substitution_meal_level(meal_before, meal_after, g
     weight = pn.get("weight_kg")
     min_protein_g = guard["min_protein_g_per_kg"] * weight if weight else targets.get("protein_g", 0) * 0.85
     min_fat_g = guard["min_fat_g_per_kg"] * weight if weight else targets.get("fat_g", 0) * 0.7
-    protein_ok = day_after_protein >= min_protein_g
-    fat_ok = day_after_fat >= min_fat_g
+    protein_ok = _daily_minimum_ok(day_before.get("protein_g", 0), day_after_protein, min_protein_g)
+    fat_ok = _daily_minimum_ok(day_before.get("fat_g", 0), day_after_fat, min_fat_g)
     if not protein_ok: reasons.append("Proteina diaria abaixo do minimo")
     if not fat_ok: reasons.append("Gordura diaria abaixo do minimo")
 
@@ -1951,21 +2058,51 @@ def _dna_candidates_for_role(role, meal_type, exclude_food_id=None):
     exact meal type. Never the wide role/category pool: this is what makes "tilápia ↔
     frango ↔ patinho" possible at lunch while never offering "tilápia ↔ tofu" there just
     because both happen to be PROTEIN category."""
-    families = set()
+    families = []
     for combo in MEAL_COMBOS:
         if meal_type not in combo["meal_types"]:
             continue
         for comp in combo["components"]:
             if comp["role"] == role and comp.get("family"):
-                families.add(comp["family"])
+                if comp["family"] not in families:
+                    families.append(comp["family"])
     for comp in MEAL_TEMPLATES.get(meal_type, []):
         if comp["role"] == role and comp.get("family"):
-            families.add(comp["family"])
-    candidates = set()
+                if comp["family"] not in families:
+                    families.append(comp["family"])
+    if not families:
+        return set()
+    candidates, seen = [], set()
     for fam in families:
-        candidates.update(FOOD_FAMILIES.get(fam, []))
-    candidates.discard(exclude_food_id)
+        for fid in FOOD_FAMILIES.get(fam, []):
+            if fid != exclude_food_id and fid not in seen:
+                seen.add(fid)
+                candidates.append(fid)
     return candidates
+
+
+def _protein_source_compatible(src, dst, pn):
+    """Final family gate for primary proteins.
+
+    The broad same-role pool is a useful fallback, but an ordinary animal-protein meal
+    must not silently become a plant-protein meal. Tilapia, chicken and lean beef stay
+    interchangeable animal anchors; tofu/soy enter only for an explicitly vegetarian
+    pattern or when the original item is already plant based.
+    """
+    if _role_of_food(src) != "primary_protein" or _role_of_food(dst) != "primary_protein":
+        return True
+    restrictions = set(pn.get("dietary_restrictions") or [])
+    vegetarian = bool(restrictions & {"vegetarian", "vegan"})
+    src_plant = src.get("id") in PLANT_PROTEIN_IDS
+    dst_plant = dst.get("id") in PLANT_PROTEIN_IDS
+    if vegetarian:
+        tags = set(dst.get("tags") or [])
+        return dst_plant or bool(tags & {"vegetarian", "vegan"})
+    if src.get("id") in MEAT_FISH_MAIN_IDS and dst_plant:
+        return False
+    if src_plant:
+        return dst_plant
+    return True
 
 
 def find_substitutes(food_id, pn, current_meal_foods, max_results=3, orig_grams=100, goal="maintenance",
@@ -2023,6 +2160,7 @@ def find_substitutes(food_id, pn, current_meal_foods, max_results=3, orig_grams=
         if cid in av or cid in dislike or cid in used: continue
         f = FOOD_INDEX.get(cid)
         if not f or not _food_compatible(f, pn, used): continue
+        if not _protein_source_compatible(src, f, pn): continue
 
         sim_portions = None
         if has_meal_target:
