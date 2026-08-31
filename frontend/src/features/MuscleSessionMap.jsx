@@ -70,8 +70,11 @@ export function getSessionZone(load={}){
 }
 
 function AnatomyAsset({side,zone}){
-  const src=`/images/anatomy/premium-${side}.webp`;
-  return <div className={`premium-anatomy premium-anatomy--${side} premium-anatomy--${zone}`}>
+  const src=`${process.env.PUBLIC_URL||""}/images/anatomy/premium-${side}.webp`;
+  return <div
+    className={`premium-anatomy premium-anatomy--${side} premium-anatomy--${zone}`}
+    style={{"--anatomy-mask":`url("${src}")`}}
+  >
     <img src={src} alt={side==="front"?"Anatomia frontal":"Anatomia posterior"}/>
     <span className="premium-anatomy__tone" aria-hidden="true"/>
     <small>{side==="front"?"FRENTE":"COSTAS"}</small>
