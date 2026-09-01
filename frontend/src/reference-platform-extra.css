@@ -1,0 +1,214 @@
+/* FORGE REFERENCE PLATFORM V2 — finishing layer
+   Internal masthead, billing and remaining product surfaces. */
+
+@media(max-width:800px){
+  /* All authenticated screens use the same mobile chrome as the approved Home. */
+  .forge-shell .main>.topbar{
+    display:none!important;
+  }
+  .forge-shell .content:not(.decision-home)::before{
+    content:"FORGE";
+    display:block;
+    min-height:38px;
+    margin:0 2px 25px;
+    text-align:center;
+    color:#d8ab80;
+    font:600 19px/38px 'Sora','IBM Plex Sans',sans-serif;
+    letter-spacing:.39em;
+  }
+}
+
+/* Billing / plans */
+.billing-page{
+  max-width:1080px!important;
+}
+.billing-page .subscription-panel{
+  margin-bottom:15px;
+  padding:24px;
+}
+.billing-page .subscription-panel .panel-top h3{
+  margin-top:8px;
+  font-family:Georgia,"Times New Roman",serif;
+  font-size:30px;
+  font-weight:500;
+  letter-spacing:-.03em;
+  color:#f3efe7;
+}
+.billing-page .sub-state{
+  border-radius:999px;
+  border:1px solid rgba(216,171,128,.22);
+  background:rgba(216,171,128,.05);
+}
+.billing-page .sub-grid{
+  margin-top:18px;
+  border:1px solid rgba(255,255,255,.09);
+  border-radius:12px;
+  overflow:hidden;
+}
+.billing-page .sub-grid>div{
+  min-height:74px;
+  padding:14px 16px;
+  border-color:rgba(255,255,255,.09)!important;
+  background:rgba(255,255,255,.012);
+}
+.billing-page .sub-grid span{
+  color:#999591;
+  font-size:12px;
+}
+.billing-page .sub-grid b{
+  margin-top:5px;
+  color:#ece6de;
+  font-size:15px;
+}
+.billing-page .plan-grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:14px;
+  margin-top:16px;
+}
+.billing-page .plan-card{
+  position:relative;
+  padding:24px;
+  border:1px solid rgba(216,171,128,.24);
+  border-radius:16px;
+  background:radial-gradient(circle at 88% 2%,rgba(216,171,128,.065),transparent 30%),linear-gradient(145deg,#171819,#0b0c0d);
+  box-shadow:0 18px 48px rgba(0,0,0,.28),inset 0 1px rgba(255,255,255,.035);
+}
+.billing-page .plan-card.recommended{
+  border-color:rgba(216,171,128,.52);
+  box-shadow:0 22px 58px rgba(0,0,0,.34),0 0 0 1px rgba(216,171,128,.08) inset;
+}
+.billing-page .plan-flag{
+  border-radius:999px;
+  color:#17100c;
+  background:linear-gradient(105deg,#e9bd93,#b97955);
+}
+.billing-page .plan-price{
+  margin:17px 0 4px;
+  color:#f3efe7;
+}
+.billing-page .plan-price b{
+  font-family:Georgia,"Times New Roman",serif;
+  font-size:43px;
+  line-height:1;
+  font-weight:500;
+  letter-spacing:-.04em;
+}
+.billing-page .plan-currency,
+.billing-page .plan-price small,
+.billing-page .plan-billing,
+.billing-page .plan-audience{
+  color:#9f9b96;
+}
+.billing-page .plan-features{
+  margin:20px 0;
+  padding-top:17px;
+  border-top:1px solid rgba(255,255,255,.09);
+}
+.billing-page .plan-features li{
+  min-height:31px;
+  color:#ded8d0;
+  font-size:14px;
+}
+.billing-page .plan-features svg{
+  color:#d8ab80;
+}
+.billing-page .plan-soon{
+  border-radius:11px;
+  border-color:rgba(216,171,128,.15);
+  background:rgba(255,255,255,.012);
+}
+.billing-page .payment-options{
+  gap:9px;
+}
+.billing-page .plan-cta{
+  width:100%;
+  min-height:50px;
+}
+.billing-page .plan-footnote{
+  margin:19px 2px 0;
+  font-size:13px!important;
+  line-height:1.5;
+}
+
+/* Shared notices / empty states / skeletons */
+.forge-shell .notice,
+.forge-shell .auth-error,
+.forge-shell .empty-state{
+  border-radius:12px;
+}
+.forge-shell .empty-state{
+  padding:30px 22px;
+  border:1px solid rgba(216,171,128,.18);
+  background:linear-gradient(145deg,#151617,#0c0d0e);
+}
+.forge-shell .empty-state h3{
+  margin:12px 0 6px;
+  font-family:Georgia,"Times New Roman",serif;
+  font-size:25px;
+  font-weight:500;
+  color:#f3efe7;
+}
+.forge-shell .skeleton-block{
+  border-radius:14px;
+}
+
+/* Authenticated product dialogs that are not covered by builder/coach. */
+.forge-shell .auth-card,
+.forge-shell .signup-card,
+.forge-shell .pix-payment{
+  border:1px solid rgba(216,171,128,.26);
+  border-radius:16px;
+  background:radial-gradient(circle at 84% 4%,rgba(216,171,128,.065),transparent 28%),linear-gradient(145deg,#171819,#0b0c0d);
+  box-shadow:0 22px 60px rgba(0,0,0,.36),inset 0 1px rgba(255,255,255,.035);
+}
+.forge-shell .auth-card h1,
+.forge-shell .auth-card h2,
+.forge-shell .signup-card h1,
+.forge-shell .signup-card h2{
+  font-family:Georgia,"Times New Roman",serif;
+  font-weight:500;
+  letter-spacing:-.04em;
+  color:#f3efe7;
+}
+
+@media(max-width:800px){
+  .billing-page{
+    width:100%;
+    max-width:560px!important;
+    margin:0 auto;
+    padding-left:20px!important;
+    padding-right:20px!important;
+  }
+  .billing-page .plan-grid{
+    grid-template-columns:1fr;
+    gap:14px;
+  }
+  .billing-page .plan-card{
+    padding:21px;
+  }
+  .billing-page .plan-price b{
+    font-size:40px;
+  }
+  .billing-page .sub-grid{
+    display:grid;
+    grid-template-columns:1fr;
+  }
+  .billing-page .sub-grid>div{
+    min-height:62px;
+    border-right:0!important;
+    border-bottom:1px solid rgba(255,255,255,.09);
+  }
+  .billing-page .sub-grid>div:last-child{border-bottom:0}
+}
+
+@media(max-width:390px){
+  .forge-shell .content:not(.decision-home)::before{
+    margin-bottom:22px;
+    font-size:18px;
+  }
+  .billing-page{
+    padding-left:16px!important;
+    padding-right:16px!important;
+  }
+}
