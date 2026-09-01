@@ -1,6 +1,9 @@
 /* Program Builder Pro */
 .builder-panel{width:min(720px,100%);background:var(--surface);border-left:1px solid var(--line);padding:28px;overflow:auto;max-height:100vh}
 .builder-panel .coach-header h2{margin-top:10px}
+.builder-header-actions{display:flex;align-items:center;gap:8px}
+.builder-library-button{margin:0;min-height:44px}
+.builder-library-modal{position:fixed;inset:0;z-index:30;overflow:auto;background:#08090a}
 .builder-meta{display:grid;grid-template-columns:1fr 180px;gap:12px;margin:22px 0 12px}
 .builder-day-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:14px 0 18px;padding-bottom:14px;border-bottom:1px solid var(--line)}
 .day-tab{background:var(--elevated);border:1px solid var(--line);color:var(--muted);padding:9px 12px;display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-width:82px;text-align:left;transition:border .14s,color .14s}
@@ -49,6 +52,8 @@
   .builder-day-header .deep-field{min-width:0}
   .builder-actions .primary-button{margin-left:0;flex:1}
   .builder-actions .secondary-button{flex:1}
+  .builder-library-button{font-size:0;width:44px;padding:0;flex:none!important}
+  .builder-library-button svg{width:18px;height:18px}
 }
 
 /* Autosave do preenchimento do treino */

@@ -27,6 +27,7 @@ from billing_routes import router as billing_router
 from password_reset_routes import router as password_reset_router
 from preassessment_routes import router as preassessment_router
 from signup_routes import router as signup_router
+from workout_templates import public_catalog
 from muscles import (
     to_frontend, to_internal, get_profile_priorities_internal,
     get_assessment_internal, FRONTEND_MUSCLES as MUSCLES_FRONTEND_LIST,
@@ -444,6 +445,16 @@ async def substitute_exercise(payload: ExerciseSubstituteIn, user=Depends(get_cu
 
 @api.get("/techniques")
 async def techniques(_user=Depends(get_current_user)): return {"techniques": TECHNIQUES}
+
+
+@api.get("/workout-templates")
+async def workout_templates(_user=Depends(get_current_user)):
+    """Curated sessions for the athlete-controlled Program Builder.
+
+    Returning templates is read-only. Applying one still goes through the existing
+    /custom-program endpoint, ownership checks and explicit athlete confirmation.
+    """
+    return public_catalog()
 
 
 @api.post("/custom-program")

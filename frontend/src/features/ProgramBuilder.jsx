@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
-import { ChevronRight, Plus, Trash2, X, Save, RotateCcw, Info, GripVertical } from "lucide-react";
+import { ChevronRight, Plus, Trash2, X, Save, RotateCcw, Info, GripVertical, LibraryBig } from "lucide-react";
 import axios from "axios";
 import { TECHNIQUE_FALLBACK, findTechnique } from "./techniques";
+import WorkoutLibrary from "./WorkoutLibrary";
 
 const REP_PRESETS = ["4–6", "6–8", "8–12", "10–15", "12–20"];
 const RIR_PRESETS = ["0", "1", "1–2", "2", "2–3", "3"];
@@ -40,6 +42,7 @@ export default function ProgramBuilder({ API, profile, exercises, techniques, pr
   const [dragEx, setDragEx] = useState(null);
   const [dragDay, setDragDay] = useState(null);
   const [techniqueDetail, setTechniqueDetail] = useState(null);
+  const [libraryOpen, setLibraryOpen] = useState(false);
 
   const catalog = useMemo(() => (techniques && techniques.length ? techniques : TECHNIQUE_FALLBACK), [techniques]);
   const exerciseList = useMemo(() => exercises || [], [exercises]);
@@ -97,6 +100,14 @@ export default function ProgramBuilder({ API, profile, exercises, techniques, pr
     updateExercise(exIdx, { technique_id: t.id, technique: t.name });
   };
 
+  const useLibraryProgram = draft => {
+    setName(draft.name);
+    setDuration(draft.session_minutes || 60);
+    setSessions(cloneSessions(draft.sessions));
+    setActiveDay(0);
+    setLibraryOpen(false);
+  };
+
   const save = async () => {
     setError("");
     const empty = sessions.find(s => !s.exercises.length);
@@ -141,7 +152,10 @@ export default function ProgramBuilder({ API, profile, exercises, techniques, pr
             <p className="eyebrow">PROGRAM BUILDER PRO · MANUAL</p>
             <h2>Construa a sua semana</h2>
           </div>
-          <button className="icon-button" data-testid="close-builder-button" onClick={onClose}><X size={20} /></button>
+          <div className="builder-header-actions">
+            <button className="secondary-button builder-library-button" data-testid="open-workout-library" onClick={() => setLibraryOpen(true)}><LibraryBig size={16}/> Biblioteca</button>
+            <button className="icon-button" data-testid="close-builder-button" onClick={onClose}><X size={20} /></button>
+          </div>
         </div>
 
         <div className="builder-meta">
@@ -293,6 +307,7 @@ export default function ProgramBuilder({ API, profile, exercises, techniques, pr
             </div>
           </div>
         )}
+        {libraryOpen && createPortal(<div className="builder-library-modal" data-testid="builder-library-modal"><WorkoutLibrary API={API} exercises={exerciseList} onBuild={useLibraryProgram} onClose={() => setLibraryOpen(false)}/></div>, document.body)}
       </motion.div>
     </div>
   );
