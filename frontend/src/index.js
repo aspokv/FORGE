@@ -7,6 +7,7 @@ import "@/typography-premium.css";
 import "@/reference-home.css";
 import "@/reference-platform.css";
 import "@/reference-platform-extra.css";
+import "@/performance-pass.css";
 
 const queryClient = new QueryClient({
   defaultOptions: {
