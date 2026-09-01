@@ -1,0 +1,82 @@
+/* FORGE — IRON LEDGER PASS 01
+   Corrige escassez de acento, remove gradientes e ativa a camada mono.
+   Carregado por último de propósito: neutraliza reference-home.css e
+   performance-pass.css sem editá-los.
+   Para reverter: apague este arquivo e a linha de import em index.js. */
+
+@media (max-width: 800px) {
+
+  /* 1 — CTA: única cor de ação da tela. Chapada, sem glow. */
+  .decision-home .command-start {
+    background: #e36b4d !important;
+    border-color: #e36b4d !important;
+    color: #1c120f !important;
+    box-shadow: none !important;
+    font-weight: 600 !important;
+  }
+  .decision-home .command-start:active {
+    background: #c85a3f !important;
+    border-color: #c85a3f !important;
+  }
+
+  /* 2 — Painéis: superfície chapada, borda grafite (não bronze). */
+  .decision-home .panel {
+    background: #141619 !important;
+    border: 1px solid #34383d !important;
+    box-shadow: none !important;
+  }
+  .decision-home .panel::before { display: none !important; }
+
+  /* 3 — Kickers, links e mast saem do acento. */
+  .decision-home .decision-kicker,
+  .decision-home .compact-disclosure,
+  .decision-home .ask-forge,
+  .forge-mobile-mast,
+  .forge-mobile-mast span {
+    color: #a7aaa8 !important;
+  }
+  .forge-mobile-mast svg { color: #a7aaa8 !important; }
+
+  /* 4 — Ícones das métricas: cromo, não acento. */
+  .decision-home .command-metrics svg { color: #6f7270 !important; }
+
+  /* 5 — Números em mono, com figuras tabulares. */
+  .decision-home .command-metrics b,
+  .decision-home .exercise-peek > span b {
+    font-family: 'IBM Plex Mono', monospace !important;
+    font-feature-settings: "tnum" 1 !important;
+    font-weight: 400 !important;
+  }
+
+  /* 6 — Círculos numerados: contorno, não pastilha de acento. */
+  .decision-home .exercise-peek > span b {
+    background: none !important;
+    border: 1px solid #34383d !important;
+    color: #a7aaa8 !important;
+    box-shadow: none !important;
+    font-size: 12px !important;
+  }
+
+  /* 7 — Orbit do treino: sem gradiente nem sombra. */
+  .decision-home .workout-orbit {
+    background: none !important;
+    border: 1px solid #34383d !important;
+    color: #a7aaa8 !important;
+    box-shadow: none !important;
+  }
+
+  /* 8 — Barra de nutrição: chapada no acento (progresso ativo é uso permitido). */
+  .decision-home .nutrition-progress-track i {
+    background: #e36b4d !important;
+  }
+
+  /* 9 — Anel removido: era a terceira representação do mesmo 25%. */
+  .decision-home .nutrition-progress-ring { display: none !important; }
+
+  /* 10 — Percentual passa a viver na legenda de texto, em mono. */
+  .decision-home .nutrition-progress-copy small {
+    font-family: 'IBM Plex Mono', monospace !important;
+    font-feature-settings: "tnum" 1 !important;
+    color: #a7aaa8 !important;
+  }
+}
