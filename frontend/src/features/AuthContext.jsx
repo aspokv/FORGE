@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import axios from "axios";
+import { scheduleForgePrefetch, resetForgePerformanceCache } from "./apiPerformance";
 
 const API = `${process.env.REACT_APP_BACKEND_URL || ""}/api`;
 const AuthContext = createContext(null);
@@ -52,7 +53,9 @@ export function AuthProvider({ children }) {
     try {
       const { data } = await axios.get(`${API}/auth/me`);
       setUser(data.user);
+      scheduleForgePrefetch(API);
     } catch {
+      resetForgePerformanceCache();
       localStorage.removeItem("forge_token");
       setToken(null);
       setUser(null);
@@ -65,9 +68,11 @@ export function AuthProvider({ children }) {
     localStorage.setItem("forge_token", newToken);
     setToken(newToken);
     setUser(userObj);
+    scheduleForgePrefetch(API);
   }, []);
 
   const signOut = useCallback(() => {
+    resetForgePerformanceCache();
     localStorage.removeItem("forge_token");
     localStorage.removeItem("forge_profile_id");
     localStorage.removeItem("forge_onboarded");
