@@ -33,9 +33,9 @@ body{font-size:var(--forge-body-size)}
 
 @media(max-width:800px){
   :root{--forge-body-size:17px;--forge-secondary-size:15px;--forge-micro-size:11px}
-  .forge-shell .content{padding-left:12px!important;padding-right:12px!important}
-  .forge-shell .topbar{padding-left:14px;padding-right:14px}
-  .forge-shell .workout-page{padding-left:8px!important;padding-right:8px!important}
+  .forge-shell .content{padding-left:8px!important;padding-right:8px!important}
+  .forge-shell .topbar{padding-left:10px;padding-right:10px}
+  .forge-shell .workout-page{padding-left:5px!important;padding-right:5px!important}
   .forge-shell .muted{font-size:15px}
   .forge-shell .mobile-nav .nav-item{font-size:12px!important}
   .forge-shell .topbar .eyebrow{font-size:11px}
@@ -56,7 +56,7 @@ body{font-size:var(--forge-body-size)}
   .forge-shell .workout-page .set-row b,.forge-shell .workout-page .set-row span{font-size:12.5px}
 }
 @media(max-width:390px){
-  .forge-shell .content{padding-left:10px!important;padding-right:10px!important}
-  .forge-shell .topbar{padding-left:12px;padding-right:12px}
-  .forge-shell .workout-page{padding-left:7px!important;padding-right:7px!important}
+  .forge-shell .content{padding-left:6px!important;padding-right:6px!important}
+  .forge-shell .topbar{padding-left:8px;padding-right:8px}
+  .forge-shell .workout-page{padding-left:4px!important;padding-right:4px!important}
 }
