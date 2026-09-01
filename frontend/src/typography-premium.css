@@ -1,62 +1,63 @@
 /* FORGE readability + density layer: larger type, tighter premium mobile canvas. */
-:root{--forge-body-size:17px;--forge-secondary-size:15px;--forge-micro-size:11.5px}
+:root{--forge-body-size:18px;--forge-secondary-size:16px;--forge-micro-size:12px}
 body{font-size:var(--forge-body-size)}
 .forge-shell{font-size:var(--forge-body-size)}
-.forge-shell .muted{font-size:16px;line-height:1.55}
+.forge-shell .muted{font-size:17px;line-height:1.55}
 .forge-shell .eyebrow,.forge-shell .rail-caption{font-size:var(--forge-micro-size);line-height:1.35}
-.forge-shell .nav-item{font-size:14px}
-.forge-shell .text-button,.forge-shell .primary-button,.forge-shell .secondary-button,.forge-shell .finish-button{font-size:15px}
-.forge-shell input,.forge-shell select,.forge-shell textarea{font-size:16px}
-.forge-shell label{font-size:14px}
-.forge-shell small{font-size:12px}
-.forge-shell .session-time,.forge-shell .trend,.forge-shell .chart-line b,.forge-shell .recovery-list b,.forge-shell .priority-list span,.forge-shell .priority-list b{font-size:13px}
-.forge-shell .volume-line>div:first-child,.forge-shell .recovery-list,.forge-shell .report-line,.forge-shell .coach-suggestions button{font-size:15px}
-.forge-shell .coach-answer{font-size:15.5px}
-.forge-shell .coach-panel small{font-size:12px}
-.forge-shell .onboard-note{font-size:13px}
-.forge-shell .focus-row span{font-size:13px}
+.forge-shell .nav-item{font-size:15px}
+.forge-shell .text-button,.forge-shell .primary-button,.forge-shell .secondary-button,.forge-shell .finish-button{font-size:16px}
+.forge-shell input,.forge-shell select,.forge-shell textarea{font-size:17px}
+.forge-shell label{font-size:15px}
+.forge-shell small{font-size:13px}
+.forge-shell .session-time,.forge-shell .trend,.forge-shell .chart-line b,.forge-shell .recovery-list b,.forge-shell .priority-list span,.forge-shell .priority-list b{font-size:14px}
+.forge-shell .volume-line>div:first-child,.forge-shell .recovery-list,.forge-shell .report-line,.forge-shell .coach-suggestions button{font-size:16px}
+.forge-shell .coach-answer{font-size:16.5px}
+.forge-shell .coach-panel small{font-size:13px}
+.forge-shell .onboard-note{font-size:14px}
+.forge-shell .focus-row span{font-size:14px}
 
 /* Workout microcopy gets its own floor because the execution screen is used at arm's length. */
-.forge-shell .workout-page .workout-head .muted{font-size:14.5px}
-.forge-shell .workout-page .workout-overview-copy span{font-size:10.5px}
-.forge-shell .workout-page .workout-overview-copy small{font-size:12.5px}
-.forge-shell .workout-page .session-muscle-map__zone{font-size:10px}
-.forge-shell .workout-page .session-muscle-map__target-label{font-size:10px}
-.forge-shell .workout-page .session-muscle-map__legend>span{font-size:9.5px}
-.forge-shell .workout-page .session-muscle-map__legend small{font-size:8.5px}
-.forge-shell .workout-page .session-banner b,.forge-shell .workout-page .rest-label{font-size:12px}
-.forge-shell .workout-page .session-banner p{font-size:14px}
-.forge-shell .workout-page .exercise-title .muted{font-size:14px}
-.forge-shell .workout-page .technique-badge{font-size:11px}
-.forge-shell .workout-page .set-grid>span{font-size:9px}
-.forge-shell .workout-page .set-row b,.forge-shell .workout-page .set-row span{font-size:13px}
+.forge-shell .workout-page .workout-head .muted{font-size:15.5px}
+.forge-shell .workout-page .workout-overview-copy span{font-size:11.5px}
+.forge-shell .workout-page .workout-overview-copy small{font-size:13.5px}
+.forge-shell .workout-page .session-muscle-map__zone{font-size:11px}
+.forge-shell .workout-page .session-muscle-map__target-label{font-size:11px}
+.forge-shell .workout-page .session-muscle-map__legend>span{font-size:10.5px}
+.forge-shell .workout-page .session-muscle-map__legend small{font-size:9.5px}
+.forge-shell .workout-page .session-banner b,.forge-shell .workout-page .rest-label{font-size:13px}
+.forge-shell .workout-page .session-banner p{font-size:15px}
+.forge-shell .workout-page .exercise-title .muted{font-size:15px}
+.forge-shell .workout-page .technique-badge{font-size:12px}
+.forge-shell .workout-page .set-grid>span{font-size:10px}
+.forge-shell .workout-page .set-row b,.forge-shell .workout-page .set-row span{font-size:14px}
 
 @media(max-width:800px){
-  :root{--forge-body-size:17px;--forge-secondary-size:15px;--forge-micro-size:11px}
-  .forge-shell .content{padding-left:8px!important;padding-right:8px!important}
-  .forge-shell .topbar{padding-left:10px;padding-right:10px}
-  .forge-shell .workout-page{padding-left:5px!important;padding-right:5px!important}
-  .forge-shell .muted{font-size:15px}
-  .forge-shell .mobile-nav .nav-item{font-size:12px!important}
-  .forge-shell .topbar .eyebrow{font-size:11px}
-  .forge-shell button:not(.icon-button){font-size:14px}
-  .forge-shell input,.forge-shell select,.forge-shell textarea{font-size:16px}
-  .forge-shell label{font-size:14px}
-  .forge-shell small{font-size:12px}
-  .forge-shell .workout-page .workout-head .muted{font-size:14px}
-  .forge-shell .workout-page .workout-overview-copy span{font-size:10px}
-  .forge-shell .workout-page .workout-overview-copy small{font-size:12px}
-  .forge-shell .workout-page .session-muscle-map__zone{font-size:10px}
-  .forge-shell .workout-page .session-muscle-map__target-label{font-size:10px}
-  .forge-shell .workout-page .session-muscle-map__legend>span{font-size:9.5px}
-  .forge-shell .workout-page .exercise-title h3{font-size:19px}
-  .forge-shell .workout-page .exercise-title .muted{font-size:14px}
-  .forge-shell .workout-page .set-grid>span{font-size:8.5px}
-  .forge-shell .workout-page .set-row input{font-size:14px}
-  .forge-shell .workout-page .set-row b,.forge-shell .workout-page .set-row span{font-size:12.5px}
-}
-@media(max-width:390px){
+  :root{--forge-body-size:18px;--forge-secondary-size:16px;--forge-micro-size:11.5px}
   .forge-shell .content{padding-left:6px!important;padding-right:6px!important}
   .forge-shell .topbar{padding-left:8px;padding-right:8px}
-  .forge-shell .workout-page{padding-left:4px!important;padding-right:4px!important}
+  .forge-shell .workout-page{padding-left:3px!important;padding-right:3px!important}
+  .forge-shell .muted{font-size:16px}
+  .forge-shell .mobile-nav .nav-item{font-size:13px!important}
+  .forge-shell .topbar .eyebrow{font-size:12px}
+  .forge-shell button:not(.icon-button){font-size:15px}
+  .forge-shell input,.forge-shell select,.forge-shell textarea{font-size:17px}
+  .forge-shell label{font-size:15px}
+  .forge-shell small{font-size:13px}
+  .forge-shell .workout-page .workout-head .muted{font-size:15px}
+  .forge-shell .workout-page .workout-overview-copy span{font-size:11px}
+  .forge-shell .workout-page .workout-overview-copy small{font-size:13px}
+  .forge-shell .workout-page .session-muscle-map__zone{font-size:11px}
+  .forge-shell .workout-page .session-muscle-map__target-label{font-size:11px}
+  .forge-shell .workout-page .session-muscle-map__legend>span{font-size:10.5px}
+  .forge-shell .workout-page .session-muscle-map__legend small{font-size:9.5px}
+  .forge-shell .workout-page .exercise-title h3{font-size:20px}
+  .forge-shell .workout-page .exercise-title .muted{font-size:15px}
+  .forge-shell .workout-page .set-grid>span{font-size:9.5px}
+  .forge-shell .workout-page .set-row input{font-size:15px}
+  .forge-shell .workout-page .set-row b,.forge-shell .workout-page .set-row span{font-size:13.5px}
+}
+@media(max-width:390px){
+  .forge-shell .content{padding-left:4px!important;padding-right:4px!important}
+  .forge-shell .topbar{padding-left:6px;padding-right:6px}
+  .forge-shell .workout-page{padding-left:2px!important;padding-right:2px!important}
 }
