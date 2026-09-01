@@ -1,0 +1,108 @@
+/* FORGE PERFORMANCE PASS V1
+   Keeps the approved premium visual language while reducing mobile paint/composite cost.
+   Loaded last so it neutralizes expensive effects without changing layout or logic. */
+
+@media (max-width: 800px) {
+  :root {
+    --forge-ref-shadow: 0 8px 22px rgba(0,0,0,.24), inset 0 1px rgba(255,255,255,.025);
+  }
+
+  /* Fixed backdrop blur is expensive on Chrome/Android during scroll. */
+  .forge-shell .mobile-nav {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    background: rgba(14,15,16,.985) !important;
+    box-shadow: 0 10px 24px rgba(0,0,0,.34), inset 0 1px rgba(255,255,255,.03) !important;
+  }
+
+  /* Preserve depth with tighter, cheaper shadows. */
+  .decision-home .panel,
+  .forge-shell .content:not(.decision-home) .panel,
+  .forge-shell .workout-overview,
+  .forge-shell .exercise,
+  .forge-shell .meal-card,
+  .forge-shell .builder-exercise,
+  .forge-shell .manual-day,
+  .forge-shell .manual-exercise,
+  .forge-shell .technique-card,
+  .billing-page .plan-card,
+  .nutrition-page .nutrition-summary {
+    box-shadow: 0 8px 22px rgba(0,0,0,.24), inset 0 1px rgba(255,255,255,.025) !important;
+  }
+
+  .billing-page .plan-card.recommended {
+    box-shadow: 0 10px 26px rgba(0,0,0,.28), 0 0 0 1px rgba(216,171,128,.07) inset !important;
+  }
+
+  .decision-home .command-start,
+  .forge-shell .primary-button,
+  .forge-shell .finish-button {
+    box-shadow: inset 0 1px rgba(255,255,255,.28), 0 7px 16px rgba(136,77,46,.16) !important;
+  }
+
+  .decision-home .workout-orbit,
+  .decision-home .nutrition-progress-ring,
+  .nutrition-page .nutrition-ring {
+    box-shadow: 0 6px 16px rgba(0,0,0,.22), inset 0 1px rgba(255,255,255,.025) !important;
+  }
+
+  /* Repeated cards do not need the hero's radial light on every row. */
+  .workout-page .exercise,
+  .nutrition-page .meal-card,
+  .builder-exercise,
+  .manual-exercise,
+  .manual-day {
+    background: linear-gradient(145deg, #151617, #0c0d0e) !important;
+  }
+
+  /* Defer off-screen rendering on long lists. */
+  .workout-page .exercise,
+  .nutrition-page .meal-card,
+  .progress-page .pr-row,
+  .progress-page .weight-history-row,
+  .builder-exercise,
+  .manual-exercise,
+  .manual-day,
+  .billing-page .plan-card {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 260px;
+  }
+
+  .workout-page .exercise { contain-intrinsic-size: auto 420px; }
+  .nutrition-page .meal-card { contain-intrinsic-size: auto 360px; }
+  .builder-exercise,
+  .manual-exercise { contain-intrinsic-size: auto 300px; }
+
+  /* Keep transitions on compositor-friendly properties only. */
+  .forge-shell button,
+  .forge-shell input,
+  .forge-shell select,
+  .forge-shell textarea,
+  .forge-shell .panel,
+  .forge-shell .exercise,
+  .forge-shell .meal-card {
+    transition-property: color, background-color, border-color, opacity, transform !important;
+    transition-duration: 140ms !important;
+  }
+
+  /* Prevent oversized paint surfaces on media embedded in repeated cards. */
+  .forge-shell img {
+    max-width: 100%;
+  }
+  .meal-visual img,
+  .session-muscle-map img,
+  .muscle-map img {
+    contain: paint;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .forge-shell *,
+  .forge-shell *::before,
+  .forge-shell *::after {
+    scroll-behavior: auto !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}
