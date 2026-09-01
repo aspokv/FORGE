@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 from workout_templates import CATEGORIES, WORKOUT_TEMPLATES, public_catalog
+from training_programs import PROGRAM_CATEGORIES, TRAINING_PROGRAMS
 
 
 EXERCISE_IDS = {
@@ -43,3 +44,47 @@ def test_public_catalog_calculates_counts_without_mutating_source():
     first["exercises"].clear()
     assert WORKOUT_TEMPLATES[0]["exercises"]
 
+
+def test_complete_program_library_covers_every_supported_split():
+    assert [item["id"] for item in PROGRAM_CATEGORIES] == [
+        "abc", "abcd", "abcde", "abcdef", "upper_lower", "periodized"
+    ]
+    assert len(TRAINING_PROGRAMS) == 7
+    assert {item["category"] for item in TRAINING_PROGRAMS} >= {
+        "abc", "abcd", "abcde", "abcdef", "upper_lower"
+    }
+    assert sum(len(item["phases"]) for item in TRAINING_PROGRAMS) == 10
+
+
+def test_complete_programs_only_use_supported_exercises_and_safe_builder_shapes():
+    ids = set()
+    for program in TRAINING_PROGRAMS:
+        assert program["id"] not in ids
+        ids.add(program["id"])
+        assert program["duration_weeks"] >= 4
+        assert program["phases"]
+        for phase in program["phases"]:
+            assert 3 <= len(phase["sessions"]) <= 6
+            for session in phase["sessions"]:
+                assert session["duration"] >= 45
+                assert session["exercises"]
+                for exercise in session["exercises"]:
+                    assert exercise["exercise_id"] in EXERCISE_IDS
+                    assert 1 <= exercise["sets"] <= 8
+                    assert exercise["reps"]
+                    assert exercise["rir"]
+                    assert exercise["rest"]
+
+
+def test_program_metadata_and_expert_guard_are_exposed_without_source_mutation():
+    catalog = public_catalog()
+    assert len(catalog["programs"]) == 7
+    periodized = next(item for item in catalog["programs"] if item["id"] == "abcdef-12-week")
+    assert "abcdef" in periodized["categories"]
+    assert "periodized" in periodized["categories"]
+    assert periodized["phase_count"] == 4
+    assert all(phase["total_sets"] > 0 for phase in periodized["phases"])
+    expert = next(item for item in catalog["programs"] if item["safety"] == "expert")
+    assert expert["warning"]
+    catalog["programs"][0]["phases"].clear()
+    assert TRAINING_PROGRAMS[0]["phases"]

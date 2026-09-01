@@ -31,6 +31,7 @@ const cloneSessions = (sessions = []) => sessions.map(s => ({
 
 export default function ProgramBuilder({ API, profile, exercises, techniques, program, onSaved, onClose }) {
   const [name, setName] = useState(program?.name || "Programa personalizado");
+  const [week, setWeek] = useState(program?.week || "Microciclo manual");
   const [duration, setDuration] = useState(profile?.session_minutes || 60);
   const [sessions, setSessions] = useState(() => {
     const base = cloneSessions(program?.sessions);
@@ -102,6 +103,7 @@ export default function ProgramBuilder({ API, profile, exercises, techniques, pr
 
   const useLibraryProgram = draft => {
     setName(draft.name);
+    setWeek(draft.week || "Microciclo da biblioteca");
     setDuration(draft.session_minutes || 60);
     setSessions(cloneSessions(draft.sessions));
     setActiveDay(0);
@@ -117,7 +119,7 @@ export default function ProgramBuilder({ API, profile, exercises, techniques, pr
       const payload = {
         profile_id: profile.id,
         name: name.trim() || "Programa personalizado",
-        week: "Microciclo manual",
+        week,
         session_minutes: Number(duration) || 60,
         sessions,
       };
@@ -231,18 +233,21 @@ export default function ProgramBuilder({ API, profile, exercises, techniques, pr
                       <label className="deep-field">
                         <span>Reps</span>
                         <select data-testid={`builder-reps-${i}`} value={x.reps} onChange={e => updateExercise(i, { reps: e.target.value })}>
+                          {!REP_PRESETS.includes(x.reps) && <option value={x.reps}>{x.reps}</option>}
                           {REP_PRESETS.map(r => <option key={r}>{r}</option>)}
                         </select>
                       </label>
                       <label className="deep-field">
                         <span>RIR</span>
                         <select data-testid={`builder-rir-${i}`} value={x.rir} onChange={e => updateExercise(i, { rir: e.target.value })}>
+                          {!RIR_PRESETS.includes(x.rir) && <option value={x.rir}>{x.rir}</option>}
                           {RIR_PRESETS.map(r => <option key={r}>{r}</option>)}
                         </select>
                       </label>
                       <label className="deep-field">
                         <span>Descanso</span>
                         <select data-testid={`builder-rest-${i}`} value={x.rest} onChange={e => updateExercise(i, { rest: e.target.value })}>
+                          {!REST_PRESETS.includes(x.rest) && <option value={x.rest}>{x.rest}</option>}
                           {REST_PRESETS.map(r => <option key={r}>{r}</option>)}
                         </select>
                       </label>

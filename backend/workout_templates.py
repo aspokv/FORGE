@@ -227,10 +227,17 @@ WORKOUT_TEMPLATES = [
 
 
 def public_catalog():
-    """Return a defensive copy enriched with calculated presentation metadata."""
+    """Return session templates and complete programs with calculated metadata."""
     templates = deepcopy(WORKOUT_TEMPLATES)
     for item in templates:
         item["exercise_count"] = len(item["exercises"])
         item["total_sets"] = sum(int(exercise["sets"]) for exercise in item["exercises"])
-    return {"categories": deepcopy(CATEGORIES), "templates": templates}
+    # Imported lazily to keep the small session primitives reusable without a
+    # circular module dependency during application startup.
+    from training_programs import public_program_catalog
 
+    return {
+        "categories": deepcopy(CATEGORIES),
+        "templates": templates,
+        **public_program_catalog(),
+    }

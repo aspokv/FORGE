@@ -1,4 +1,4 @@
-import { buildLibraryProgram, templateToSession } from "./WorkoutLibrary";
+import { buildLibraryProgram, programPhaseToDraft, templateToSession } from "./WorkoutLibrary";
 
 const makeTemplate = (id, name, duration = 60) => ({
   id,
@@ -26,4 +26,23 @@ test("builds the selected weekly order and average duration for Program Builder"
   expect(program.sessions.map(item => item.day)).toEqual([1, 2]);
   expect(program.session_minutes).toBe(65);
   expect(program.week).toBe("Microciclo da biblioteca");
+});
+
+test("converts one selected phase of a complete program into a reviewable draft", () => {
+  const phase = {
+    id: "phase-2",
+    label: "Fase 2 · Cadência",
+    weeks: "2, 6 e 10",
+    sessions: [
+      { label: "Upper A", duration: 60, demand: "MODERATE", focus: ["Tronco"], exercises: makeTemplate("upper", "Upper").exercises },
+      { label: "Lower A", duration: 70, demand: "HIGH", focus: ["Pernas"], exercises: makeTemplate("lower", "Lower").exercises },
+    ],
+  };
+  const draft = programPhaseToDraft({ id: "upper-lower", name: "Upper / Lower" }, phase);
+  expect(draft.name).toBe("Upper / Lower · Fase 2 · Cadência");
+  expect(draft.week).toBe("Fase 2 · Cadência · 2, 6 e 10");
+  expect(draft.session_minutes).toBe(65);
+  expect(draft.sessions.map(item => item.day)).toEqual([1, 2]);
+  expect(draft.sessions[1].label).toBe("Lower A");
+  expect(draft.source_program_id).toBe("upper-lower");
 });
