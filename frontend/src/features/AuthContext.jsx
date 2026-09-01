@@ -23,7 +23,6 @@ window.fetch = (input, init = {}) => {
   return originalFetch(input, { ...init, headers });
 };
 
-// Axios interceptor: attach Bearer + surface 401 as auth reset
 axios.interceptors.request.use(cfg => {
   const t = localStorage.getItem("forge_token");
   if (t) cfg.headers.Authorization = `Bearer ${t}`;
@@ -31,7 +30,7 @@ axios.interceptors.request.use(cfg => {
 });
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);           // logged user object
+  const [user, setUser] = useState(null);
   const [token, setToken] = useState(() => localStorage.getItem("forge_token") || null);
   const [ready, setReady] = useState(false);
   const [route, setRoute] = useState(() => window.location.pathname);
@@ -65,6 +64,7 @@ export function AuthProvider({ children }) {
   useEffect(() => { loadMe(); }, [loadMe]);
 
   const signIn = useCallback((newToken, userObj) => {
+    resetForgePerformanceCache();
     localStorage.setItem("forge_token", newToken);
     setToken(newToken);
     setUser(userObj);
