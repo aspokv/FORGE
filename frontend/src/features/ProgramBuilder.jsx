@@ -32,7 +32,7 @@ const cloneSessions = (sessions = []) => sessions.map(s => ({
 export default function ProgramBuilder({ API, profile, exercises, techniques, program, onSaved, onClose }) {
   const [name, setName] = useState(program?.name || "Programa personalizado");
   const [week, setWeek] = useState(program?.week || "Microciclo manual");
-  const [duration, setDuration] = useState(profile?.session_minutes || 60);
+  const [duration, setDuration] = useState(program?.session_minutes || profile?.session_minutes || 60);
   const [sessions, setSessions] = useState(() => {
     const base = cloneSessions(program?.sessions);
     return base.length ? base : [{ day: 1, label: "Sessão 1", demand: "MODERATE", focus: [], exercises: [] }];
