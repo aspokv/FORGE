@@ -6,6 +6,7 @@ import App from "@/App";
 import "@/typography-premium.css";
 import "@/reference-home.css";
 import "@/reference-platform.css";
+import "@/reference-platform-extra.css";
 
 const queryClient = new QueryClient({
   defaultOptions: {
