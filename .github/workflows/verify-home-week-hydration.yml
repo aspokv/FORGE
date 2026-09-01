@@ -38,24 +38,19 @@ jobs:
           server = Path('backend/server.py')
           s = server.read_text(encoding='utf-8')
 
-          model_marker = '''class WorkoutSessionDraftIn(BaseModel):
-              """Preenchimento parcial do treino em andamento (carga/reps por serie)."""
-              day: Optional[int] = None
-              inputs: Dict[str, Any] = {}
-              profile_id: Optional[str] = None
-          '''
-          model_insert = model_marker + '''\n\nclass HydrationAddIn(BaseModel):
-              amount_ml: int = Field(..., ge=50, le=1000)
-          '''
           if 'class HydrationAddIn(BaseModel):' not in s:
-              assert model_marker in s, 'WorkoutSessionDraftIn marker missing'
-              s = s.replace(model_marker, model_insert, 1)
+              marker = '\n\nclass TrainingPreferencesIn(BaseModel):'
+              assert marker in s, 'TrainingPreferencesIn marker missing'
+              s = s.replace(
+                  marker,
+                  '\n\nclass HydrationAddIn(BaseModel):\n    amount_ml: int = Field(..., ge=50, le=1000)\n' + marker,
+                  1,
+              )
 
-          route_marker = '''# Um treino em andamento so vale para a sessao do dia: um rascunho antigo (ciclo
-          # anterior, mesmo dia do split) nao deve ressuscitar cargas velhas por cima das
-          # sugestoes de progressao.
-          '''
-          hydration_routes = '''def _valid_hydration_day(day: str) -> str:
+          if '@api.get("/hydration/{day}")' not in s:
+              route_marker = '# Um treino em andamento so vale para a sessao do dia:'
+              pos = s.index(route_marker)
+              hydration_routes = '''def _valid_hydration_day(day: str) -> str:
               try:
                   parsed = datetime.strptime(day, "%Y-%m-%d")
               except (TypeError, ValueError):
@@ -128,53 +123,48 @@ jobs:
 
 
           '''
-          if '@api.get("/hydration/{day}")' not in s:
-              assert route_marker in s, 'session draft route marker missing'
-              s = s.replace(route_marker, hydration_routes + route_marker, 1)
+              s = s[:pos] + hydration_routes + s[pos:]
+
           server.write_text(s, encoding='utf-8')
 
           # ---------- frontend ----------
           app = Path('frontend/src/App.js')
           a = app.read_text(encoding='utf-8')
-          a = a.replace('Dumbbell,FileUp,Home', 'Droplets,Dumbbell,FileUp,Home', 1)
+
+          if 'Droplets,' not in a:
+              assert 'Dumbbell,FileUp,Home' in a, 'lucide import marker missing'
+              a = a.replace('Dumbbell,FileUp,Home', 'Droplets,Dumbbell,FileUp,Home', 1)
+
+          today_marker = 'function Today({db,analytics,report,start,openCoach,openBuilder,openManual}){'
+          today_pos = a.index(today_marker)
 
           if 'function localDateKey(){' not in a:
-              macro_end = '''function MacroRail({label,value,goal,unit="g"}){
-            const pct=goal?Math.min(100,Math.round(value/goal*100)):0;
-            return <div className="macro-rail">
-              <span className="macro-rail-label">{label}</span>
-              <b className="macro-rail-value">{Math.round(value).toLocaleString("pt-BR")}<em>/{Math.round(goal).toLocaleString("pt-BR")}{unit}</em></b>
-              <div className="macro-rail-track"><i style={{width:`${pct}%`}}/></div>
-            </div>;
-          }
-          '''
-              helper = macro_end + '''\nfunction localDateKey(){
+              helper = '''function localDateKey(){
             const d=new Date();
             const pad=n=>String(n).padStart(2,"0");
             return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
           }
-          '''
-              assert macro_end in a, 'MacroRail block missing'
-              a = a.replace(macro_end, helper, 1)
 
-          old_state = '''  const p=db.program||{},manual=p.logic?.manual;
-            const[showExercises,setShowExercises]=useState(false),[nutrition,setNutrition]=useState(null),[mealLog,setMealLog]=useState([]);
-            useEffect(()=>{let alive=true;const today=new Date().toISOString().slice(0,10);Promise.allSettled([axios.get(`${API}/nutrition/plan`),axios.get(`${API}/nutrition/adherence/${today}`)]).then(([n,a])=>{if(!alive)return;if(n.status==="fulfilled")setNutrition(n.value.data);if(a.status==="fulfilled")setMealLog(a.value.data.meals||[])});return()=>{alive=false}},[]);
           '''
-          new_state = '''  const p=db.program||{},manual=p.logic?.manual;
-            const[showExercises,setShowExercises]=useState(false),[nutrition,setNutrition]=useState(null),[mealLog,setMealLog]=useState([]),[hydration,setHydration]=useState(null),[hydrationBusy,setHydrationBusy]=useState(false);
-            useEffect(()=>{let alive=true;const today=localDateKey();Promise.allSettled([axios.get(`${API}/nutrition/plan`),axios.get(`${API}/nutrition/adherence/${today}`),axios.get(`${API}/hydration/${today}`)]).then(([n,a,h])=>{if(!alive)return;if(n.status==="fulfilled")setNutrition(n.value.data);if(a.status==="fulfilled")setMealLog(a.value.data.meals||[]);if(h.status==="fulfilled")setHydration(h.value.data)});return()=>{alive=false}},[]);
-          '''
-          if old_state in a:
+              a = a[:today_pos] + helper + a[today_pos:]
+              today_pos = a.index(today_marker)
+
+          old_state = '  const[showExercises,setShowExercises]=useState(false),[nutrition,setNutrition]=useState(null),[mealLog,setMealLog]=useState([]);'
+          new_state = '  const[showExercises,setShowExercises]=useState(false),[nutrition,setNutrition]=useState(null),[mealLog,setMealLog]=useState([]),[hydration,setHydration]=useState(null),[hydrationBusy,setHydrationBusy]=useState(false);'
+          if '[hydration,setHydration]' not in a:
+              assert old_state in a, 'Today state marker missing'
               a = a.replace(old_state, new_state, 1)
-          else:
-              assert '[hydration,setHydration]' in a, 'Today state block changed unexpectedly'
 
-          totals_marker = '''  const remainingCalories=Math.max(0,targetCalories-consumedCalories);
-            const totalMeals=nutrition?.meals?.length||0;
-          '''
-          totals_insert = totals_marker + '''
-            const sessions=p.sessions||[];
+          if 'axios.get(`${API}/hydration/${today}`)' not in a:
+              effect_start = a.index('  useEffect(()=>{let alive=true;const today=', today_pos)
+              effect_end = a.index('},[]);', effect_start) + len('},[]);')
+              new_effect = '  useEffect(()=>{let alive=true;const today=localDateKey();Promise.allSettled([axios.get(`${API}/nutrition/plan`),axios.get(`${API}/nutrition/adherence/${today}`),axios.get(`${API}/hydration/${today}`)]).then(([n,a,h])=>{if(!alive)return;if(n.status==="fulfilled")setNutrition(n.value.data);if(a.status==="fulfilled")setMealLog(a.value.data.meals||[]);if(h.status==="fulfilled")setHydration(h.value.data)});return()=>{alive=false}},[]);'
+              a = a[:effect_start] + new_effect + a[effect_end:]
+
+          if 'const sessions=p.sessions||[];' not in a:
+              totals_marker = '  const totalMeals=nutrition?.meals?.length||0;\n'
+              totals_pos = a.index(totals_marker, today_pos) + len(totals_marker)
+              derived = '''  const sessions=p.sessions||[];
             const foundActive=sessions.findIndex(s=>s.day===p.active_day);
             const activeSessionIndex=sessions.length?Math.max(0,foundActive):-1;
             const completedSessionCount=activeSessionIndex>0?activeSessionIndex:0;
@@ -186,17 +176,12 @@ jobs:
             const addWater=async amount=>{if(hydrationBusy)return;const previous=hydration;setHydrationBusy(true);setHydration(h=>({...h,total_ml:Number(h?.total_ml||0)+amount,goal_ml:Number(h?.goal_ml||waterGoal),can_undo:true}));try{const r=await axios.post(`${API}/hydration/${localDateKey()}`,{amount_ml:amount});setHydration(r.data)}catch{setHydration(previous)}finally{setHydrationBusy(false)}};
             const undoWater=async()=>{if(hydrationBusy||!hydration?.can_undo)return;setHydrationBusy(true);try{const r=await axios.delete(`${API}/hydration/${localDateKey()}/last`);setHydration(r.data)}finally{setHydrationBusy(false)}};
           '''
-          if 'const sessions=p.sessions||[];' not in a:
-              assert totals_marker in a, 'nutrition totals marker missing'
-              a = a.replace(totals_marker, totals_insert, 1)
+              a = a[:totals_pos] + derived + a[totals_pos:]
 
-          header_marker = '''    <header className="ledger-context">
-              <p className="ledger-meta">{p.week||"Seu ciclo atual"} · {db.profile?.goal||"Performance"} · sessão {p.active_day||1} de {p.sessions?.length||db.profile?.days||1}</p>
-              <p className="ledger-greeting">{greeting}{firstName?`, ${firstName}`:""}.</p>
-            </header>
-          '''
-          week_block = header_marker + '''
-            {sessions.length>0&&<section className="ledger-week" data-testid="home-training-week">
+          if 'data-testid="home-training-week"' not in a:
+              decision_marker = '    <section className="panel ledger-decision" data-testid="daily-briefing">'
+              decision_pos = a.index(decision_marker, today_pos)
+              week = '''    {sessions.length>0&&<section className="ledger-week" data-testid="home-training-week">
               <div className="ledger-section-head">
                 <span className="decision-kicker">Semana em curso</span>
                 <span className="ledger-section-note">{completedSessionCount} de {sessions.length} sessões concluídas</span>
@@ -209,26 +194,14 @@ jobs:
                 </div>})}
               </div>
             </section>}
-          '''
-          if 'data-testid="home-training-week"' not in a:
-              assert header_marker in a, 'ledger header marker missing'
-              a = a.replace(header_marker, week_block, 1)
 
-          nutrition_marker = '''    {nutritionReady&&<section className="ledger-macros" data-testid="home-nutrition-progress">
-              <div className="ledger-section-head">
-                <span className="decision-kicker">Nutrição hoje</span>
-                <span className="ledger-section-note">{completedMeals.size} de {totalMeals} refeições · faltam {Math.round(remainingCalories).toLocaleString("pt-BR")} kcal</span>
-              </div>
-              <div className="macro-grid">
-                <MacroRail label="kcal" value={consumedCalories} goal={targetCalories} unit=""/>
-                <MacroRail label="proteína" value={consumed.protein_g} goal={targetProtein}/>
-                <MacroRail label="carbo" value={consumed.carbs_g} goal={targetCarbs}/>
-                <MacroRail label="gordura" value={consumed.fat_g} goal={targetFat}/>
-              </div>
-            </section>}
           '''
-          hydration_block = nutrition_marker + '''
-            {hydration&&<section className={`ledger-hydration${waterPct>=100?" complete":""}`} data-testid="home-hydration">
+              a = a[:decision_pos] + week + a[decision_pos:]
+
+          if 'data-testid="home-hydration"' not in a:
+              session_marker = '    <section className="ledger-session" data-testid="today-workout-card">'
+              session_pos = a.index(session_marker, today_pos)
+              hydration_block = '''    {hydration&&<section className={`ledger-hydration${waterPct>=100?" complete":""}`} data-testid="home-hydration">
               <div className="ledger-section-head">
                 <span className="decision-kicker">Hidratação hoje</span>
                 <span className="ledger-section-note">{waterPct>=100?"meta concluída":`faltam ${Math.max(0,waterGoal-waterTotal).toLocaleString("pt-BR")} ml`}</span>
@@ -243,10 +216,9 @@ jobs:
                 <button type="button" className="undo" data-testid="hydration-undo" disabled={hydrationBusy||!hydration.can_undo} onClick={undoWater}>Desfazer</button>
               </div>
             </section>}
+
           '''
-          if 'data-testid="home-hydration"' not in a:
-              assert nutrition_marker in a, 'nutrition block marker missing'
-              a = a.replace(nutrition_marker, hydration_block, 1)
+              a = a[:session_pos] + hydration_block + a[session_pos:]
 
           app.write_text(a, encoding='utf-8')
 
@@ -401,7 +373,6 @@ jobs:
           '''
               css.write_text(c, encoding='utf-8')
 
-          # Assertions keep the patch from silently half-applying.
           assert 'data-testid="home-training-week"' in a
           assert 'data-testid="home-hydration"' in a
           assert '@api.post("/hydration/{day}")' in s
