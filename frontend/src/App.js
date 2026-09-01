@@ -2,7 +2,7 @@
 import {useEffect,useMemo,useRef,useState} from "react";
 import axios from "axios";
 import {motion} from "framer-motion";
-import {Activity,BarChart3,Bell,BrainCircuit,Check,ChevronRight,CircleUserRound,Dumbbell,FileUp,Home,Info,LineChart,LockKeyhole,LogOut,RotateCcw,ShieldCheck,Sliders,Sparkles,TimerReset,TrendingUp,Trophy,UserRound,Utensils,X} from "lucide-react";
+import {Activity,BarChart3,Bell,BrainCircuit,Check,ChevronRight,CircleUserRound,Droplets,Dumbbell,FileUp,Home,Info,LineChart,LockKeyhole,LogOut,RotateCcw,ShieldCheck,Sliders,Sparkles,TimerReset,TrendingUp,Trophy,UserRound,Utensils,X} from "lucide-react";
 import "@/App.css";
 import "./features/builder.css";
 import "./features/auth.css";
@@ -48,10 +48,16 @@ function MacroRail({label,value,goal,unit="g"}){
   </div>;
 }
 
+function localDateKey(){
+  const d=new Date();
+  const pad=n=>String(n).padStart(2,"0");
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+}
+
 function Today({db,analytics,report,start,openCoach,openBuilder,openManual}){
   const p=db.program||{},manual=p.logic?.manual;
-  const[showExercises,setShowExercises]=useState(false),[nutrition,setNutrition]=useState(null),[mealLog,setMealLog]=useState([]);
-  useEffect(()=>{let alive=true;const today=new Date().toISOString().slice(0,10);Promise.allSettled([axios.get(`${API}/nutrition/plan`),axios.get(`${API}/nutrition/adherence/${today}`)]).then(([n,a])=>{if(!alive)return;if(n.status==="fulfilled")setNutrition(n.value.data);if(a.status==="fulfilled")setMealLog(a.value.data.meals||[])});return()=>{alive=false}},[]);
+  const[showExercises,setShowExercises]=useState(false),[nutrition,setNutrition]=useState(null),[mealLog,setMealLog]=useState([]),[hydration,setHydration]=useState(null),[hydrationBusy,setHydrationBusy]=useState(false);
+  useEffect(()=>{let alive=true;const today=localDateKey();Promise.allSettled([axios.get(`${API}/nutrition/plan`),axios.get(`${API}/nutrition/adherence/${today}`),axios.get(`${API}/hydration/${today}`)]).then(([n,a,h])=>{if(!alive)return;if(n.status==="fulfilled")setNutrition(n.value.data);if(a.status==="fulfilled")setMealLog(a.value.data.meals||[]);if(h.status==="fulfilled")setHydration(h.value.data)});return()=>{alive=false}},[]);
 
   const activeSession=p.sessions?.find(s=>s.day===p.active_day)||p.sessions?.[0];
   const exercises=activeSession?.exercises||p.exercises||[];
@@ -80,6 +86,17 @@ function Today({db,analytics,report,start,openCoach,openBuilder,openManual}){
   const consumedCalories=consumed.kcal||fallbackKcal;
   const remainingCalories=Math.max(0,targetCalories-consumedCalories);
   const totalMeals=nutrition?.meals?.length||0;
+  const sessions=p.sessions||[];
+  const foundActive=sessions.findIndex(s=>s.day===p.active_day);
+  const activeSessionIndex=sessions.length?Math.max(0,foundActive):-1;
+  const completedSessionCount=activeSessionIndex>0?activeSessionIndex:0;
+  const shortSessionLabel=(session,index)=>String(session?.label||`Treino ${index+1}`).split(/[—–-]/)[0].trim();
+  const waterTotal=Number(hydration?.total_ml||0),waterGoal=Number(hydration?.goal_ml||2500);
+  const waterPct=waterGoal?Math.min(100,Math.round(waterTotal/waterGoal*100)):0;
+  const waterLiters=(waterTotal/1000).toLocaleString("pt-BR",{minimumFractionDigits:1,maximumFractionDigits:2});
+  const waterGoalLiters=(waterGoal/1000).toLocaleString("pt-BR",{minimumFractionDigits:1,maximumFractionDigits:1});
+  const addWater=async amount=>{if(hydrationBusy)return;const previous=hydration;setHydrationBusy(true);setHydration(h=>({...h,total_ml:Number(h?.total_ml||0)+amount,goal_ml:Number(h?.goal_ml||waterGoal),can_undo:true}));try{const r=await axios.post(`${API}/hydration/${localDateKey()}`,{amount_ml:amount});setHydration(r.data)}catch{setHydration(previous)}finally{setHydrationBusy(false)}};
+  const undoWater=async()=>{if(hydrationBusy||!hydration?.can_undo)return;setHydrationBusy(true);try{const r=await axios.delete(`${API}/hydration/${localDateKey()}/last`);setHydration(r.data)}finally{setHydrationBusy(false)}};
 
   return <div className="content performance-home forge-home-final decision-home ledger-home">
     <div className="forge-mobile-mast"><span>FORGE</span><Bell size={18}/></div>
@@ -88,6 +105,20 @@ function Today({db,analytics,report,start,openCoach,openBuilder,openManual}){
       <p className="ledger-meta">{p.week||"Seu ciclo atual"} · {db.profile?.goal||"Performance"} · sessão {p.active_day||1} de {p.sessions?.length||db.profile?.days||1}</p>
       <p className="ledger-greeting">{greeting}{firstName?`, ${firstName}`:""}.</p>
     </header>
+
+    {sessions.length>0&&<section className="ledger-week" data-testid="home-training-week">
+    <div className="ledger-section-head">
+      <span className="decision-kicker">Semana em curso</span>
+      <span className="ledger-section-note">{completedSessionCount} de {sessions.length} sessões concluídas</span>
+    </div>
+    <div className="ledger-week-track">
+      {sessions.map((session,index)=>{const status=index<activeSessionIndex?"done":index===activeSessionIndex?"current":"next";return <div className={`ledger-week-item ${status}`} key={`${session.day}-${session.label||index}`} data-testid={`week-session-${index+1}`}>
+        <span className="ledger-week-step">{status==="done"?<Check size={13}/>:String(index+1).padStart(2,"0")}</span>
+        <b>{shortSessionLabel(session,index)}</b>
+        <small>{status==="done"?"concluído":status==="current"?"hoje":"próximo"}</small>
+      </div>})}
+    </div>
+  </section>}
 
     <section className="panel ledger-decision" data-testid="daily-briefing">
       <span className="decision-kicker">Direção de hoje</span>
@@ -115,6 +146,22 @@ function Today({db,analytics,report,start,openCoach,openBuilder,openManual}){
         <MacroRail label="gordura" value={consumed.fat_g} goal={targetFat}/>
       </div>
     </section>}
+
+    {hydration&&<section className={`ledger-hydration${waterPct>=100?" complete":""}`} data-testid="home-hydration">
+    <div className="ledger-section-head">
+      <span className="decision-kicker">Hidratação hoje</span>
+      <span className="ledger-section-note">{waterPct>=100?"meta concluída":`faltam ${Math.max(0,waterGoal-waterTotal).toLocaleString("pt-BR")} ml`}</span>
+    </div>
+    <div className="hydration-main">
+      <div className="hydration-value"><Droplets size={18}/><b>{waterLiters}<em> / {waterGoalLiters} L</em></b></div>
+      <div className="hydration-track"><i style={{width:`${waterPct}%`}}/></div>
+    </div>
+    <div className="hydration-actions">
+      <button type="button" data-testid="hydration-add-250" disabled={hydrationBusy} onClick={()=>addWater(250)}>+250 ml</button>
+      <button type="button" data-testid="hydration-add-500" disabled={hydrationBusy} onClick={()=>addWater(500)}>+500 ml</button>
+      <button type="button" className="undo" data-testid="hydration-undo" disabled={hydrationBusy||!hydration.can_undo} onClick={undoWater}>Desfazer</button>
+    </div>
+  </section>}
 
     <section className="ledger-session" data-testid="today-workout-card">
       <div className="ledger-section-head">
