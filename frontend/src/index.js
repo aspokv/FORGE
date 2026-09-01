@@ -9,6 +9,7 @@ import "@/reference-platform.css";
 import "@/reference-platform-extra.css";
 import "@/performance-pass.css";
 import "@/iron-ledger-pass-01.css";
+import "@/iron-ledger-pass-02.css";
 
 const queryClient = new QueryClient({
   defaultOptions: {
