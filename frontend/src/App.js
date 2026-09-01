@@ -39,10 +39,20 @@ const navIcons={Hoje:Home,Treino:Dumbbell,"Alimentação":Utensils,Progresso:Tre
 function AthleteShell(){const{user,signOut}=useAuth();const profileId=user?.id;const[db,setDb]=useState(null),[tab,setTab]=useState("Hoje"),[loading,setLoading]=useState(true),[assessment,setAssessment]=useState(false),[assessmentMode,setAssessmentMode]=useState(ASSESSMENT_MODE_RESUME),[analytics,setAnalytics]=useState(null),[report,setReport]=useState(null),[coach,setCoach]=useState(false),[coachText,setCoachText]=useState(""),[busy,setBusy]=useState(false),[builder,setBuilder]=useState(false),[manualOpen,setManualOpen]=useState(false),[techDetail,setTechDetail]=useState(null),[previewData,setPreviewData]=useState(null);useEffect(()=>{if(!user)return;axios.get(`${API}/bootstrap`).then(r=>{const data=r.data;setDb(data);if(data.profile?.onboarding_required&&user?.role==="ATHLETE"){setAssessmentMode(ASSESSMENT_MODE_RESUME);setAssessment(true)}}).catch(()=>{setDb(null)}).finally(()=>setLoading(false))},[user?.id]);useEffect(()=>{if(!db)return;if(["Progresso","Análise"].includes(tab))axios.get(`${API}/analytics`).then(r=>setAnalytics(r.data));if(tab==="Análise")axios.get(`${API}/weekly-report`).then(r=>setReport(r.data))},[tab,!!db]);const context=useMemo(()=>{if(!db)return{};return{profile:db.profile,assessment:db.profile.assessment,program:db.program,priorities:db.profile.priorities,recent_sets:db.recent_sets,weekly_volume:analytics?.volume,recovery:db.profile.recovery,baseline:db.profile.baseline}},[db,analytics]);const ask=async question=>{setBusy(true);setCoachText("");try{const r=await fetch(`${API}/coach`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({question,context})}),reader=r.body.getReader(),decoder=new TextDecoder();let done=false;while(!done){const part=await reader.read();done=part.done;decoder.decode(part.value||new Uint8Array()).split("\n\n").forEach(x=>{if(x.startsWith("data: ")&&!x.includes("[DONE]")){try{const j=JSON.parse(x.slice(6));setCoachText(t=>t+(j.text||j.error||""))}catch{setCoachText("Resposta indisponível.")}}})}}catch{setCoachText("Coach temporariamente indisponível.")}finally{setBusy(false)}};const finish=async form=>{if(deveMostrarPreview(form.automation_mode)){try{const r=await axios.post(`${API}/program/preview`,form);setPreviewData({form,program:r.data.program});setAssessment(false)}catch{setDb(x=>({...x,profile:{...x.profile,...form}}));setAssessment(false);setPreviewData(null)}return}try{const payload={...form,profile_id:user?.id||form.profile_id};const r=await axios.post(`${API}/assessment`,payload);setDb(x=>({...x,profile:r.data.profile,program:r.data.program}))}catch{setDb(x=>({...x,profile:{...x.profile,...form}}))}setAssessment(false);setAssessmentMode(ASSESSMENT_MODE_RESUME);if(deveAbrirBuilderDepois(form.automation_mode))setBuilder(true)};const approve=async()=>{if(!previewData)return;try{const payload={...previewData.form,profile_id:user?.id||previewData.form.profile_id};const r=await axios.post(`${API}/assessment`,payload);setDb(x=>({...x,profile:r.data.profile,program:r.data.program}))}catch{setDb(x=>({...x,profile:{...x.profile,...previewData.form}}))}setAssessmentMode(ASSESSMENT_MODE_RESUME);setPreviewData(null)};if(!db&&!loading)return <div className="auth-shell"><div className="auth-card"><p className="muted">Erro ao carregar dados do perfil. Tente novamente.</p></div></div>;if(assessment)return <DeepAssessment onDone={finish}initialForm={previewData?.form||respostasIniciais(db?.profile)}passos={passosDoAssessment(db?.profile,assessmentMode)}/>;if(previewData)return <ProgramPreview program={previewData.program}onApprove={approve}onBack={()=>setAssessment(true)}/>;if(!db)return <div className="auth-shell"><div className="auth-card"><p className="muted">Carregando seu perfil...</p></div></div>;const techniques=db.techniques||TECHNIQUE_FALLBACK;const openBuilder=()=>setBuilder(true);const openManual=()=>setManualOpen(true);const manualActivated=res=>{setDb(x=>({...x,program:res.program,profile:{...x.profile,custom_program:res.custom||x.profile.custom_program,automation_mode:"FORGE_PRO",current_session_day:1,exercise_substitutions:{}}}));setManualOpen(false)};const savedProgram=res=>{setDb(x=>({...x,program:res.program,profile:{...x.profile,custom_program:res.custom||null,automation_mode:res.custom?"FORGE_PRO":x.profile.automation_mode}}));setBuilder(false)};const onExerciseSubstituted=res=>{setDb(x=>({...x,program:res.program,profile:{...x.profile,exercise_substitutions:res.exercise_substitutions}}))};const onWorkoutCompleted=res=>{setDb(x=>({...x,program:res.program}))};return <div className="forge-shell"><aside className="rail"><div className="brand"><span className="brand-mark">F</span><span>FORGE</span></div><p className="rail-caption">ADVANCED TRAINING OS</p><Nav tab={tab}setTab={setTab}/><div className="rail-bottom"><div className="status-dot"/> Engine online<br/><span>{user?.role==="ATHLETE"?"Personal profile":"Admin mode"}</span></div></aside><main className="main"><header className="topbar"><div><p className="eyebrow">{tab.toUpperCase()} / 06 JUN 2026</p><h1>{tab==="Hoje"?`Bom treino, ${(db.profile.name||"Atleta").split(" ")[0]}.`:tab}</h1></div><button className="icon-button"data-testid="profile-open-button"onClick={()=>setTab("Perfil")}><CircleUserRound size={20}/></button></header>{loading?<div className="loading"data-testid="loading-state">Carregando seu sistema...</div>:<Page tab={tab}db={db}analytics={analytics}report={report}techniques={techniques}start={()=>setTab("Treino")}openCoach={()=>setCoach(true)}openBuilder={openBuilder}openManual={openManual}openTech={setTechDetail}redo={()=>{setAssessmentMode(ASSESSMENT_MODE_FULL);setAssessment(true)}}signOut={signOut}user={user}goHome={()=>setTab("Hoje")}onExerciseSubstituted={onExerciseSubstituted}onWorkoutCompleted={onWorkoutCompleted}/>}</main><div className="mobile-nav"><Nav tab={tab}setTab={setTab}/></div>{coach&&<Coach onClose={()=>setCoach(false)}text={coachText}busy={busy}ask={ask}/>}{builder&&<ProgramBuilder API={API}profile={db.profile}exercises={db.exercises}techniques={techniques}program={db.profile.custom_program||db.program}onSaved={savedProgram}onClose={()=>setBuilder(false)}/>}{manualOpen&&<ManualWorkout API={API}profile={db.profile}exercises={db.exercises}onActivated={manualActivated}onOpenBuilder={()=>{setManualOpen(false);setBuilder(true)}}onClose={()=>setManualOpen(false)}/>}{techDetail&&<TechniqueDetail t={techDetail}onClose={()=>setTechDetail(null)}/>}</div>}
 function Nav({tab,setTab}){return <nav>{Object.entries(navIcons).map(([name,Icon])=><button key={name}className={tab===name?"nav-item active":"nav-item"}data-testid={`nav-${name.toLowerCase()}`}onClick={()=>setTab(name)}><Icon size={18}/><span>{name==="Hoje"?"Início":name==="Alimentação"?"Nutrição":name}</span></button>)}</nav>}
 function Page({tab,db,analytics,report,techniques,start,openCoach,openBuilder,openManual,openTech,redo,signOut,user,goHome,onExerciseSubstituted,onWorkoutCompleted}){if(tab==="Treino")return <Workout db={db}techniques={techniques}openTech={openTech}goHome={goHome}onExerciseSubstituted={onExerciseSubstituted}onWorkoutCompleted={onWorkoutCompleted}/>;if(tab==="Planos")return <Billing API={API}/>;if(tab==="Progresso")return <Progress analytics={analytics}profileId={db?.profile?.id}/>;if(tab==="Análise")return <Analysis db={db}analytics={analytics}report={report}openCoach={openCoach}/>;if(tab==="Perfil")return <Profile db={db}redo={redo}openBuilder={openBuilder}openManual={openManual}signOut={signOut}user={user}/>;if(tab==="Alimentação")return <Nutrition db={db}API={API}profileId={db?.profile?.id}/>;return <Today db={db}analytics={analytics}report={report}start={start}openCoach={openCoach}openBuilder={openBuilder}openManual={openManual}/>}
+function MacroRail({label,value,goal,unit="g"}){
+  const pct=goal?Math.min(100,Math.round(value/goal*100)):0;
+  return <div className="macro-rail">
+    <span className="macro-rail-label">{label}</span>
+    <b className="macro-rail-value">{Math.round(value).toLocaleString("pt-BR")}<em>/{Math.round(goal).toLocaleString("pt-BR")}{unit}</em></b>
+    <div className="macro-rail-track"><i style={{width:`${pct}%`}}/></div>
+  </div>;
+}
+
 function Today({db,analytics,report,start,openCoach,openBuilder,openManual}){
   const p=db.program||{},manual=p.logic?.manual;
   const[showExercises,setShowExercises]=useState(false),[nutrition,setNutrition]=useState(null),[mealLog,setMealLog]=useState([]);
   useEffect(()=>{let alive=true;const today=new Date().toISOString().slice(0,10);Promise.allSettled([axios.get(`${API}/nutrition/plan`),axios.get(`${API}/nutrition/adherence/${today}`)]).then(([n,a])=>{if(!alive)return;if(n.status==="fulfilled")setNutrition(n.value.data);if(a.status==="fulfilled")setMealLog(a.value.data.meals||[])});return()=>{alive=false}},[]);
+
   const activeSession=p.sessions?.find(s=>s.day===p.active_day)||p.sessions?.[0];
   const exercises=activeSession?.exercises||p.exercises||[];
   const preview=exercises.map(x=>({...x,name:db.exercises?.find(e=>e.id===x.exercise_id)?.name||x.name||x.exercise_name||x.exercise_id}));
@@ -50,33 +60,88 @@ function Today({db,analytics,report,start,openCoach,openBuilder,openManual}){
   const duration=activeSession?.duration||p.duration||`${Math.max(35,Math.round(plannedSets*3.4))} min`;
   const focus=activeSession?.focus||p.focus||[],sessionName=activeSession?.label||p.session||"Treino de hoje";
   const logs=db.recent_sets||[];
-  const recoveryLabel={HIGH:"Alta",NORMAL:"Boa",LOW:"Baixa",VERY_LOW:"Muito baixa"}[p.logic?.recovery_level]||"Sem check-in";
-  const recoveryAction={HIGH:"Aproveite a prontidão: execute as progressões previstas.",NORMAL:"Siga a prescrição e preserve o RIR planejado.",LOW:"Mantenha carga e priorize execução limpa.",VERY_LOW:"Reduza a ambição de carga e proteja a técnica."}[p.logic?.recovery_level]||"Faça o check-in para o plano ajustar a sessão.";
-  const hour=new Date().getHours(),greeting=hour<12?"Bom dia":hour<18?"Boa tarde":"Boa noite",firstName=(db.profile?.name||"Atleta").split(" ")[0];
-  const briefing=p.logic?.recovery_level==="VERY_LOW"?`Hoje, vencer é treinar com inteligência. ${recoveryAction}`:`${sessionName} está pronto. ${recoveryAction}`;
-  const daily=nutrition?.daily_totals||{},targets=nutrition?.targets||{};
-  const targetCalories=Number(targets.goal_calories||daily.kcal||0),targetProtein=Number(targets.protein_g||0),nutritionReady=Boolean(targetCalories||targetProtein);
+  const recoveryLevel=p.logic?.recovery_level;
+  const recoveryLabel={HIGH:"Alta",NORMAL:"Boa",LOW:"Baixa",VERY_LOW:"Muito baixa"}[recoveryLevel]||"Sem check-in";
+  const recoveryState=!recoveryLevel?"pending":(recoveryLevel==="LOW"||recoveryLevel==="VERY_LOW")?"low":"ok";
+  const recoveryAction={HIGH:"Aproveite a prontidão: execute as progressões previstas.",NORMAL:"Siga a prescrição e preserve o RIR planejado.",LOW:"Mantenha carga e priorize execução limpa.",VERY_LOW:"Reduza a ambição de carga e proteja a técnica."}[recoveryLevel]||"Faça o check-in para o plano ajustar a sessão.";
+  const hour=new Date().getHours(),greeting=hour<12?"Bom dia":hour<18?"Boa tarde":"Boa noite";
+  const rawName=(db.profile?.name||"").trim().split(" ")[0];
+  const firstName=(!rawName||rawName.toLowerCase()==="novo")?"":rawName;
+  const briefing=recoveryLevel==="VERY_LOW"?`Hoje, vencer é treinar com inteligência. ${recoveryAction}`:`${sessionName} está pronto. ${recoveryAction}`;
+
+  const mealMacros=meal=>{let kcal=0,protein_g=0,carbs_g=0,fat_g=0;(meal?.foods||[]).forEach(it=>{const f=it.food||{},fac=(it.grams||0)/(f.grams||100);kcal+=(f.kcal||0)*fac;protein_g+=(f.protein_g||0)*fac;carbs_g+=(f.carbs_g||0)*fac;fat_g+=(f.fat_g||0)*fac});return{kcal,protein_g,carbs_g,fat_g}};
+  const targets=nutrition?.targets||{},daily=nutrition?.daily_totals||{};
+  const targetCalories=Number(targets.goal_calories||daily.kcal||0);
+  const targetProtein=Number(targets.protein_g||0),targetCarbs=Number(targets.carbs_g||0),targetFat=Number(targets.fat_g||0);
+  const nutritionReady=Boolean(targetCalories||targetProtein);
   const completedMeals=new Set(mealLog.filter(x=>x.status==="completed").map(x=>Number(x.meal_index)));
-  const consumedCalories=(nutrition?.meals||[]).reduce((sum,meal,i)=>sum+(completedMeals.has(i)?Number(meal.target_cal||0):0),0);
-  const remainingCalories=Math.max(0,targetCalories-consumedCalories),nutritionProgress=targetCalories?Math.min(100,Math.round(consumedCalories/targetCalories*100)):0;
-  return <div className="content performance-home forge-home-final decision-home">
+  const consumed=(nutrition?.meals||[]).reduce((acc,meal,i)=>{if(!completedMeals.has(i))return acc;const m=mealMacros(meal);return{kcal:acc.kcal+m.kcal,protein_g:acc.protein_g+m.protein_g,carbs_g:acc.carbs_g+m.carbs_g,fat_g:acc.fat_g+m.fat_g}},{kcal:0,protein_g:0,carbs_g:0,fat_g:0});
+  const fallbackKcal=(nutrition?.meals||[]).reduce((s,m,i)=>s+(completedMeals.has(i)?Number(m.target_cal||0):0),0);
+  const consumedCalories=consumed.kcal||fallbackKcal;
+  const remainingCalories=Math.max(0,targetCalories-consumedCalories);
+  const totalMeals=nutrition?.meals?.length||0;
+
+  return <div className="content performance-home forge-home-final decision-home ledger-home">
     <div className="forge-mobile-mast"><span>FORGE</span><Bell size={18}/></div>
-    <header className="daily-context premium-context"><h2>{greeting}, {firstName}.</h2><span>{p.week||"Seu ciclo atual"} · {db.profile?.goal||"Performance"} · sessão {p.active_day||1} de {p.sessions?.length||db.profile?.days||1}</span></header>
-    <section className="panel daily-briefing premium-command"data-testid="daily-briefing">
-      <div className="command-copy"><span className="decision-kicker">Direção de hoje</span><h3>{briefing}</h3><button className="text-button ask-forge"data-testid="open-coach-button"onClick={openCoach}>Entender esta decisão <ChevronRight size={14}/></button></div>
-      <div className="command-metrics"><div><Activity size={18}/><b>{recoveryLabel}</b><span>recuperação</span></div><div><Dumbbell size={18}/><b>{plannedSets||"—"}</b><span>séries</span></div><div><TimerReset size={18}/><b>{duration}</b><span>estimados</span></div></div>
-      <button className="primary-button command-start"data-testid="start-workout-button"onClick={start}>Começar treino <ChevronRight size={19}/></button>
+
+    <header className="ledger-context">
+      <p className="ledger-meta">{p.week||"Seu ciclo atual"} · {db.profile?.goal||"Performance"} · sessão {p.active_day||1} de {p.sessions?.length||db.profile?.days||1}</p>
+      <p className="ledger-greeting">{greeting}{firstName?`, ${firstName}`:""}.</p>
+    </header>
+
+    <section className="panel ledger-decision" data-testid="daily-briefing">
+      <span className="decision-kicker">Direção de hoje</span>
+      <h3 className="ledger-headline">{briefing}</h3>
+
+      <div className="ledger-metrics">
+        <div><span>recuperação</span><b className={`ledger-state ${recoveryState}`}>{recoveryLabel}</b></div>
+        <div><span>séries</span><b>{plannedSets||"—"}</b></div>
+        <div><span>estimado</span><b>{duration}</b></div>
+      </div>
+
+      <button className="primary-button command-start" data-testid="start-workout-button" onClick={start}>Começar treino <ChevronRight size={19}/></button>
+      <button className="ledger-secondary" data-testid="open-coach-button" onClick={openCoach}>Entender esta decisão <ChevronRight size={15}/></button>
     </section>
-    <section className="panel compact-workout"data-testid="today-workout-card">
-      <div className="compact-workout-head"><span className="workout-orbit"><Dumbbell size={24}/></span><div><span className="decision-kicker">Treino de hoje</span><h3>{sessionName}</h3><p>{focus.join(" · ")||"Foco definido pelo seu programa"}</p></div></div>
-      <div className="exercise-peek">{preview.slice(0,3).map((x,i)=><span key={x.exercise_id||i}><b>{i+1}</b>{x.name}</span>)}</div>
-      <button className="exercise-disclosure compact-disclosure"onClick={()=>setShowExercises(x=>!x)}aria-expanded={showExercises}>{showExercises?"Ocultar lista":`Ver ${exercises.length} exercícios`} <ChevronRight size={14}/></button>
-      {showExercises&&<div className="decision-exercises">{preview.map((x,i)=><div key={x.exercise_id||i}><span>{String(i+1).padStart(2,"0")}</span><div><b>{x.name}</b><small>{x.sets} × {x.reps} · RIR {x.rir}</small></div></div>)}</div>}
+
+    {nutritionReady&&<section className="ledger-macros" data-testid="home-nutrition-progress">
+      <div className="ledger-section-head">
+        <span className="decision-kicker">Nutrição hoje</span>
+        <span className="ledger-section-note">{completedMeals.size} de {totalMeals} refeições · faltam {Math.round(remainingCalories).toLocaleString("pt-BR")} kcal</span>
+      </div>
+      <div className="macro-grid">
+        <MacroRail label="kcal" value={consumedCalories} goal={targetCalories} unit=""/>
+        <MacroRail label="proteína" value={consumed.protein_g} goal={targetProtein}/>
+        <MacroRail label="carbo" value={consumed.carbs_g} goal={targetCarbs}/>
+        <MacroRail label="gordura" value={consumed.fat_g} goal={targetFat}/>
+      </div>
+    </section>}
+
+    <section className="ledger-session" data-testid="today-workout-card">
+      <div className="ledger-section-head">
+        <span className="decision-kicker">Sessão</span>
+        <span className="ledger-section-note">{focus.join(" · ")||"Foco definido pelo seu programa"}</span>
+      </div>
+      <h4 className="ledger-session-name">{sessionName}</h4>
+      <ol className="ledger-exercises">
+        {(showExercises?preview:preview.slice(0,3)).map((x,i)=><li key={x.exercise_id||i}>
+          <span className="ledger-index">{String(i+1).padStart(2,"0")}</span>
+          <span className="ledger-exercise-name">{x.name}</span>
+          {showExercises&&<span className="ledger-prescription">{x.sets}×{x.reps} · RIR {x.rir}</span>}
+        </li>)}
+      </ol>
+      {exercises.length>3&&<button className="ledger-disclosure" onClick={()=>setShowExercises(v=>!v)} aria-expanded={showExercises}>{showExercises?"Ocultar lista":`Ver ${exercises.length} exercícios`} <ChevronRight size={15}/></button>}
     </section>
-    <section className="panel home-nutrition nutrition-progress-card"data-testid="home-nutrition-progress"><div className="nutrition-progress-copy"><span className="decision-kicker">Nutrição hoje</span><h3>{nutritionReady?`${Math.round(consumedCalories).toLocaleString("pt-BR")} de ${Math.round(targetCalories).toLocaleString("pt-BR")} kcal`:"Seu plano alimentar, no mesmo sistema."}</h3><p>{nutritionReady?`${completedMeals.size} de ${nutrition?.meals?.length||0} refeições concluídas · faltam ${Math.round(remainingCalories).toLocaleString("pt-BR")} kcal`:"Abra Nutrição para gerar ou revisar suas metas."}</p><div className="nutrition-progress-track"><i style={{width:`${nutritionProgress}%`}}/></div><small>{nutritionReady?`${nutritionProgress}% do plano de hoje · meta de ${Math.round(targetProtein)}g de proteína`:"Aguardando seu plano"}</small></div><div className="nutrition-progress-ring"style={{"--nutrition-progress":`${nutritionProgress*3.6}deg`}}><span>{nutritionProgress}<small>%</small></span><em>consumido</em></div></section>
-    <section className="daily-insight next-milestone"><span className="milestone-icon"><Trophy size={18}/></span><div><span>Próximo marco</span><b>{logs.length?`Complete a sessão de hoje para consolidar ${logs.length+plannedSets} séries no histórico recente.`:"Seu primeiro treino transforma o plano em sistema adaptativo."}</b></div><ChevronRight size={18}/></section>
-    <div className="forge-home-tools"><button className="text-button"data-testid="open-builder-today"onClick={openBuilder}><Sliders size={13}/> {manual?"Editar programa":"Program Builder"}</button><button className="text-button"data-testid="open-manual-today"onClick={openManual}><FileUp size={13}/> Estrutura manual</button></div>
-  </div>
+
+    <section className="ledger-milestone">
+      <span className="ledger-index"><Trophy size={15}/></span>
+      <p>{logs.length?`Complete a sessão de hoje para consolidar ${logs.length+plannedSets} séries no histórico recente.`:"Seu primeiro treino transforma o plano em sistema adaptativo."}</p>
+    </section>
+
+    <div className="forge-home-tools">
+      <button className="text-button" data-testid="open-builder-today" onClick={openBuilder}><Sliders size={13}/> {manual?"Editar programa":"Program Builder"}</button>
+      <button className="text-button" data-testid="open-manual-today" onClick={openManual}><FileUp size={13}/> Estrutura manual</button>
+    </div>
+  </div>;
 }
 const LOAD_LABEL={FIRST_TIME:"Primeira vez",LOAD_UP:"Aumentar carga",KEEP_LOAD:"Manter carga",ADD_REPS:"Buscar mais reps",REDUCE_LOAD:"Reduzir carga"};
 function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutCompleted}){

@@ -1,0 +1,290 @@
+/* FORGE — IRON LEDGER PASS 02
+   Estrutura da home: um card herói, o resto em painel plano com régua.
+   Carregado por último. Para reverter: apague este arquivo, a linha de
+   import em index.js, e restaure a função Today anterior. */
+
+@media (max-width: 800px) {
+
+  .ledger-home { padding: 14px 20px 118px !important; }
+
+  /* ---- contexto ---- */
+  .ledger-home .ledger-context { margin: 0 0 26px !important; }
+  .ledger-home .ledger-meta {
+    margin: 0;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: #6f7270;
+  }
+  .ledger-home .ledger-greeting {
+    margin: 8px 0 0;
+    font-size: 15px;
+    color: #a7aaa8;
+  }
+
+  /* ---- bloco de decisão: o único card ---- */
+  .ledger-home .ledger-decision {
+    background: #141619 !important;
+    border: 1px solid #34383d !important;
+    border-radius: 14px !important;
+    box-shadow: none !important;
+    padding: 24px 22px 22px !important;
+    margin: 0 !important;
+  }
+  .ledger-home .ledger-decision::before { display: none !important; }
+
+  .ledger-home .decision-kicker {
+    display: block;
+    font-family: 'IBM Plex Mono', monospace !important;
+    font-size: 11px !important;
+    font-weight: 400 !important;
+    letter-spacing: .22em !important;
+    text-transform: uppercase;
+    color: #6f7270 !important;
+  }
+
+  .ledger-home .ledger-headline {
+    margin: 14px 0 0 !important;
+    font-family: var(--forge-editorial) !important;
+    font-size: clamp(26px, 7vw, 31px) !important;
+    font-weight: 500 !important;
+    line-height: 1.16 !important;
+    letter-spacing: -.025em !important;
+    color: #f3efe7 !important;
+    text-wrap: balance;
+  }
+
+  /* métricas em régua, não em caixa */
+  .ledger-home .ledger-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    margin-top: 22px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(255,255,255,.10);
+  }
+  .ledger-home .ledger-metrics > div {
+    min-width: 0;
+    padding-right: 12px;
+    border-right: 1px solid rgba(255,255,255,.08);
+  }
+  .ledger-home .ledger-metrics > div:last-child { border-right: 0; padding-right: 0; }
+  .ledger-home .ledger-metrics > div + div { padding-left: 12px; }
+  .ledger-home .ledger-metrics span {
+    display: block;
+    font-size: 11px;
+    letter-spacing: .06em;
+    color: #6f7270;
+  }
+  .ledger-home .ledger-metrics b {
+    display: block;
+    margin-top: 5px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-feature-settings: "tnum" 1;
+    font-size: 16px;
+    font-weight: 400;
+    color: #f3efe7;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  /* camada semântica finalmente ligada */
+  .ledger-home .ledger-state.pending { color: #d7a85c; }
+  .ledger-home .ledger-state.low     { color: #d7a85c; }
+  .ledger-home .ledger-state.ok      { color: #a8c686; }
+
+  .ledger-home .command-start {
+    width: 100%;
+    min-height: 54px !important;
+    margin-top: 22px !important;
+    border-radius: 10px !important;
+    background: #e36b4d !important;
+    border: 1px solid #e36b4d !important;
+    color: #1c120f !important;
+    font-size: 16px !important;
+    font-weight: 600 !important;
+    box-shadow: none !important;
+  }
+  .ledger-home .command-start:active { background: #c85a3f !important; border-color: #c85a3f !important; }
+
+  .ledger-home .ledger-secondary {
+    width: 100%;
+    min-height: 46px;
+    margin-top: 9px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    background: transparent;
+    border: 1px solid #34383d;
+    border-radius: 10px;
+    color: #a7aaa8;
+    font-size: 14px;
+    transition: border-color .13s, color .13s;
+  }
+  .ledger-home .ledger-secondary:active { border-color: #4a4f55; color: #f3efe7; }
+
+  /* ---- painéis planos: régua no lugar de card ---- */
+  .ledger-home .ledger-macros,
+  .ledger-home .ledger-session {
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(255,255,255,.10);
+  }
+  .ledger-home .ledger-section-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 6px 14px;
+  }
+  .ledger-home .ledger-section-note {
+    font-size: 12px;
+    color: #6f7270;
+    text-align: right;
+  }
+
+  /* ---- faixa de macros ---- */
+  .ledger-home .macro-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px 16px;
+    margin-top: 18px;
+  }
+  .ledger-home .macro-rail { min-width: 0; }
+  .ledger-home .macro-rail-label {
+    display: block;
+    font-size: 11px;
+    letter-spacing: .06em;
+    color: #6f7270;
+  }
+  .ledger-home .macro-rail-value {
+    display: block;
+    margin-top: 4px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-feature-settings: "tnum" 1;
+    font-size: 19px;
+    font-weight: 400;
+    color: #f3efe7;
+    white-space: nowrap;
+  }
+  .ledger-home .macro-rail-value em {
+    font-style: normal;
+    font-size: 12px;
+    color: #6f7270;
+    margin-left: 2px;
+  }
+  .ledger-home .macro-rail-track {
+    height: 2px;
+    margin-top: 9px;
+    background: #2b2e31;
+  }
+  .ledger-home .macro-rail-track i {
+    display: block;
+    height: 100%;
+    background: #e36b4d;
+    transition: width .14s linear;
+  }
+
+  /* ---- sessão ---- */
+  .ledger-home .ledger-session-name {
+    margin: 12px 0 0;
+    font-family: var(--forge-editorial);
+    font-size: 30px;
+    font-weight: 500;
+    line-height: 1;
+    letter-spacing: -.035em;
+    color: #f3efe7;
+  }
+  .ledger-home .ledger-exercises {
+    list-style: none;
+    margin: 16px 0 0;
+    padding: 0;
+  }
+  .ledger-home .ledger-exercises li {
+    display: grid;
+    grid-template-columns: 30px minmax(0, 1fr);
+    align-items: baseline;
+    gap: 2px 10px;
+    min-height: 50px;
+    padding: 13px 0;
+    border-top: 1px solid rgba(255,255,255,.08);
+  }
+  .ledger-home .ledger-index {
+    font-family: 'IBM Plex Mono', monospace;
+    font-feature-settings: "tnum" 1;
+    font-size: 12px;
+    color: #6f7270;
+  }
+  .ledger-home .ledger-exercise-name {
+    font-size: 16px;
+    line-height: 1.25;
+    color: #e6e1da;
+    overflow-wrap: anywhere;
+  }
+  .ledger-home .ledger-prescription {
+    grid-column: 2;
+    font-family: 'IBM Plex Mono', monospace;
+    font-feature-settings: "tnum" 1;
+    font-size: 12px;
+    color: #6f7270;
+  }
+  .ledger-home .ledger-disclosure {
+    width: 100%;
+    min-height: 46px;
+    margin-top: 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 5px;
+    background: transparent;
+    border: 0;
+    border-top: 1px solid rgba(255,255,255,.08);
+    color: #a7aaa8;
+    font-size: 14px;
+    text-align: left;
+  }
+
+  /* ---- marco ---- */
+  .ledger-home .ledger-milestone {
+    display: grid;
+    grid-template-columns: 30px minmax(0, 1fr);
+    align-items: start;
+    gap: 10px;
+    margin-top: 26px;
+    padding-top: 18px;
+    border-top: 1px solid rgba(255,255,255,.10);
+  }
+  .ledger-home .ledger-milestone .ledger-index { color: #6f7270; line-height: 1.5; }
+  .ledger-home .ledger-milestone p {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.5;
+    color: #a7aaa8;
+  }
+
+  .ledger-home .forge-home-tools {
+    display: flex;
+    gap: 18px;
+    margin-top: 26px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(255,255,255,.10);
+  }
+
+  /* neutraliza resíduos das camadas antigas */
+  .ledger-home .daily-context,
+  .ledger-home .nutrition-progress-ring,
+  .ledger-home .workout-orbit { display: none !important; }
+}
+
+@media (max-width: 800px) and (min-width: 380px) {
+  .ledger-home .macro-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; }
+  .ledger-home .macro-rail { padding-right: 10px; border-right: 1px solid rgba(255,255,255,.08); }
+  .ledger-home .macro-rail:last-child { border-right: 0; padding-right: 0; }
+  .ledger-home .macro-rail + .macro-rail { padding-left: 10px; }
+  .ledger-home .macro-rail-value { font-size: 17px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ledger-home .macro-rail-track i { transition: none; }
+}
