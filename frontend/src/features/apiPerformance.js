@@ -2,6 +2,8 @@ import axios from "axios";
 
 const cache = new Map();
 let prefetchScheduled = false;
+let lastApiBase = null;
+let workoutWarmTimer = null;
 
 const RULES = [
   { test: /\/api\/analytics(?:\?|$)/, ttl: 90000 },
@@ -84,24 +86,42 @@ function onIdle(callback) {
   return window.setTimeout(callback, 900);
 }
 
+function warmHeavyScreens(apiBase, includeNutrition = true) {
+  if (!apiBase || !localStorage.getItem("forge_token")) return;
+  const requests = [
+    axios.get(`${apiBase}/analytics`),
+    axios.get(`${apiBase}/weekly-report`),
+  ];
+  if (includeNutrition) requests.push(axios.get(`${apiBase}/nutrition/plan`));
+  Promise.allSettled(requests);
+}
+
 export function scheduleForgePrefetch(apiBase) {
+  lastApiBase = apiBase;
   if (prefetchScheduled || !localStorage.getItem("forge_token")) return;
   prefetchScheduled = true;
 
   onIdle(() => {
     window.setTimeout(() => {
-      Promise.allSettled([
-        axios.get(`${apiBase}/analytics`),
-        axios.get(`${apiBase}/weekly-report`),
-        axios.get(`${apiBase}/nutrition/plan`),
-      ]).finally(() => {
-        window.setTimeout(() => { prefetchScheduled = false; }, 90000);
-      });
+      warmHeavyScreens(apiBase, true);
+      window.setTimeout(() => { prefetchScheduled = false; }, 90000);
     }, 350);
+  });
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener("forge:workout-complete", () => {
+    clearCache();
+    window.clearTimeout(workoutWarmTimer);
+    workoutWarmTimer = window.setTimeout(() => {
+      onIdle(() => warmHeavyScreens(lastApiBase, false));
+    }, 650);
   });
 }
 
 export function resetForgePerformanceCache() {
   clearCache();
   prefetchScheduled = false;
+  lastApiBase = null;
+  window.clearTimeout(workoutWarmTimer);
 }
