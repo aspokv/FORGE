@@ -288,3 +288,147 @@
 @media (prefers-reduced-motion: reduce) {
   .ledger-home .macro-rail-track i { transition: none; }
 }
+
+
+/* ---- semana + hidratação ---- */
+@media (max-width: 800px) {
+  .ledger-home .ledger-week {
+    margin: 0 0 22px;
+    padding: 16px 0 18px;
+    border-top: 1px solid rgba(255,255,255,.08);
+    border-bottom: 1px solid rgba(255,255,255,.10);
+  }
+  .ledger-home .ledger-week-track {
+    display: flex;
+    gap: 8px;
+    margin-top: 14px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    scroll-snap-type: x proximity;
+  }
+  .ledger-home .ledger-week-track::-webkit-scrollbar { display: none; }
+  .ledger-home .ledger-week-item {
+    flex: 0 0 112px;
+    min-width: 0;
+    padding: 11px 10px 10px;
+    border: 1px solid #2b2e31;
+    border-radius: 10px;
+    background: transparent;
+    scroll-snap-align: start;
+  }
+  .ledger-home .ledger-week-step {
+    width: 23px;
+    height: 23px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #34383d;
+    border-radius: 50%;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    color: #6f7270;
+  }
+  .ledger-home .ledger-week-item b {
+    display: block;
+    margin-top: 9px;
+    overflow: hidden;
+    font-size: 13px;
+    font-weight: 500;
+    color: #a7aaa8;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  .ledger-home .ledger-week-item small {
+    display: block;
+    margin-top: 4px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: #5f6260;
+  }
+  .ledger-home .ledger-week-item.done { border-color: rgba(168,198,134,.24); }
+  .ledger-home .ledger-week-item.done .ledger-week-step {
+    border-color: rgba(168,198,134,.42);
+    color: #a8c686;
+  }
+  .ledger-home .ledger-week-item.done b { color: #9ba792; }
+  .ledger-home .ledger-week-item.current {
+    border-color: rgba(227,107,77,.58);
+    background: rgba(227,107,77,.055);
+  }
+  .ledger-home .ledger-week-item.current .ledger-week-step {
+    border-color: #e36b4d;
+    color: #e36b4d;
+  }
+  .ledger-home .ledger-week-item.current b { color: #f3efe7; }
+  .ledger-home .ledger-week-item.current small { color: #e36b4d; }
+
+  .ledger-home .ledger-hydration {
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(255,255,255,.10);
+  }
+  .ledger-home .hydration-main { margin-top: 16px; }
+  .ledger-home .hydration-value {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    color: #8a8d8a;
+  }
+  .ledger-home .hydration-value b {
+    font-family: 'IBM Plex Mono', monospace;
+    font-feature-settings: "tnum" 1;
+    font-size: 22px;
+    font-weight: 400;
+    color: #f3efe7;
+  }
+  .ledger-home .hydration-value em {
+    font-style: normal;
+    font-size: 12px;
+    color: #6f7270;
+  }
+  .ledger-home .hydration-track {
+    height: 4px;
+    margin-top: 12px;
+    overflow: hidden;
+    background: #2b2e31;
+    border-radius: 999px;
+  }
+  .ledger-home .hydration-track i {
+    display: block;
+    height: 100%;
+    background: #e36b4d;
+    border-radius: inherit;
+    transition: width .16s ease-out, background-color .16s ease-out;
+  }
+  .ledger-home .ledger-hydration.complete .hydration-track i { background: #a8c686; }
+  .ledger-home .ledger-hydration.complete .hydration-value { color: #a8c686; }
+  .ledger-home .hydration-actions {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 14px;
+  }
+  .ledger-home .hydration-actions button {
+    min-height: 40px;
+    padding: 0 10px;
+    border: 1px solid #34383d;
+    border-radius: 9px;
+    background: transparent;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: #a7aaa8;
+  }
+  .ledger-home .hydration-actions button:active:not(:disabled) {
+    border-color: #5a5f64;
+    color: #f3efe7;
+  }
+  .ledger-home .hydration-actions button.undo { color: #6f7270; }
+  .ledger-home .hydration-actions button:disabled { opacity: .38; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ledger-home .hydration-track i { transition: none; }
+}

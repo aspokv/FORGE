@@ -215,6 +215,10 @@ class WorkoutSessionDraftIn(BaseModel):
     profile_id: Optional[str] = None
 
 
+class HydrationAddIn(BaseModel):
+    amount_ml: int = Field(..., ge=50, le=1000)
+
+
 class TrainingPreferencesIn(BaseModel):
     split_preference: str = Field(default="", max_length=40)
     training_method: str = Field(default="balanced_hypertrophy", max_length=40)
@@ -803,6 +807,78 @@ async def complete_workout(payload: WorkoutCompleteIn, user=Depends(get_current_
             "next_session": {"day": next_session["day"], "label": next_session.get("label")},
             "completed_session": {"day": completed_day, "label": completed_session.get("label")},
             "summary": summary, "already_completed": False}
+
+
+def _valid_hydration_day(day: str) -> str:
+    try:
+        parsed = datetime.strptime(day, "%Y-%m-%d")
+    except (TypeError, ValueError):
+        raise HTTPException(400, "Data de hidratação inválida")
+    if parsed.strftime("%Y-%m-%d") != day:
+        raise HTTPException(400, "Data de hidratação inválida")
+    return day
+
+
+def _hydration_goal_ml(profile: Dict[str, Any]) -> int:
+    try:
+        goal = int(profile.get("hydration_goal_ml") or 2500)
+    except (TypeError, ValueError):
+        goal = 2500
+    return max(1000, min(6000, goal))
+
+
+async def _hydration_snapshot(target: str, day: str) -> Dict[str, Any]:
+    entries = await db.hydration_logs.find(
+        {"profile_id": target, "date": day}, {"_id": 0, "amount_ml": 1}
+    ).sort("created_at", 1).to_list(length=200)
+    total = sum(max(0, int(x.get("amount_ml") or 0)) for x in entries)
+    profile = await load_profile(target)
+    goal = _hydration_goal_ml(profile)
+    return {
+        "date": day,
+        "total_ml": total,
+        "goal_ml": goal,
+        "remaining_ml": max(0, goal - total),
+        "progress_pct": min(100, round(total / goal * 100)) if goal else 0,
+        "can_undo": bool(entries),
+    }
+
+
+@api.get("/hydration/{day}")
+async def get_hydration(day: str, user=Depends(get_current_user)):
+    day = _valid_hydration_day(day)
+    return await _hydration_snapshot(user["id"], day)
+
+
+@api.post("/hydration/{day}")
+async def add_hydration(day: str, payload: HydrationAddIn,
+                        user=Depends(get_current_user)):
+    day = _valid_hydration_day(day)
+    target = user["id"]
+    snapshot = await _hydration_snapshot(target, day)
+    if snapshot["total_ml"] + payload.amount_ml > 10000:
+        raise HTTPException(400, "Limite diário de registro atingido")
+    await db.hydration_logs.insert_one({
+        "id": str(uuid.uuid4()),
+        "profile_id": target,
+        "user_id": target,
+        "date": day,
+        "amount_ml": payload.amount_ml,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+    return await _hydration_snapshot(target, day)
+
+
+@api.delete("/hydration/{day}/last")
+async def undo_hydration(day: str, user=Depends(get_current_user)):
+    day = _valid_hydration_day(day)
+    target = user["id"]
+    last = await db.hydration_logs.find_one(
+        {"profile_id": target, "date": day}, sort=[("created_at", -1)]
+    )
+    if last:
+        await db.hydration_logs.delete_one({"_id": last["_id"]})
+    return await _hydration_snapshot(target, day)
 
 
 # Um treino em andamento so vale para a sessao do dia: um rascunho antigo (ciclo
