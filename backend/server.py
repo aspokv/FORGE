@@ -94,11 +94,12 @@ class SetLog(BaseModel):
 
 class Recovery(BaseModel):
     profile_id: str = "demo"
-    sleep: int = 4
-    energy: int = 4
-    motivation: int = 4
-    soreness: int = 2
-    stress: int = 2
+    sleep: int = Field(default=4, ge=1, le=5)
+    energy: int = Field(default=4, ge=1, le=5)
+    motivation: int = Field(default=4, ge=1, le=5)
+    soreness: int = Field(default=2, ge=1, le=5)
+    stress: int = Field(default=2, ge=1, le=5)
+    local_date: Optional[str] = None
 
 class DeepAssessment(BaseModel):
     profile_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -710,15 +711,37 @@ async def log_set(item: SetLog, user=Depends(get_current_user)):
     return {k: v for k, v in doc.items() if k != "_id"}
 
 
+def _valid_recovery_day(day: str) -> str:
+    try:
+        parsed = datetime.strptime(day, "%Y-%m-%d")
+    except (TypeError, ValueError):
+        raise HTTPException(400, "Data de check-in inválida")
+    if parsed.strftime("%Y-%m-%d") != day:
+        raise HTTPException(400, "Data de check-in inválida")
+    return day
+
+
+@api.get("/recovery/{day}")
+async def recovery_for_day(day: str, user=Depends(get_current_user)):
+    day = _valid_recovery_day(day)
+    latest = await db.recovery.find_one(
+        {"profile_id": user["id"], "local_date": day}, {"_id": 0},
+        sort=[("created_at", -1)])
+    return {"date": day, "checkin": latest}
+
+
 @api.post("/recovery")
 async def log_recovery(item: Recovery, user=Depends(get_current_user)):
     target = user["id"] if user.get("role") == "ATHLETE" else item.profile_id
     doc = item.model_dump()
     doc["profile_id"] = target
     doc["user_id"] = target
+    doc["local_date"] = _valid_recovery_day(item.local_date or datetime.now(timezone.utc).strftime("%Y-%m-%d"))
     doc["created_at"] = datetime.now(timezone.utc).isoformat()
     await db.recovery.insert_one(doc)
-    return {k: v for k, v in doc.items() if k != "_id"}
+    clean = {k: v for k, v in doc.items() if k != "_id"}
+    clean["program"] = await build_program(await load_profile(target))
+    return clean
 
 
 @api.post("/workout/complete")

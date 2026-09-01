@@ -432,3 +432,24 @@
 @media (prefers-reduced-motion: reduce) {
   .ledger-home .hydration-track i { transition: none; }
 }
+
+
+/* ---- compact today action ---- */
+.ledger-home .today-action-bar{margin:0;padding:14px 15px;border:1px solid #34383d;border-radius:12px;background:#141619;box-shadow:none}
+.ledger-home .today-action-top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.ledger-home .today-action-top b{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--forge-editorial);font-size:20px;font-weight:500;letter-spacing:-.02em;color:#f3efe7}
+.ledger-home .today-action-top>span{flex:0 0 auto;font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.16em;color:#e36b4d}
+.ledger-home .today-action-detail{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:7px 12px;margin-top:7px;font-size:12px;color:#777b79}
+.ledger-home .today-checkin-badge{display:inline-flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:10px;white-space:nowrap}
+.ledger-home .today-checkin-badge i{width:6px;height:6px;border-radius:50%;background:currentColor}.ledger-home .today-checkin-badge.pending{color:#d7a85c}.ledger-home .today-checkin-badge.done{color:#a8c686}
+.ledger-home .today-action-actions{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px;margin-top:13px}.ledger-home .today-action-bar.checked .today-action-actions{grid-template-columns:1fr}
+.ledger-home .today-action-primary{min-height:44px!important;margin:0!important;border-radius:9px!important;background:#e36b4d!important;border-color:#e36b4d!important;color:#1c120f!important;box-shadow:none!important;font-size:14px!important;font-weight:600!important}
+.ledger-home .today-action-direct{min-height:38px;padding:0;display:inline-flex;align-items:center;justify-content:center;gap:3px;border:0;background:transparent;color:#8b8e8c;font-size:12px;white-space:nowrap}.ledger-home .today-action-direct:active{color:#f3efe7}
+.today-checkin-backdrop{position:fixed;inset:0;z-index:1400;display:flex;align-items:flex-end;justify-content:center;padding:18px;background:rgba(0,0,0,.72)}
+.today-checkin-modal{width:min(100%,520px);max-height:calc(100dvh - 36px);overflow-y:auto;padding:20px;border:1px solid #34383d;border-radius:16px;background:#141619;box-shadow:0 20px 54px rgba(0,0,0,.52)}
+.today-checkin-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}.today-checkin-head span{font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.18em;color:#e36b4d}.today-checkin-head h3{margin:5px 0 0;font-family:var(--forge-editorial);font-size:25px;font-weight:500;color:#f3efe7}
+.today-checkin-head>button{width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;border:1px solid #34383d;border-radius:9px;background:transparent;color:#8b8e8c}
+.today-checkin-grid{margin-top:18px}.today-checkin-row{display:grid;grid-template-columns:minmax(92px,1fr) auto;align-items:center;gap:12px;min-height:48px;border-top:1px solid rgba(255,255,255,.07)}.today-checkin-row>span{font-size:13px;color:#b6b3ad}.today-checkin-row>div{display:flex;gap:5px}.today-checkin-row button{width:32px;height:32px;padding:0;border:1px solid #34383d;border-radius:8px;background:transparent;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#747876}.today-checkin-row button.active{border-color:#e36b4d;background:rgba(227,107,77,.09);color:#f0b09d}
+.today-checkin-scale{margin:13px 0 0;font-size:10px;line-height:1.45;color:#646765}.today-checkin-save{width:100%;min-height:46px!important;margin-top:16px!important;border-radius:9px!important;background:#e36b4d!important;border-color:#e36b4d!important;color:#1c120f!important;box-shadow:none!important}
+@media(min-width:801px){.ledger-home .today-action-bar{max-width:760px}.today-checkin-backdrop{align-items:center}}
+@media(max-width:390px){.ledger-home .today-action-actions{gap:8px}.ledger-home .today-action-direct{font-size:11px}.today-checkin-modal{padding:17px 15px}.today-checkin-row{grid-template-columns:80px minmax(0,1fr);gap:8px}.today-checkin-row>div{justify-content:flex-end;gap:4px}.today-checkin-row button{width:30px;height:30px}}
