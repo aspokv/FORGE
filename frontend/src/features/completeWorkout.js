@@ -50,6 +50,7 @@ export async function completeWorkout({
       discomfort,
     });
     if (onCompleted) onCompleted(r.data);
+    if (typeof window !== "undefined") window.dispatchEvent(new Event("forge:workout-complete"));
     // Trava mantida de proposito no sucesso: o botao sai da tela enquanto ela atualiza,
     // e liberar aqui reabriria a janela para um segundo toque atrasado.
     return {
