@@ -1,0 +1,23 @@
+/* FORGE readability layer: preserve hierarchy while removing microscope-sized UI text. */
+:root{--forge-body-size:16px;--forge-secondary-size:14px;--forge-micro-size:11px}
+body{font-size:var(--forge-body-size)}
+.forge-shell{font-size:var(--forge-body-size)}
+.forge-shell .muted{font-size:15px;line-height:1.55}
+.forge-shell .eyebrow,.forge-shell .rail-caption{font-size:var(--forge-micro-size);line-height:1.35}
+.forge-shell .nav-item{font-size:13px}
+.forge-shell .text-button,.forge-shell .primary-button,.forge-shell .secondary-button,.forge-shell .finish-button{font-size:14px}
+.forge-shell input,.forge-shell select,.forge-shell textarea{font-size:15px}
+.forge-shell label{font-size:13px}
+.forge-shell small{font-size:11px}
+.forge-shell .session-time,.forge-shell .trend,.forge-shell .chart-line b,.forge-shell .recovery-list b,.forge-shell .priority-list span,.forge-shell .priority-list b{font-size:12px}
+.forge-shell .volume-line>div:first-child,.forge-shell .recovery-list,.forge-shell .report-line,.forge-shell .coach-suggestions button{font-size:14px}
+.forge-shell .coach-panel small{font-size:11px}
+.forge-shell .onboard-note{font-size:12px}
+@media(max-width:800px){
+  :root{--forge-body-size:16px;--forge-secondary-size:14px;--forge-micro-size:10.5px}
+  .forge-shell .muted{font-size:14px}
+  .forge-shell .mobile-nav .nav-item{font-size:11px!important}
+  .forge-shell .topbar .eyebrow{font-size:10px}
+  .forge-shell button:not(.icon-button){font-size:13px}
+  .forge-shell input,.forge-shell select,.forge-shell textarea{font-size:16px}
+}
