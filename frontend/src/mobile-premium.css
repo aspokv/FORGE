@@ -4,6 +4,8 @@
   .forge-shell,.forge-shell .main{width:100%;max-width:100%;min-width:0;overflow-x:clip}
   .forge-shell .main>*{min-width:0;max-width:100%}
   .forge-shell .content{width:100%;min-width:0}
+  .forge-shell .content.training-tabs-wrap{padding:14px 16px 0!important}
+  .forge-shell .content.workout-library{padding:28px 16px 116px!important}
   .forge-shell :is(section,article,aside,nav,header,footer){min-width:0}
   .forge-shell :is(img,svg,video,canvas){max-width:100%}
 
@@ -17,6 +19,7 @@
 
 @media(max-width:390px){
   .forge-shell .content{padding-left:16px;padding-right:16px}
+  .forge-shell .content.training-tabs-wrap{padding-bottom:0!important}
   .forge-shell .mobile-nav{padding-left:7px;padding-right:7px}
   .forge-shell .mobile-nav .nav-item{padding-left:4px;padding-right:4px;font-size:9px}
 }
