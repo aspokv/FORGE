@@ -122,3 +122,27 @@
 @media(max-width:370px){
   .training-tabs-wrap,.workout-library{padding-left:13px!important;padding-right:13px!important}.training-view-tabs>button{padding:9px}.training-view-tabs small{display:none}.library-intro h2{font-size:2.25rem}.library-mode{grid-template-columns:1fr}.library-mode>button{min-height:70px}.library-categories{gap:7px}.library-categories button{padding:12px 11px}.library-card-grid article,.program-card-grid>article{padding:19px 17px}
 }
+
+
+/* Mobile session exercise drill-down */
+.library-mobile-session-preview{display:none}
+@media(max-width:800px){
+  .library-layout>.library-preview{display:none}
+  .library-card-grid article.preview-open{border-color:rgba(227,107,77,.48)}
+  .library-mobile-session-preview{display:block;margin:16px -4px -2px;padding-top:16px;border-top:1px solid #34383d}
+  .library-mobile-preview-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:7px}
+  .library-mobile-preview-head span{font:9px "IBM Plex Mono",monospace;letter-spacing:.13em;color:#a7aaa8}
+  .library-mobile-preview-head em{font:8px "IBM Plex Mono",monospace;color:#a7aaa8;font-style:normal;white-space:nowrap}
+  .library-mobile-exercise-list>div{display:grid;grid-template-columns:24px minmax(0,1fr) auto;gap:9px;align-items:center;padding:11px 0;border-bottom:1px solid rgba(255,255,255,.065)}
+  .library-mobile-exercise-list>div>span{font:9px "IBM Plex Mono",monospace;color:#e36b4d}
+  .library-mobile-exercise-list>div>div{min-width:0}
+  .library-mobile-exercise-list b{display:block;font-size:12px;font-weight:550;line-height:1.35;overflow-wrap:anywhere}
+  .library-mobile-exercise-list small{display:block;margin-top:3px;font:8.5px/1.4 "IBM Plex Mono",monospace;color:#a7aaa8}
+  .library-mobile-exercise-list em{font:8.5px "IBM Plex Mono",monospace;color:#c6c1ba;font-style:normal;white-space:nowrap}
+  .library-mobile-apply{width:100%;margin-top:14px;min-height:46px}
+}
+@media(max-width:390px){
+  .library-mobile-preview-head{align-items:flex-start;flex-direction:column;gap:4px}
+  .library-mobile-exercise-list>div{grid-template-columns:22px minmax(0,1fr)}
+  .library-mobile-exercise-list em{grid-column:2;white-space:normal;color:#e36b4d}
+}
