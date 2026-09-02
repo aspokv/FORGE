@@ -11,6 +11,7 @@ import "@/performance-pass.css";
 import "@/iron-ledger-pass-01.css";
 import "@/iron-ledger-pass-02.css";
 import "@/mobile-premium.css";
+import "@/magic-patterns-v2.css";
 
 const queryClient = new QueryClient({
   defaultOptions: {
