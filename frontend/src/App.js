@@ -1,5 +1,5 @@
 /* eslint-disable react/no-unstable-nested-components */
-import {useEffect,useMemo,useRef,useState} from "react";
+import {lazy,useEffect,useMemo,useRef,useState} from "react";
 import axios from "axios";
 import {motion} from "framer-motion";
 import {Activity,BarChart3,Bell,BookOpen,Check,ChevronRight,CircleUserRound,Droplets,Dumbbell,FileUp,Home,Info,LineChart,LockKeyhole,LogOut,RotateCcw,ShieldCheck,Sliders,TimerReset,TrendingUp,Trophy,UserRound,Utensils,X} from "lucide-react";
@@ -10,20 +10,20 @@ import "./features/acquisition.css";
 import "./features/manual-workout.css";
 import "./features/performance-os.css";
 import "./features/product-layout.css";
-import ProgramBuilder from "./features/ProgramBuilder";
+const ProgramBuilder=lazy(()=>import("./features/ProgramBuilder"));
 import MuscleSessionMap from "./features/MuscleSessionMap";
 import {findTechnique,TECHNIQUE_FALLBACK} from "./features/techniques";
 import {AuthProvider,useAuth} from "./features/AuthContext";
 import {anteriorNaLista,proximoNaLista,respostasIniciais} from "./features/onboardingResume";
 import {ASSESSMENT_MODE_FULL,ASSESSMENT_MODE_RESUME,passosDoAssessment,deveAbrirBuilderDepois,deveMostrarPreview} from "./features/reassessmentMode";
-import Landing from "./features/Landing";
+const Landing=lazy(()=>import("./features/Landing"));
 import PasswordReset from "./features/PasswordReset";
 import SignupFlow,{PagamentoPendente} from "./features/SignupFlow";
 import {LoginScreen,InviteScreen} from "./features/AuthScreens";
-import AdminPanel from "./features/AdminPanel";
-import Nutrition from "./features/Nutrition";
-import Billing from "./features/Billing";
-import ManualWorkout from "./features/ManualWorkout";
+const AdminPanel=lazy(()=>import("./features/AdminPanel"));
+const Nutrition=lazy(()=>import("./features/Nutrition"));
+const Billing=lazy(()=>import("./features/Billing"));
+const ManualWorkout=lazy(()=>import("./features/ManualWorkout"));
 import WorkoutLibrary,{replaceActiveSessionWithTemplate} from "./features/WorkoutLibrary";
 import {completeWorkout} from "./features/completeWorkout";
 import {LEGACY_TRAINING_GOAL,DEFAULT_BODY_GOAL,goalFromCatalog,intensityForSubmit,intensityOnGoalChange} from "./features/onboardingGoals";
@@ -192,6 +192,22 @@ function TrainingViewTabs({view,onChange}){
     <button type="button"role="tab"aria-selected={view==="library"}className={view==="library"?"active":""}data-testid="training-library-tab"onClick={()=>onChange("library")}><BookOpen size={17}/><span>Biblioteca<small>Escolher sessões e programas manualmente</small></span></button>
   </div>
 }
+function RestTimer({seconds=0,signal=0}){
+  const[remaining,setRemaining]=useState(0);
+  useEffect(()=>{
+    setRemaining(seconds);
+    if(!seconds)return;
+    const interval=setInterval(()=>setRemaining(value=>Math.max(0,value-1)),1000);
+    return()=>clearInterval(interval);
+  },[seconds,signal]);
+  const active=remaining>0;
+  const total=Math.max(1,seconds);
+  return <div className={active?"rest-banner active":"rest-banner"}data-testid="rest-timer">
+    <div className="rest-label"><TimerReset size={14}/>{active?"Descanso":"Pronto para a próxima série"}</div>
+    <div className="rest-time">{active?`${Math.floor(remaining/60)}:${String(remaining%60).padStart(2,"0")}`:"—"}</div>
+    {active&&<div className="rest-bar"><b style={{width:`${100-(remaining/total*100)}%`}}/></div>}
+  </div>;
+}
 function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutCompleted,onLibraryBuild,onLibraryTemplateAdd}){
   const p=db.program||{};
   const activeSession=p.sessions?.find(s=>s.day===p.active_day)||p.sessions?.[0];
@@ -199,8 +215,7 @@ function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutC
   const hints=db.program?.progression_hints||{};
   const[view,setView]=useState("session");
   const[done,setDone]=useState({});
-  const[timer,setTimer]=useState(0);
-  const[timerTotal,setTimerTotal]=useState(0);
+  const[rest,setRest]=useState({seconds:0,signal:0});
   const[swap,setSwap]=useState(null);
   const[setInputs,setSetInputs]=useState({});
   const[setErr,setSetErr]=useState({});
@@ -246,14 +261,13 @@ function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutC
     },1500);
     return()=>clearTimeout(draftTimer.current);
   },[setInputs,draftDay]);
-  useEffect(()=>{if(!timer)return;const i=setInterval(()=>setTimer(x=>Math.max(0,x-1)),1000);return()=>clearInterval(i)},[timer]);
   const parseRestSeconds=r=>{if(!r)return 90;const n=parseInt(r);if(!isNaN(n))return n<10?n*60:n;const m=r.match(/(\d+)/);return m?parseInt(m[1])*60:90};
-  const mark=(id,n,tech,rest)=>{if(done[id+n])return;const v=setInputs[`${id}-${n}`]||{weight:0,reps:8,rir:2};const rir=Math.max(0,Math.min(5,Number(v.rir)));if(!Number.isFinite(rir)){setSetErr(x=>({...x,[id+n]:true}));return}setDone(x=>({...x,[id+n]:true}));const secs=parseRestSeconds(rest);setTimer(secs);setTimerTotal(secs);axios.post(`${API}/sets`,{profile_id:db.profile.id,exercise_id:id,set_number:n+1,weight:Number(v.weight||0),reps:Number(v.reps||8),rir,session_day:activeSession?.day,technique:tech||"Straight Sets"}).catch(()=>{setDone(x=>({...x,[id+n]:false}));setSetErr(x=>({...x,[id+n]:true}))})};
-  const completedEntries=items.flatMap(x=>Array.from({length:x.sets},(_,n)=>({key:x.exercise_id+n,value:setInputs[`${x.exercise_id}-${n}`]}))).filter(x=>done[x.key]);
-  const actualVolume=completedEntries.reduce((sum,x)=>sum+Number(x.value?.weight||0)*Number(x.value?.reps||0),0);
-  const averageRir=completedEntries.length?completedEntries.reduce((sum,x)=>sum+Number(x.value?.rir||0),0)/completedEntries.length:null;
+  const mark=(id,n,tech,rest)=>{if(done[id+n])return;const v=setInputs[`${id}-${n}`]||{weight:0,reps:8,rir:2};const rir=Math.max(0,Math.min(5,Number(v.rir)));if(!Number.isFinite(rir)){setSetErr(x=>({...x,[id+n]:true}));return}setDone(x=>({...x,[id+n]:true}));const secs=parseRestSeconds(rest);setRest(current=>({seconds:secs,signal:current.signal+1}));axios.post(`${API}/sets`,{profile_id:db.profile.id,exercise_id:id,set_number:n+1,weight:Number(v.weight||0),reps:Number(v.reps||8),rir,session_day:activeSession?.day,technique:tech||"Straight Sets"}).catch(()=>{setDone(x=>({...x,[id+n]:false}));setSetErr(x=>({...x,[id+n]:true}))})};
+  const completedEntries=useMemo(()=>items.flatMap(x=>Array.from({length:x.sets},(_,n)=>({key:x.exercise_id+n,value:setInputs[`${x.exercise_id}-${n}`]}))).filter(x=>done[x.key]),[items,setInputs,done]);
+  const actualVolume=useMemo(()=>completedEntries.reduce((sum,x)=>sum+Number(x.value?.weight||0)*Number(x.value?.reps||0),0),[completedEntries]);
+  const averageRir=useMemo(()=>completedEntries.length?completedEntries.reduce((sum,x)=>sum+Number(x.value?.rir||0),0)/completedEntries.length:null,[completedEntries]);
   const finish=async()=>{if(finishLock.current)return;const total=items.reduce((a,x)=>a+x.sets,0);const completed=completedEntries.length;if(completed<total&&!partialReason.trim()){setShowPartial(true);return}setFinishing(true);const r=await completeWorkout({post:(u,b)=>axios.post(u,b),api:API,day:activeSession?.day,completedSets:completed,totalSets:total,startedAt,lock:finishLock,onCompleted:onWorkoutCompleted,partialReason,discomfort,volumeKg:actualVolume,averageRir:averageRir==null?null:Number(averageRir.toFixed(1))});if(r)setFinishResult(r);if(!r||r.error)setFinishing(false)};
-  const openNextWorkout=()=>{setFinishResult(null);setDone({});setSetErr({});setPartialReason("");setShowPartial(false);setDiscomfort("none");setTimer(0);setTimerTotal(0);setStartedAt(Date.now());finishLock.current=false};
+  const openNextWorkout=()=>{setFinishResult(null);setDone({});setSetErr({});setPartialReason("");setShowPartial(false);setDiscomfort("none");setRest(current=>({seconds:0,signal:current.signal+1}));setStartedAt(Date.now());finishLock.current=false};
   const recLevel=p.logic?.recovery_level;
   const recMsg=recLevel==="LOW"?"Volume ajustado à sua recuperação de hoje.":recLevel==="VERY_LOW"?"Sessão adaptada à sua recuperação de hoje.":p.logic?.block_type==="deload"?"Semana de descarga — volume reduzido de propósito.":null;
   const totalSessionSets=items.reduce((sum,x)=>sum+(Number(x.sets)||0),0);
@@ -293,11 +307,7 @@ function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutC
       <div className="workout-kpis"><div><span>VOLUME REAL</span><b>{Math.round(actualVolume).toLocaleString("pt-BR")} <small>kg</small></b><em>{completedEntries.length?"carga × reps registradas":"aguardando séries"}</em></div><div><span>ADERÊNCIA</span><b>{completedEntries.length}<small>/{totalSessionSets}</small></b><em>séries concluídas</em></div><div><span>RIR MÉDIO</span><b>{averageRir==null?"—":averageRir.toFixed(1)}</b><em>{averageRir==null?"sem histórico nesta sessão":"esforço informado"}</em></div><div><span>DESCANSO ALVO</span><b>{averageRest}<small>s</small></b><em>prescrição média</em></div></div>
     </section>
     {recMsg&&<div className="session-banner"data-testid="session-adapted-banner"><ShieldCheck size={16}/><div><b>SESSÃO ADAPTADA</b><p>{recMsg}</p></div></div>}
-    <div className={timer>0?"rest-banner active":"rest-banner"}data-testid="rest-timer">
-      <div className="rest-label"><TimerReset size={14}/>{timer>0?"Descanso":"Pronto para a próxima série"}</div>
-      <div className="rest-time">{timer>0?`${Math.floor(timer/60)}:${String(timer%60).padStart(2,"0")}`:"—"}</div>
-      {timer>0&&<div className="rest-bar"><b style={{width:`${100-(timer/Math.max(1,timerTotal)*100)}%`}}/></div>}
-    </div>
+    <RestTimer seconds={rest.seconds} signal={rest.signal}/>
     <div className="exercise-grid">
     {items.map((x,i)=>{
       const ex=db.exercises?.find(e=>e.id===x.exercise_id)||{name:x.exercise_id};

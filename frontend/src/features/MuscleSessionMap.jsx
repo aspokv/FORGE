@@ -1,3 +1,4 @@
+import {memo} from "react";
 import "./anatomy-assets.css";
 import "./workout-premium.css";
 
@@ -113,12 +114,12 @@ function AnatomyAsset({side,assetKey}){
   const safeKey=ASSET_KEYS.has(assetKey)?assetKey:"full-body";
   const src=`${process.env.PUBLIC_URL||""}/images/anatomy/${safeKey}-${side}.webp`;
   return <div className={`premium-anatomy premium-anatomy--${side}`}>
-    <img src={src} alt={side==="front"?"Anatomia frontal":"Anatomia posterior"}/>
+    <img src={src} alt={side==="front"?"Anatomia frontal":"Anatomia posterior"} decoding="async"/>
     <small>{side==="front"?"FRENTE":"COSTAS"}</small>
   </div>
 }
 
-export default function MuscleSessionMap({items=[],exercises=[],focus=[],sessionLabel=""}){
+function MuscleSessionMap({items=[],exercises=[],focus=[],sessionLabel=""}){
   const load=buildSessionMuscles(items,exercises,focus);
   const zone=getSessionZone(load);
   const assetKey=getAnatomyAssetKey(load,sessionLabel);
@@ -135,3 +136,5 @@ export default function MuscleSessionMap({items=[],exercises=[],focus=[],session
     </div>
   </div>
 }
+
+export default memo(MuscleSessionMap);
