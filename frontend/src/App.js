@@ -64,7 +64,9 @@ function Today({db,analytics,report,start,openAnalysis,openBuilder,openManual,on
   const exercises=activeSession?.exercises||p.exercises||[];
   const plannedSets=exercises.reduce((sum,x)=>sum+Number(x.sets||0),0);
   const duration=activeSession?.duration||p.duration||`${Math.max(35,Math.round(plannedSets*3.4))} min`;
-  const focus=activeSession?.focus||p.focus||[],sessionName=activeSession?.label||p.session||"Treino de hoje";
+  const focus=activeSession?.focus||p.focus||[];
+  const rawSessionName=activeSession?.label||p.session||"Treino de hoje";
+  const sessionName=String(rawSessionName).split(/[—–]/).map(part=>part.trim()).filter(Boolean).pop()||rawSessionName;
   const logs=db.recent_sets||[];
   const hour=new Date().getHours(),greeting=hour<12?"Bom dia":hour<18?"Boa tarde":"Boa noite";
   const rawName=(db.profile?.name||"").trim().split(" ")[0];
@@ -181,7 +183,7 @@ function Today({db,analytics,report,start,openAnalysis,openBuilder,openManual,on
 
     <div className="forge-home-tools">
       <button className="text-button" data-testid="open-builder-today" onClick={openBuilder}><Sliders size={13}/> {manual?"Editar programa":"Program Builder"}</button>
-      <button className="text-button" data-testid="open-manual-today" onClick={openManual}><FileUp size={13}/> Estrutura manual</button>
+      <button className="text-button" data-testid="open-manual-today" onClick={openManual}><FileUp size={13}/> Montar treino manual</button>
     </div>
   </div>;
 }
@@ -192,22 +194,6 @@ function TrainingViewTabs({view,onChange}){
     <button type="button"role="tab"aria-selected={view==="library"}className={view==="library"?"active":""}data-testid="training-library-tab"onClick={()=>onChange("library")}><BookOpen size={17}/><span>Biblioteca<small>Escolher sessões e programas manualmente</small></span></button>
   </div>
 }
-function RestTimer({seconds=0,signal=0}){
-  const[remaining,setRemaining]=useState(0);
-  useEffect(()=>{
-    setRemaining(seconds);
-    if(!seconds)return;
-    const interval=setInterval(()=>setRemaining(value=>Math.max(0,value-1)),1000);
-    return()=>clearInterval(interval);
-  },[seconds,signal]);
-  const active=remaining>0;
-  const total=Math.max(1,seconds);
-  return <div className={active?"rest-banner active":"rest-banner"}data-testid="rest-timer">
-    <div className="rest-label"><TimerReset size={14}/>{active?"Descanso":"Pronto para a próxima série"}</div>
-    <div className="rest-time">{active?`${Math.floor(remaining/60)}:${String(remaining%60).padStart(2,"0")}`:"—"}</div>
-    {active&&<div className="rest-bar"><b style={{width:`${100-(remaining/total*100)}%`}}/></div>}
-  </div>;
-}
 function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutCompleted,onLibraryBuild,onLibraryTemplateAdd}){
   const p=db.program||{};
   const activeSession=p.sessions?.find(s=>s.day===p.active_day)||p.sessions?.[0];
@@ -215,7 +201,10 @@ function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutC
   const hints=db.program?.progression_hints||{};
   const[view,setView]=useState("session");
   const[done,setDone]=useState({});
-  const[rest,setRest]=useState({seconds:0,signal:0});
+  const[timer,setTimer]=useState(0);
+  const[timerTotal,setTimerTotal]=useState(0);
+  const[restingSet,setRestingSet]=useState(null);
+  const[timerRunning,setTimerRunning]=useState(true);
   const[swap,setSwap]=useState(null);
   const[setInputs,setSetInputs]=useState({});
   const[setErr,setSetErr]=useState({});
@@ -261,13 +250,14 @@ function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutC
     },1500);
     return()=>clearTimeout(draftTimer.current);
   },[setInputs,draftDay]);
+  useEffect(()=>{if(!timer||!timerRunning)return;const i=setInterval(()=>setTimer(x=>Math.max(0,x-1)),1000);return()=>clearInterval(i)},[timer,timerRunning]);
   const parseRestSeconds=r=>{if(!r)return 90;const n=parseInt(r);if(!isNaN(n))return n<10?n*60:n;const m=r.match(/(\d+)/);return m?parseInt(m[1])*60:90};
-  const mark=(id,n,tech,rest)=>{if(done[id+n])return;const v=setInputs[`${id}-${n}`]||{weight:0,reps:8,rir:2};const rir=Math.max(0,Math.min(5,Number(v.rir)));if(!Number.isFinite(rir)){setSetErr(x=>({...x,[id+n]:true}));return}setDone(x=>({...x,[id+n]:true}));const secs=parseRestSeconds(rest);setRest(current=>({seconds:secs,signal:current.signal+1}));axios.post(`${API}/sets`,{profile_id:db.profile.id,exercise_id:id,set_number:n+1,weight:Number(v.weight||0),reps:Number(v.reps||8),rir,session_day:activeSession?.day,technique:tech||"Straight Sets"}).catch(()=>{setDone(x=>({...x,[id+n]:false}));setSetErr(x=>({...x,[id+n]:true}))})};
+  const mark=(id,n,tech,rest,totalSets)=>{if(done[id+n])return;const v=setInputs[`${id}-${n}`]||{weight:0,reps:8,rir:2};const rir=Math.max(0,Math.min(5,Number(v.rir)));if(!Number.isFinite(rir)){setSetErr(x=>({...x,[id+n]:true}));return}setDone(x=>({...x,[id+n]:true}));if(n+1<totalSets){const secs=parseRestSeconds(rest);setTimer(secs);setTimerTotal(secs);setRestingSet({exerciseId:id,completed:n+1,next:n+2});setTimerRunning(true)}else{setTimer(0);setRestingSet(null)}axios.post(`${API}/sets`,{profile_id:db.profile.id,exercise_id:id,set_number:n+1,weight:Number(v.weight||0),reps:Number(v.reps||8),rir,session_day:activeSession?.day,technique:tech||"Straight Sets"}).catch(()=>{setDone(x=>({...x,[id+n]:false}));setSetErr(x=>({...x,[id+n]:true}))})};
   const completedEntries=useMemo(()=>items.flatMap(x=>Array.from({length:x.sets},(_,n)=>({key:x.exercise_id+n,value:setInputs[`${x.exercise_id}-${n}`]}))).filter(x=>done[x.key]),[items,setInputs,done]);
   const actualVolume=useMemo(()=>completedEntries.reduce((sum,x)=>sum+Number(x.value?.weight||0)*Number(x.value?.reps||0),0),[completedEntries]);
   const averageRir=useMemo(()=>completedEntries.length?completedEntries.reduce((sum,x)=>sum+Number(x.value?.rir||0),0)/completedEntries.length:null,[completedEntries]);
   const finish=async()=>{if(finishLock.current)return;const total=items.reduce((a,x)=>a+x.sets,0);const completed=completedEntries.length;if(completed<total&&!partialReason.trim()){setShowPartial(true);return}setFinishing(true);const r=await completeWorkout({post:(u,b)=>axios.post(u,b),api:API,day:activeSession?.day,completedSets:completed,totalSets:total,startedAt,lock:finishLock,onCompleted:onWorkoutCompleted,partialReason,discomfort,volumeKg:actualVolume,averageRir:averageRir==null?null:Number(averageRir.toFixed(1))});if(r)setFinishResult(r);if(!r||r.error)setFinishing(false)};
-  const openNextWorkout=()=>{setFinishResult(null);setDone({});setSetErr({});setPartialReason("");setShowPartial(false);setDiscomfort("none");setRest(current=>({seconds:0,signal:current.signal+1}));setStartedAt(Date.now());finishLock.current=false};
+  const openNextWorkout=()=>{setFinishResult(null);setDone({});setSetErr({});setPartialReason("");setShowPartial(false);setDiscomfort("none");setTimer(0);setTimerTotal(0);setRestingSet(null);setTimerRunning(true);setStartedAt(Date.now());finishLock.current=false};
   const recLevel=p.logic?.recovery_level;
   const recMsg=recLevel==="LOW"?"Volume ajustado à sua recuperação de hoje.":recLevel==="VERY_LOW"?"Sessão adaptada à sua recuperação de hoje.":p.logic?.block_type==="deload"?"Semana de descarga — volume reduzido de propósito.":null;
   const totalSessionSets=items.reduce((sum,x)=>sum+(Number(x.sets)||0),0);
@@ -307,14 +297,15 @@ function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutC
       <div className="workout-kpis"><div><span>VOLUME REAL</span><b>{Math.round(actualVolume).toLocaleString("pt-BR")} <small>kg</small></b><em>{completedEntries.length?"carga × reps registradas":"aguardando séries"}</em></div><div><span>ADERÊNCIA</span><b>{completedEntries.length}<small>/{totalSessionSets}</small></b><em>séries concluídas</em></div><div><span>RIR MÉDIO</span><b>{averageRir==null?"—":averageRir.toFixed(1)}</b><em>{averageRir==null?"sem histórico nesta sessão":"esforço informado"}</em></div><div><span>DESCANSO ALVO</span><b>{averageRest}<small>s</small></b><em>prescrição média</em></div></div>
     </section>
     {recMsg&&<div className="session-banner"data-testid="session-adapted-banner"><ShieldCheck size={16}/><div><b>SESSÃO ADAPTADA</b><p>{recMsg}</p></div></div>}
-    <RestTimer seconds={rest.seconds} signal={rest.signal}/>
     <div className="exercise-grid">
     {items.map((x,i)=>{
       const ex=db.exercises?.find(e=>e.id===x.exercise_id)||{name:x.exercise_id};
       const tech=findTechnique(techniques,x.technique_id,x.technique);
       const isAdv=tech.id!=="straight";
       const hint=hints[x.exercise_id];
-      return <section className="exercise"key={x.exercise_id+i}>
+      const currentSet=Array.from({length:x.sets},(_,n)=>n).find(n=>!done[x.exercise_id+n]);
+      const showRest=timer>0&&restingSet?.exerciseId===x.exercise_id;
+      return <section className={showRest?"exercise rest-active":"exercise"}key={x.exercise_id+i}>
         <div className="exercise-title">
           <div>
             <span className="exercise-index">0{i+1}</span><h3>{ex.name}</h3>
@@ -328,14 +319,25 @@ function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutC
           <div><span>Última sessão</span><b>{hint.last_weight}kg × {hint.last_reps}</b></div>
           {hint.suggested_load&&hint.suggested_load!==hint.last_weight?<div className="suggest"><span>Sugestão</span><b>{hint.suggested_load}kg × {hint.last_reps}</b></div>:<div className="suggest"><span>{LOAD_LABEL[hint.action]||hint.action}</span><b className="reason">{hint.reason}</b></div>}
         </div>}
+        {showRest&&<div className="inline-rest" data-testid="rest-timer" aria-live="polite">
+          <div className="inline-rest-copy"><span><TimerReset size={14}/> DESCANSO · SÉRIE {restingSet.next}</span><small>Série {restingSet.completed} concluída · preparando a próxima</small></div>
+          <strong>{Math.floor(timer/60)}:{String(timer%60).padStart(2,"0")}</strong>
+          <div className="inline-rest-actions">
+            <button type="button" onClick={()=>setTimer(x=>Math.max(0,x-15))}>−15s</button>
+            <button type="button" onClick={()=>setTimerRunning(x=>!x)}>{timerRunning?"Pausar":"Retomar"}</button>
+            <button type="button" onClick={()=>setTimer(x=>x+15)}>+15s</button>
+            <button type="button" onClick={()=>{setTimer(0);setRestingSet(null)}}>Pular</button>
+          </div>
+          <i style={{width:`${100-(timer/Math.max(1,timerTotal)*100)}%`}}/>
+        </div>}
         <div className="set-grid">
           <span>SÉRIE</span><span>ALVO</span><span>CARGA</span><span>REPS</span><span>RIR</span><span>STATUS</span>
-          {Array.from({length:x.sets},(_,n)=><div className={done[x.exercise_id+n]?"set-row completed":"set-row"}key={n}>
+          {Array.from({length:x.sets},(_,n)=><div className={`set-row ${done[x.exercise_id+n]?"completed":n===currentSet?"current":"upcoming"}`}key={n}>
             <b>{n+1}</b><span>{x.reps}</span>
             <input aria-label={`Carga ${ex.name} ${n+1}`}data-testid={`weight-${x.exercise_id}-${n+1}`}type="text"inputMode="decimal"value={setInputs[`${x.exercise_id}-${n}`]?.weight??x.load??0}onChange={e=>setSetInputs(p=>({...p,[`${x.exercise_id}-${n}`]:{...p[`${x.exercise_id}-${n}`],weight:e.target.value}}))}/>
             <input aria-label={`Reps ${ex.name} ${n+1}`}data-testid={`reps-${x.exercise_id}-${n+1}`}type="text"inputMode="numeric"value={setInputs[`${x.exercise_id}-${n}`]?.reps??x.reps?.split("–")?.[0]??"8"}onChange={e=>setSetInputs(p=>({...p,[`${x.exercise_id}-${n}`]:{...p[`${x.exercise_id}-${n}`],reps:e.target.value}}))}/>
             <input aria-label={`RIR ${ex.name} ${n+1}`}data-testid={`rir-${x.exercise_id}-${n+1}`}type="number"inputMode="numeric"min="0"max="5"value={setInputs[`${x.exercise_id}-${n}`]?.rir??"2"}onChange={e=>setSetInputs(p=>({...p,[`${x.exercise_id}-${n}`]:{...p[`${x.exercise_id}-${n}`],rir:e.target.value}}))}/>
-            <button className="set-check"data-testid={`complete-set-${x.exercise_id}-${n+1}`}onClick={()=>mark(x.exercise_id,n,tech.name,x.rest)}>{done[x.exercise_id+n]?<Check size={17}/>:<span/>}{setErr[x.exercise_id+n]&&<span style={{color:"var(--accent)",fontSize:9,marginLeft:4}}>!</span>}</button>
+            <button className="set-check" aria-label={done[x.exercise_id+n]?`Série ${n+1} concluída`:`Concluir série ${n+1}`} title={done[x.exercise_id+n]?"Série concluída":"Concluir série"} data-testid={`complete-set-${x.exercise_id}-${n+1}`}onClick={()=>mark(x.exercise_id,n,tech.name,x.rest,x.sets)}>{done[x.exercise_id+n]?<Check size={15}/>:<span/>}{setErr[x.exercise_id+n]&&<span style={{color:"var(--accent)",fontSize:9,marginLeft:4}}>!</span>}</button>
           </div>)}
         </div>
       </section>
