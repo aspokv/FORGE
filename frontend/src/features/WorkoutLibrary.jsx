@@ -12,6 +12,22 @@ export const templateToSession = (template, day) => ({
   template_id: template.id,
 });
 
+export const replaceActiveSessionWithTemplate = (program, template, activeDay) => {
+  const sessions = (program?.sessions || []).map(session => ({
+    ...session,
+    exercises: (session.exercises || []).map(exercise => ({ ...exercise })),
+  }));
+  const targetDay = Number(activeDay ?? program?.active_day ?? sessions[0]?.day ?? 1);
+  if (!sessions.length) return [templateToSession(template, targetDay || 1)];
+  const staleTailIndex = sessions.findIndex((session, index) =>
+    index === sessions.length - 1 && Number(session.day) !== targetDay && session.template_id === template.id);
+  if (staleTailIndex >= 0) sessions.splice(staleTailIndex, 1);
+  const targetIndex = sessions.findIndex(session => Number(session.day) === targetDay);
+  if (targetIndex < 0) throw new Error("Sessão ativa não encontrada no programa.");
+  sessions[targetIndex] = templateToSession(template, targetDay);
+  return sessions;
+};
+
 export const buildLibraryProgram = templates => ({
   name: "Programa FORGE selecionado",
   week: "Microciclo da biblioteca",
@@ -94,7 +110,12 @@ export default function WorkoutLibrary({ API, exercises = [], onBuild, onTemplat
     }
   }, [visiblePrograms, activeProgram?.id]);
   const isSelected = id => selected.some(item => item.id === id);
-  const isApplied = id => appliedIds.has(id);
+  const activeTemplateId = useMemo(() => {
+  const sessions = program?.sessions || [];
+  const activeDay = Number(program?.active_day ?? sessions[0]?.day ?? 1);
+  return sessions.find(item => Number(item.day) === activeDay)?.template_id || null;
+}, [program]);
+  const isApplied = id => activeTemplateId === id;
 
   const chooseCategory = id => {
     setCategory(id);
@@ -134,7 +155,7 @@ export default function WorkoutLibrary({ API, exercises = [], onBuild, onTemplat
     try {
       await onTemplateAdd(template);
       setAppliedIds(current => new Set([...current, template.id]));
-      setActionMessage(`${template.name} foi adicionado ao seu treino.`);
+      setActionMessage(`${template.name} agora é o seu treino atual.`);
     } catch (requestError) {
       setActionMessage(requestError?.response?.data?.detail || requestError?.message || "Não foi possível adicionar a sessão ao treino.");
     } finally {
@@ -189,12 +210,12 @@ export default function WorkoutLibrary({ API, exercises = [], onBuild, onTemplat
               <div className="library-card-stats"><span><Dumbbell size={14}/>{template.exercise_count} exercícios</span><span><Layers3 size={14}/>{template.total_sets} séries</span><span><Timer size={14}/>{template.duration} min</span></div>
               <div className="library-focus">{template.focus.map(item => <span key={item}>{item}</span>)}</div>
               <button disabled={addingId === template.id || isApplied(template.id)} className={isSelected(template.id) || isApplied(template.id) ? "library-add selected" : "library-add"} onClick={event => { event.stopPropagation(); applyTemplate(template); }}>
-                {addingId === template.id ? "Adicionando…" : isApplied(template.id) ? <><Check size={16}/> No seu treino</> : isSelected(template.id) ? <><Check size={16}/> Adicionado</> : <><Plus size={16}/> Adicionar ao treino</>}
+                {addingId === template.id ? "Adicionando…" : isApplied(template.id) ? <><Check size={16}/> Treino atual</> : isSelected(template.id) ? <><Check size={16}/> Adicionado</> : <><Plus size={16}/> Usar neste treino</>}
               </button>
             </article>)}
             {!visible.length && <div className="library-empty">Nenhuma sessão nesta combinação de filtros.</div>}
           </div>
-          {actionMessage && <p className={`library-action-message${actionMessage.includes("foi adicionado") ? " success" : " error"}`} role="status">{actionMessage}</p>}
+          {actionMessage && <p className={`library-action-message${actionMessage.includes("treino atual") ? " success" : " error"}`} role="status">{actionMessage}</p>}
         </section>
 
         {active && <aside className="library-preview" data-testid="library-preview">
@@ -207,7 +228,7 @@ export default function WorkoutLibrary({ API, exercises = [], onBuild, onTemplat
             </div>)}
           </div>
           <button disabled={addingId === active.id || isApplied(active.id)} className={isSelected(active.id) || isApplied(active.id) ? "secondary-button" : "primary-button"} onClick={() => applyTemplate(active)}>
-            {addingId === active.id ? "Adicionando…" : isApplied(active.id) ? "Sessão já está no seu treino" : isSelected(active.id) ? "Remover da semana" : "Usar esta sessão"}<ChevronRight size={17}/>
+            {addingId === active.id ? "Adicionando…" : isApplied(active.id) ? "Esta é a sessão atual" : isSelected(active.id) ? "Remover da semana" : "Usar como treino atual"}<ChevronRight size={17}/>
           </button>
         </aside>}
       </div>
