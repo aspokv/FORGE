@@ -65,6 +65,7 @@ export default function WorkoutLibrary({ API, exercises = [], onBuild, onTemplat
   const [category, setCategory] = useState("push");
   const [programCategory, setProgramCategory] = useState("abc");
   const [active, setActive] = useState(null);
+  const [previewId, setPreviewId] = useState("");
   const [activeProgram, setActiveProgram] = useState(null);
   const [activePhaseId, setActivePhaseId] = useState("");
   const [selected, setSelected] = useState([]);
@@ -119,6 +120,7 @@ export default function WorkoutLibrary({ API, exercises = [], onBuild, onTemplat
 
   const chooseCategory = id => {
     setCategory(id);
+    setPreviewId("");
     setActive(catalog.templates.find(item => item.category === id) || null);
   };
   const chooseProgramCategory = id => {
@@ -171,7 +173,7 @@ export default function WorkoutLibrary({ API, exercises = [], onBuild, onTemplat
       <div>
         <p className="eyebrow">FORGE / ARQUITETURAS DE TREINO</p>
         <h2>Escolha uma sessão ou um programa completo.</h2>
-        <p className="muted">Modelos profissionais normalizados para o motor do FORGE. Tudo passa pelo Program Builder antes de substituir o seu treino.</p>
+        <p className="muted">Modelos profissionais normalizados para o motor do FORGE. Veja todos os exercícios antes de aplicar uma sessão ao treino atual.</p>
       </div>
       <div className="library-intro-actions">
         <div className="library-count"><strong>{catalog.templates.length + catalog.programs.length}</strong><span>arquiteturas<br/>curadas</span></div>
@@ -202,16 +204,21 @@ export default function WorkoutLibrary({ API, exercises = [], onBuild, onTemplat
         <section className="library-variants" aria-label="Variações disponíveis">
           <div className="library-section-head"><div><p className="eyebrow">{String(visible.length).padStart(2,"0")} VARIAÇÕES</p><h3>{catalog.categories.find(item => item.id === category)?.label}</h3></div><span>Escolha pelo objetivo da sessão</span></div>
           <div className="library-card-grid">
-            {visible.map((template, index) => <article key={template.id} className={`${active?.id === template.id ? "active " : ""}${isSelected(template.id) || isApplied(template.id) ? "selected" : ""}`} data-testid={`workout-template-${template.id}`} onClick={() => setActive(template)}>
+            {visible.map((template, index) => <article key={template.id} className={`${active?.id === template.id ? "active " : ""}${isSelected(template.id) || isApplied(template.id) ? "selected" : ""}`} data-testid={`workout-template-${template.id}`} onClick={() => { setActive(template); setPreviewId(template.id); }}>
               <div className="library-card-index">0{index + 1}</div>
               <div className="library-card-top"><span>{template.style}</span><em>{template.level}</em></div>
               <h3>{template.name}</h3>
               <p>{template.description}</p>
               <div className="library-card-stats"><span><Dumbbell size={14}/>{template.exercise_count} exercícios</span><span><Layers3 size={14}/>{template.total_sets} séries</span><span><Timer size={14}/>{template.duration} min</span></div>
               <div className="library-focus">{template.focus.map(item => <span key={item}>{item}</span>)}</div>
-              <button disabled={addingId === template.id || isApplied(template.id)} className={isSelected(template.id) || isApplied(template.id) ? "library-add selected" : "library-add"} onClick={event => { event.stopPropagation(); applyTemplate(template); }}>
-                {addingId === template.id ? "Adicionando…" : isApplied(template.id) ? <><Check size={16}/> Treino atual</> : isSelected(template.id) ? <><Check size={16}/> Adicionado</> : <><Plus size={16}/> Usar neste treino</>}
+              <button disabled={addingId === template.id} className={isApplied(template.id) ? "library-add selected" : "library-add"} onClick={event => { event.stopPropagation(); setActive(template); setPreviewId(current => current === template.id ? "" : template.id); }}>
+                {addingId === template.id ? "Carregando…" : previewId === template.id ? "Ocultar exercícios" : isApplied(template.id) ? <><Check size={16}/> Ver treino atual</> : <><ChevronRight size={16}/> Ver exercícios</>}
               </button>
+              {previewId === template.id && <div className="library-mobile-session-preview" data-testid={`template-exercises-${template.id}`} onClick={event => event.stopPropagation()}>
+                <div className="library-mobile-preview-head"><span>EXERCÍCIOS DA SESSÃO</span><em>{template.total_sets} séries · {template.duration} min</em></div>
+                <div className="library-mobile-exercise-list">{template.exercises.map((item, exerciseIndexNumber) => <div key={`${item.exercise_id}-${exerciseIndexNumber}`}><span>{String(exerciseIndexNumber + 1).padStart(2,"0")}</span><div><b>{exerciseIndex[item.exercise_id]?.name || item.exercise_id}</b><small>{item.sets} séries · {item.reps} reps · RIR {item.rir}</small></div><em>{item.rest}</em></div>)}</div>
+                <button type="button" disabled={addingId === template.id || isApplied(template.id)} className="primary-button library-mobile-apply" onClick={() => applyTemplate(template)}>{addingId === template.id ? "Aplicando…" : isApplied(template.id) ? "Este é o treino atual" : <>Usar como treino atual <ChevronRight size={16}/></>}</button>
+              </div>}
             </article>)}
             {!visible.length && <div className="library-empty">Nenhuma sessão nesta combinação de filtros.</div>}
           </div>
