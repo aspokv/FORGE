@@ -66,7 +66,7 @@ def phase(phase_id, label, method, sessions, weeks="", note=""):
 
 
 def program(program_id, category, name, level, weeks, audience, description, reference, phases,
-            safety="standard", warning=""):
+            safety="standard", warning="", audience_type="unisex"):
     return {
         "id": program_id,
         "category": category,
@@ -74,6 +74,7 @@ def program(program_id, category, name, level, weeks, audience, description, ref
         "level": level,
         "duration_weeks": weeks,
         "audience": audience,
+        "audience_type": audience_type,
         "description": description,
         "reference": reference,
         "safety": safety,
@@ -458,7 +459,7 @@ TRAINING_PROGRAMS = [
             "Júlio Balestrin · material enviado", [MALE_INTERMEDIATE]),
     program("abcd-wellness-advanced", "abcd", "ABCD Wellness Avançado", "Avançado", 5, "Ênfase feminina / Wellness",
             "Quatro sessões com prioridade para membros inferiores e supersets de alta densidade.",
-            "Vinicius Piffardini · material enviado", [FEMALE_ADVANCED]),
+            "Vinicius Piffardini · material enviado", [FEMALE_ADVANCED], audience_type="female"),
     program("abcde-advanced-8w", "abcde", "ABCDE Avançado 3", "Avançado", 8, "Geral",
             "Divisão avançada com duas sessões de pernas, cardio complementar e progressões piramidais.",
             "Júlio Balestrin · material enviado", [MALE_ADVANCED]),

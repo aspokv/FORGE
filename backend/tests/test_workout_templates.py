@@ -11,11 +11,12 @@ EXERCISE_IDS = {
 }
 
 
-def test_library_has_three_professional_variants_per_category():
+def test_library_has_four_professional_variants_per_category_including_female_curation():
     assert [item["id"] for item in CATEGORIES] == ["push", "pull", "legs", "upper", "lower", "full_body"]
     for category in CATEGORIES:
         variants = [item for item in WORKOUT_TEMPLATES if item["category"] == category["id"]]
-        assert len(variants) == 3
+        assert len(variants) == 4
+        assert len([item for item in variants if item["audience"] == "female"]) == 1
 
 
 def test_every_template_uses_real_catalog_exercises_and_complete_prescriptions():
@@ -37,7 +38,7 @@ def test_every_template_uses_real_catalog_exercises_and_complete_prescriptions()
 
 def test_public_catalog_calculates_counts_without_mutating_source():
     catalog = public_catalog()
-    assert len(catalog["templates"]) == 18
+    assert len(catalog["templates"]) == 24
     first = catalog["templates"][0]
     assert first["exercise_count"] == len(first["exercises"])
     assert first["total_sets"] == sum(item["sets"] for item in first["exercises"])
@@ -88,3 +89,8 @@ def test_program_metadata_and_expert_guard_are_exposed_without_source_mutation()
     assert expert["warning"]
     catalog["programs"][0]["phases"].clear()
     assert TRAINING_PROGRAMS[0]["phases"]
+
+
+def test_female_program_is_machine_filterable():
+    wellness = next(item for item in TRAINING_PROGRAMS if item["id"] == "abcd-wellness-advanced")
+    assert wellness["audience_type"] == "female"

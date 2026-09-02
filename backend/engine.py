@@ -1054,6 +1054,7 @@ async def build_program_v2(profile: dict, db=None) -> Dict[str, Any]:
                 "label": s.get("label") or f"Sessão {i+1}",
                 "demand": s.get("demand", "MODERATE"),
                 "focus": s.get("focus") or priorities[:2],
+                "template_id": s.get("template_id"),
                 "exercises": [{
                     "exercise_id": x.get("exercise_id"),
                     "sets": int(x.get("sets", 3)),

@@ -39,7 +39,7 @@ def ex(exercise_id, sets, reps, rir="1–2", rest="2 min", technique_id="straigh
     }
 
 
-def template(template_id, category, name, style, level, duration, demand, focus, description, exercises):
+def template(template_id, category, name, style, level, duration, demand, focus, description, exercises, audience="unisex"):
     return {
         "id": template_id,
         "category": category,
@@ -50,6 +50,7 @@ def template(template_id, category, name, style, level, duration, demand, focus,
         "demand": demand,
         "focus": focus,
         "description": description,
+        "audience": audience,
         "exercises": exercises,
     }
 
@@ -224,6 +225,47 @@ WORKOUT_TEMPLATES = [
         ex("rope-pushdown", 2, "10–15", "1–2", "60 s", "superset"),
     ]),
 ]
+
+# Uma curadoria feminina por arquitetura. Não é uma versão "leve": a seleção
+# redistribui prioridades e fadiga sem reduzir a qualidade da prescrição.
+WORKOUT_TEMPLATES.extend([
+    template("push-female-performance", "push", "Push Feminino Performance", "Ombros + peitoral", "Intermediário", 65, "MODERATE",
+             ["Deltoide lateral", "Peitoral superior", "Tríceps"], "Presses e elevações com prioridade estética de ombros, sem perder força de peitoral.", [
+        ex("db-incline-press", 3, "8–10", "1–2", "2 min"), ex("smith-ohp", 3, "8–12", "1–2", "2 min"),
+        ex("machine-lateral-raise", 4, "12–20", "1–2", "60 s"), ex("cable-incline-fly", 3, "12–15", "2", "60 s"),
+        ex("cable-overhead-extension", 3, "10–15", "1–2", "60 s"),
+    ], "female"),
+    template("pull-female-posture", "pull", "Pull Feminino Postura", "Dorsais + deltoides", "Intermediário", 65, "MODERATE",
+             ["Dorsais", "Deltoide posterior", "Bíceps"], "Costas desenhadas, estabilidade escapular e deltoide posterior com fadiga lombar controlada.", [
+        ex("lat-pulldown", 3, "8–12", "1–2", "90 s"), ex("row", 3, "8–12", "1–2", "90 s"),
+        ex("cable-row", 3, "10–12", "2", "90 s"), ex("machine-rear-fly", 4, "12–20", "1–2", "60 s"),
+        ex("incline-db-curl", 3, "10–15", "1–2", "60 s"),
+    ], "female"),
+    template("legs-female-complete", "legs", "Legs Feminino Completo", "Quadríceps + glúteos", "Avançado", 75, "HIGH",
+             ["Quadríceps", "Glúteos", "Posteriores"], "Tensão mecânica para quadríceps e glúteos, com posterior suficiente para equilíbrio articular.", [
+        ex("hack-squat", 4, "6–10", "1–2", "3 min"), ex("hip-thrust", 4, "8–12", "1–2", "2 min"),
+        ex("bulgarian-split-squat", 3, "8–12", "2", "2 min"), ex("leg-curl", 3, "10–15", "1–2", "90 s"),
+        ex("leg-extension", 3, "12–15", "1", "60 s"), ex("abductor-machine", 3, "15–25", "1", "60 s"),
+    ], "female"),
+    template("upper-female-shape", "upper", "Upper Feminino Shape", "Tronco completo", "Intermediário", 70, "MODERATE",
+             ["Dorsais", "Deltoides", "Peitoral"], "Tronco completo com ênfase visual em dorsais e deltoides, mantendo força de empurrar.", [
+        ex("lat-pulldown", 3, "8–12", "1–2", "90 s"), ex("db-incline-press", 3, "8–12", "2", "2 min"),
+        ex("row", 3, "8–12", "1–2", "90 s"), ex("machine-lateral-raise", 4, "12–20", "1–2", "60 s"),
+        ex("machine-rear-fly", 3, "12–20", "2", "60 s"), ex("cable-pushdown", 2, "10–15", "1–2", "60 s"),
+    ], "female"),
+    template("lower-female-glutes", "lower", "Lower Feminino Glúteos", "Glúteos + posteriores", "Avançado", 75, "HIGH",
+             ["Glúteos", "Posteriores", "Quadríceps"], "Extensão de quadril, cadeia posterior e trabalho unilateral com progressão mensurável.", [
+        ex("hip-thrust", 4, "6–10", "1", "3 min"), ex("rdl", 3, "6–10", "1–2", "3 min"),
+        ex("bulgarian-split-squat", 3, "8–12", "2", "2 min"), ex("leg-curl", 3, "10–15", "1–2", "90 s"),
+        ex("cable-glute-kickback", 3, "12–15", "1–2", "60 s"), ex("abductor-machine", 3, "15–25", "1", "60 s"),
+    ], "female"),
+    template("full-body-female-athlete", "full_body", "Full Body Feminino Atleta", "Corpo inteiro", "Intermediário", 70, "MODERATE",
+             ["Glúteos", "Dorsais", "Deltoides"], "Sessão completa para atletas com menos dias, priorizando grandes padrões e acabamento estratégico.", [
+        ex("leg-press", 3, "8–12", "1–2", "2 min"), ex("hip-thrust", 3, "8–12", "1–2", "2 min"),
+        ex("lat-pulldown", 3, "8–12", "1–2", "90 s"), ex("db-incline-press", 3, "8–12", "2", "90 s"),
+        ex("machine-lateral-raise", 3, "12–20", "1–2", "60 s"), ex("leg-curl", 3, "10–15", "1–2", "90 s"),
+    ], "female"),
+])
 
 
 def public_catalog():

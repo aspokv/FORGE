@@ -1,4 +1,4 @@
-import { buildLibraryProgram, programPhaseToDraft, templateToSession } from "./WorkoutLibrary";
+import { buildLibraryProgram, isFemaleProfile, programPhaseToDraft, templateToSession } from "./WorkoutLibrary";
 
 const makeTemplate = (id, name, duration = 60) => ({
   id,
@@ -15,6 +15,12 @@ test("converts a library template into the existing custom-program session shape
   expect(session.label).toBe("Push Base");
   expect(session.template_id).toBe("push-base");
   expect(session.exercises[0].exercise_id).toBe("bb-bench-press");
+});
+
+test("detects female profiles from both current and legacy onboarding shapes", () => {
+  expect(isFemaleProfile({ sex: "Feminino" })).toBe(true);
+  expect(isFemaleProfile({ assessment: { gender: "female" } })).toBe(true);
+  expect(isFemaleProfile({ sex: "Masculino" })).toBe(false);
 });
 
 test("builds the selected weekly order and average duration for Program Builder", () => {

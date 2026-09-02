@@ -183,6 +183,7 @@ class CustomProgramDay(BaseModel):
     label: str = "Sessão"
     demand: str = "MODERATE"
     focus: List[str] = []
+    template_id: Optional[str] = None
     exercises: List[CustomProgramExercise] = []
 
 class CustomProgram(BaseModel):

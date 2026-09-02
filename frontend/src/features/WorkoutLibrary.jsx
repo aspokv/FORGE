@@ -38,7 +38,12 @@ export const programPhaseToDraft = (program, phase) => ({
 
 const emptyCatalog = { categories: [], templates: [], program_categories: [], programs: [] };
 
-export default function WorkoutLibrary({ API, exercises = [], onBuild, onClose }) {
+export const isFemaleProfile = profile => {
+  const value = String(profile?.sex || profile?.gender || profile?.assessment?.sex || profile?.assessment?.gender || "").toLowerCase();
+  return ["female", "feminino", "f", "mulher"].includes(value);
+};
+
+export default function WorkoutLibrary({ API, exercises = [], onBuild, onTemplateAdd, profile, program, onClose }) {
   const [catalog, setCatalog] = useState(emptyCatalog);
   const [mode, setMode] = useState("sessions");
   const [category, setCategory] = useState("push");
@@ -47,6 +52,10 @@ export default function WorkoutLibrary({ API, exercises = [], onBuild, onClose }
   const [activeProgram, setActiveProgram] = useState(null);
   const [activePhaseId, setActivePhaseId] = useState("");
   const [selected, setSelected] = useState([]);
+  const [audience, setAudience] = useState(() => isFemaleProfile(profile) ? "female" : "all");
+  const [appliedIds, setAppliedIds] = useState(() => new Set((program?.sessions || []).map(item => item.template_id).filter(Boolean)));
+  const [addingId, setAddingId] = useState("");
+  const [actionMessage, setActionMessage] = useState("");
   const [expertAccepted, setExpertAccepted] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -69,10 +78,23 @@ export default function WorkoutLibrary({ API, exercises = [], onBuild, onClose }
   }, [API]);
 
   const exerciseIndex = useMemo(() => Object.fromEntries(exercises.map(item => [item.id, item])), [exercises]);
-  const visible = useMemo(() => catalog.templates.filter(item => item.category === category), [catalog.templates, category]);
-  const visiblePrograms = useMemo(() => catalog.programs.filter(item => (item.categories || [item.category]).includes(programCategory)), [catalog.programs, programCategory]);
+  useEffect(() => {
+    setAppliedIds(new Set((program?.sessions || []).map(item => item.template_id).filter(Boolean)));
+  }, [program]);
+  const visible = useMemo(() => catalog.templates.filter(item => item.category === category && (audience === "all" || (item.audience || "unisex") === audience)), [catalog.templates, category, audience]);
+  const visiblePrograms = useMemo(() => catalog.programs.filter(item => (item.categories || [item.category]).includes(programCategory) && (audience === "all" || (item.audience_type || "unisex") === audience)), [catalog.programs, programCategory, audience]);
   const activePhase = useMemo(() => activeProgram?.phases?.find(item => item.id === activePhaseId) || activeProgram?.phases?.[0] || null, [activeProgram, activePhaseId]);
+  useEffect(() => {
+    if (visible.length && !visible.some(item => item.id === active?.id)) setActive(visible[0]);
+  }, [visible, active?.id]);
+  useEffect(() => {
+    if (visiblePrograms.length && !visiblePrograms.some(item => item.id === activeProgram?.id)) {
+      setActiveProgram(visiblePrograms[0]);
+      setActivePhaseId(visiblePrograms[0]?.phases?.[0]?.id || "");
+    }
+  }, [visiblePrograms, activeProgram?.id]);
   const isSelected = id => selected.some(item => item.id === id);
+  const isApplied = id => appliedIds.has(id);
 
   const chooseCategory = id => {
     setCategory(id);
@@ -104,6 +126,21 @@ export default function WorkoutLibrary({ API, exercises = [], onBuild, onClose }
       return next;
     });
   };
+  const applyTemplate = async template => {
+    if (!onTemplateAdd) return toggleTemplate(template);
+    if (isApplied(template.id) || addingId) return;
+    setAddingId(template.id);
+    setActionMessage("");
+    try {
+      await onTemplateAdd(template);
+      setAppliedIds(current => new Set([...current, template.id]));
+      setActionMessage(`${template.name} foi adicionado ao seu treino.`);
+    } catch (requestError) {
+      setActionMessage(requestError?.response?.data?.detail || requestError?.message || "Não foi possível adicionar a sessão ao treino.");
+    } finally {
+      setAddingId("");
+    }
+  };
 
   if (loading) return <div className="content workout-library"><div className="library-loading">Preparando os modelos FORGE...</div></div>;
   if (error) return <div className="content workout-library"><div className="library-error">{error}</div></div>;
@@ -127,6 +164,13 @@ export default function WorkoutLibrary({ API, exercises = [], onBuild, onClose }
     </div>
 
     {mode === "sessions" ? <>
+      <div className="library-audience-filter" role="group" aria-label="Curadoria de treinos">
+        <span>Curadoria</span>
+        <button className={audience === "all" ? "active" : ""} onClick={() => setAudience("all")}>Todos</button>
+        <button className={audience === "female" ? "active" : ""} onClick={() => setAudience("female")} data-testid="library-audience-female">Feminino</button>
+        <button className={audience === "unisex" ? "active" : ""} onClick={() => setAudience("unisex")}>Unissex</button>
+        {isFemaleProfile(profile) && <em>Seleção feminina ativada pelo seu perfil</em>}
+      </div>
       <nav className="library-categories" aria-label="Categorias de treino">
         {catalog.categories.map(item => <button key={item.id} className={category === item.id ? "active" : ""} onClick={() => chooseCategory(item.id)} data-testid={`library-category-${item.id}`}>
           <b>{item.label}</b><span>{item.subtitle}</span>
@@ -135,20 +179,22 @@ export default function WorkoutLibrary({ API, exercises = [], onBuild, onClose }
 
       <div className="library-layout">
         <section className="library-variants" aria-label="Variações disponíveis">
-          <div className="library-section-head"><div><p className="eyebrow">03 VARIAÇÕES</p><h3>{catalog.categories.find(item => item.id === category)?.label}</h3></div><span>Escolha pelo objetivo da sessão</span></div>
+          <div className="library-section-head"><div><p className="eyebrow">{String(visible.length).padStart(2,"0")} VARIAÇÕES</p><h3>{catalog.categories.find(item => item.id === category)?.label}</h3></div><span>Escolha pelo objetivo da sessão</span></div>
           <div className="library-card-grid">
-            {visible.map((template, index) => <article key={template.id} className={`${active?.id === template.id ? "active " : ""}${isSelected(template.id) ? "selected" : ""}`} data-testid={`workout-template-${template.id}`} onClick={() => setActive(template)}>
+            {visible.map((template, index) => <article key={template.id} className={`${active?.id === template.id ? "active " : ""}${isSelected(template.id) || isApplied(template.id) ? "selected" : ""}`} data-testid={`workout-template-${template.id}`} onClick={() => setActive(template)}>
               <div className="library-card-index">0{index + 1}</div>
               <div className="library-card-top"><span>{template.style}</span><em>{template.level}</em></div>
               <h3>{template.name}</h3>
               <p>{template.description}</p>
               <div className="library-card-stats"><span><Dumbbell size={14}/>{template.exercise_count} exercícios</span><span><Layers3 size={14}/>{template.total_sets} séries</span><span><Timer size={14}/>{template.duration} min</span></div>
               <div className="library-focus">{template.focus.map(item => <span key={item}>{item}</span>)}</div>
-              <button className={isSelected(template.id) ? "library-add selected" : "library-add"} onClick={event => { event.stopPropagation(); toggleTemplate(template); }}>
-                {isSelected(template.id) ? <><Check size={16}/> Adicionado</> : <><Plus size={16}/> Adicionar à semana</>}
+              <button disabled={addingId === template.id || isApplied(template.id)} className={isSelected(template.id) || isApplied(template.id) ? "library-add selected" : "library-add"} onClick={event => { event.stopPropagation(); applyTemplate(template); }}>
+                {addingId === template.id ? "Adicionando…" : isApplied(template.id) ? <><Check size={16}/> No seu treino</> : isSelected(template.id) ? <><Check size={16}/> Adicionado</> : <><Plus size={16}/> Adicionar ao treino</>}
               </button>
             </article>)}
+            {!visible.length && <div className="library-empty">Nenhuma sessão nesta combinação de filtros.</div>}
           </div>
+          {actionMessage && <p className={`library-action-message${actionMessage.includes("foi adicionado") ? " success" : " error"}`} role="status">{actionMessage}</p>}
         </section>
 
         {active && <aside className="library-preview" data-testid="library-preview">
@@ -160,8 +206,8 @@ export default function WorkoutLibrary({ API, exercises = [], onBuild, onClose }
               <em>{item.rest}</em>
             </div>)}
           </div>
-          <button className={isSelected(active.id) ? "secondary-button" : "primary-button"} onClick={() => toggleTemplate(active)}>
-            {isSelected(active.id) ? "Remover da semana" : "Usar esta sessão"}<ChevronRight size={17}/>
+          <button disabled={addingId === active.id || isApplied(active.id)} className={isSelected(active.id) || isApplied(active.id) ? "secondary-button" : "primary-button"} onClick={() => applyTemplate(active)}>
+            {addingId === active.id ? "Adicionando…" : isApplied(active.id) ? "Sessão já está no seu treino" : isSelected(active.id) ? "Remover da semana" : "Usar esta sessão"}<ChevronRight size={17}/>
           </button>
         </aside>}
       </div>
@@ -177,6 +223,9 @@ export default function WorkoutLibrary({ API, exercises = [], onBuild, onClose }
         <button className="primary-button library-build" data-testid="library-build-program" onClick={() => onBuild(buildLibraryProgram(selected))}>Revisar no Program Builder <ChevronRight size={18}/></button>
       </section>}
     </> : <>
+      <div className="library-audience-filter" role="group" aria-label="Curadoria de programas">
+        <span>Curadoria</span><button className={audience === "all" ? "active" : ""} onClick={() => setAudience("all")}>Todos</button><button className={audience === "female" ? "active" : ""} onClick={() => setAudience("female")}>Feminino</button><button className={audience === "unisex" ? "active" : ""} onClick={() => setAudience("unisex")}>Unissex</button>
+      </div>
       <nav className="library-categories library-program-categories" aria-label="Divisões de programas">
         {catalog.program_categories.map(item => <button key={item.id} className={programCategory === item.id ? "active" : ""} onClick={() => chooseProgramCategory(item.id)} data-testid={`program-category-${item.id}`}>
           <b>{item.label}</b><span>{item.subtitle}</span>
