@@ -1,4 +1,4 @@
-import { buildLibraryProgram, isFemaleProfile, programPhaseToDraft, templateToSession } from "./WorkoutLibrary";
+import { buildLibraryProgram, isFemaleProfile, programPhaseToDraft, replaceActiveSessionWithTemplate, templateToSession } from "./WorkoutLibrary";
 
 const makeTemplate = (id, name, duration = 60) => ({
   id,
@@ -51,4 +51,30 @@ test("converts one selected phase of a complete program into a reviewable draft"
   expect(draft.sessions.map(item => item.day)).toEqual([1, 2]);
   expect(draft.sessions[1].label).toBe("Lower A");
   expect(draft.source_program_id).toBe("upper-lower");
+});
+
+
+test("replaces the active session instead of appending a hidden workout", () => {
+  const current = { active_day: 2, sessions: [
+    { day: 1, label: "Push 1", exercises: makeTemplate("push-old", "Push old").exercises },
+    { day: 2, label: "Legs 1", exercises: makeTemplate("legs-old", "Legs old").exercises },
+  ] };
+  const next = replaceActiveSessionWithTemplate(current, makeTemplate("legs-quads", "Legs Quadríceps"), 2);
+  expect(next).toHaveLength(2);
+  expect(next[1].day).toBe(2);
+  expect(next[1].label).toBe("Legs Quadríceps");
+  expect(next[1].template_id).toBe("legs-quads");
+});
+
+test("removes the stale tail copy created by the previous append behavior", () => {
+  const selected = makeTemplate("legs-quads", "Legs Quadríceps");
+  const current = { active_day: 2, sessions: [
+    { day: 1, label: "Push 1", exercises: makeTemplate("push-old", "Push old").exercises },
+    { day: 2, label: "Legs 1", exercises: makeTemplate("legs-old", "Legs old").exercises },
+    templateToSession(selected, 3),
+  ] };
+  const next = replaceActiveSessionWithTemplate(current, selected, 2);
+  expect(next).toHaveLength(2);
+  expect(next.map(item => item.template_id).filter(Boolean)).toEqual(["legs-quads"]);
+  expect(next[1].day).toBe(2);
 });
