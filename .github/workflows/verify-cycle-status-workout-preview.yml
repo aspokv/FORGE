@@ -1,0 +1,134 @@
+name: Verify Cycle Status And Workout Preview
+
+on:
+  push:
+    branches:
+      - ui/cycle-status-workout-preview
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ui/cycle-status-workout-preview
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: yarn
+          cache-dependency-path: frontend/yarn.lock
+
+      - name: Apply UI changes
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          app = Path('frontend/src/App.js')
+          text = app.read_text(encoding='utf-8')
+          text = text.replace('BookOpen,BrainCircuit,Check', 'BookOpen,Check')
+          text = text.replace('Sliders,Sparkles,TimerReset', 'Sliders,TimerReset')
+          text = text.replace(',[coach,setCoach]=useState(false),[coachText,setCoachText]=useState(""),[busy,setBusy]=useState(false)', '')
+          text, count = re.subn(r';const context=useMemo\(\(\)=>\{.*?\};const finish=', ';const finish=', text, count=1, flags=re.S)
+          assert count == 1, f'coach request block replacement count={count}'
+          text = text.replace('openCoach={()=>setCoach(true)}', 'openAnalysis={()=>setTab("Análise")}')
+          text = text.replace('{coach&&<Coach onClose={()=>setCoach(false)}text={coachText}busy={busy}ask={ask}/>}','')
+          text = text.replace('function Page({tab,db,analytics,report,techniques,start,openCoach,openBuilder,openManual,onLibraryBuild,onLibraryTemplateAdd,openTech,redo,signOut,user,goHome,onExerciseSubstituted,onWorkoutCompleted,onRecoveryCheckin})', 'function Page({tab,db,analytics,report,techniques,start,openAnalysis,openBuilder,openManual,onLibraryBuild,onLibraryTemplateAdd,openTech,redo,signOut,user,goHome,onExerciseSubstituted,onWorkoutCompleted,onRecoveryCheckin})')
+          text = text.replace('return <Analysis db={db}analytics={analytics}report={report}openCoach={openCoach}/>', 'return <Analysis db={db}analytics={analytics}report={report}/>')
+          text = text.replace('return <Today db={db}analytics={analytics}report={report}start={start}openCoach={openCoach}openBuilder={openBuilder}openManual={openManual}onRecoveryCheckin={onRecoveryCheckin}/>', 'return <Today db={db}analytics={analytics}report={report}start={start}openAnalysis={openAnalysis}openBuilder={openBuilder}openManual={openManual}onRecoveryCheckin={onRecoveryCheckin}/>')
+          text = text.replace('function Today({db,analytics,report,start,openCoach,openBuilder,openManual,onRecoveryCheckin})', 'function Today({db,analytics,report,start,openAnalysis,openBuilder,openManual,onRecoveryCheckin})')
+          home_pattern = re.compile(r'\n    <section className="home-coach-pro" data-testid="home-coach-pro">.*?\n    </section>', re.S)
+          home_lines = [
+              '',
+              '    <section className="home-coach-pro home-cycle-status" data-testid="home-cycle-status">',
+              '      <div className="home-coach-orbit"><Activity size={32}/><i/><i/><i/></div>',
+              '      <div><p>FORGE STATUS · DADOS DO CICLO</p><h3>{report?.headline||(checkin?"Seu ciclo já tem sinais para revisar.":"Veja o que seu treino está produzindo.")}</h3><span>Volume, recuperação, frequência e tendências reunidos em uma leitura objetiva.</span></div>',
+              '      <button type="button" onClick={openAnalysis}>Abrir análise <ChevronRight size={16}/></button>',
+              '    </section>',
+          ]
+          text, count = home_pattern.subn('\n'.join(home_lines), text, count=1)
+          assert count == 1, f'home coach card replacement count={count}'
+          text = text.replace('function Analysis({db,analytics,report,openCoach})', 'function Analysis({db,analytics,report})')
+          coach_button = '<button className="secondary-button"data-testid="analysis-coach-button"onClick={openCoach}><BrainCircuit size={17}/> Analisar com Forge Coach</button>'
+          assert coach_button in text
+          text = text.replace(coach_button, '', 1)
+          coach_start = text.find('function Coach({onClose,text,busy,ask})')
+          coach_end = text.find('function DeepAssessment(', coach_start)
+          assert coach_start >= 0 and coach_end > coach_start
+          text = text[:coach_start] + text[coach_end:]
+          assert 'FORGE COACH' not in text
+          assert 'openCoach' not in text
+          assert 'coachText' not in text
+          assert 'setCoach' not in text
+          assert 'Lendo assessment e histórico' not in text
+          assert 'home-cycle-status' in text
+          app.write_text(text, encoding='utf-8')
+
+          library = Path('frontend/src/features/WorkoutLibrary.jsx')
+          lib = library.read_text(encoding='utf-8')
+          lib = lib.replace('  const [active, setActive] = useState(null);', '  const [active, setActive] = useState(null);\n  const [previewId, setPreviewId] = useState("");', 1)
+          lib = lib.replace('    setCategory(id);\n    setActive(catalog.templates.find(item => item.category === id) || null);', '    setCategory(id);\n    setPreviewId("");\n    setActive(catalog.templates.find(item => item.category === id) || null);', 1)
+          lib = lib.replace('Modelos profissionais normalizados para o motor do FORGE. Tudo passa pelo Program Builder antes de substituir o seu treino.', 'Modelos profissionais normalizados para o motor do FORGE. Veja todos os exercícios antes de aplicar uma sessão ao treino atual.')
+          lib = lib.replace('data-testid={`workout-template-${template.id}`} onClick={() => setActive(template)}>', 'data-testid={`workout-template-${template.id}`} onClick={() => { setActive(template); setPreviewId(template.id); }}>')
+          start_marker = '              <button disabled={addingId === template.id || isApplied(template.id)} className={isSelected(template.id) || isApplied(template.id) ? "library-add selected" : "library-add"} onClick={event => { event.stopPropagation(); applyTemplate(template); }}>'
+          start = lib.find(start_marker)
+          assert start >= 0, 'template action button marker missing'
+          end = lib.find('              </button>', start)
+          assert end > start
+          end += len('              </button>')
+          new_lines = [
+              '              <button disabled={addingId === template.id} className={isApplied(template.id) ? "library-add selected" : "library-add"} onClick={event => { event.stopPropagation(); setActive(template); setPreviewId(current => current === template.id ? "" : template.id); }}>',
+              '                {addingId === template.id ? "Carregando…" : previewId === template.id ? "Ocultar exercícios" : isApplied(template.id) ? <><Check size={16}/> Ver treino atual</> : <><ChevronRight size={16}/> Ver exercícios</>}',
+              '              </button>',
+              '              {previewId === template.id && <div className="library-mobile-session-preview" data-testid={`template-exercises-${template.id}`} onClick={event => event.stopPropagation()}>',
+              '                <div className="library-mobile-preview-head"><span>EXERCÍCIOS DA SESSÃO</span><em>{template.total_sets} séries · {template.duration} min</em></div>',
+              '                <div className="library-mobile-exercise-list">{template.exercises.map((item, exerciseIndexNumber) => <div key={`${item.exercise_id}-${exerciseIndexNumber}`}><span>{String(exerciseIndexNumber + 1).padStart(2,"0")}</span><div><b>{exerciseIndex[item.exercise_id]?.name || item.exercise_id}</b><small>{item.sets} séries · {item.reps} reps · RIR {item.rir}</small></div><em>{item.rest}</em></div>)}</div>',
+              '                <button type="button" disabled={addingId === template.id || isApplied(template.id)} className="primary-button library-mobile-apply" onClick={() => applyTemplate(template)}>{addingId === template.id ? "Aplicando…" : isApplied(template.id) ? "Este é o treino atual" : <>Usar como treino atual <ChevronRight size={16}/></>}</button>',
+              '              </div>}',
+          ]
+          lib = lib[:start] + '\n'.join(new_lines) + lib[end:]
+          assert 'library-mobile-session-preview' in lib
+          assert 'Ver exercícios' in lib
+          library.write_text(lib, encoding='utf-8')
+
+          css = Path('frontend/src/features/workout-library.css')
+          styles = css.read_text(encoding='utf-8')
+          marker = '/* Mobile session exercise drill-down */'
+          if marker not in styles:
+              styles += '''\n\n/* Mobile session exercise drill-down */\n.library-mobile-session-preview{display:none}\n@media(max-width:800px){\n  .library-layout>.library-preview{display:none}\n  .library-card-grid article:has(.library-mobile-session-preview){border-color:rgba(227,107,77,.48)}\n  .library-mobile-session-preview{display:block;margin:16px -4px -2px;padding-top:16px;border-top:1px solid #34383d}\n  .library-mobile-preview-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:7px}\n  .library-mobile-preview-head span{font:9px "IBM Plex Mono",monospace;letter-spacing:.13em;color:#a7aaa8}\n  .library-mobile-preview-head em{font:8px "IBM Plex Mono",monospace;color:#a7aaa8;font-style:normal;white-space:nowrap}\n  .library-mobile-exercise-list>div{display:grid;grid-template-columns:24px minmax(0,1fr) auto;gap:9px;align-items:center;padding:11px 0;border-bottom:1px solid rgba(255,255,255,.065)}\n  .library-mobile-exercise-list>div>span{font:9px "IBM Plex Mono",monospace;color:#e36b4d}\n  .library-mobile-exercise-list>div>div{min-width:0}\n  .library-mobile-exercise-list b{display:block;font-size:12px;font-weight:550;line-height:1.35;overflow-wrap:anywhere}\n  .library-mobile-exercise-list small{display:block;margin-top:3px;font:8.5px/1.4 "IBM Plex Mono",monospace;color:#a7aaa8}\n  .library-mobile-exercise-list em{font:8.5px "IBM Plex Mono",monospace;color:#c6c1ba;font-style:normal;white-space:nowrap}\n  .library-mobile-apply{width:100%;margin-top:14px;min-height:46px}\n}\n@media(max-width:390px){\n  .library-mobile-preview-head{align-items:flex-start;flex-direction:column;gap:4px}\n  .library-mobile-exercise-list>div{grid-template-columns:22px minmax(0,1fr)}\n  .library-mobile-exercise-list em{grid-column:2;white-space:normal;color:#e36b4d}\n}\n'''
+          css.write_text(styles, encoding='utf-8')
+          PY
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: yarn install --frozen-lockfile
+
+      - name: Run frontend tests
+        working-directory: frontend
+        env:
+          CI: true
+        run: yarn test --watchAll=false
+
+      - name: Build production frontend
+        working-directory: frontend
+        env:
+          CI: false
+        run: yarn build
+
+      - name: Commit implementation
+        shell: bash
+        run: |
+          git config user.name "forge-ci"
+          git config user.email "forge-ci@users.noreply.github.com"
+          git add frontend/src/App.js frontend/src/features/WorkoutLibrary.jsx frontend/src/features/workout-library.css
+          if ! git diff --cached --quiet; then
+            git commit -m "refactor(ui): replace Coach and preview workout exercises"
+            git push origin HEAD:ui/cycle-status-workout-preview
+          fi
