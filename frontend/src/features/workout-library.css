@@ -128,7 +128,7 @@
 .library-mobile-session-preview{display:none}
 @media(max-width:800px){
   .library-layout>.library-preview{display:none}
-  .library-card-grid article:has(.library-mobile-session-preview){border-color:rgba(227,107,77,.48)}
+  .library-card-grid article.preview-open{border-color:rgba(227,107,77,.48)}
   .library-mobile-session-preview{display:block;margin:16px -4px -2px;padding-top:16px;border-top:1px solid #34383d}
   .library-mobile-preview-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:7px}
   .library-mobile-preview-head span{font:9px "IBM Plex Mono",monospace;letter-spacing:.13em;color:#a7aaa8}

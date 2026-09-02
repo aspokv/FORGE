@@ -204,7 +204,7 @@ export default function WorkoutLibrary({ API, exercises = [], onBuild, onTemplat
         <section className="library-variants" aria-label="Variações disponíveis">
           <div className="library-section-head"><div><p className="eyebrow">{String(visible.length).padStart(2,"0")} VARIAÇÕES</p><h3>{catalog.categories.find(item => item.id === category)?.label}</h3></div><span>Escolha pelo objetivo da sessão</span></div>
           <div className="library-card-grid">
-            {visible.map((template, index) => <article key={template.id} className={`${active?.id === template.id ? "active " : ""}${isSelected(template.id) || isApplied(template.id) ? "selected" : ""}`} data-testid={`workout-template-${template.id}`} onClick={() => { setActive(template); setPreviewId(template.id); }}>
+            {visible.map((template, index) => <article key={template.id} className={`${active?.id === template.id ? "active " : ""}${previewId === template.id ? "preview-open " : ""}${isSelected(template.id) || isApplied(template.id) ? "selected" : ""}`} data-testid={`workout-template-${template.id}`} onClick={() => { setActive(template); setPreviewId(template.id); }}>
               <div className="library-card-index">0{index + 1}</div>
               <div className="library-card-top"><span>{template.style}</span><em>{template.level}</em></div>
               <h3>{template.name}</h3>
