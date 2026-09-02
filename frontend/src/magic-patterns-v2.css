@@ -1,0 +1,552 @@
+@import url('https://fonts.googleapis.com/css2?family=Archivo:ital,wdth,wght@0,75..125,600..900;1,75..125,600..900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+/*
+ * FORGE — MAGIC PATTERNS V2
+ * Fonte visual: export Magic Patterns ra8njcaferwsqzkfdv2hzm.
+ * Esta camada troca SOMENTE apresentação. Regras de negócio continuam no frontend atual.
+ */
+
+:root{
+  --forge-obsidian:#050506;
+  --forge-graphite-900:#0b0c0d;
+  --forge-graphite-800:#121315;
+  --forge-graphite-700:#1a1c1f;
+  --forge-graphite-600:#26292d;
+  --forge-line:rgba(255,255,255,.08);
+  --forge-line-strong:rgba(255,255,255,.16);
+  --forge-line-warm:rgba(224,182,133,.28);
+  --forge-champagne:#e0b685;
+  --forge-champagne-hi:#f6dcb6;
+  --forge-champagne-deep:#a3744c;
+  --forge-copper:#b3663c;
+  --forge-crimson:#8c2f27;
+  --forge-ember:#e0562f;
+  --forge-lime:#c2e33f;
+  --forge-lime-dim:#7d9a25;
+  --forge-cyan:#4fd4e4;
+  --forge-ivory:#f7f5f0;
+  --forge-muted:#9a9791;
+  --forge-radius:6px;
+  --forge-depth:inset 0 1px 0 rgba(255,255,255,.04),0 26px 60px -30px rgba(0,0,0,.95);
+
+  /* aliases do frontend legado */
+  --bg:var(--forge-obsidian)!important;
+  --panel:var(--forge-graphite-800)!important;
+  --surface:var(--forge-graphite-800)!important;
+  --surface-2:var(--forge-graphite-700)!important;
+  --text:var(--forge-ivory)!important;
+  --muted:var(--forge-muted)!important;
+  --line:var(--forge-line)!important;
+  --accent:var(--forge-champagne)!important;
+  --accent-strong:var(--forge-champagne-hi)!important;
+  --success:var(--forge-lime)!important;
+  --warn:var(--forge-copper)!important;
+  --danger:var(--forge-crimson)!important;
+  --forge-editorial:'Archivo','Inter',system-ui,sans-serif!important;
+}
+
+html,body,#root{min-height:100%;background:var(--forge-obsidian)!important}
+body{
+  color:var(--forge-ivory)!important;
+  font-family:'Inter',system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif!important;
+  font-size:16px;
+  line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+  overflow-x:hidden;
+}
+*{box-sizing:border-box}
+::selection{background:var(--forge-champagne);color:#16120d}
+:focus-visible{outline:2px solid var(--forge-champagne)!important;outline-offset:2px}
+
+/* ----- linguagem tipográfica V2 ----- */
+.forge-shell h1,.forge-shell h2,.forge-shell h3,
+.decision-home .ledger-headline,.decision-home .ledger-session-name,
+.workout-page .exercise h3,.workout-page .exercise h2,
+.progress-page h1,.progress-page h2,.progress-page h3,
+.nutrition-page h1,.nutrition-page h2,.nutrition-page h3,
+.billing-page h1,.billing-page h2,.billing-page h3,
+.training-library-view h1,.training-library-view h2,.training-library-view h3{
+  font-family:'Archivo','Inter',sans-serif!important;
+  font-stretch:112%;
+  letter-spacing:-.012em!important;
+}
+.forge-shell .eyebrow,.forge-shell .decision-kicker,.forge-shell .ledger-meta,
+.forge-shell .ledger-section-note,.forge-shell label,.forge-shell .label,
+.forge-shell .kicker,.forge-shell [class*="-label"],.forge-shell [class*="-meta"]{
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+}
+
+/* ----- shell / masthead ----- */
+.forge-shell{background:var(--forge-obsidian)!important;color:var(--forge-ivory)!important}
+.forge-shell .main{background:var(--forge-obsidian)!important}
+.forge-shell .rail{
+  background:var(--forge-graphite-900)!important;
+  border-right:1px solid var(--forge-line)!important;
+  box-shadow:none!important;
+}
+.forge-shell .brand{
+  font-family:'Archivo','Inter',sans-serif!important;
+  font-style:italic;
+  font-stretch:125%;
+  font-weight:900!important;
+  letter-spacing:.06em!important;
+  color:var(--forge-champagne)!important;
+}
+.forge-shell .brand-mark{background:transparent!important;color:inherit!important;border:1px solid var(--forge-line-warm)!important;border-radius:var(--forge-radius)!important}
+.forge-shell .rail-caption,.forge-shell .rail-bottom{font-family:'IBM Plex Mono',monospace!important;color:var(--forge-muted)!important;letter-spacing:.1em!important}
+.forge-shell .topbar{
+  background:rgba(5,5,6,.985)!important;
+  border-bottom:1px solid var(--forge-line)!important;
+  box-shadow:none!important;
+}
+.forge-shell .topbar h1{
+  font-family:'Archivo','Inter',sans-serif!important;
+  font-stretch:125%;
+  font-weight:800!important;
+  text-transform:uppercase;
+  letter-spacing:-.012em!important;
+}
+.forge-shell .topbar .eyebrow{color:var(--forge-muted)!important}
+.forge-shell .icon-button{background:var(--forge-graphite-900)!important;border:1px solid var(--forge-line)!important;color:var(--forge-muted)!important;border-radius:var(--forge-radius)!important;box-shadow:none!important}
+
+/* nav */
+.forge-shell .nav-item{
+  border:1px solid transparent!important;
+  border-radius:var(--forge-radius)!important;
+  color:var(--forge-muted)!important;
+  background:transparent!important;
+  box-shadow:none!important;
+  font-family:'Inter',sans-serif!important;
+  transition:background-color .15s,border-color .15s,color .15s!important;
+}
+.forge-shell .nav-item svg{color:currentColor!important}
+.forge-shell .nav-item.active{
+  color:var(--forge-champagne)!important;
+  border-color:var(--forge-line-warm)!important;
+  background:rgba(224,182,133,.075)!important;
+}
+
+/* ----- superfícies compartilhadas ----- */
+.forge-shell .content:not(.decision-home){max-width:1180px!important}
+.forge-shell .panel,.forge-shell .card,.forge-shell .exercise,.forge-shell .meal-card,
+.forge-shell .plan-card,.forge-shell .subscription-panel,.forge-shell .progress-card,
+.forge-shell .analysis-card,.forge-shell .profile-card,.forge-shell .preference-card,
+.forge-shell .builder-panel,.forge-shell .manual-panel{
+  background:var(--forge-graphite-800)!important;
+  border:1px solid var(--forge-line)!important;
+  border-radius:var(--forge-radius)!important;
+  box-shadow:none!important;
+}
+.forge-shell hr,.forge-shell .divider{border-color:var(--forge-line)!important}
+.forge-shell .muted,.forge-shell small{color:var(--forge-muted)!important}
+
+.forge-shell button,.forge-shell input,.forge-shell select,.forge-shell textarea{font-family:'Inter',sans-serif}
+.forge-shell input,.forge-shell select,.forge-shell textarea,
+.forge-shell .set-field input,.forge-shell .field input{
+  background:var(--forge-graphite-900)!important;
+  border:1px solid var(--forge-line-strong)!important;
+  color:var(--forge-ivory)!important;
+  border-radius:var(--forge-radius)!important;
+  box-shadow:none!important;
+}
+.forge-shell input[type="number"],.forge-shell .set-field input,.forge-shell .metric b,
+.forge-shell .workout-kpis b,.forge-shell .macro-rail-value,.forge-shell .hydration-value b{
+  font-family:'IBM Plex Mono',ui-monospace,monospace!important;
+  font-feature-settings:'tnum' 1;
+}
+
+.forge-shell .primary-button,.forge-shell .command-start,.forge-shell button.primary,
+.forge-shell .plan-card .primary-button,.forge-shell .today-action-primary{
+  background:var(--forge-champagne)!important;
+  color:#14100b!important;
+  border:1px solid var(--forge-champagne)!important;
+  border-radius:var(--forge-radius)!important;
+  box-shadow:none!important;
+  font-family:'Archivo','Inter',sans-serif!important;
+  font-stretch:112%;
+  font-style:italic;
+  font-weight:800!important;
+  text-transform:uppercase;
+  letter-spacing:.02em!important;
+}
+.forge-shell .primary-button:active,.forge-shell .command-start:active,.forge-shell .today-action-primary:active{background:var(--forge-champagne-deep)!important;border-color:var(--forge-champagne-deep)!important}
+.forge-shell .secondary-button,.forge-shell .text-button,.forge-shell .ghost-button,
+.forge-shell .today-action-direct,.forge-shell .ledger-secondary{
+  background:var(--forge-graphite-700)!important;
+  color:var(--forge-ivory)!important;
+  border:1px solid var(--forge-line-strong)!important;
+  border-radius:var(--forge-radius)!important;
+  box-shadow:none!important;
+}
+
+/* ----- HOME: ordem e acabamento do export Magic ----- */
+.ledger-home{
+  display:flex!important;
+  flex-direction:column!important;
+  max-width:1180px!important;
+  gap:0!important;
+}
+.ledger-home .forge-mobile-mast{order:0}
+.ledger-home .ledger-context{order:1}
+.ledger-home .ledger-macros{order:2}
+.ledger-home .ledger-hydration{order:3}
+.ledger-home .ledger-week{order:4}
+.ledger-home .today-action-card{order:5}
+.ledger-home .home-cycle-status{order:6}
+.ledger-home .forge-home-tools{order:7}
+
+.ledger-home .ledger-context{margin:0 0 20px!important}
+.ledger-home .ledger-meta{
+  margin:0!important;
+  color:var(--forge-muted)!important;
+  font-size:11px!important;
+  font-weight:500!important;
+  letter-spacing:.12em!important;
+  text-transform:uppercase;
+}
+.ledger-home .ledger-greeting{
+  margin:10px 0 0!important;
+  color:var(--forge-ivory)!important;
+  font-family:'Archivo','Inter',sans-serif!important;
+  font-stretch:125%;
+  font-size:clamp(2rem,7vw,3rem)!important;
+  font-weight:800!important;
+  line-height:.96!important;
+  text-transform:uppercase;
+  letter-spacing:-.012em!important;
+}
+
+/* nutrição + hidratação visualmente unidas */
+.ledger-home .ledger-macros{
+  margin:0!important;
+  padding:18px 18px 16px!important;
+  background:var(--forge-graphite-800)!important;
+  border:1px solid var(--forge-line)!important;
+  border-bottom:0!important;
+  border-radius:var(--forge-radius) var(--forge-radius) 0 0!important;
+}
+.ledger-home .ledger-hydration{
+  margin:0 0 20px!important;
+  padding:16px 18px 18px!important;
+  background:var(--forge-graphite-800)!important;
+  border:1px solid var(--forge-line)!important;
+  border-radius:0 0 var(--forge-radius) var(--forge-radius)!important;
+}
+.ledger-home .ledger-section-head{display:flex!important;align-items:flex-end!important;justify-content:space-between!important;gap:8px 14px!important}
+.ledger-home .decision-kicker{
+  color:var(--forge-muted)!important;
+  font-family:'IBM Plex Mono',monospace!important;
+  font-size:10px!important;
+  font-weight:600!important;
+  letter-spacing:.12em!important;
+  text-transform:uppercase!important;
+}
+.ledger-home .ledger-section-note{font-family:'IBM Plex Mono',monospace!important;color:var(--forge-muted)!important;font-size:10px!important;letter-spacing:.02em!important;text-transform:none!important}
+.ledger-home .macro-grid{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:0!important;margin-top:16px!important}
+.ledger-home .macro-rail{padding:0 12px!important;border-right:1px solid var(--forge-line)!important;min-width:0}
+.ledger-home .macro-rail:first-child{padding-left:0!important}.ledger-home .macro-rail:last-child{padding-right:0!important;border-right:0!important}
+.ledger-home .macro-rail-label{color:var(--forge-muted)!important;font-size:10px!important;letter-spacing:.06em!important}
+.ledger-home .macro-rail-value{color:var(--forge-ivory)!important;font-size:16px!important;font-weight:500!important;white-space:nowrap!important}
+.ledger-home .macro-rail-value em{color:var(--forge-muted)!important;font-size:10px!important;font-style:normal!important}
+.ledger-home .macro-rail-track{height:4px!important;margin-top:10px!important;background:var(--forge-graphite-600)!important;border-radius:999px!important;overflow:hidden!important}
+.ledger-home .macro-rail-track i{height:100%!important;background:var(--forge-lime)!important;border-radius:inherit!important;box-shadow:none!important}
+.ledger-home .hydration-value{color:var(--forge-champagne)!important}.ledger-home .hydration-track{background:var(--forge-graphite-600)!important}.ledger-home .hydration-track i{background:var(--forge-lime)!important;box-shadow:none!important}
+.ledger-home .hydration-actions button{min-height:44px!important;background:var(--forge-graphite-700)!important;border:1px solid var(--forge-line-strong)!important;color:var(--forge-ivory)!important;border-radius:var(--forge-radius)!important}
+
+/* semana */
+.ledger-home .ledger-week{
+  margin:0 0 20px!important;
+  padding:18px!important;
+  background:var(--forge-graphite-800)!important;
+  border:1px solid var(--forge-line)!important;
+  border-radius:var(--forge-radius)!important;
+}
+.ledger-home .ledger-week-track{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:8px!important;margin-top:14px!important;overflow:visible!important}
+.ledger-home .ledger-week-item{
+  min-width:0!important;
+  padding:12px!important;
+  background:var(--forge-graphite-900)!important;
+  border:1px solid var(--forge-line)!important;
+  border-radius:var(--forge-radius)!important;
+  box-shadow:none!important;
+}
+.ledger-home .ledger-week-step{width:30px!important;height:30px!important;border-radius:50%!important;border:1px solid var(--forge-line-strong)!important;color:var(--forge-muted)!important;font-family:'IBM Plex Mono',monospace!important}
+.ledger-home .ledger-week-item b{margin-top:8px!important;color:var(--forge-ivory)!important;font-family:'Inter',sans-serif!important;font-size:14px!important;font-weight:600!important}
+.ledger-home .ledger-week-item small{font-family:'IBM Plex Mono',monospace!important;font-size:9px!important;letter-spacing:.1em!important;text-transform:uppercase!important}
+.ledger-home .ledger-week-item.done{border-color:rgba(194,227,63,.25)!important}.ledger-home .ledger-week-item.done .ledger-week-step{color:var(--forge-lime)!important;border-color:rgba(194,227,63,.4)!important}
+.ledger-home .ledger-week-item.current{background:var(--forge-graphite-700)!important;border-color:var(--forge-line-warm)!important}.ledger-home .ledger-week-item.current .ledger-week-step{color:var(--forge-champagne)!important;border-color:var(--forge-champagne)!important}.ledger-home .ledger-week-item.current small{color:var(--forge-champagne)!important}
+
+/* workout hero */
+.ledger-home .today-action-card{
+  margin:0 0 20px!important;
+  padding:22px!important;
+  background:var(--forge-graphite-700)!important;
+  background-image:repeating-linear-gradient(90deg,rgba(255,255,255,.012) 0,rgba(255,255,255,.012) 1px,transparent 1px,transparent 3px)!important;
+  border:1px solid var(--forge-line-warm)!important;
+  border-radius:var(--forge-radius)!important;
+  box-shadow:var(--forge-depth)!important;
+}
+.ledger-home .today-action-kicker,.ledger-home .today-action-day{font-family:'IBM Plex Mono',monospace!important;color:var(--forge-champagne)!important;text-transform:uppercase!important;letter-spacing:.12em!important}
+.ledger-home .today-action-top>b{
+  font-family:'Archivo','Inter',sans-serif!important;
+  font-stretch:125%;
+  font-weight:900!important;
+  text-transform:uppercase!important;
+  font-size:clamp(2rem,8vw,3.4rem)!important;
+  line-height:.94!important;
+  letter-spacing:-.012em!important;
+  color:var(--forge-ivory)!important;
+}
+.ledger-home .today-action-meta,.ledger-home .today-action-focus{font-family:'IBM Plex Mono',monospace!important;color:var(--forge-muted)!important}
+.ledger-home .today-action-status{color:var(--forge-champagne)!important;border-color:var(--forge-line-warm)!important}
+.ledger-home .today-action-actions{display:flex!important;gap:8px!important;margin-top:18px!important}
+.ledger-home .today-action-primary{min-height:54px!important;flex:1!important}
+.ledger-home .today-action-direct{min-height:54px!important;padding:0 18px!important;background:transparent!important;color:var(--forge-muted)!important}
+
+/* status / antiga área coach, agora instrumento de ciclo */
+.ledger-home .home-cycle-status{
+  margin:0 0 20px!important;
+  padding:20px!important;
+  display:grid!important;
+  grid-template-columns:auto minmax(0,1fr) auto!important;
+  gap:16px!important;
+  align-items:center!important;
+  background-color:var(--forge-graphite-800)!important;
+  background-image:repeating-linear-gradient(90deg,rgba(255,255,255,.012) 0,rgba(255,255,255,.012) 1px,transparent 1px,transparent 3px)!important;
+  border:1px solid var(--forge-line-warm)!important;
+  border-radius:var(--forge-radius)!important;
+  box-shadow:none!important;
+}
+.ledger-home .home-coach-orbit{width:48px!important;height:48px!important;border-radius:50%!important;border:1px solid var(--forge-line-warm)!important;color:var(--forge-champagne)!important;background:var(--forge-graphite-900)!important;box-shadow:none!important}
+.ledger-home .home-coach-orbit i{display:none!important}
+.ledger-home .home-cycle-status p{font-family:'IBM Plex Mono',monospace!important;color:var(--forge-champagne)!important;font-size:9px!important;letter-spacing:.13em!important;text-transform:uppercase!important}
+.ledger-home .home-cycle-status h3{margin:6px 0!important;font-family:'Archivo','Inter',sans-serif!important;font-stretch:112%;font-size:22px!important;font-weight:700!important;text-transform:uppercase!important;line-height:1.02!important;color:var(--forge-ivory)!important}
+.ledger-home .home-cycle-status span{color:var(--forge-muted)!important;font-size:12px!important}
+.ledger-home .home-cycle-status button{min-height:44px!important;background:var(--forge-graphite-700)!important;border:1px solid var(--forge-line-strong)!important;border-radius:var(--forge-radius)!important;color:var(--forge-ivory)!important;box-shadow:none!important}
+.ledger-home .forge-home-tools{margin:0!important;padding:14px 0 0!important;border-top:1px solid var(--forge-line)!important}
+
+/* ----- WORKOUT ----- */
+.workout-page{background:var(--forge-obsidian)!important}
+.workout-page .workout-head,.workout-page .workout-overview,.workout-page .session-overview{
+  background:var(--forge-graphite-800)!important;
+  border:1px solid var(--forge-line)!important;
+  border-radius:var(--forge-radius)!important;
+  box-shadow:none!important;
+}
+.workout-page .workout-head h1,.workout-page .workout-head h2,
+.workout-page .session-title,.workout-page .workout-title{
+  font-family:'Archivo','Inter',sans-serif!important;
+  font-stretch:125%;
+  font-weight:900!important;
+  text-transform:uppercase!important;
+  letter-spacing:-.012em!important;
+  line-height:.94!important;
+}
+.workout-page .workout-kpis{gap:0!important;background:var(--forge-graphite-900)!important;border:1px solid var(--forge-line)!important;border-radius:var(--forge-radius)!important;overflow:hidden!important}
+.workout-page .workout-kpis>div{background:transparent!important;border:0!important;border-right:1px solid var(--forge-line)!important;border-radius:0!important;box-shadow:none!important}.workout-page .workout-kpis>div:last-child{border-right:0!important}
+.workout-page .workout-kpis span{font-family:'IBM Plex Mono',monospace!important;font-size:9px!important;letter-spacing:.1em!important;color:var(--forge-muted)!important}.workout-page .workout-kpis b{color:var(--forge-ivory)!important}.workout-page .workout-kpis em{color:var(--forge-muted)!important}
+.workout-page .exercise{
+  padding:22px!important;
+  background:var(--forge-graphite-800)!important;
+  border:1px solid var(--forge-line)!important;
+  border-radius:var(--forge-radius)!important;
+  box-shadow:none!important;
+}
+.workout-page .exercise.rest-active{border-color:var(--forge-line-warm)!important;background:var(--forge-graphite-700)!important}
+.workout-page .exercise h3{
+  font-family:'Archivo','Inter',sans-serif!important;
+  font-stretch:112%;
+  font-weight:800!important;
+  text-transform:uppercase!important;
+  letter-spacing:-.006em!important;
+  color:var(--forge-ivory)!important;
+}
+.workout-page .exercise-index,.workout-page .exercise-number{font-family:'IBM Plex Mono',monospace!important;color:var(--forge-champagne)!important}
+.workout-page .exercise-prescription,.workout-page .exercise-meta{font-family:'IBM Plex Mono',monospace!important;color:var(--forge-muted)!important;text-transform:uppercase!important;letter-spacing:.04em!important}
+.workout-page .tech-badge,.workout-page .exercise-badge{border:1px solid var(--forge-line-warm)!important;color:var(--forge-champagne)!important;background:transparent!important;border-radius:999px!important;box-shadow:none!important}
+.workout-page .set-table,.workout-page .sets{border-top:1px solid var(--forge-line)!important}
+.workout-page .set-row{border-color:transparent!important;background:transparent!important;border-radius:0!important;box-shadow:none!important;transition:background-color .15s,opacity .15s,border-color .15s!important}
+.workout-page .set-row.current{border-left:2px solid var(--forge-copper)!important;padding-left:10px!important;background:rgba(26,29,33,.55)!important}
+.workout-page .set-row.upcoming{opacity:.55!important}.workout-page .set-row.completed{opacity:.72!important;background:rgba(18,19,21,.5)!important}
+.workout-page .set-field{background:var(--forge-graphite-900)!important;border:1px solid var(--forge-line-strong)!important;border-radius:var(--forge-radius)!important;color:var(--forge-ivory)!important;font-family:'IBM Plex Mono',monospace!important;box-shadow:none!important}
+.workout-page .set-check{background:var(--forge-graphite-900)!important;border:1px solid var(--forge-line-warm)!important;border-radius:var(--forge-radius)!important;color:var(--forge-champagne)!important;box-shadow:none!important}
+.workout-page .inline-rest{
+  margin:0 0 18px!important;
+  padding:14px 16px 16px!important;
+  background:var(--forge-graphite-900)!important;
+  border:1px solid var(--forge-line-warm)!important;
+  border-radius:var(--forge-radius)!important;
+  box-shadow:none!important;
+}
+.workout-page .inline-rest-copy span{color:var(--forge-champagne)!important}.workout-page .inline-rest>strong{font-family:'IBM Plex Mono',monospace!important;color:var(--forge-ivory)!important}.workout-page .inline-rest>i{background:var(--forge-lime)!important}
+.workout-page .inline-rest-actions button{background:var(--forge-graphite-700)!important;border:1px solid var(--forge-line-strong)!important;color:var(--forge-ivory)!important;border-radius:var(--forge-radius)!important}
+.workout-page .anatomy-session,.workout-page .muscle-session-map,.workout-page [class*="anatomy"]{
+  box-shadow:none!important;
+}
+
+/* tabs Treino / Biblioteca */
+.training-view-tabs,.workout-view-tabs{
+  padding:4px!important;
+  background:var(--forge-graphite-900)!important;
+  border:1px solid var(--forge-line)!important;
+  border-radius:var(--forge-radius)!important;
+  box-shadow:none!important;
+}
+.training-view-tabs button,.workout-view-tabs button{background:transparent!important;border:1px solid transparent!important;border-radius:var(--forge-radius)!important;color:var(--forge-muted)!important;box-shadow:none!important}
+.training-view-tabs button.active,.workout-view-tabs button.active{background:var(--forge-graphite-700)!important;border-color:var(--forge-line-warm)!important;color:var(--forge-champagne)!important}
+
+/* Biblioteca e builders */
+.training-library-view,.workout-library-page,.library-page{background:var(--forge-obsidian)!important}
+.training-library-view [class*="template"],.training-library-view [class*="variant"],
+.training-library-view [class*="program-card"],.training-library-view [class*="library-card"]{
+  border-radius:var(--forge-radius)!important;
+  box-shadow:none!important;
+}
+.training-library-view article,.training-library-view .panel{background:var(--forge-graphite-800)!important;border-color:var(--forge-line)!important}
+.training-library-view article:hover{border-color:var(--forge-line-warm)!important}
+.training-library-view button{border-radius:var(--forge-radius)!important;box-shadow:none!important}
+
+/* ----- NUTRIÇÃO ----- */
+.nutrition-page{background:var(--forge-obsidian)!important}
+.nutrition-page .nutrition-tabs,.nutrition-page .macro-strip,.nutrition-page .nutrition-summary,
+.nutrition-page .meal-card,.nutrition-page .coach-guidance,.nutrition-page .nutrition-footer{
+  background:var(--forge-graphite-800)!important;
+  border:1px solid var(--forge-line)!important;
+  border-radius:var(--forge-radius)!important;
+  box-shadow:none!important;
+}
+.nutrition-page .nutrition-tabs button{border-radius:var(--forge-radius)!important;color:var(--forge-muted)!important;background:transparent!important}.nutrition-page .nutrition-tabs button.active{background:var(--forge-graphite-700)!important;color:var(--forge-champagne)!important;border-color:var(--forge-line-warm)!important}
+.nutrition-page .meal-card h3,.nutrition-page .meal-title{font-family:'Archivo','Inter',sans-serif!important;font-stretch:112%;font-weight:800!important;text-transform:uppercase!important;letter-spacing:-.006em!important}
+.nutrition-page .macro-strip b,.nutrition-page .meal-macros b,.nutrition-page .food-macros{font-family:'IBM Plex Mono',monospace!important}
+.nutrition-page .nutrition-ring{filter:none!important;box-shadow:none!important}.nutrition-page .food-row{border-color:var(--forge-line)!important}.nutrition-page .food-row img{border-radius:var(--forge-radius)!important}
+.nutrition-page .meal-complete,.nutrition-page [class*="complete"]{color:var(--forge-lime)!important}
+
+/* ----- PROGRESSO / ANÁLISE ----- */
+.progress-page,.main:has(.muscle-grid){background:var(--forge-obsidian)!important}
+.progress-page .progress-hero,.progress-page [class*="result"],.progress-page [class*="pr-"],
+.progress-page [class*="stimulus"],.progress-page [class*="adherence"],.progress-page [class*="body"],
+.progress-page [class*="milestone"],.progress-page .weight-tracker,
+.main:has(.muscle-grid) .muscle-grid,.main:has(.muscle-grid) [class*="report"],.main:has(.muscle-grid) [class*="recovery"]{
+  background:var(--forge-graphite-800)!important;
+  border-color:var(--forge-line)!important;
+  border-radius:var(--forge-radius)!important;
+  box-shadow:none!important;
+}
+.progress-page h1,.progress-page h2,.progress-page h3,.main:has(.muscle-grid) h1,.main:has(.muscle-grid) h2,.main:has(.muscle-grid) h3{font-family:'Archivo','Inter',sans-serif!important;font-stretch:112%;font-weight:800!important;text-transform:uppercase!important}
+.progress-page [class*="bar"] i,.progress-page [class*="progress"] i,.main:has(.muscle-grid) [class*="bar"] i{background:var(--forge-lime)!important;box-shadow:none!important}
+.main:has(.muscle-grid) .muscle-bar,.main:has(.muscle-grid) .volume-bar{background:var(--forge-graphite-600)!important}
+
+/* ----- PERFIL ----- */
+.main:has(.training-preferences) .content{background:var(--forge-obsidian)!important}
+.main:has(.training-preferences) .training-preferences,.main:has(.training-preferences) [class*="profile"],.main:has(.training-preferences) [class*="preference"]{
+  border-radius:var(--forge-radius)!important;
+  box-shadow:none!important;
+}
+.main:has(.training-preferences) h1,.main:has(.training-preferences) h2,.main:has(.training-preferences) h3{font-family:'Archivo','Inter',sans-serif!important;font-stretch:112%;font-weight:800!important;text-transform:uppercase!important}
+.main:has(.training-preferences) button[aria-pressed="true"],.main:has(.training-preferences) .active{border-color:var(--forge-line-warm)!important;background:rgba(224,182,133,.08)!important;color:var(--forge-champagne)!important}
+
+/* ----- BILLING ----- */
+.billing-page .plan-grid{gap:12px!important}.billing-page .plan-card{background:var(--forge-graphite-800)!important;border:1px solid var(--forge-line)!important;border-radius:var(--forge-radius)!important;box-shadow:none!important}.billing-page .plan-card.recommended{border-color:var(--forge-line-warm)!important;background:var(--forge-graphite-700)!important}.billing-page .plan-card.current{border-color:rgba(194,227,63,.45)!important}.billing-page .plan-flag{background:var(--forge-champagne)!important;color:#14100b!important;border-radius:0!important}.billing-page .plan-price b,.billing-page .plan-price,.billing-page .sub-grid b{font-family:'IBM Plex Mono',monospace!important}.billing-page .plan-features svg{color:var(--forge-lime)!important}.billing-page .sub-grid>div{background:var(--forge-graphite-900)!important;border-color:var(--forge-line)!important;border-radius:var(--forge-radius)!important}
+
+/* ----- Modais / auth / onboarding ----- */
+.forge-shell [role="dialog"],.modal-card,.dialog-card,.auth-card,.assessment-card,.builder-modal,.manual-modal{
+  background:var(--forge-graphite-800)!important;
+  border:1px solid var(--forge-line-strong)!important;
+  border-radius:var(--forge-radius)!important;
+  box-shadow:0 30px 80px rgba(0,0,0,.55)!important;
+}
+.auth-shell,.assessment-shell{background:var(--forge-obsidian)!important}
+.auth-card h1,.auth-card h2,.assessment-card h1,.assessment-card h2{font-family:'Archivo','Inter',sans-serif!important;font-stretch:125%;font-weight:900!important;text-transform:uppercase!important;letter-spacing:-.012em!important}
+
+/* ----- mobile fiel ao preview Magic ----- */
+@media(max-width:800px){
+  .forge-shell .rail{display:none!important}
+  .forge-shell .main>.topbar{display:none!important}
+  .forge-shell .main{padding-bottom:96px!important}
+  .forge-shell .content{padding-left:16px!important;padding-right:16px!important}
+
+  .ledger-home{padding:14px 16px 108px!important}
+  .ledger-home .forge-mobile-mast{
+    min-height:58px!important;
+    margin:0 -16px 22px!important;
+    padding:0 16px!important;
+    display:flex!important;
+    align-items:center!important;
+    justify-content:space-between!important;
+    position:sticky!important;
+    top:0!important;
+    z-index:20!important;
+    background:rgba(5,5,6,.985)!important;
+    border-bottom:1px solid var(--forge-line-warm)!important;
+    box-shadow:none!important;
+  }
+  .ledger-home .forge-mobile-mast span{
+    font-family:'Archivo','Inter',sans-serif!important;
+    font-stretch:125%;
+    font-style:italic;
+    font-weight:900!important;
+    font-size:25px!important;
+    letter-spacing:.06em!important;
+    color:var(--forge-champagne)!important;
+  }
+  .ledger-home .forge-mobile-mast svg{color:var(--forge-muted)!important}
+
+  /* masthead das páginas internas gerado pelas camadas anteriores */
+  .forge-shell .content:not(.decision-home)::before{
+    min-height:54px!important;
+    display:flex!important;
+    align-items:center!important;
+    margin:0 -16px 20px!important;
+    padding:0 16px!important;
+    background:rgba(5,5,6,.985)!important;
+    border-bottom:1px solid var(--forge-line-warm)!important;
+    color:var(--forge-champagne)!important;
+    font-family:'Archivo','Inter',sans-serif!important;
+    font-stretch:125%;
+    font-style:italic;
+    font-weight:900!important;
+    font-size:23px!important;
+    letter-spacing:.06em!important;
+    text-align:left!important;
+  }
+
+  .forge-shell .mobile-nav{
+    left:12px!important;
+    right:12px!important;
+    bottom:calc(10px + env(safe-area-inset-bottom))!important;
+    padding:4px!important;
+    background:rgba(11,12,13,.985)!important;
+    border:1px solid var(--forge-line-warm)!important;
+    border-radius:var(--forge-radius)!important;
+    box-shadow:0 18px 36px rgba(0,0,0,.38)!important;
+    backdrop-filter:none!important;
+    -webkit-backdrop-filter:none!important;
+  }
+  .forge-shell .mobile-nav nav{gap:2px!important}
+  .forge-shell .mobile-nav .nav-item{min-height:58px!important;border-radius:var(--forge-radius)!important;font-size:11px!important}
+  .forge-shell .mobile-nav .nav-item.active{background:rgba(224,182,133,.08)!important;border-color:var(--forge-line-warm)!important;color:var(--forge-champagne)!important}
+
+  .ledger-home .ledger-week-track{display:flex!important;gap:8px!important;overflow-x:auto!important;overscroll-behavior-x:contain!important;scrollbar-width:none!important;scroll-snap-type:x proximity!important}.ledger-home .ledger-week-track::-webkit-scrollbar{display:none!important}.ledger-home .ledger-week-item{flex:0 0 126px!important;scroll-snap-align:start!important}
+  .ledger-home .macro-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:16px 0!important}.ledger-home .macro-rail:nth-child(2){border-right:0!important}.ledger-home .macro-rail:nth-child(3){padding-left:0!important}
+  .ledger-home .today-action-actions{display:grid!important;grid-template-columns:1fr!important}.ledger-home .today-action-direct{width:100%!important}
+  .ledger-home .home-cycle-status{grid-template-columns:48px minmax(0,1fr)!important}.ledger-home .home-cycle-status button{grid-column:1/-1!important;width:100%!important}
+
+  .workout-page .exercise{padding:18px 14px!important}.workout-page .workout-kpis{grid-template-columns:repeat(2,minmax(0,1fr))!important}.workout-page .workout-kpis>div:nth-child(2){border-right:0!important}.workout-page .workout-kpis>div:nth-child(-n+2){border-bottom:1px solid var(--forge-line)!important}
+  .workout-page .inline-rest{padding:13px 12px 15px!important}.workout-page .inline-rest>strong{font-size:28px!important}
+  .workout-page .inline-rest-actions{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:5px!important}.workout-page .inline-rest-actions button{padding:0 5px!important;font-size:9px!important}
+
+  .nutrition-page .meal-card,.progress-page [class*="card"],.billing-page .plan-card{padding:18px 14px!important}
+}
+
+@media(max-width:390px){
+  .forge-shell .content{padding-left:14px!important;padding-right:14px!important}
+  .ledger-home{padding-left:14px!important;padding-right:14px!important}
+  .ledger-home .forge-mobile-mast{margin-left:-14px!important;margin-right:-14px!important;padding-left:14px!important;padding-right:14px!important}
+  .ledger-home .macro-grid{grid-template-columns:1fr 1fr!important}
+  .ledger-home .today-action-top>b{font-size:clamp(1.8rem,10vw,2.55rem)!important}
+}
+
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+}
