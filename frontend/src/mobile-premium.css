@@ -1,0 +1,22 @@
+/* FORGE mobile finish — containment, legibility and touch ergonomics. */
+@media(max-width:800px){
+  html,body,#root{width:100%;max-width:100%;overflow-x:clip}
+  .forge-shell,.forge-shell .main{width:100%;max-width:100%;min-width:0;overflow-x:clip}
+  .forge-shell .main>*{min-width:0;max-width:100%}
+  .forge-shell .content{width:100%;min-width:0}
+  .forge-shell :is(section,article,aside,nav,header,footer){min-width:0}
+  .forge-shell :is(img,svg,video,canvas){max-width:100%}
+
+  .forge-shell :is(.primary-button,.secondary-button,.finish-button){min-height:48px;font-size:13px}
+  .forge-shell .muted{line-height:1.62}
+  .forge-shell .mobile-nav{height:76px;padding:6px 10px max(6px,env(safe-area-inset-bottom));border:1px solid rgba(216,171,128,.24);border-bottom:0;border-radius:17px 17px 0 0;background:rgba(12,13,14,.96);box-shadow:0 -18px 45px rgba(0,0,0,.44);backdrop-filter:blur(18px)}
+  .forge-shell .mobile-nav nav{height:100%;align-items:stretch}
+  .forge-shell .mobile-nav .nav-item{min-width:0;min-height:58px;font-size:10px;line-height:1.2;border-radius:11px}
+  .forge-shell .mobile-nav .nav-item span{max-width:none}
+}
+
+@media(max-width:390px){
+  .forge-shell .content{padding-left:16px;padding-right:16px}
+  .forge-shell .mobile-nav{padding-left:7px;padding-right:7px}
+  .forge-shell .mobile-nav .nav-item{padding-left:4px;padding-right:4px;font-size:9px}
+}

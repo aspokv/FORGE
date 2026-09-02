@@ -10,6 +10,7 @@ import "@/reference-platform-extra.css";
 import "@/performance-pass.css";
 import "@/iron-ledger-pass-01.css";
 import "@/iron-ledger-pass-02.css";
+import "@/mobile-premium.css";
 
 const queryClient = new QueryClient({
   defaultOptions: {
