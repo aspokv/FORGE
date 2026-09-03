@@ -1,5 +1,6 @@
 import {Bell,Check,ChevronRight,Dumbbell} from "lucide-react";
 import "./exercise-artwork.css";
+import WorkoutVariationsButton from "./WorkoutVariationsButton";
 
 const getExercise=(db,id)=>db.exercises?.find(e=>e.id===id||e.exercise_id===id)||{};
 const toRpe=rir=>{const m=String(rir??"").match(/\d+/);return Math.max(5,Math.min(10,10-Number(m?.[0]||2)))};
@@ -25,5 +26,6 @@ export default function ReferenceWorkoutPreview({db,activeSession,items,onStart,
     <section className="ref3-workout-hero"><span>TREINO DE HOJE</span><div className="ref3-workout-title"><h1>{name}</h1><strong>{duration}</strong></div><div className="ref3-workout-chips">{(focus.length?focus:["Peitoral","Ombros","Tríceps"]).map(x=><i key={x}>{x}</i>)}</div><hr/><div className="ref3-warmup"><div><span>AQUECIMENTO</span><strong>Mobilidade + ativação</strong></div><b>8 min</b></div></section>
     <section className="ref3-exercises"><h2>EXERCÍCIOS</h2><div>{items.map((x,i)=>{const ex=getExercise(db,x.exercise_id),exName=ex.name||x.name||x.exercise_id,slot=artworkSlotFor(exName,x.exercise_id);return <article key={`${x.exercise_id}-${i}`}><ExerciseArtwork slot={slot} label={`Ilustração de ${exName}`}/><div className="ref3-ex-copy"><strong>{exName}</strong><span>{x.sets} séries x {x.reps}</span></div><em>RPE {toRpe(x.rir)}</em><i className="ref3-check"><Check size={19}/></i></article>})}</div></section>
     <button type="button" className="ref3-start" data-testid="workout-preview-start" onClick={onStart}>INICIAR TREINO <ChevronRight size={20}/></button>
+    <WorkoutVariationsButton onOpen={onLibrary}/>
   </div>;
 }

@@ -27,6 +27,7 @@ const ManualWorkout=lazy(()=>import("./features/ManualWorkout"));
 import WorkoutLibrary from "./features/WorkoutLibrary";
 import ReferenceHome from "./features/ReferenceHome";
 import ReferenceWorkoutPreview from "./features/ReferenceWorkoutPreview";
+import {sessionCategory} from "./features/WorkoutVariationsButton";
 import {completeWorkout} from "./features/completeWorkout";
 import {LEGACY_TRAINING_GOAL,DEFAULT_BODY_GOAL,goalFromCatalog,intensityForSubmit,intensityOnGoalChange} from "./features/onboardingGoals";
 import {ONBOARDING_STEPS,RANK_LABEL,togglePriority,roleFor,nextStep,previousStep} from "./features/musclePriorities";
@@ -270,7 +271,7 @@ function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutC
   const viewTabs=<TrainingViewTabs view={view}onChange={setView}/>;
   if(view==="library")return <div className="training-library-view"data-testid="training-library-view">
     <div className="content training-tabs-wrap">{viewTabs}</div>
-    <WorkoutLibrary API={API}exercises={db.exercises||[]}profile={db.profile}program={db.program}onBuild={onLibraryBuild}onTemplateAdd={onLibraryTemplateAdd}onApplied={()=>{setView("session");setSessionStarted(false)}}/>
+    <WorkoutLibrary API={API}exercises={db.exercises||[]}profile={db.profile}program={db.program}initialCategory={sessionCategory(activeSession,p)}onBuild={onLibraryBuild}onTemplateAdd={onLibraryTemplateAdd}onApplied={()=>{setView("session");setSessionStarted(false)}}/>
   </div>;
   if(!items.length)return <div className="content workout-page">{viewTabs}<div className="empty-state"data-testid="workout-empty-state"><Dumbbell size={22}/><h3>Nenhuma sessão disponível</h3><p className="muted">Escolha um modelo na Biblioteca ou gere um programa para começar.</p><button className="primary-button"type="button"onClick={()=>setView("library")}>Abrir biblioteca</button></div></div>;
   if(finishResult&&!finishResult.error)return <div className="content workout-page workout-complete-page"data-testid="workout-complete-page">
@@ -317,7 +318,7 @@ function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutC
             {x.note&&<p className="muted" style={{marginTop:6}}>· {x.note}</p>}
             <button className={isAdv?"technique-badge":"technique-badge plain"}data-testid={`technique-badge-${x.exercise_id}-${i}`}onClick={()=>openTech(tech)}><Info size={12}/>{tech.name}</button>
           </div>
-          <button className="swap"data-testid={`swap-${x.exercise_id}`}onClick={()=>setSwap(ex)}><RotateCcw size={15}/> Substituir</button>
+          <button type="button" className="swap" aria-label={`Substituir ${ex.name}`} data-testid={`swap-${x.exercise_id}`}onClick={()=>setSwap(ex)}><RotateCcw size={15}/><span>Substituir</span></button>
         </div>
         {hint&&hint.last_weight>0&&<div className="progression-hint"data-testid={`progression-hint-${x.exercise_id}`}>
           <div><span>Última sessão</span><b>{hint.last_weight}kg × {hint.last_reps}</b></div>

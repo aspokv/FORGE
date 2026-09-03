@@ -59,10 +59,10 @@ export const isFemaleProfile = profile => {
   return ["female", "feminino", "f", "mulher"].includes(value);
 };
 
-export default function WorkoutLibrary({ API, exercises = [], onBuild, onTemplateAdd, profile, program, onClose, onApplied }) {
+export default function WorkoutLibrary({ API, exercises = [], onBuild, onTemplateAdd, profile, program, onClose, onApplied, initialCategory="push" }) {
   const [catalog, setCatalog] = useState(emptyCatalog);
   const [mode, setMode] = useState("sessions");
-  const [category, setCategory] = useState("push");
+  const [category, setCategory] = useState(initialCategory);
   const [programCategory, setProgramCategory] = useState("abc");
   const [active, setActive] = useState(null);
   const [previewId, setPreviewId] = useState("");
@@ -167,7 +167,8 @@ export default function WorkoutLibrary({ API, exercises = [], onBuild, onTemplat
         requestAnimationFrame(() => document.querySelector('[data-testid="training-current-tab"]')?.click());
       }
     } catch (requestError) {
-      setActionMessage(requestError?.response?.data?.detail || requestError?.message || "Não foi possível usar esta sessão agora. Tente novamente.");
+      const detail=requestError?.response?.data?.detail;
+      setActionMessage((typeof detail==="string"?detail:detail?.message) || requestError?.message || "Não foi possível usar esta sessão agora. Tente novamente.");
     } finally {
       setAddingId("");
     }

@@ -18,6 +18,7 @@ import "@/home-first-screen.css";
 import "@/workout-preview-density.css";
 import "@/header-typography.css";
 import "@/page-alignment.css";
+import "@/workout-nutrition-actions.css";
 
 const queryClient = new QueryClient({
   defaultOptions: {

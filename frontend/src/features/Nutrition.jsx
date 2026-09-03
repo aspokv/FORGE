@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
-import { ChevronRight, RefreshCw, Check, X, Utensils, ClipboardPaste, Droplets, Pill } from "lucide-react";
+import { ChevronRight, RefreshCw, Check, X, Utensils, ClipboardPaste } from "lucide-react";
+import NutritionDailyFooter from "./NutritionDailyFooter";
 import NutritionImport from "./NutritionImport";
 import FoodDiaryEditor from "./FoodDiaryEditor";
 import {localFoodDate, consumedTotals} from "./foodDiary";
@@ -717,7 +718,7 @@ export default function Nutrition({ API, profileId, db }) {
           <RefreshCw size={15} /> {busy ? "Iniciando..." : "Refazer plano"}
         </button>
       </div>
-      <div className="nutrition-footer-metrics"><div><Droplets size={20}/><span>Meta inicial de água</span><b>{plan?.coach_guidance?.hydration_target_l || "—"} L/dia</b></div><div><Pill size={20}/><span>Opção prática</span><b>Whey + aveia/farinha de arroz</b></div></div>
+      <NutritionDailyFooter API={API} consumed={consumed} goalCalories={targets?.goal_calories||targets?.kcal||0}/>
       {plan?.coach_guidance && <section className="nutrition-coach-note" data-testid="nutrition-coach-guidance">
         <p className="eyebrow">ACOMPANHAMENTO FORGE</p>
         <p>{plan.coach_guidance.weekly_weigh_in}</p>

@@ -19,7 +19,7 @@ from auth import router as auth_router, get_current_user, seed_super_admin
 from admin_routes import router as admin_router
 from nutrition_routes import router as nutrition_router
 from nutrition_engine import resolve_intensity_protocol, _intensity_key
-from billing_plans import PROTOCOLOS_AGRESSIVOS
+from billing_plans import PROTOCOLOS_AGRESSIVOS, VARIACOES_DE_TREINO
 from entitlements import exigir_capacidade
 from manual_workout_routes import router as manual_workout_router
 from nutrition_import_routes import router as nutrition_import_router
@@ -471,6 +471,7 @@ async def apply_workout_template(payload: WorkoutTemplateApplyIn, user=Depends(g
     current program snapshot and persistence so a stale browser cannot append or replace
     the wrong day.
     """
+    await exigir_capacidade(db, user, VARIACOES_DE_TREINO)
     target = owned_profile_id(user, payload.profile_id)
     template = next((item for item in WORKOUT_TEMPLATES if item.get("id") == payload.template_id), None)
     if not template:

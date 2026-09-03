@@ -1,0 +1,30 @@
+/* Scoped action refinements. Keep the approved screen composition intact. */
+.workout-live-reference .exercise-title{gap:12px;align-items:flex-start}
+.workout-live-reference .exercise-title>div{min-width:0;flex:1}
+.workout-live-reference .exercise-title .swap{display:inline-flex!important;align-items:center;justify-content:center;gap:6px;width:auto!important;min-width:0;min-height:40px;height:auto;padding:9px 11px!important;flex:0 0 auto;font-size:12px!important;line-height:1.2;color:#dfb586;border:1px solid #594735;border-radius:10px;background:#171512;white-space:nowrap}
+.workout-live-reference .exercise-title .swap svg{display:block!important;flex:0 0 15px;width:15px;height:15px}
+.workout-live-reference .exercise-title .swap span{font:inherit;letter-spacing:0}
+.reference-workout-v3 .workout-variations-button{display:flex;align-items:center;gap:10px;width:100%;min-height:48px;flex-shrink:0;margin-top:8px;padding:9px 13px;border:1px solid #514332;border-radius:12px;background:#111210;color:#dfb586;text-align:left}
+.workout-variations-button>span{flex:1;min-width:0;display:grid;gap:3px}
+.workout-variations-button strong{font-size:13px;font-weight:600;line-height:1.25}
+.workout-variations-button small{font-size:11px;color:#afada6;line-height:1.25}
+.workout-variations-button:disabled{opacity:.65;cursor:default}
+.nutrition-daily-footer{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:20px}
+.nutrition-daily-footer article{min-width:0;padding:18px;border:1px solid #40382e;border-radius:14px;background:#101211}
+.nutrition-daily-footer header{display:flex;align-items:center;gap:8px;margin-bottom:16px;color:#dfb586}
+.nutrition-daily-footer h3{font-size:15px;line-height:1.3}
+.nutrition-daily-footer article>strong{font-size:25px;line-height:1.3;display:block}
+.nutrition-daily-footer small{font-size:12px;font-weight:400;color:#aaa;line-height:1.5}
+.nutrition-daily-footer p{font-size:13px;line-height:1.5;color:#bbb;margin:10px 0}
+.nutrition-daily-footer progress{display:block;width:100%;height:6px;margin:12px 0;accent-color:#dfb586;border:0;border-radius:5px;overflow:hidden}
+.nutrition-daily-footer progress::-webkit-progress-bar{background:#30322e}
+.nutrition-daily-footer progress::-webkit-progress-value{background:#dfb586}
+.daily-water-actions{display:flex;gap:6px;flex-wrap:wrap}
+.nutrition-daily-footer button{min-height:44px;padding:8px 10px;color:#dfb586;background:#191a17;border:1px solid #514332;border-radius:8px;font-size:12px}
+.daily-water-actions button{flex:1}
+.nutrition-daily-footer button:disabled{opacity:.5}
+.daily-macro-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:15px 0}
+.daily-macro-summary span{font-size:11px;color:#aaa;overflow-wrap:anywhere}
+.daily-macro-summary b{display:block;font-size:16px;color:#eee;margin-top:6px}
+.workout-variations-button:focus-visible,.nutrition-daily-footer button:focus-visible,.workout-live-reference .swap:focus-visible{outline:2px solid #dfb586;outline-offset:3px}
+@media(max-width:600px){.nutrition-daily-footer{grid-template-columns:minmax(0,1fr)}.workout-live-reference .exercise-title .swap{font-size:11px!important;padding:8px!important;min-height:40px}.workout-live-reference .exercise-title{gap:8px}}
