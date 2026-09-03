@@ -12,6 +12,7 @@ import "@/iron-ledger-pass-01.css";
 import "@/iron-ledger-pass-02.css";
 import "@/mobile-premium.css";
 import "@/magic-patterns-v2.css";
+import "@/ad-reference-home-workout.css";
 
 const queryClient = new QueryClient({
   defaultOptions: {
