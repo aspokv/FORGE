@@ -31,8 +31,8 @@ export default function ReferenceHome({db,start,onRecoveryCheckin}){
   const fallbackKcal=(nutrition?.meals||[]).reduce((s,m,i)=>s+(completedMeals.has(i)?Number(m.target_cal||0):0),0),kcal=consumed.kcal||fallbackKcal,kcalPct=goalKcal?clamp(kcal/goalKcal*100,0,100):0;
   const water=Number(hydration?.total_ml||0),waterGoal=Number(hydration?.goal_ml||2500),waterPct=waterGoal?clamp(water/waterGoal*100,0,100):0,filledDrops=Math.round(waterPct/100*7);
 
-  const addWater=async amount=>{if(waterBusy)return;setWaterBusy(true);try{const r=await axios.post(`${API}/hydration`,{local_date:localDateKey(),amount_ml:amount});setHydration(r.data)}finally{setWaterBusy(false)}};
-  const undoWater=async()=>{if(waterBusy)return;setWaterBusy(true);try{const r=await axios.post(`${API}/hydration/undo`,{local_date:localDateKey()});setHydration(r.data)}finally{setWaterBusy(false)}};
+  const addWater=async amount=>{if(waterBusy)return;setWaterBusy(true);try{const r=await axios.post(`${API}/hydration/${localDateKey()}`,{amount_ml:amount});setHydration(r.data)}finally{setWaterBusy(false)}};
+  const undoWater=async()=>{if(waterBusy)return;setWaterBusy(true);try{const r=await axios.delete(`${API}/hydration/${localDateKey()}/last`);setHydration(r.data)}finally{setWaterBusy(false)}};
   const submitCheckin=async()=>{if(checkinBusy)return;setCheckinBusy(true);try{const r=await axios.post(`${API}/recovery`,{profile_id:db.profile?.id,local_date:localDateKey(),...checkinForm});setCheckin(r.data?.checkin||r.data);onRecoveryCheckin?.(r.data);setCheckinOpen(false)}finally{setCheckinBusy(false)}};
   const openPlan=()=>checkin?start():setCheckinOpen(true);
 
