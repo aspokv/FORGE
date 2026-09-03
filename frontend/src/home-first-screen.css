@@ -1,0 +1,132 @@
+/* Home mobile density pass.
+   Preserve typography, palette and component language. Only vertical rhythm/card footprint changes. */
+@media (max-width: 800px) {
+  .reference-home-v3 {
+    padding-top: 16px !important;
+    padding-bottom: 86px !important;
+  }
+
+  .ref3-home-head {
+    margin-top: 0 !important;
+    margin-bottom: 16px !important;
+  }
+
+  .ref3-home-head p {
+    margin-top: 5px !important;
+  }
+
+  .ref3-week {
+    padding-top: 16px !important;
+    padding-bottom: 15px !important;
+    margin-bottom: 18px !important;
+  }
+
+  .ref3-week-days {
+    margin-top: 13px !important;
+  }
+
+  .ref3-week-days > div {
+    gap: 6px !important;
+  }
+
+  .ref3-week-days i {
+    width: 33px !important;
+    height: 33px !important;
+  }
+
+  .ref3-plan {
+    margin-bottom: 13px !important;
+  }
+
+  .ref3-plan > p {
+    margin-top: 3px !important;
+    margin-bottom: 8px !important;
+  }
+
+  .ref3-plan-card {
+    min-height: 116px !important;
+    grid-template-columns: 88px minmax(0, 1fr) 18px !important;
+    gap: 12px !important;
+    padding: 10px !important;
+  }
+
+  .ref3-plan-art {
+    width: 88px !important;
+    height: 94px !important;
+  }
+
+  .ref3-plan-copy > small {
+    margin-top: 4px !important;
+    margin-bottom: 8px !important;
+  }
+
+  .ref3-plan-copy em {
+    padding-top: 6px !important;
+    padding-bottom: 6px !important;
+  }
+
+  .ref3-nutrition {
+    padding-top: 16px !important;
+    padding-bottom: 15px !important;
+    margin-bottom: 12px !important;
+  }
+
+  .ref3-nutrition > p {
+    margin-top: 3px !important;
+    margin-bottom: 9px !important;
+  }
+
+  .ref3-calorie-row {
+    margin-bottom: 13px !important;
+  }
+
+  .ref3-calorie-ring {
+    width: 82px !important;
+    height: 82px !important;
+  }
+
+  .ref3-calorie-ring i {
+    width: 62px !important;
+    height: 62px !important;
+  }
+
+  .ref3-macro > span {
+    margin-bottom: 6px !important;
+  }
+
+  .ref3-macro > strong {
+    margin-top: 6px !important;
+  }
+
+  .ref3-hydration {
+    margin-bottom: 4px !important;
+  }
+
+  .ref3-water-main {
+    padding-top: 15px !important;
+    padding-bottom: 15px !important;
+  }
+
+  .ref3-water-main > strong {
+    margin-top: 5px !important;
+  }
+
+  .ref3-drops {
+    margin-top: 10px !important;
+  }
+}
+
+/* A little more compression on shorter phone viewports, still without reducing text sizes. */
+@media (max-width: 800px) and (max-height: 760px) {
+  .reference-home-v3 { padding-top: 10px !important; }
+  .ref3-home-head { margin-bottom: 11px !important; }
+  .ref3-week { padding-top: 13px !important; padding-bottom: 12px !important; margin-bottom: 13px !important; }
+  .ref3-week-days { margin-top: 9px !important; }
+  .ref3-plan { margin-bottom: 9px !important; }
+  .ref3-plan-card { min-height: 108px !important; }
+  .ref3-plan-art { height: 86px !important; }
+  .ref3-nutrition { padding-top: 13px !important; padding-bottom: 12px !important; margin-bottom: 9px !important; }
+  .ref3-calorie-row { margin-bottom: 9px !important; }
+  .ref3-water-main { padding-top: 12px !important; padding-bottom: 12px !important; }
+  .ref3-drops { margin-top: 7px !important; }
+}
