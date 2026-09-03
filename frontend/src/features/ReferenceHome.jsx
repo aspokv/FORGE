@@ -41,6 +41,7 @@ export default function ReferenceHome({db,start,onRecoveryCheckin}){
   const openPlan=()=>checkin?start():setCheckinOpen(true);
 
   return <div className="reference-home-v3" data-testid="reference-home-v3">
+    <div className="ref3-home-brand" data-testid="home-forge-brand"><strong>FORGE</strong></div>
     <header className="ref3-home-head"><div><h1>Olá, {firstName&&firstName.toLowerCase()!=="novo"?firstName:"Atleta"} <span>👋</span></h1><p>Pronto para mais um dia de evolução?</p></div><div className="ref3-avatar"><UserRound size={25}/></div></header>
 
     <section className="ref3-week" data-testid="home-training-week"><h2>Resumo da semana</h2><div className="ref3-week-days">{WEEK.map((label,i)=>{const done=i<dayIndex&&i<activeIndex,current=i===dayIndex;return <div key={label} className={`${done?"done ":""}${current?"current":""}`}><span>{label}</span><i>{done?<Check size={18}/>:null}</i></div>})}</div></section>

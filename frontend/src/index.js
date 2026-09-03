@@ -15,6 +15,8 @@ import "@/magic-patterns-v2.css";
 import "@/reference-exact-v3.css";
 import "@/progress-fix.css";
 import "@/home-first-screen.css";
+import "@/workout-preview-density.css";
+import "@/header-typography.css";
 
 const queryClient = new QueryClient({
   defaultOptions: {

@@ -1,0 +1,55 @@
+/* Profile is the approved typographic reference. No layout or body-copy changes. */
+.forge-shell {
+  --forge-header-family: 'Archivo', 'Inter', sans-serif;
+}
+
+/* Match the Profile/Nutrition masthead, including the dedicated workout header. */
+.forge-shell .brand,
+.forge-shell .forge-mobile-mast span,
+.forge-shell .ref3-home-brand > strong,
+.forge-shell .ref3-workout-head > strong {
+  font-family: var(--forge-header-family) !important;
+  font-stretch: 125%;
+  font-style: italic;
+  font-weight: 900 !important;
+  letter-spacing: .06em !important;
+  color: var(--forge-champagne) !important;
+}
+
+/* A compact masthead above the existing greeting; cards remain untouched. */
+.reference-home-v3 .ref3-home-brand {
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+  padding-bottom: 7px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid var(--forge-line-warm);
+}
+.forge-shell .ref3-home-brand > strong {
+  font-size: 23px;
+  line-height: 1.2;
+}
+
+/* Same typography as Profile's “Divisão e método FORGE”. Keep existing size. */
+.forge-shell .nutrition-page > .section-intro > h2 {
+  font-family: var(--forge-header-family) !important;
+  font-stretch: 112%;
+  font-style: normal;
+  font-weight: 800 !important;
+  text-transform: uppercase !important;
+  letter-spacing: -.012em !important;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 800px) {
+  .forge-shell .content:not(.decision-home)::before {
+    font-family: var(--forge-header-family) !important;
+    font-stretch: 125%;
+    font-style: italic;
+    font-weight: 900 !important;
+    font-size: 23px !important;
+    letter-spacing: .06em !important;
+    color: var(--forge-champagne) !important;
+  }
+  .forge-shell .ref3-workout-head > strong { font-size: 23px !important; }
+}
