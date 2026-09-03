@@ -14,8 +14,10 @@ on:
       - 'backend/tests/test_training_engine_v5.py'
       - 'backend/tests/test_training_personalization.py'
       - 'frontend/src/App.js'
+      - 'frontend/src/index.css'
       - 'frontend/src/features/WorkoutLibrary.jsx'
       - 'frontend/src/features/workout-library.css'
+      - 'frontend/src/features/WorkoutLibrary.interaction.test.js'
       - '.github/workflows/training-engine-ci.yml'
   pull_request:
     paths:
@@ -29,8 +31,11 @@ on:
       - 'backend/tests/test_training_engine_v5.py'
       - 'backend/tests/test_training_personalization.py'
       - 'frontend/src/App.js'
+      - 'frontend/src/index.css'
       - 'frontend/src/features/WorkoutLibrary.jsx'
       - 'frontend/src/features/workout-library.css'
+      - 'frontend/src/features/WorkoutLibrary.interaction.test.js'
+      - '.github/workflows/training-engine-ci.yml'
 
 jobs:
   training-engine:
@@ -58,3 +63,24 @@ jobs:
           tests/test_training_personalization.py
           tests/test_engine_v2.py
           tests/test_engine_v3.py
+
+  workout-library-ui:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'yarn'
+          cache-dependency-path: frontend/yarn.lock
+      - name: Install frontend dependencies
+        run: yarn install --frozen-lockfile
+      - name: Test mobile workout apply interaction
+        run: CI=true yarn test --watchAll=false --runTestsByPath src/features/WorkoutLibrary.interaction.test.js
+      - name: Build frontend
+        env:
+          CI: 'false'
+        run: yarn build
