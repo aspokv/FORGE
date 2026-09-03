@@ -1,0 +1,37 @@
+name: Verify Ad Reference Home Workout
+on:
+  push:
+    branches: [ui/ad-reference-home-workout-v1]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ui/ad-reference-home-workout-v1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: yarn
+          cache-dependency-path: frontend/yarn.lock
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: yarn install --frozen-lockfile
+      - name: Run frontend tests
+        working-directory: frontend
+        env:
+          CI: true
+        run: yarn test --watchAll=false
+      - name: Build production frontend
+        working-directory: frontend
+        env:
+          CI: false
+        run: yarn build
+      - name: Assert visual layer
+        run: |
+          grep -q 'ad-reference-home-workout.css' frontend/src/index.js
+          grep -q 'approved reference order' frontend/src/ad-reference-home-workout.css
+          grep -q 'exercise:not(:has(.set-row.current))' frontend/src/ad-reference-home-workout.css
+          grep -q 'macro-rail:first-child::before' frontend/src/ad-reference-home-workout.css
