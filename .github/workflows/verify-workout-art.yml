@@ -30,4 +30,5 @@ jobs:
           test -f frontend/public/images/reference/workout-exercises-sprite.webp
           grep -q 'Remada apoiada no peito' frontend/src/features/exerciseArtwork.test.js
           grep -q 'Rosca direta com barra' frontend/src/features/exerciseArtwork.test.js
-          grep -q 'workout-exercises-sprite.webp' frontend/src/features/exercise-artwork.css
+          grep -q 'workout-exercises-sprite.webp' frontend/src/features/ReferenceWorkoutPreview.jsx
+          ! grep -q "background-image:url('/images/reference/workout-exercises-sprite.webp')" frontend/src/features/exercise-artwork.css
