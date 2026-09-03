@@ -59,7 +59,7 @@ export const isFemaleProfile = profile => {
   return ["female", "feminino", "f", "mulher"].includes(value);
 };
 
-export default function WorkoutLibrary({ API, exercises = [], onBuild, onTemplateAdd, profile, program, onClose }) {
+export default function WorkoutLibrary({ API, exercises = [], onBuild, onTemplateAdd, profile, program, onClose, onApplied }) {
   const [catalog, setCatalog] = useState(emptyCatalog);
   const [mode, setMode] = useState("sessions");
   const [category, setCategory] = useState("push");
@@ -73,6 +73,7 @@ export default function WorkoutLibrary({ API, exercises = [], onBuild, onTemplat
   const [appliedIds, setAppliedIds] = useState(() => new Set((program?.sessions || []).map(item => item.template_id).filter(Boolean)));
   const [addingId, setAddingId] = useState("");
   const [actionMessage, setActionMessage] = useState("");
+  const [actionTemplateId, setActionTemplateId] = useState("");
   const [expertAccepted, setExpertAccepted] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -153,13 +154,20 @@ export default function WorkoutLibrary({ API, exercises = [], onBuild, onTemplat
     if (!onTemplateAdd) return toggleTemplate(template);
     if (isApplied(template.id) || addingId) return;
     setAddingId(template.id);
+    setActionTemplateId(template.id);
     setActionMessage("");
     try {
-      await onTemplateAdd(template);
+      const result = await onTemplateAdd(template);
       setAppliedIds(current => new Set([...current, template.id]));
       setActionMessage(`${template.name} agora é o seu treino atual.`);
+      setPreviewId("");
+      if (onApplied) {
+        onApplied(template, result);
+      } else if (typeof document !== "undefined") {
+        requestAnimationFrame(() => document.querySelector('[data-testid="training-current-tab"]')?.click());
+      }
     } catch (requestError) {
-      setActionMessage(requestError?.response?.data?.detail || requestError?.message || "Não foi possível adicionar a sessão ao treino.");
+      setActionMessage(requestError?.response?.data?.detail || requestError?.message || "Não foi possível usar esta sessão agora. Tente novamente.");
     } finally {
       setAddingId("");
     }
@@ -218,6 +226,7 @@ export default function WorkoutLibrary({ API, exercises = [], onBuild, onTemplat
                 <div className="library-mobile-preview-head"><span>EXERCÍCIOS DA SESSÃO</span><em>{template.total_sets} séries · {template.duration} min</em></div>
                 <div className="library-mobile-exercise-list">{template.exercises.map((item, exerciseIndexNumber) => <div key={`${item.exercise_id}-${exerciseIndexNumber}`}><span>{String(exerciseIndexNumber + 1).padStart(2,"0")}</span><div><b>{exerciseIndex[item.exercise_id]?.name || item.exercise_id}</b><small>{item.sets} séries · {item.reps} reps · RIR {item.rir}</small></div><em>{item.rest}</em></div>)}</div>
                 <button type="button" disabled={addingId === template.id || isApplied(template.id)} className="primary-button library-mobile-apply" onClick={() => applyTemplate(template)}>{addingId === template.id ? "Aplicando…" : isApplied(template.id) ? "Este é o treino atual" : <>Usar como treino atual <ChevronRight size={16}/></>}</button>
+                {actionTemplateId === template.id && actionMessage && <p data-testid="library-apply-inline-status" className={`library-action-message${actionMessage.includes("treino atual") ? " success" : " error"}`} role="status" aria-live="polite">{actionMessage}</p>}
               </div>}
             </article>)}
             {!visible.length && <div className="library-empty">Nenhuma sessão nesta combinação de filtros.</div>}
@@ -234,9 +243,10 @@ export default function WorkoutLibrary({ API, exercises = [], onBuild, onTemplat
               <em>{item.rest}</em>
             </div>)}
           </div>
-          <button disabled={addingId === active.id || isApplied(active.id)} className={isSelected(active.id) || isApplied(active.id) ? "secondary-button" : "primary-button"} onClick={() => applyTemplate(active)}>
+          <button type="button" disabled={addingId === active.id || isApplied(active.id)} className={isSelected(active.id) || isApplied(active.id) ? "secondary-button" : "primary-button"} onClick={() => applyTemplate(active)}>
             {addingId === active.id ? "Adicionando…" : isApplied(active.id) ? "Esta é a sessão atual" : isSelected(active.id) ? "Remover da semana" : "Usar como treino atual"}<ChevronRight size={17}/>
           </button>
+          {actionTemplateId === active.id && actionMessage && <p className={`library-action-message${actionMessage.includes("treino atual") ? " success" : " error"}`} role="status" aria-live="polite">{actionMessage}</p>}
         </aside>}
       </div>
 
