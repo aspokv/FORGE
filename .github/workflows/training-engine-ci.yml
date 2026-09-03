@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
     paths:
+      - 'backend/server.py'
+      - 'backend/workout_templates.py'
       - 'backend/engine.py'
       - 'backend/training_engine_v4.py'
       - 'backend/training_engine_v5.py'
@@ -11,9 +13,14 @@ on:
       - 'backend/exercises.json'
       - 'backend/tests/test_training_engine_v5.py'
       - 'backend/tests/test_training_personalization.py'
+      - 'frontend/src/App.js'
+      - 'frontend/src/features/WorkoutLibrary.jsx'
+      - 'frontend/src/features/workout-library.css'
       - '.github/workflows/training-engine-ci.yml'
   pull_request:
     paths:
+      - 'backend/server.py'
+      - 'backend/workout_templates.py'
       - 'backend/engine.py'
       - 'backend/training_engine_v4.py'
       - 'backend/training_engine_v5.py'
@@ -21,6 +28,9 @@ on:
       - 'backend/exercises.json'
       - 'backend/tests/test_training_engine_v5.py'
       - 'backend/tests/test_training_personalization.py'
+      - 'frontend/src/App.js'
+      - 'frontend/src/features/WorkoutLibrary.jsx'
+      - 'frontend/src/features/workout-library.css'
 
 jobs:
   training-engine:
