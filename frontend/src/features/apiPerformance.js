@@ -9,7 +9,8 @@ const RULES = [
   { test: /\/api\/analytics(?:\?|$)/, ttl: 90000 },
   { test: /\/api\/weekly-report(?:\?|$)/, ttl: 90000 },
   { test: /\/api\/nutrition\/plan(?:\?|$)/, ttl: 60000 },
-  { test: /\/api\/nutrition\/adherence\//, ttl: 30000 },
+  // Daily consumption must be fresh after a replacement or extra is saved.
+  // Do not let an older in-flight GET repopulate a stale adherence cache.
   { test: /\/api\/nutrition\/weight(?:\?|$)/, ttl: 30000 },
 ];
 

@@ -2,6 +2,7 @@ import {useEffect,useMemo,useState} from "react";
 import axios from "axios";
 import {Check,ChevronRight,Clock,Droplets,Layers3,UserRound,X} from "lucide-react";
 import planPullArt from "../assets/forge-plan-pull.webp";
+import {consumedTotals} from "./foodDiary";
 
 const API=`${process.env.REACT_APP_BACKEND_URL || ""}/api`;
 const WEEK=["SEG","TER","QUA","QUI","SEX","SÁB","DOM"];
@@ -15,9 +16,10 @@ const Macro=({label,value,goal,tone})=>{const pct=goal?clamp(value/goal*100,0,10
 export default function ReferenceHome({db,start,onRecoveryCheckin}){
   const p=db.program||{};
   const [nutrition,setNutrition]=useState(null),[mealLog,setMealLog]=useState([]),[hydration,setHydration]=useState(null),[checkin,setCheckin]=useState(null);
+  const [foodExtras,setFoodExtras]=useState([]);
   const [waterOpen,setWaterOpen]=useState(false),[waterBusy,setWaterBusy]=useState(false),[checkinOpen,setCheckinOpen]=useState(false),[checkinBusy,setCheckinBusy]=useState(false);
   const [checkinForm,setCheckinForm]=useState({sleep:4,energy:4,motivation:4,soreness:2,stress:2});
-  useEffect(()=>{let alive=true;const day=localDateKey();Promise.allSettled([axios.get(`${API}/nutrition/plan`),axios.get(`${API}/nutrition/adherence/${day}`),axios.get(`${API}/hydration/${day}`),axios.get(`${API}/recovery/${day}`)]).then(([n,a,h,r])=>{if(!alive)return;if(n.status==="fulfilled")setNutrition(n.value.data);if(a.status==="fulfilled")setMealLog(a.value.data.meals||[]);if(h.status==="fulfilled")setHydration(h.value.data);if(r.status==="fulfilled")setCheckin(r.value.data?.checkin||null)});return()=>{alive=false}},[]);
+  useEffect(()=>{let alive=true;const day=localDateKey();Promise.allSettled([axios.get(`${API}/nutrition/plan`),axios.get(`${API}/nutrition/adherence/${day}`),axios.get(`${API}/hydration/${day}`),axios.get(`${API}/recovery/${day}`)]).then(([n,a,h,r])=>{if(!alive)return;if(n.status==="fulfilled")setNutrition(n.value.data);if(a.status==="fulfilled"){setMealLog(a.value.data.meals||[]);setFoodExtras(a.value.data.extras||[])}if(h.status==="fulfilled")setHydration(h.value.data);if(r.status==="fulfilled")setCheckin(r.value.data?.checkin||null)});return()=>{alive=false}},[]);
 
   const sessions=p.sessions||[],activeIndex=Math.max(0,sessions.findIndex(s=>s.day===p.active_day));
   const active=sessions[activeIndex]||sessions[0]||{},items=active.exercises||p.exercises||[];
@@ -28,11 +30,9 @@ export default function ReferenceHome({db,start,onRecoveryCheckin}){
   const now=new Date(),dateLabel=new Intl.DateTimeFormat("pt-BR",{weekday:"long",day:"2-digit",month:"long"}).format(now).replace("-feira","");
   const dayIndex=(now.getDay()+6)%7;
 
-  const mealMacros=meal=>{let kcal=0,protein_g=0,carbs_g=0,fat_g=0;(meal?.foods||[]).forEach(it=>{const f=it.food||{},fac=(it.grams||0)/(f.grams||100);kcal+=(f.kcal||0)*fac;protein_g+=(f.protein_g||0)*fac;carbs_g+=(f.carbs_g||0)*fac;fat_g+=(f.fat_g||0)*fac});return{kcal,protein_g,carbs_g,fat_g}};
   const targets=nutrition?.targets||{},daily=nutrition?.daily_totals||{},goalKcal=Number(targets.goal_calories||daily.kcal||0),goalProtein=Number(targets.protein_g||0),goalCarbs=Number(targets.carbs_g||0),goalFat=Number(targets.fat_g||0);
-  const completedMeals=useMemo(()=>new Set(mealLog.filter(x=>x.status==="completed").map(x=>Number(x.meal_index))),[mealLog]);
-  const consumed=useMemo(()=>(nutrition?.meals||[]).reduce((acc,meal,i)=>{if(!completedMeals.has(i))return acc;const m=mealMacros(meal);return{kcal:acc.kcal+m.kcal,protein_g:acc.protein_g+m.protein_g,carbs_g:acc.carbs_g+m.carbs_g,fat_g:acc.fat_g+m.fat_g}},{kcal:0,protein_g:0,carbs_g:0,fat_g:0}),[nutrition,completedMeals]);
-  const fallbackKcal=(nutrition?.meals||[]).reduce((s,m,i)=>s+(completedMeals.has(i)?Number(m.target_cal||0):0),0),kcal=consumed.kcal||fallbackKcal,kcalPct=goalKcal?clamp(kcal/goalKcal*100,0,100):0;
+  const consumed=useMemo(()=>consumedTotals(nutrition?.meals,mealLog,foodExtras),[nutrition,mealLog,foodExtras]);
+  const kcal=consumed.kcal,kcalPct=goalKcal?clamp(kcal/goalKcal*100,0,100):0;
   const water=Number(hydration?.total_ml||0),waterGoal=Number(hydration?.goal_ml||2500),waterPct=waterGoal?clamp(water/waterGoal*100,0,100):0,filledDrops=Math.round(waterPct/100*7);
 
   const addWater=async amount=>{if(waterBusy)return;setWaterBusy(true);try{const r=await axios.post(`${API}/hydration/${localDateKey()}`,{amount_ml:amount});setHydration(r.data)}finally{setWaterBusy(false)}};

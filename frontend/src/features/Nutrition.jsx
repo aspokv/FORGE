@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
 import { ChevronRight, RefreshCw, Check, X, Utensils, ClipboardPaste, Droplets, Pill } from "lucide-react";
 import NutritionImport from "./NutritionImport";
+import FoodDiaryEditor from "./FoodDiaryEditor";
+import {localFoodDate, consumedTotals} from "./foodDiary";
 
 // Humanized display for naturally-countable foods (eggs, whites): the backend computes
 // display_quantity/display_unit from the real grams (e.g. "3 ovos"); grams stay the
@@ -42,6 +44,13 @@ export default function Nutrition({ API, profileId, db }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [mealStatus, setMealStatus] = useState({});
+  const [diary, setDiary] = useState({meals:[],extras:[]});
+  const [diaryEditor, setDiaryEditor] = useState(null);
+  const refreshDiary = async () => {
+    const r = await axios.get(`${API}/nutrition/adherence/${localFoodDate()}`);
+    setDiary(r.data);
+    setMealStatus(Object.fromEntries((r.data.meals||[]).map(row=>[row.meal_index,row.status])));
+  };
   const [subResult, setSubResult] = useState(null);
 
   // Guided flow ("Refazer plano"): meal-by-meal composition — the athlete picks a real
@@ -82,10 +91,11 @@ export default function Nutrition({ API, profileId, db }) {
     axios.get(`${API}/nutrition/plan`, {signal: controller.signal}).then(r => {
       if (controller.signal.aborted) return;
       setPlan(r.data); setTargets(r.data.targets || r.data.daily_totals); setStep("plan");
-      axios.get(`${API}/nutrition/adherence/${new Date().toISOString().slice(0,10)}`, {signal: controller.signal}).then(r2 => {
+      axios.get(`${API}/nutrition/adherence/${localFoodDate()}`, {signal: controller.signal}).then(r2 => {
         if (controller.signal.aborted) return;
         const m = {}; r2.data.meals.forEach(x => m[x.meal_index] = x.status);
         setMealStatus(m);
+        setDiary(r2.data);
       }).catch(() => {});
     }).catch(() => {
       if (!controller.signal.aborted) setStep(current => current === "loading" ? "assessment" : current);
@@ -266,8 +276,8 @@ export default function Nutrition({ API, profileId, db }) {
 
   const markMeal = async (idx, status) => {
     try {
-      await axios.post(`${API}/nutrition/meal-status`, { meal_index: idx, status });
-      setMealStatus(s => ({ ...s, [idx]: status }));
+      await axios.post(`${API}/nutrition/meal-status`, { meal_index: idx, status, date: localFoodDate() });
+      await refreshDiary();
     } catch { setError("Não foi possível registrar a refeição."); }
   };
 
@@ -562,7 +572,8 @@ export default function Nutrition({ API, profileId, db }) {
   // Plan view
   const t = targets || {};
   const meals = plan?.meals || [];
-  const completedCalories = meals.reduce((sum, meal, i) => sum + (mealStatus[i] === "completed" ? Number(meal.target_cal || 0) : 0), 0);
+  const consumed = consumedTotals(meals, diary.meals, diary.extras);
+  const completedCalories = consumed.kcal;
   const calorieGoal = Number(t.goal_calories || 0);
   const dayProgress = calorieGoal ? Math.min(100, Math.round(completedCalories / calorieGoal * 100)) : 0;
   return (
@@ -573,6 +584,10 @@ export default function Nutrition({ API, profileId, db }) {
       </div>
 
       <div className="nutrition-tabs" role="tablist" aria-label="Visualização do plano"><button className="active">Dia</button><button>Semana</button><button>Lista</button></div>
+      <button type="button" className="secondary-button food-diary-trigger" onClick={()=>setDiaryEditor({mealIndex:null})}>Adicionar um extra</button>
+      <p className="muted" aria-live="polite">Consumido hoje: {Math.round(consumed.kcal)} kcal · Proteínas {Math.round(consumed.protein_g)} g · Carboidratos {Math.round(consumed.carbs_g)} g · Gorduras {Math.round(consumed.fat_g)} g</p>
+      {diaryEditor?.mealIndex===null&&<FoodDiaryEditor API={API} mealIndex={null} onSaved={refreshDiary} onClose={()=>setDiaryEditor(null)}/>}
+      {(diary.extras||[]).map(extra=><div className="food-diary-actual" key={extra.entry_id}><strong>Extra · {Math.round(extra.actual.totals.kcal)} kcal</strong><p>{extra.actual.foods.map(f=>`${f.name} (${f.grams} g)`).join(" · ")}</p><button type="button" className="secondary-button" onClick={async()=>{try{await axios.delete(`${API}/nutrition/consumed-extra/${extra.entry_id}`);await refreshDiary()}catch{setError("Não foi possível remover o extra.")}}}>Remover extra</button></div>)}
       <section className="nutrition-summary">
         <div className="macro-strip">
           <div className="calories"><span>Meta diária</span><b>{Math.round(t.goal_calories || 0)}<small>kcal</small></b></div>
@@ -689,6 +704,9 @@ export default function Nutrition({ API, profileId, db }) {
                 );
               })}
             </div>
+            <button type="button" className="secondary-button food-diary-trigger" onClick={()=>setDiaryEditor({mealIndex:i})}>Registrar o que comi</button>
+            {diary.meals?.find(row=>row.meal_index===i)?.actual&&<div className="food-diary-actual"><strong>Consumo registrado no lugar desta refeição</strong><p>{diary.meals.find(row=>row.meal_index===i).actual.foods.map(f=>`${f.name} (${f.grams} g)`).join(" · ")}</p><p>A lista acima continua sendo seu plano original. Marcar “Concluir” volta a contar o planejado; “Pular” retira esta refeição do consumo.</p></div>}
+            {diaryEditor?.mealIndex===i&&<div style={{gridColumn:"1 / -1"}}><FoodDiaryEditor key={i} API={API} mealIndex={i} mealName={meal.name} onSaved={refreshDiary} onClose={()=>setDiaryEditor(null)}/></div>}
           </section>
         );
       })}

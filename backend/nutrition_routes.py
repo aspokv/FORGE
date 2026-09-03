@@ -2,8 +2,9 @@
 import logging
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
-from typing import List, Optional
-from datetime import datetime, timezone
+from typing import List, Optional, Literal
+from datetime import datetime, timezone, date as CalendarDate
+from food_diary import DIARY_FOODS, food_snapshot
 import uuid, random
 
 from auth import get_current_user
@@ -52,7 +53,20 @@ class NutritionAssessmentIn(BaseModel):
 
 class MealStatusIn(BaseModel):
     meal_index: int = Field(ge=0, le=5)
-    status: str = "completed"
+    status: Literal["completed", "skipped"] = "completed"
+    date: Optional[CalendarDate] = None
+
+
+class ConsumedFoodIn(BaseModel):
+    food_id: str = Field(min_length=1, max_length=120)
+    grams: float = Field(gt=0, le=5000, allow_inf_nan=False)
+
+
+class ConsumedMealIn(BaseModel):
+    date: CalendarDate
+    meal_index: Optional[int] = Field(default=None, ge=0, le=5)
+    entry_id: uuid.UUID
+    foods: List[ConsumedFoodIn] = Field(min_length=1, max_length=40)
 
 
 class SubstituteFoodIn(BaseModel):
@@ -722,18 +736,58 @@ async def update_meal_status(payload: MealStatusIn, request: Request, user=Depen
     db = request.app.state.db
     target = user["id"]
     doc = {"profile_id": target, "user_id": target, "meal_index": payload.meal_index,
-           "status": payload.status, "date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+           "status": payload.status, "date": str(payload.date or datetime.now(timezone.utc).date()),
+           "actual": None,
            "created_at": datetime.now(timezone.utc).isoformat()}
-    await db.nutrition_adherence.insert_one(doc)
+    await db.nutrition_adherence.update_one(
+        {"_id": f"meal:{target}:{doc['date']}:{payload.meal_index}"}, {"$set": doc}, upsert=True)
     return {"status": "registered"}
 
 
 @router.get("/adherence/{date}")
-async def get_adherence(date: str, request: Request, user=Depends(get_current_user)):
+async def get_adherence(date: CalendarDate, request: Request, user=Depends(get_current_user)):
     db = request.app.state.db
     target = user["id"]
-    rows = await db.nutrition_adherence.find({"profile_id": target, "date": date}, {"_id": 0}).to_list(10)
-    return {"date": date, "meals": rows}
+    rows = await db.nutrition_adherence.find({"profile_id": target, "date": str(date)}, {"_id": 0}).sort("created_at", 1).to_list(None)
+    latest = {row["meal_index"]: row for row in rows}
+    extras = await db.nutrition_consumed_extras.find({"profile_id": target, "date": str(date)}, {"_id": 0}).to_list(None)
+    return {"date": str(date), "meals": list(latest.values()), "extras": extras}
+
+
+@router.get("/consumed-foods")
+async def consumed_food_catalog(request: Request, user=Depends(get_current_user)):
+    await exigir_capacidade(request.app.state.db, user, ALIMENTACAO)
+    return {"foods": [{k: f.get(k) for k in ("id", "name", "grams", "kcal", "protein_g", "carbs_g", "fat_g", "source", "source_url")} for f in DIARY_FOODS.values()]}
+
+
+@router.post("/consumed-meal")
+async def save_consumed_meal(payload: ConsumedMealIn, request: Request, user=Depends(get_current_user)):
+    db = request.app.state.db
+    await exigir_capacidade(db, user, ALIMENTACAO)
+    try:
+        actual = food_snapshot(payload.foods)
+    except ValueError as error:
+        raise HTTPException(422, str(error))
+    target = user["id"]
+    day = str(payload.date)
+    doc = {"profile_id": target, "date": day, "actual": actual, "created_at": datetime.now(timezone.utc).isoformat()}
+    if payload.meal_index is not None:
+        stored = await db.nutrition_plans.find_one({"profile_id": target})
+        if not stored or payload.meal_index >= len(stored["plan"].get("meals", [])):
+            raise HTTPException(422, "Refeição não encontrada no plano atual.")
+        doc.update(meal_index=payload.meal_index, status="completed", user_id=target)
+        await db.nutrition_adherence.update_one({"_id": f"meal:{target}:{day}:{payload.meal_index}"}, {"$set": doc}, upsert=True)
+    else:
+        doc["entry_id"] = str(payload.entry_id)
+        await db.nutrition_consumed_extras.update_one({"_id": f"extra:{target}:{payload.entry_id}"}, {"$set": doc}, upsert=True)
+    return {"actual": actual}
+
+
+@router.delete("/consumed-extra/{entry_id}")
+async def remove_consumed_extra(entry_id: uuid.UUID, request: Request, user=Depends(get_current_user)):
+    await exigir_capacidade(request.app.state.db, user, ALIMENTACAO)
+    await request.app.state.db.nutrition_consumed_extras.delete_one({"_id": f"extra:{user['id']}:{entry_id}", "profile_id": user["id"]})
+    return {"status": "removed"}
 
 
 @router.post("/weight")

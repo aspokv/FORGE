@@ -1,0 +1,13 @@
+.nutrition-page .food-diary-editor{background:#101111;border:1px solid #786047;border-radius:14px;padding:20px;margin:18px 0;min-width:0}
+.nutrition-page .food-diary-editor p{font-size:14px;line-height:1.5;color:#bdbbb6;margin:12px 0}
+.nutrition-page .food-diary-editor label{display:flex;flex-direction:column;gap:7px;font-size:13px}
+.nutrition-page .food-diary-editor input{width:100%;min-width:0;min-height:44px;background:#080909;border:1px solid #444;color:#eee;border-radius:8px;padding:10px;box-sizing:border-box;font-size:16px}
+.nutrition-page .food-diary-results{max-height:230px;overflow-y:auto;margin:12px 0;border-bottom:1px solid #333}
+.nutrition-page .food-diary-results button{display:block;text-align:left;width:100%;padding:12px;background:transparent;color:#eee;border:0;border-bottom:1px solid #282828;min-height:44px}
+.nutrition-page .food-diary-results small,.nutrition-page .food-diary-item small{display:block;color:#aaa;margin-top:5px}
+.nutrition-page .food-diary-item{display:grid;grid-template-columns:minmax(0,1fr) 90px;gap:10px;border-bottom:1px solid #333;padding:12px 0}
+.nutrition-page .food-diary-item button{grid-column:1/-1;background:transparent;color:#e2b785;border:1px solid #514434;min-height:44px;border-radius:8px}
+.nutrition-page .food-diary-actual{border-left:2px solid #e2b785;padding:10px 12px;margin:12px 0;grid-column:1/-1;font-size:14px}
+.nutrition-page .food-diary-actual p{margin:6px 0;color:#bbb}
+.nutrition-page .food-diary-trigger{grid-column:1/-1;margin:10px 0;min-height:44px}
+.nutrition-page .food-diary-editor button:focus-visible{outline:2px solid #e2b785;outline-offset:2px}
