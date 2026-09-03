@@ -1,0 +1,23 @@
+/* Match the approved Home/workout frame. No vertical density or content clipping. */
+@media (max-width: 800px) {
+  .forge-shell { --forge-page-gutter: 20px; }
+  .forge-shell .main > .content:is(.nutrition-page, .progress-page, .profile-page) {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 560px !important;
+    min-width: 0;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    padding-left: var(--forge-page-gutter) !important;
+    padding-right: var(--forge-page-gutter) !important;
+  }
+  .forge-shell .main > .content:is(.nutrition-page, .progress-page, .profile-page)::before {
+    margin-left: calc(-1 * var(--forge-page-gutter)) !important;
+    margin-right: calc(-1 * var(--forge-page-gutter)) !important;
+    padding-left: var(--forge-page-gutter) !important;
+    padding-right: var(--forge-page-gutter) !important;
+  }
+}
+@media (max-width: 390px) {
+  .forge-shell { --forge-page-gutter: 16px; }
+}

@@ -442,7 +442,7 @@ function Profile({db,redo,openBuilder,openManual,signOut,user}){
       const data=await r.json();setNotice(true);setVisionResult(data);
     }catch{setNotice(true);setVisionResult(null)}finally{setVisionLoading(false)}
   };
-  return <div className="content">
+  return <div className="content profile-page">
     <div className="section-intro"><p className="eyebrow">PERFIL LOCAL</p><h2>{db.profile.name}</h2><p className="muted">{db.profile.experience} · {db.profile.goal} · {db.profile.days} dias por ciclo</p></div>
     <section className="panel profile-panel"><div className="avatar">{(db.profile.name||"AF").split(" ").map(x=>x[0]).slice(0,2).join("")}</div><div><p className="eyebrow">CONFIGURAÇÃO ATUAL</p><h3>{db.profile.session_minutes} min · {manual?"FORGE_PRO (manual)":db.profile.automation_mode||"FORGE_ASSISTED"}</h3><p className="muted">{user?`${user.email} · ${user.plan||"—"} · ${user.status||"—"}`:"Assessment V2 salvo"}</p></div></section>
     <section className="panel training-preferences"data-testid="training-preferences"><div className="panel-top"><div><p className="eyebrow">ARQUITETURA DO TREINO</p><h3>Divisão e método FORGE</h3></div><span className="live-pill"><i/> MOTOR DETERMINÍSTICO</span></div><p className="muted">Você escolhe a preferência; o FORGE limita as opções ao que cabe nos seus dias e na sua recuperação.</p>

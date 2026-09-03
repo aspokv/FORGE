@@ -90,8 +90,9 @@ function warmHeavyScreens(apiBase, includeNutrition = true) {
   if (!apiBase || !localStorage.getItem("forge_token")) return;
   const requests = [
     axios.get(`${apiBase}/analytics`),
-    axios.get(`${apiBase}/weekly-report`),
   ];
+  // The full report is fetched by Analysis when opened; do not generate it on
+  // every sign-in/workout completion while the user is using another screen.
   if (includeNutrition) requests.push(axios.get(`${apiBase}/nutrition/plan`));
   Promise.allSettled(requests);
 }

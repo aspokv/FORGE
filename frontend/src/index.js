@@ -17,6 +17,7 @@ import "@/progress-fix.css";
 import "@/home-first-screen.css";
 import "@/workout-preview-density.css";
 import "@/header-typography.css";
+import "@/page-alignment.css";
 
 const queryClient = new QueryClient({
   defaultOptions: {

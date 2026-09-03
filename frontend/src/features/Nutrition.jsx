@@ -60,7 +60,9 @@ export default function Nutrition({ API, profileId, db }) {
   // escolhidos no onboarding, que gravam no MESMO nutrition_assessment. Sem isto a tela
   // reabria em branco e a escolha do onboarding parecia ter sido ignorada.
   useEffect(() => {
-    axios.get(`${API}/nutrition/assessment`).then(r => {
+    const controller = new AbortController();
+    axios.get(`${API}/nutrition/assessment`, {signal: controller.signal}).then(r => {
+      if (controller.signal.aborted) return;
       const na = r.data?.assessment;
       if (!na) return;
       setForm(f => ({
@@ -72,21 +74,24 @@ export default function Nutrition({ API, profileId, db }) {
         allergies: Array.isArray(na.allergies) ? na.allergies.join(", ") : (na.allergies || ""),
       }));
     }).catch(() => {});
+    return () => controller.abort();
   }, [API]);
 
   useEffect(() => {
-    axios.get(`${API}/nutrition/plan`).then(r => {
+    const controller = new AbortController();
+    axios.get(`${API}/nutrition/plan`, {signal: controller.signal}).then(r => {
+      if (controller.signal.aborted) return;
       setPlan(r.data); setTargets(r.data.targets || r.data.daily_totals); setStep("plan");
-      axios.get(`${API}/nutrition/adherence/${new Date().toISOString().slice(0,10)}`).then(r2 => {
+      axios.get(`${API}/nutrition/adherence/${new Date().toISOString().slice(0,10)}`, {signal: controller.signal}).then(r2 => {
+        if (controller.signal.aborted) return;
         const m = {}; r2.data.meals.forEach(x => m[x.meal_index] = x.status);
         setMealStatus(m);
       }).catch(() => {});
     }).catch(() => {
-      axios.get(`${API}/nutrition/assessment`).catch(() => setStep("assessment")).finally(() => {
-        if (step === "loading") setStep("assessment");
-      });
+      if (!controller.signal.aborted) setStep(current => current === "loading" ? "assessment" : current);
     });
-  }, []);
+    return () => controller.abort();
+  }, [API]);
 
   useEffect(() => {
     let vivo = true;
