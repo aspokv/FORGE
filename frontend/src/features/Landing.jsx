@@ -1,15 +1,15 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import {
-  ArrowDown,
   ArrowRight,
   Check,
   Dumbbell,
   LineChart,
   ShieldCheck,
-  Sparkles,
   Utensils,
 } from "lucide-react";
+import LandingProductPreview from "./LandingProductPreview";
+import "./landing-entry.css";
 
 /**
  * Pagina publica do FORGE: o unico endereco que o proprietario precisa divulgar.
@@ -121,7 +121,7 @@ export default function Landing({ API, onComecar, onEntrar }) {
   }, [API]);
 
   return (
-    <div className="landing">
+    <div className="landing landing-entry">
       <header className="landing-top">
         <div className="brand">
           <span className="brand-mark">F</span> FORGE
@@ -144,26 +144,23 @@ export default function Landing({ API, onComecar, onEntrar }) {
         <div className="landing-hero-copy">
           <p className="eyebrow landing-kicker">Sistema de performance individual</p>
           <h1>
-            Evolução não é<br />
-            <em>acidente.</em>
+            Seu próximo nível<br />
+            <em>começa aqui.</em>
           </h1>
           <p className="landing-lead">
-            Treino e alimentação construídos em torno do seu corpo, da sua rotina e do
-            seu histórico. O FORGE transforma cada sessão em uma decisão melhor para a
-            próxima.
+            Treino, nutrição e evolução. Um sistema construído para você.
           </p>
           <div className="landing-actions">
-            <button
-              type="button"
+            <a
               className="btn primary"
-              onClick={() => onComecar(planos.find((p) => p.recomendado)?.code || "pro")}
+              href="#planos"
               data-testid="landing-primary-cta"
             >
-              Construir meu plano <ArrowRight size={16} />
-            </button>
-            <a className="landing-text-link" href="#metodo">
-              Conhecer o método <ArrowDown size={14} />
+              Conhecer os planos <ArrowRight size={16} />
             </a>
+            <button type="button" className="landing-text-link" onClick={onEntrar}>
+              Já tenho conta <ArrowRight size={14} />
+            </button>
           </div>
           <div className="landing-proof" aria-label="Diferenciais do FORGE">
             <span><b>01</b> Avaliação individual</span>
@@ -172,27 +169,7 @@ export default function Landing({ API, onComecar, onEntrar }) {
           </div>
         </div>
 
-        <div className="landing-instrument" aria-label="Exemplo da inteligência do FORGE">
-          <div className="instrument-top">
-            <span className="eyebrow">FORGE / SESSÃO 04</span>
-            <span className="instrument-live"><i /> Plano em evolução</span>
-          </div>
-          <div className="instrument-command">
-            <span>PRÓXIMA DECISÃO</span>
-            <h2>Supino inclinado</h2>
-            <p>Seu histórico indica progressão de carga hoje.</p>
-          </div>
-          <div className="instrument-metrics">
-            <div><span>Carga alvo</span><strong>32<small>kg</small></strong></div>
-            <div><span>Repetições</span><strong>8–10</strong></div>
-            <div><span>Intensidade</span><strong>RIR 2</strong></div>
-          </div>
-          <div className="instrument-progress">
-            <div><span>Progressão do ciclo</span><b>76%</b></div>
-            <i><b /></i>
-          </div>
-          <p className="instrument-note"><Sparkles size={14} /> Ajustado a partir das últimas 6 sessões</p>
-        </div>
+        <LandingProductPreview />
       </section>
 
       <section className="landing-manifesto" id="metodo">

@@ -1,0 +1,58 @@
+/* Public entry only. The authenticated app and checkout keep their own styles. */
+.landing.landing-entry { background:#080909; background-image:none; }
+.landing-entry::before,.landing-entry::after { display:none; }
+.landing-entry .landing-top .brand { color:#e2b785; font-family:Archivo,Inter,sans-serif; font-weight:900; font-style:italic; letter-spacing:.1em; }
+.landing-entry .landing-hero { grid-template-columns:minmax(0,1.2fr) minmax(0,1fr); gap:clamp(32px,6vw,100px); min-height:0; padding:64px 0 72px; align-items:center; }
+.landing-entry .landing-hero h1 { font-family:Archivo,Inter,sans-serif; font-size:clamp(42px,5.2vw,82px); font-weight:750; font-style:normal; line-height:1.06; letter-spacing:-.045em; margin:22px 0; text-transform:none; }
+.landing-entry .landing-hero h1 em { font-style:normal; color:#e2b785; }
+.landing-entry .landing-lead { max-width:410px; font-size:18px; line-height:1.65; color:#afafaa; }
+.landing-entry .landing-kicker { letter-spacing:.16em; color:#b9a083; }
+.landing-entry .landing-actions { gap:20px; margin-top:30px; }
+.landing-entry .btn.primary { background:#e2b785; color:#17130e; border:1px solid #e2b785; box-shadow:none; border-radius:6px; min-height:48px; }
+.landing-entry button.landing-text-link { background:transparent; border:0; cursor:pointer; padding:12px 0; min-height:44px; }
+.landing-entry a:focus-visible,.landing-entry button:focus-visible { outline:2px solid #e2b785; outline-offset:5px; }
+.landing-entry .landing-proof { margin-top:34px; padding-top:22px; gap:18px; flex-wrap:wrap; }
+.landing-entry .entry-product { margin:0; display:flex; flex-direction:column; align-items:center; min-width:0; }
+.landing-entry .entry-phone { width:min(100%,310px); border:2px solid #62605b; border-radius:42px; padding:9px; background:#171819; box-shadow:0 28px 65px #000, inset 0 0 0 3px #242526; position:relative; }
+.landing-entry .entry-phone-speaker { position:absolute; width:62px; height:6px; background:#242526; border-radius:8px; left:calc(50% - 31px); top:17px; }
+.landing-entry .entry-screen { background:#080909; border-radius:32px; padding:26px 14px 10px; overflow:hidden; color:#f2f1ee; font-family:Inter,system-ui,sans-serif; }
+.landing-entry .entry-screen-brand { display:flex; align-items:center; justify-content:space-between; font:italic 900 18px Archivo,Inter,sans-serif; letter-spacing:.08em; color:#e2b785; padding-bottom:10px; border-bottom:1px solid #302a23; }
+.landing-entry .entry-screen-brand svg { color:#999; }
+.landing-entry .entry-screen-greeting { display:flex; flex-direction:column; gap:5px; margin:12px 0; }
+.landing-entry .entry-screen-greeting strong { font-size:21px; letter-spacing:-.6px; }
+.landing-entry .entry-screen-greeting span { color:#999; font-size:10px; }
+.landing-entry .entry-screen h3 { font:600 13px/1.3 Inter,system-ui,sans-serif; color:#efeeeb; margin:0 0 9px; text-transform:none; letter-spacing:0; }
+.landing-entry .entry-week,.landing-entry .entry-nutrition,.landing-entry .entry-water { border:1px solid #303131; background:#101111; border-radius:12px; padding:12px; margin-bottom:12px; }
+.landing-entry .entry-week>div { display:flex; justify-content:space-between; }
+.landing-entry .entry-week span { display:flex; align-items:center; flex-direction:column; gap:7px; color:#a4a49f; font-size:8px; }
+.landing-entry .entry-week i { border:2px solid #555753; border-radius:50%; width:22px; height:22px; display:grid; place-items:center; }
+.landing-entry .entry-week i.today { border-color:#e2b785; }
+.landing-entry .entry-today { margin-bottom:12px; }
+.landing-entry .entry-today>div { border:1px solid #303131; border-radius:12px; display:flex; align-items:center; gap:10px; padding:8px; background:#101111; }
+.landing-entry .entry-today img { width:66px; height:76px; object-fit:cover; border-radius:8px; }
+.landing-entry .entry-today>div>div { flex:1; min-width:0; display:flex; flex-direction:column; gap:7px; }
+.landing-entry .entry-today strong { font-size:15px; }
+.landing-entry .entry-today span,.landing-entry .entry-today small { color:#a7a7a2; font-size:10px; }
+.landing-entry .entry-today small { display:flex; align-items:center; gap:4px; }
+.landing-entry .entry-today>div>svg { color:#e2b785; }
+.landing-entry .entry-nutrition>span { color:#999; font-size:10px; }
+.landing-entry .entry-calories { display:flex; align-items:center; gap:12px; margin:10px 0; }
+.landing-entry .entry-calories svg { width:56px; height:56px; transform:rotate(-90deg); }
+.landing-entry .entry-calories circle { fill:none; stroke:#303131; stroke-width:6; }
+.landing-entry .entry-calories circle+circle { stroke:#e2b785; }
+.landing-entry .entry-calories strong { display:block; font-size:20px; }
+.landing-entry .entry-calories small { font-size:13px; font-weight:400; color:#999; }
+.landing-entry .entry-calories span { font-size:10px; color:#999; }
+.landing-entry .entry-macros { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
+.landing-entry .entry-macros>div { display:flex; flex-direction:column; gap:7px; }
+.landing-entry .entry-macros span,.landing-entry .entry-macros small { font-size:9px; color:#b2b2ac; }
+.landing-entry .entry-macros i { height:3px; background:#303131; border-radius:2px; }
+.landing-entry .entry-macros i:before { content:''; display:block; height:100%; width:60%; background:#e2b785; }
+.landing-entry .entry-water strong { font-size:20px; }.landing-entry .entry-water small { font-size:13px; font-weight:400; color:#999; }
+.landing-entry .entry-water>div { display:flex; justify-content:space-between; margin-top:9px; color:#444; }.landing-entry .entry-water .filled { color:#e2b785; }
+.landing-entry .entry-phone-nav { display:flex; justify-content:space-between; border-top:1px solid #292929; padding-top:10px; }
+.landing-entry .entry-phone-nav span { display:flex; flex-direction:column; align-items:center; gap:4px; color:#91918c; font-size:8px; }.landing-entry .entry-phone-nav span:first-child { color:#e2b785; }
+.landing-entry .entry-product figcaption { margin-top:22px; text-align:center; font-size:10px; letter-spacing:.14em; color:#d1b693; }
+.landing-entry .entry-product figcaption span { display:block; margin-top:7px; font-size:10px; letter-spacing:0; color:#80817c; }
+@media(max-width:900px) { .landing-entry .landing-hero { grid-template-columns:1fr; gap:38px; padding:36px 0 48px; }.landing-entry .landing-hero-copy { max-width:580px; }.landing-entry .landing-hero h1 { font-size:clamp(40px,7.5vw,64px); }.landing-entry .entry-phone { width:min(100%,310px); } }
+@media(max-width:560px) { .landing-entry .landing-hero h1 { font-size:clamp(36px,9.5vw,50px); }.landing-entry .landing-lead { font-size:16px; }.landing-entry .landing-actions { gap:14px; flex-wrap:wrap; }.landing-entry .landing-proof { gap:12px; margin-top:22px; }.landing-entry .entry-phone { max-width:290px; } }
