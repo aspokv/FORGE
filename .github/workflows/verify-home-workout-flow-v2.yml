@@ -1,0 +1,53 @@
+name: Verify Home Workout Flow V2
+on:
+  push:
+    branches: [fix/home-workout-flow-v2]
+permissions:
+  contents: write
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/home-workout-flow-v2
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: yarn
+          cache-dependency-path: frontend/yarn.lock
+      - name: Apply patch
+        run: python scripts/patch_home_workout_flow_v2.py
+      - name: Verify backend syntax
+        run: python -m py_compile backend/server.py backend/engine.py backend/workout_templates.py
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: yarn install --frozen-lockfile
+      - name: Run frontend tests
+        working-directory: frontend
+        env:
+          CI: true
+        run: yarn test --watchAll=false
+      - name: Build production frontend
+        working-directory: frontend
+        env:
+          CI: false
+        run: yarn build
+      - name: Assert requested behavior
+        run: |
+          grep -q '/workout-templates/apply' frontend/src/App.js
+          grep -q 'onApplied={()=>setView("session")}' frontend/src/App.js
+          grep -q 'const activeSet=useMemo' frontend/src/App.js
+          grep -q 'activeSet?.exerciseId===x.exercise_id' frontend/src/App.js
+          grep -q '@api.post("/workout-templates/apply")' backend/server.py
+          grep -q '.ledger-home .home-workout-hero{order:4}' frontend/src/magic-patterns-v2.css
+          grep -q 'HOME + WORKOUT FLOW V2' frontend/src/magic-patterns-v2.css
+      - name: Commit production changes
+        run: |
+          if git diff --quiet; then exit 0; fi
+          git config user.name "forge-ci"
+          git config user.email "forge-ci@users.noreply.github.com"
+          git add frontend/src/App.js frontend/src/magic-patterns-v2.css backend/server.py
+          git commit -m "fix(training): make session apply atomic and clean workout flow"
+          git push origin HEAD:fix/home-workout-flow-v2
