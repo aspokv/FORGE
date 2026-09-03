@@ -1,0 +1,33 @@
+name: Verify Home and Progress Fixes
+on:
+  push:
+    branches: [fix/home-progress-bugs]
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: yarn
+          cache-dependency-path: frontend/yarn.lock
+      - name: Install dependencies
+        working-directory: frontend
+        run: yarn install --frozen-lockfile
+      - name: Test frontend
+        working-directory: frontend
+        env:
+          CI: true
+        run: yarn test --watchAll=false
+      - name: Build production frontend
+        working-directory: frontend
+        env:
+          CI: false
+        run: yarn build
+      - name: Assert fixes
+        run: |
+          test -f frontend/src/assets/forge-plan-pull.webp
+          grep -q 'forge-plan-pull.webp' frontend/src/features/ReferenceHome.jsx
+          grep -q 'calendar-dots i.trained' frontend/src/progress-fix.css
+          grep -q 'progress-fix.css' frontend/src/index.js
