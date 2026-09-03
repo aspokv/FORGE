@@ -1,0 +1,32 @@
+name: Verify Home Plan Artwork
+on:
+  push:
+    branches: [fix/home-plan-art]
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: yarn
+          cache-dependency-path: frontend/yarn.lock
+      - name: Install dependencies
+        working-directory: frontend
+        run: yarn install --frozen-lockfile
+      - name: Test frontend
+        working-directory: frontend
+        env:
+          CI: true
+        run: yarn test --watchAll=false
+      - name: Build frontend
+        working-directory: frontend
+        env:
+          CI: false
+        run: yarn build
+      - name: Assert Pull plan artwork
+        run: |
+          test -f frontend/public/images/reference/plan-pull.webp
+          grep -q 'plan-pull.webp' frontend/src/features/ReferenceHome.jsx
+          grep -q 'Pull 2' frontend/src/features/ReferenceHome.artwork.test.js
