@@ -3,6 +3,7 @@ from pathlib import Path
 app_path=Path('frontend/src/App.js')
 idx_path=Path('frontend/src/index.js')
 home_path=Path('frontend/src/features/ReferenceHome.jsx')
+css_path=Path('frontend/src/reference-exact-v3.css')
 
 app=app_path.read_text()
 
@@ -20,11 +21,9 @@ replace_once(
     'import WorkoutLibrary from "./features/WorkoutLibrary";\nimport ReferenceHome from "./features/ReferenceHome";\nimport ReferenceWorkoutPreview from "./features/ReferenceWorkoutPreview";\n',
     'reference imports',
 )
-
 old_home='return <Today db={db}analytics={analytics}report={report}start={start}openAnalysis={openAnalysis}openBuilder={openBuilder}openManual={openManual}onRecoveryCheckin={onRecoveryCheckin}/>'
 new_home='return <ReferenceHome db={db}start={start}onRecoveryCheckin={onRecoveryCheckin}/>'
 replace_once(old_home,new_home,'Home route')
-
 replace_once(
     'const[view,setView]=useState("session");\n  const[done,setDone]=useState({});',
     'const[view,setView]=useState("session");\n  const[sessionStarted,setSessionStarted]=useState(false);\n  const[done,setDone]=useState({});',
@@ -50,12 +49,9 @@ replace_once(
     '  if(!sessionStarted)return <ReferenceWorkoutPreview db={db}activeSession={activeSession}items={items}onStart={()=>{setStartedAt(Date.now());setSessionStarted(true)}}onLibrary={()=>setView("library")}/>;\n  return <div className="content workout-page workout-live-reference">\n    <div className="workout-head">',
     'workout preview gate',
 )
-
-# A Home da referência diz Treinos; a tela Treino mantém o singular aprovado na segunda imagem.
 old_nav='<span>{name==="Hoje"?"Início":name==="Alimentação"?"Nutrição":name}</span>'
 new_nav='<span>{name==="Hoje"?"Início":name==="Treino"&&tab==="Hoje"?"Treinos":name==="Alimentação"?"Nutrição":name}</span>'
 replace_once(old_nav,new_nav,'navigation labels')
-
 app_path.write_text(app)
 
 idx=idx_path.read_text()
@@ -72,16 +68,22 @@ home=home.replace('axios.post(`${API}/hydration`,{local_date:localDateKey(),amou
 home=home.replace('axios.post(`${API}/hydration/undo`,{local_date:localDateKey()})','axios.delete(`${API}/hydration/${localDateKey()}/last`)')
 home_path.write_text(home)
 
+# Header do Workout: a referência aprovada mostra FORGE + um único sino.
+css=css_path.read_text()
+css=css.replace('.ref3-workout-head>div{display:flex;gap:8px;align-items:center}.ref3-workout-head button,.ref3-workout-head>div>span{width:40px;height:40px;display:grid;place-items:center;border:0;background:transparent;color:#bdbbb7}', '.ref3-workout-head button{width:40px;height:40px;display:grid;place-items:center;border:0;background:transparent;color:#bdbbb7}')
+css_path.write_text(css)
+
 # Assertions para evitar um CI verde em cima da tela velha.
-app=app_path.read_text();idx=idx_path.read_text();home=home_path.read_text()
+app=app_path.read_text();idx=idx_path.read_text();home=home_path.read_text();css=css_path.read_text()
 checks={
  'ReferenceHome route':'return <ReferenceHome db={db}start={start}onRecoveryCheckin={onRecoveryCheckin}/>' in app,
  'ReferenceWorkoutPreview gate':'if(!sessionStarted)return <ReferenceWorkoutPreview' in app,
  'live class':'workout-page workout-live-reference' in app,
  'exact css':'reference-exact-v3.css' in idx,
  'old rejected css removed':'ad-reference-home-workout.css' not in idx,
- 'hydration add endpoint':'/hydration/${localDateKey()}`' in home,
+ 'hydration add endpoint':'axios.post(`${API}/hydration/${localDateKey()}`' in home,
  'hydration delete':'axios.delete(`${API}/hydration/${localDateKey()}/last`)' in home,
+ 'single workout header button':'.ref3-workout-head>div' not in css,
 }
 missing=[k for k,v in checks.items() if not v]
 if missing: raise SystemExit('failed assertions: '+', '.join(missing))
