@@ -13,6 +13,7 @@ import "@/iron-ledger-pass-02.css";
 import "@/mobile-premium.css";
 import "@/magic-patterns-v2.css";
 import "@/reference-exact-v3.css";
+import "@/progress-fix.css";
 
 const queryClient = new QueryClient({
   defaultOptions: {
