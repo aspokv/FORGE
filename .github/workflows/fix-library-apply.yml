@@ -1,11 +1,12 @@
-name: Fix and verify library apply
+name: Fix Library Apply
 on:
   push:
-    branches: [fix/library-apply-action]
+    branches:
+      - fix/library-apply-action
 permissions:
   contents: write
 jobs:
-  fix-and-verify:
+  verify:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,82 +18,12 @@ jobs:
           node-version: 20
           cache: yarn
           cache-dependency-path: frontend/yarn.lock
-      - name: Apply library interaction fix
-        shell: python
-        run: |
-          from pathlib import Path
-          path = Path('frontend/src/features/WorkoutLibrary.jsx')
-          text = path.read_text()
-          if 'data-testid="library-apply-inline-status"' not in text:
-              text = text.replace(
-                  'export default function WorkoutLibrary({ API, exercises = [], onBuild, onTemplateAdd, profile, program, onClose }) {',
-                  'export default function WorkoutLibrary({ API, exercises = [], onBuild, onTemplateAdd, profile, program, onClose, onApplied }) {'
-              )
-              text = text.replace(
-                  '  const [actionMessage, setActionMessage] = useState("");\n  const [expertAccepted, setExpertAccepted] = useState(false);',
-                  '  const [actionMessage, setActionMessage] = useState("");\n  const [actionTemplateId, setActionTemplateId] = useState("");\n  const [expertAccepted, setExpertAccepted] = useState(false);'
-              )
-              old = '''  const applyTemplate = async template => {
-    if (!onTemplateAdd) return toggleTemplate(template);
-    if (isApplied(template.id) || addingId) return;
-    setAddingId(template.id);
-    setActionMessage("");
-    try {
-      await onTemplateAdd(template);
-      setAppliedIds(current => new Set([...current, template.id]));
-      setActionMessage(`${template.name} agora é o seu treino atual.`);
-    } catch (requestError) {
-      setActionMessage(requestError?.response?.data?.detail || requestError?.message || "Não foi possível adicionar a sessão ao treino.");
-    } finally {
-      setAddingId("");
-    }
-  };'''
-              new = '''  const applyTemplate = async template => {
-    if (!onTemplateAdd) return toggleTemplate(template);
-    if (isApplied(template.id) || addingId) return;
-    setAddingId(template.id);
-    setActionTemplateId(template.id);
-    setActionMessage("");
-    try {
-      const result = await onTemplateAdd(template);
-      setAppliedIds(current => new Set([...current, template.id]));
-      setActionMessage(`${template.name} agora é o seu treino atual.`);
-      setPreviewId("");
-      if (onApplied) {
-        onApplied(template, result);
-      } else if (typeof document !== "undefined") {
-        requestAnimationFrame(() => document.querySelector('[data-testid="training-current-tab"]')?.click());
-      }
-    } catch (requestError) {
-      setActionMessage(requestError?.response?.data?.detail || requestError?.message || "Não foi possível usar esta sessão agora. Tente novamente.");
-    } finally {
-      setAddingId("");
-    }
-  };'''
-              if old not in text:
-                  raise SystemExit('applyTemplate block not found')
-              text = text.replace(old, new)
-              old_mobile = '''                <button type="button" disabled={addingId === template.id || isApplied(template.id)} className="primary-button library-mobile-apply" onClick={() => applyTemplate(template)}>{addingId === template.id ? "Aplicando…" : isApplied(template.id) ? "Este é o treino atual" : <>Usar como treino atual <ChevronRight size={16}/></>}</button>'''
-              new_mobile = '''                <button type="button" disabled={addingId === template.id || isApplied(template.id)} className="primary-button library-mobile-apply" onClick={() => applyTemplate(template)}>{addingId === template.id ? "Aplicando…" : isApplied(template.id) ? "Este é o treino atual" : <>Usar como treino atual <ChevronRight size={16}/></>}</button>
-                {actionTemplateId === template.id && actionMessage && <p data-testid="library-apply-inline-status" className={`library-action-message${actionMessage.includes("treino atual") ? " success" : " error"}`} role="status" aria-live="polite">{actionMessage}</p>}'''
-              if old_mobile not in text:
-                  raise SystemExit('mobile apply button not found')
-              text = text.replace(old_mobile, new_mobile)
-              old_desktop = '''          <button disabled={addingId === active.id || isApplied(active.id)} className={isSelected(active.id) || isApplied(active.id) ? "secondary-button" : "primary-button"} onClick={() => applyTemplate(active)}>'''
-              new_desktop = '''          <button type="button" disabled={addingId === active.id || isApplied(active.id)} className={isSelected(active.id) || isApplied(active.id) ? "secondary-button" : "primary-button"} onClick={() => applyTemplate(active)}>'''
-              if old_desktop not in text:
-                  raise SystemExit('desktop apply button not found')
-              text = text.replace(old_desktop, new_desktop)
-              text = text.replace(
-                  '''          </button>\n        </aside>}''',
-                  '''          </button>\n          {actionTemplateId === active.id && actionMessage && <p className={`library-action-message${actionMessage.includes("treino atual") ? " success" : " error"}`} role="status" aria-live="polite">{actionMessage}</p>}\n        </aside>}''',
-                  1
-              )
-              path.write_text(text)
+      - name: Apply patch
+        run: python scripts/fix_library_apply.py
       - name: Install dependencies
         working-directory: frontend
         run: yarn install --frozen-lockfile
-      - name: Run frontend tests
+      - name: Run tests
         working-directory: frontend
         env:
           CI: true
@@ -102,12 +33,12 @@ jobs:
         env:
           CI: false
         run: yarn build
-      - name: Assert interaction fix
+      - name: Assert fix
         run: |
           grep -q 'library-apply-inline-status' frontend/src/features/WorkoutLibrary.jsx
           grep -q 'training-current-tab' frontend/src/features/WorkoutLibrary.jsx
           grep -q 'aria-live="polite"' frontend/src/features/WorkoutLibrary.jsx
-      - name: Commit fix to branch
+      - name: Commit fix
         run: |
           if git diff --quiet; then exit 0; fi
           git config user.name "forge-ci"
