@@ -1,0 +1,12 @@
+/* Final Progress correction. The analytics already marks only real training dates with .trained. */
+.progress-page .calendar-dots i{
+  background:#252829!important;
+  border:1px solid rgba(255,255,255,.065)!important;
+  box-shadow:none!important;
+  opacity:1!important;
+}
+.progress-page .calendar-dots i.trained{
+  background:var(--forge-lime,#c2e33f)!important;
+  border-color:rgba(194,227,63,.72)!important;
+  box-shadow:0 0 0 1px rgba(194,227,63,.08)!important;
+}
