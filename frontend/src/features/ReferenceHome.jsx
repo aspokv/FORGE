@@ -1,13 +1,15 @@
 import {useEffect,useMemo,useState} from "react";
 import axios from "axios";
 import {Check,ChevronRight,Clock,Droplets,Layers3,UserRound,X} from "lucide-react";
+import planPullArt from "../assets/forge-plan-pull.webp";
 
 const API=`${process.env.REACT_APP_BACKEND_URL || ""}/api`;
 const WEEK=["SEG","TER","QUA","QUI","SEX","SÁB","DOM"];
 const localDateKey=()=>{const d=new Date(),p=n=>String(n).padStart(2,"0");return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`};
 const clamp=(n,min,max)=>Math.max(min,Math.min(max,n));
 const normalize=value=>String(value||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
-export const planArtworkFor=(sessionName,focus=[])=>{const key=normalize([sessionName,...focus].join(" "));return /(^|\s)pull(\s|$)|dorsal|costas|largura|espessura/.test(key)?"/images/reference/plan-pull.webp":"/images/reference/exercise-1.jpg"};
+export const isPullPlan=(sessionName,focus=[])=>{const key=normalize([sessionName,...focus].join(" "));return /(^|\s)pull(\s|$)|dorsal|costas|largura|espessura/.test(key)};
+export const planArtworkFor=(sessionName,focus=[])=>isPullPlan(sessionName,focus)?planPullArt:"/images/reference/exercise-1.jpg";
 const Macro=({label,value,goal,tone})=>{const pct=goal?clamp(value/goal*100,0,100):0;return <div className={`ref3-macro ${tone}`}><span>{label}</span><i><b style={{width:`${pct}%`}}/></i><strong>{Math.round(value).toLocaleString("pt-BR")} <em>/ {Math.round(goal||0).toLocaleString("pt-BR")} g</em></strong></div>};
 
 export default function ReferenceHome({db,start,onRecoveryCheckin}){
