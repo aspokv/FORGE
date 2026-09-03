@@ -228,7 +228,7 @@ export default function ProgramBuilder({ API, profile, exercises, techniques, pr
                     <div className="builder-exercise-grid">
                       <label className="deep-field">
                         <span>Séries</span>
-                        <input data-testid={`builder-sets-${i}`} type="number" min="1" max="8" value={x.sets} onChange={e => updateExercise(i, { sets: Number(e.target.value) || 1 })} />
+                        <input data-testid={`builder-sets-${i}`} type="number" min="1" max="12" value={x.sets} onChange={e => updateExercise(i, { sets: Number(e.target.value) || 1 })} />
                       </label>
                       <label className="deep-field">
                         <span>Reps</span>

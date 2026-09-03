@@ -63,7 +63,7 @@ export default function WorkoutLibrary({ API, exercises = [], onBuild, onTemplat
   const [catalog, setCatalog] = useState(emptyCatalog);
   const [mode, setMode] = useState("sessions");
   const [category, setCategory] = useState(initialCategory);
-  const [programCategory, setProgramCategory] = useState("abc");
+  const [programCategory, setProgramCategory] = useState(() => isFemaleProfile(profile) ? "abcd" : "abc");
   const [active, setActive] = useState(null);
   const [previewId, setPreviewId] = useState("");
   const [activeProgram, setActiveProgram] = useState(null);
@@ -280,7 +280,7 @@ export default function WorkoutLibrary({ API, exercises = [], onBuild, onTemplat
               <div className="library-card-top"><span>{item.category.toUpperCase()}</span><em>{item.level}</em></div>
               <h3>{item.name}</h3>
               <p>{item.description}</p>
-              <div className="program-metrics"><span><strong>{item.days_per_week}</strong> dias</span><span><strong>{item.duration_weeks}</strong> semanas</span><span><strong>{item.phase_count}</strong> {item.phase_count === 1 ? "fase" : "fases"}</span></div>
+              <div className="program-metrics"><span><strong>{item.days_per_week}</strong> dias</span><span>{item.duration_weeks?<><strong>{item.duration_weeks}</strong> semanas</>:"Duração a definir"}</span><span><strong>{item.phase_count}</strong> {item.phase_count === 1 ? "fase" : "fases"}</span></div>
               <div className="program-reference">Base técnica · {item.reference}</div>
               {item.safety !== "standard" && <div className="program-risk"><ShieldAlert size={14}/> {item.safety === "expert" ? "Recuperação excepcional" : "Volume avançado"}</div>}
               <button className="library-add">Ver programa <ChevronRight size={15}/></button>
@@ -290,7 +290,7 @@ export default function WorkoutLibrary({ API, exercises = [], onBuild, onTemplat
         </section>
 
         {activeProgram && activePhase && <aside className="library-preview program-preview" data-testid="program-preview">
-          <div className="library-preview-head"><div><p className="eyebrow">PROGRAMA COMPLETO</p><h3>{activeProgram.name}</h3></div><span>{activeProgram.duration_weeks} semanas</span></div>
+          <div className="library-preview-head"><div><p className="eyebrow">PROGRAMA COMPLETO</p><h3>{activeProgram.name}</h3></div><span>{activeProgram.duration_weeks?`${activeProgram.duration_weeks} semanas`:"Duração a definir"}</span></div>
           <p className="program-preview-description">{activeProgram.description}</p>
           {activeProgram.phases.length > 1 && <div className="program-phases">
             <label>Escolha a fase</label>
@@ -302,7 +302,7 @@ export default function WorkoutLibrary({ API, exercises = [], onBuild, onTemplat
           <div className="program-session-list">
             {activePhase.sessions.map((workout, dayIndex) => <details key={`${activePhase.id}-${workout.label}`} open={dayIndex === 0}>
               <summary><span>D{dayIndex + 1}</span><div><b>{workout.label}</b><small>{workout.exercise_count} exercícios · {workout.total_sets} séries · {workout.duration} min</small></div><ChevronRight size={16}/></summary>
-              <div className="program-session-exercises">{workout.exercises.map((item, index) => <div key={`${item.exercise_id}-${index}`}><span>{String(index + 1).padStart(2, "0")}</span><div><b>{exerciseIndex[item.exercise_id]?.name || item.exercise_id}</b><small>{item.sets}× {item.reps} · RIR {item.rir}{item.technique_id !== "straight" ? ` · ${item.technique}` : ""}</small></div><em>{item.rest}</em></div>)}</div>
+              <div className="program-session-exercises">{workout.exercises.map((item, index) => <div key={`${item.exercise_id}-${index}`}><span>{String(index + 1).padStart(2, "0")}</span><div><b>{exerciseIndex[item.exercise_id]?.name || item.exercise_id}</b><small>{item.sets}× {item.reps} · RIR {item.rir}{item.technique_id !== "straight" ? ` · ${item.technique}` : ""}</small>{item.note&&<small>{item.note}</small>}</div><em>{item.rest}</em></div>)}</div>
             </details>)}
           </div>
           {activeProgram.safety === "expert" && <label className="expert-confirm"><input type="checkbox" checked={expertAccepted} onChange={event => setExpertAccepted(event.target.checked)}/><span>Confirmo que este modelo será revisado para nível, recuperação e histórico antes de ser salvo.</span></label>}

@@ -481,6 +481,10 @@ TRAINING_PROGRAMS = [
 ]
 
 
+from female_reference_programs import build_female_reference_programs
+TRAINING_PROGRAMS.extend(build_female_reference_programs(ex, session, phase, program))
+
+
 def public_program_catalog():
     programs = deepcopy(TRAINING_PROGRAMS)
     for item in programs:

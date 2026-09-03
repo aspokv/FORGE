@@ -362,7 +362,7 @@ def _filter_candidates(candidates: List[str], profile: dict, used_ids: Set[str])
     valid = []
     for eid in candidates:
         ex = EXERCISE_INDEX.get(eid)
-        if not ex:
+        if not ex or ex.get("library_only"):
             continue
         if eid in avoid_ids:
             continue

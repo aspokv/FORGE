@@ -28,6 +28,7 @@ import WorkoutLibrary from "./features/WorkoutLibrary";
 import ReferenceHome from "./features/ReferenceHome";
 import ReferenceWorkoutPreview from "./features/ReferenceWorkoutPreview";
 import {sessionCategory} from "./features/WorkoutVariationsButton";
+import {prescribedReps} from "./features/prescribedReps";
 import {completeWorkout} from "./features/completeWorkout";
 import {LEGACY_TRAINING_GOAL,DEFAULT_BODY_GOAL,goalFromCatalog,intensityForSubmit,intensityOnGoalChange} from "./features/onboardingGoals";
 import {ONBOARDING_STEPS,RANK_LABEL,togglePriority,roleFor,nextStep,previousStep} from "./features/musclePriorities";
@@ -220,7 +221,7 @@ function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutC
   const finishLock=useRef(false);
   const[startedAt,setStartedAt]=useState(()=>Date.now());
   useEffect(()=>setSessionStarted(false),[activeSession?.day,activeSession?.label]);
-  useEffect(()=>{const init={};items.forEach(x=>{const hint=hints[x.exercise_id]||{};for(let n=0;n<x.sets;n++)init[`${x.exercise_id}-${n}`]={weight:hint.last_weight||x.load||0,reps:hint.last_reps||x.reps?.split("–")?.[0]||"8",rir:String(x.rir||"2").match(/\d+/)?.[0]||"2"};});setSetInputs(init)},[items,!!Object.keys(hints).length]);
+  useEffect(()=>{const init={};items.forEach(x=>{const hint=hints[x.exercise_id]||{};for(let n=0;n<x.sets;n++)init[`${x.exercise_id}-${n}`]={weight:hint.last_weight||x.load||0,reps:hint.last_reps||prescribedReps(x.reps,n),rir:String(x.rir||"2").match(/\d+/)?.[0]||"2"};});setSetInputs(init)},[items,!!Object.keys(hints).length]);
   const[draftState,setDraftState]=useState("idle");
   const draftTimer=useRef(null),draftReady=useRef(false),lastSaved=useRef("");
   const draftDay=activeSession?.day;
@@ -257,7 +258,7 @@ function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutC
   },[setInputs,draftDay]);
   useEffect(()=>{if(!timer||!timerRunning)return;const i=setInterval(()=>setTimer(x=>Math.max(0,x-1)),1000);return()=>clearInterval(i)},[timer,timerRunning]);
   const parseRestSeconds=r=>{if(!r)return 90;const n=parseInt(r);if(!isNaN(n))return n<10?n*60:n;const m=r.match(/(\d+)/);return m?parseInt(m[1])*60:90};
-  const mark=(id,n,tech,rest,totalSets)=>{if(done[id+n])return;const v=setInputs[`${id}-${n}`]||{weight:0,reps:8,rir:2};const rir=Math.max(0,Math.min(5,Number(v.rir)));if(!Number.isFinite(rir)){setSetErr(x=>({...x,[id+n]:true}));return}setDone(x=>({...x,[id+n]:true}));if(n+1<totalSets){const secs=parseRestSeconds(rest);setTimer(secs);setTimerTotal(secs);setRestingSet({exerciseId:id,completed:n+1,next:n+2});setTimerRunning(true)}else{setTimer(0);setRestingSet(null)}axios.post(`${API}/sets`,{profile_id:db.profile.id,exercise_id:id,set_number:n+1,weight:Number(v.weight||0),reps:Number(v.reps||8),rir,session_day:activeSession?.day,technique:tech||"Straight Sets"}).catch(()=>{setDone(x=>({...x,[id+n]:false}));setSetErr(x=>({...x,[id+n]:true}))})};
+  const mark=(id,n,tech,rest,totalSets)=>{if(done[id+n])return;const v=setInputs[`${id}-${n}`]||{weight:0,reps:8,rir:2};if(!Number.isFinite(Number(v.reps))||Number(v.reps)<=0){setSetErr(x=>({...x,[id+n]:true}));return}const rir=Math.max(0,Math.min(5,Number(v.rir)));if(!Number.isFinite(rir)){setSetErr(x=>({...x,[id+n]:true}));return}setDone(x=>({...x,[id+n]:true}));if(n+1<totalSets){const secs=parseRestSeconds(rest);setTimer(secs);setTimerTotal(secs);setRestingSet({exerciseId:id,completed:n+1,next:n+2});setTimerRunning(true)}else{setTimer(0);setRestingSet(null)}axios.post(`${API}/sets`,{profile_id:db.profile.id,exercise_id:id,set_number:n+1,weight:Number(v.weight||0),reps:Number(v.reps||8),rir,session_day:activeSession?.day,technique:tech||"Straight Sets"}).catch(()=>{setDone(x=>({...x,[id+n]:false}));setSetErr(x=>({...x,[id+n]:true}))})};
   const completedEntries=useMemo(()=>items.flatMap(x=>Array.from({length:x.sets},(_,n)=>({key:x.exercise_id+n,value:setInputs[`${x.exercise_id}-${n}`]}))).filter(x=>done[x.key]),[items,setInputs,done]);
   const actualVolume=useMemo(()=>completedEntries.reduce((sum,x)=>sum+Number(x.value?.weight||0)*Number(x.value?.reps||0),0),[completedEntries]);
   const averageRir=useMemo(()=>completedEntries.length?completedEntries.reduce((sum,x)=>sum+Number(x.value?.rir||0),0)/completedEntries.length:null,[completedEntries]);
