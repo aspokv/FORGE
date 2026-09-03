@@ -50,11 +50,11 @@ def test_complete_program_library_covers_every_supported_split():
     assert [item["id"] for item in PROGRAM_CATEGORIES] == [
         "abc", "abcd", "abcde", "abcdef", "upper_lower", "periodized"
     ]
-    assert len(TRAINING_PROGRAMS) == 10
+    assert len(TRAINING_PROGRAMS) == 19
     assert {item["category"] for item in TRAINING_PROGRAMS} >= {
         "abc", "abcd", "abcde", "abcdef", "upper_lower"
     }
-    assert sum(len(item["phases"]) for item in TRAINING_PROGRAMS) == 13
+    assert sum(len(item["phases"]) for item in TRAINING_PROGRAMS) == 22
 
 
 def test_complete_programs_only_use_supported_exercises_and_safe_builder_shapes():
@@ -62,10 +62,10 @@ def test_complete_programs_only_use_supported_exercises_and_safe_builder_shapes(
     for program in TRAINING_PROGRAMS:
         assert program["id"] not in ids
         ids.add(program["id"])
-        assert program["duration_weeks"] >= 4 or program["id"] == "female-shape-de-cavala"
+        assert program["duration_weeks"] >= 4 or program["id"] == "female-shape-de-cavala" or program["id"].startswith("male-")
         assert program["phases"]
         for phase in program["phases"]:
-            assert 3 <= len(phase["sessions"]) <= 6
+            assert 3 <= len(phase["sessions"]) <= 7
             for session in phase["sessions"]:
                 assert session["duration"] >= 45
                 assert session["exercises"]
@@ -79,7 +79,7 @@ def test_complete_programs_only_use_supported_exercises_and_safe_builder_shapes(
 
 def test_program_metadata_and_expert_guard_are_exposed_without_source_mutation():
     catalog = public_catalog()
-    assert len(catalog["programs"]) == 10
+    assert len(catalog["programs"]) == 19
     periodized = next(item for item in catalog["programs"] if item["id"] == "abcdef-12-week")
     assert "abcdef" in periodized["categories"]
     assert "periodized" in periodized["categories"]

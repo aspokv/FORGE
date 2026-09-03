@@ -200,6 +200,7 @@ export default function WorkoutLibrary({ API, exercises = [], onBuild, onTemplat
         <span>Curadoria</span>
         <button className={audience === "all" ? "active" : ""} onClick={() => setAudience("all")}>Todos</button>
         <button className={audience === "female" ? "active" : ""} onClick={() => setAudience("female")} data-testid="library-audience-female">Feminino</button>
+        <button className={audience === "male" ? "active" : ""} onClick={() => { setAudience("male"); setMode("programs"); }} data-testid="library-audience-male">Masculino</button>
         <button className={audience === "unisex" ? "active" : ""} onClick={() => setAudience("unisex")}>Unissex</button>
         {isFemaleProfile(profile) && <em>Seleção feminina ativada pelo seu perfil</em>}
       </div>
@@ -263,7 +264,7 @@ export default function WorkoutLibrary({ API, exercises = [], onBuild, onTemplat
       </section>}
     </> : <>
       <div className="library-audience-filter" role="group" aria-label="Curadoria de programas">
-        <span>Curadoria</span><button className={audience === "all" ? "active" : ""} onClick={() => setAudience("all")}>Todos</button><button className={audience === "female" ? "active" : ""} onClick={() => setAudience("female")}>Feminino</button><button className={audience === "unisex" ? "active" : ""} onClick={() => setAudience("unisex")}>Unissex</button>
+        <span>Curadoria</span><button className={audience === "all" ? "active" : ""} onClick={() => setAudience("all")}>Todos</button><button className={audience === "female" ? "active" : ""} onClick={() => setAudience("female")}>Feminino</button><button className={audience === "male" ? "active" : ""} onClick={() => setAudience("male")}>Masculino</button><button className={audience === "unisex" ? "active" : ""} onClick={() => setAudience("unisex")}>Unissex</button>
       </div>
       <nav className="library-categories library-program-categories" aria-label="Divisões de programas">
         {catalog.program_categories.map(item => <button key={item.id} className={programCategory === item.id ? "active" : ""} onClick={() => chooseProgramCategory(item.id)} data-testid={`program-category-${item.id}`}>
@@ -280,7 +281,7 @@ export default function WorkoutLibrary({ API, exercises = [], onBuild, onTemplat
               <div className="library-card-top"><span>{item.category.toUpperCase()}</span><em>{item.level}</em></div>
               <h3>{item.name}</h3>
               <p>{item.description}</p>
-              <div className="program-metrics"><span><strong>{item.days_per_week}</strong> dias</span><span>{item.duration_weeks?<><strong>{item.duration_weeks}</strong> semanas</>:"Duração a definir"}</span><span><strong>{item.phase_count}</strong> {item.phase_count === 1 ? "fase" : "fases"}</span></div>
+              <div className="program-metrics"><span><strong>{item.days_per_week}</strong> sessões</span><span>{item.duration_weeks?<><strong>{item.duration_weeks}</strong> semanas</>:"Duração a definir"}</span><span><strong>{item.phase_count}</strong> {item.phase_count === 1 ? "fase" : "fases"}</span></div>
               <div className="program-reference">Base técnica · {item.reference}</div>
               {item.safety !== "standard" && <div className="program-risk"><ShieldAlert size={14}/> {item.safety === "expert" ? "Recuperação excepcional" : "Volume avançado"}</div>}
               <button className="library-add">Ver programa <ChevronRight size={15}/></button>
@@ -296,7 +297,7 @@ export default function WorkoutLibrary({ API, exercises = [], onBuild, onTemplat
             <label>Escolha a fase</label>
             {activeProgram.phases.map(item => <button key={item.id} className={activePhase.id === item.id ? "active" : ""} onClick={() => setActivePhaseId(item.id)}>{item.label}<small>{item.weeks}</small></button>)}
           </div>}
-          <div className="program-phase-meta"><span>{activePhase.method}</span><small>{activePhase.days_per_week} dias · {activePhase.total_sets} séries no microciclo</small></div>
+          <div className="program-phase-meta"><span>{activePhase.method}</span><small>{activePhase.days_per_week} sessões · {activePhase.total_sets} séries no microciclo</small></div>
           {activePhase.note && <p className="program-phase-note">{activePhase.note}</p>}
           {activeProgram.warning && <div className="program-warning"><ShieldAlert size={17}/><span><b>Atenção ao contexto</b>{activeProgram.warning}</span></div>}
           <div className="program-session-list">

@@ -106,4 +106,24 @@ describe("WorkoutLibrary mobile apply interaction", () => {
     expect(css).toMatch(/\.library-mobile-session-preview\{[^{}]*position:relative;z-index:2;pointer-events:auto/);
     expect(css).toMatch(/\.library-mobile-apply\{[^{}]*position:relative;z-index:3;pointer-events:auto;touch-action:manipulation/);
   });
+
+  test("Masculino abre programas e filtra sem exibir a curadoria feminina", async () => {
+    const makeProgram = (id, audience_type, name) => ({ id, audience_type, name,
+      category: "abc", categories: ["abc"], description: "Ficha", level: "Avançado",
+      days_per_week: 3, duration_weeks: 0, phase_count: 1, phases: [] });
+    axios.get.mockResolvedValue({ data: { ...catalog,
+      program_categories: [{ id: "abc", label: "ABC" }], programs: [
+        makeProgram("male-test", "male", "ABC Masculino Teste"),
+        makeProgram("female-test", "female", "ABC Feminino Teste"),
+      ] } });
+    await act(async () => {
+      root.render(<WorkoutLibrary API="/api" profile={{}} exercises={[]} program={program}/>);
+      await Promise.resolve();
+    });
+    await act(async () => click(host.querySelector('[data-testid="library-audience-male"]')));
+    expect(host.textContent).toContain("ABC Masculino Teste");
+    expect(host.textContent).not.toContain("ABC Feminino Teste");
+    expect(host.textContent).toContain("3 sessões");
+    expect(host.textContent).toContain("Duração a definir");
+  });
 });
