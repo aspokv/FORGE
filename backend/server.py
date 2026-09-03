@@ -27,7 +27,7 @@ from billing_routes import router as billing_router
 from password_reset_routes import router as password_reset_router
 from preassessment_routes import router as preassessment_router
 from signup_routes import router as signup_router
-from workout_templates import public_catalog
+from workout_templates import WORKOUT_TEMPLATES, public_catalog
 from muscles import (
     to_frontend, to_internal, get_profile_priorities_internal,
     get_assessment_internal, FRONTEND_MUSCLES as MUSCLES_FRONTEND_LIST,
@@ -220,6 +220,11 @@ class WorkoutSessionDraftIn(BaseModel):
 
 class HydrationAddIn(BaseModel):
     amount_ml: int = Field(..., ge=50, le=1000)
+
+
+class WorkoutTemplateApplyIn(BaseModel):
+    template_id: str = Field(..., min_length=1, max_length=80)
+    profile_id: Optional[str] = None
 
 
 class TrainingPreferencesIn(BaseModel):
@@ -456,6 +461,76 @@ async def workout_templates(_user=Depends(get_current_user)):
     /custom-program endpoint, ownership checks and explicit athlete confirmation.
     """
     return public_catalog()
+
+
+@api.post("/workout-templates/apply")
+async def apply_workout_template(payload: WorkoutTemplateApplyIn, user=Depends(get_current_user)):
+    """Atomically replace the athlete's active session with one curated template.
+
+    The client sends only a stable template id. The server owns the active-day pointer,
+    current program snapshot and persistence so a stale browser cannot append or replace
+    the wrong day.
+    """
+    target = owned_profile_id(user, payload.profile_id)
+    template = next((item for item in WORKOUT_TEMPLATES if item.get("id") == payload.template_id), None)
+    if not template:
+        raise HTTPException(404, "Modelo de treino não encontrado")
+
+    profile = await load_profile(target)
+    current = await build_program(profile)
+    raw_sessions = current.get("sessions") or []
+    active_day = current.get("active_day")
+    if active_day is None or not raw_sessions:
+        raise HTTPException(409, "Não há uma sessão ativa para substituir")
+
+    sessions = []
+    target_found = False
+    for raw in raw_sessions:
+        day = int(raw.get("day") or 0)
+        if day == int(active_day):
+            target_found = True
+            sessions.append({
+                "day": day,
+                "label": template.get("name") or "Sessão",
+                "demand": template.get("demand") or "MODERATE",
+                "focus": list(template.get("focus") or []),
+                "template_id": template.get("id"),
+                "exercises": [dict(item) for item in template.get("exercises") or []],
+            })
+            continue
+        # Remove only stale duplicate copies left by the historical append behavior.
+        if raw.get("template_id") == template.get("id"):
+            continue
+        sessions.append({
+            "day": day,
+            "label": raw.get("label") or f"Sessão {day}",
+            "demand": raw.get("demand") or "MODERATE",
+            "focus": list(raw.get("focus") or []),
+            "template_id": raw.get("template_id"),
+            "exercises": [dict(item) for item in raw.get("exercises") or []],
+        })
+
+    if not target_found:
+        raise HTTPException(409, "A sessão ativa não existe mais no programa")
+
+    custom_before = profile.get("custom_program") or {}
+    doc = {
+        "profile_id": target,
+        "name": custom_before.get("name") or current.get("name") or "Programa FORGE personalizado",
+        "week": custom_before.get("week") or current.get("week") or "Microciclo personalizado",
+        "session_minutes": int(custom_before.get("session_minutes") or profile.get("session_minutes") or 60),
+        "sessions": sessions,
+        "saved_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.profiles.update_one(
+        {"id": target},
+        {"$set": {"custom_program": doc, "automation_mode": "FORGE_PRO",
+                  "user_id": target, "onboarding_required": False},
+         "$setOnInsert": {"name": "Novo atleta", "goal": "Hipertrofia", "created_at": datetime.now(timezone.utc).isoformat()}},
+        upsert=True,
+    )
+    refreshed = await load_profile(target)
+    return {"program": await build_program(refreshed), "custom": doc, "applied_template_id": template.get("id")}
 
 
 @api.post("/custom-program")

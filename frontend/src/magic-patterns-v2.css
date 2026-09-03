@@ -191,10 +191,11 @@ body{
 .ledger-home .ledger-context{order:1}
 .ledger-home .ledger-macros{order:2}
 .ledger-home .ledger-hydration{order:3}
-.ledger-home .ledger-week{order:4}
-.ledger-home .today-action-card{order:5}
-.ledger-home .home-cycle-status{order:6}
-.ledger-home .forge-home-tools{order:7}
+.ledger-home .home-workout-hero{order:4}
+.ledger-home .ledger-week{order:5}
+.ledger-home .ledger-milestone{order:6}
+.ledger-home .home-cycle-status{order:7}
+.ledger-home .forge-home-tools{order:8}
 
 .ledger-home .ledger-context{margin:0 0 20px!important}
 .ledger-home .ledger-meta{
@@ -549,4 +550,79 @@ body{
 
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+}
+
+
+/* HOME + WORKOUT FLOW V2: hierarchy and collision cleanup */
+.ledger-home .home-workout-hero{margin:0 0 20px!important}
+.ledger-home .ledger-milestone{margin:0 0 20px!important;position:static!important}
+
+.workout-page .workout-overview{
+  position:relative!important;
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr)!important;
+  gap:16px!important;
+  align-items:stretch!important;
+  overflow:visible!important;
+}
+.workout-page .muscle-session-map{order:2!important;position:static!important;width:100%!important;min-width:0!important}
+.workout-page .workout-overview-copy{
+  order:1!important;
+  position:static!important;
+  inset:auto!important;
+  width:100%!important;
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) auto!important;
+  gap:6px 16px!important;
+  align-items:end!important;
+  min-width:0!important;
+}
+.workout-page .workout-overview-copy>span{grid-column:1/-1!important}
+.workout-page .workout-overview-copy>b{grid-column:1!important;min-width:0!important}
+.workout-page .workout-overview-copy>small{grid-column:2!important;text-align:right!important;white-space:normal!important;max-width:150px!important}
+.workout-page .workout-kpis{
+  order:3!important;
+  position:static!important;
+  inset:auto!important;
+  width:100%!important;
+  min-width:0!important;
+  display:grid!important;
+  grid-template-columns:repeat(4,minmax(0,1fr))!important;
+}
+.workout-page .workout-kpis>div{position:static!important;min-width:0!important;align-content:start!important}
+.workout-page .workout-kpis span,.workout-page .workout-kpis b,.workout-page .workout-kpis em{position:static!important;display:block!important;min-width:0!important}
+
+.workout-page .set-row{position:relative!important}
+.workout-page .set-row.current{
+  border-left:0!important;
+  padding-left:8px!important;
+  background:rgba(224,182,133,.055)!important;
+  opacity:1!important;
+}
+.workout-page .set-row.current::before{
+  content:"";
+  position:absolute;
+  left:0;
+  top:7px;
+  bottom:7px;
+  width:2px;
+  border-radius:2px;
+  background:var(--forge-champagne);
+}
+.workout-page .set-row.upcoming{opacity:.66!important}
+.workout-page .set-row.completed{opacity:.72!important}
+
+@media(max-width:800px){
+  .workout-page .workout-overview{grid-template-columns:1fr!important;gap:13px!important;padding:14px!important}
+  .workout-page .workout-overview-copy{grid-template-columns:1fr!important;gap:4px!important}
+  .workout-page .workout-overview-copy>span,.workout-page .workout-overview-copy>b,.workout-page .workout-overview-copy>small{grid-column:1!important;text-align:left!important;max-width:none!important}
+  .workout-page .workout-kpis{grid-template-columns:repeat(2,minmax(0,1fr))!important;border-radius:var(--forge-radius)!important}
+  .workout-page .workout-kpis>div{min-height:80px!important;padding:11px 12px!important;border-right:1px solid var(--forge-line)!important;border-bottom:1px solid var(--forge-line)!important}
+  .workout-page .workout-kpis>div:nth-child(even){border-right:0!important}
+  .workout-page .workout-kpis>div:nth-child(n+3){border-bottom:0!important}
+  .workout-page .workout-kpis span{font-size:8px!important;line-height:1.35!important;white-space:normal!important}
+  .workout-page .workout-kpis b{margin-top:5px!important;font-size:18px!important;line-height:1!important}
+  .workout-page .workout-kpis em{margin-top:5px!important;font-size:8px!important;line-height:1.35!important;white-space:normal!important}
+  .workout-page .set-row.current{padding-left:5px!important}
+  .workout-page .set-row.upcoming{opacity:.62!important}
 }
