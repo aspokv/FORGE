@@ -13,7 +13,7 @@ const ART_RULES=[
   {slot:5,terms:["rosca direta com barra","rosca barra","barbell curl"]},
 ];
 export const artworkSlotFor=(...values)=>{const key=normalize(values.join(" "));const rule=ART_RULES.find(item=>item.terms.some(term=>key.includes(normalize(term))));return rule?.slot??-1};
-const ExerciseArtwork=({slot,label})=><div className={`ref3-ex-art${slot<0?" fallback":""}`}style={slot>=0?{"--art-y":`${slot*-82}px`}:undefined}role="img"aria-label={label}>{slot<0&&<Dumbbell size={27}/>}</div>;
+const ExerciseArtwork=({slot,label})=><div className={`ref3-ex-art${slot<0?" fallback":""}`}style={slot>=0?{"--art-y":`${slot*-82}px`,"--art-y-small":`${slot*-72}px`}:undefined}role="img"aria-label={label}>{slot<0&&<Dumbbell size={27}/>}</div>;
 
 export default function ReferenceWorkoutPreview({db,activeSession,items,onStart,onLibrary}){
   const raw=activeSession?.label||db.program?.session||"Treino de hoje";
