@@ -1,6 +1,7 @@
 import {Bell,BookOpen,Check,ChevronRight} from "lucide-react";
 
-const thumb=(i)=>i===0?"/images/reference/exercise-1.jpg":i===1?"/images/reference/exercise-2.jpg":i===2?"/images/anatomy/shoulders-front.webp":i===3?"/images/anatomy/arms-front.webp":"/images/anatomy/push-front.webp";
+const APPROVED_THUMBS=[1,2,3,4,5].map(i=>`/images/reference/exercise-${i}.jpg`);
+const thumb=i=>APPROVED_THUMBS[Math.min(i,APPROVED_THUMBS.length-1)];
 const getExercise=(db,id)=>db.exercises?.find(e=>e.id===id||e.exercise_id===id)||{};
 const toRpe=rir=>{const m=String(rir??"").match(/\d+/);return Math.max(5,Math.min(10,10-Number(m?.[0]||2)))};
 
