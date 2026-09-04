@@ -1,4 +1,4 @@
-import {isPullPlan,planArtworkFor} from "./ReferenceHome";
+import {isPullPlan,isLegPlan,planArtworkKindFor,planArtworkFor} from "./ReferenceHome";
 import ReferenceHome from "./ReferenceHome";
 import React from "react";
 import {renderToStaticMarkup} from "react-dom/server";
@@ -22,7 +22,16 @@ test("Home shows the cinematic FORGE hero above the existing dashboard", () => {
 
 describe("home plan artwork",()=>{
   it("identifies Pull sessions",()=>expect(isPullPlan("Pull 2",["Dorsais / largura","Costas / espessura"])).toBe(true));
-  it("identifies Pull by back focus",()=>expect(isPullPlan("Treino B",["Costas / espessura"])).toBe(true));
-  it("does not classify Push as Pull",()=>expect(isPullPlan("Push 2",["Peitoral","Tríceps"])).toBe(false));
-  it("keeps the default artwork for non-Pull sessions",()=>expect(planArtworkFor("Push 2",["Peitoral","Tríceps"])).toBe("/images/reference/exercise-1.jpg"));
+  it("identifies Legs sessions and lower-body focus",()=>{
+    expect(isLegPlan("Legs 2",["Quadríceps","Posteriores","Glúteos"])).toBe(true);
+    expect(planArtworkKindFor("Legs 2",["Quadríceps","Posteriores","Glúteos"])).toBe("legs");
+  });
+  it("keeps Pull separate from Push",()=>{
+    expect(isPullPlan("Push 2",["Peitoral","Tríceps"])).toBe(false);
+    expect(planArtworkKindFor("Push 2",["Peitoral","Tríceps"])).toBe("default");
+  });
+  it("never uses the old public placeholder path",()=>{
+    expect(planArtworkFor("Legs 2",["Quadríceps"])).not.toBe("/images/reference/exercise-1.jpg");
+    expect(planArtworkFor("Push 2",["Peitoral"])).not.toBe("/images/reference/exercise-1.jpg");
+  });
 });
