@@ -29,4 +29,9 @@ describe("premium exercise artwork library",()=>{
     expect(doc.querySelectorAll(".ref3-ex-art.fallback")).toHaveLength(0);
     expect(doc.querySelectorAll(".ref3-ex-art[data-art-slot]")).toHaveLength(sample.length);
   });
+
+  it("does not crash on partial runtime payloads",()=>{
+    expect(()=>renderToStaticMarkup(<ReferenceWorkoutPreview db={{program:{focus:"Costas"}}} activeSession={{label:"Pull 2",focus:"Costas"}} items={[{exercise_id:"custom-row",name:"Remada custom",equipment:"cable",sets:3,reps:"10",rir:2}]} onStart={()=>{}} onLibrary={()=>{}}/>)).not.toThrow();
+    expect(()=>renderToStaticMarkup(<ReferenceWorkoutPreview db={{}} items={undefined} onStart={()=>{}} onLibrary={()=>{}}/>)).not.toThrow();
+  });
 });
