@@ -29,6 +29,8 @@ _COMMON_DIARY_ROWS = [
     ("diary-farofa", "Farofa pronta", 406, 4.0, 77.0, 9.0, ["farofa"]),
     ("diary-acai", "Açaí com xarope", 110, 1.2, 21.5, 2.7, ["acai", "tigela de acai"]),
     ("diary-brigadeiro", "Brigadeiro", 338, 6.0, 54.0, 11.0, ["brigadeiro", "docinho"]),
+    ("diary-beef-heart", "Coração bovino cozido", 165, 28.5, 0.1, 4.7, ["coracao", "coração de boi", "miúdo bovino"]),
+    ("diary-chicken-heart", "Coração de frango grelhado", 207, 26.4, 0.1, 10.6, ["coracao de frango", "coração de galinha", "miúdo de frango"]),
 ]
 
 _COMMON_DIARY_FOODS = {fid: {"id": fid, "name": name, "grams": 100, "kcal": kcal,
@@ -43,11 +45,12 @@ DIARY_FOODS = {**FOOD_INDEX, **_COMMON_DIARY_FOODS, "diary-beef-ribs-roasted": {
     "source_url": "https://www.tbca.net.br/base-dados-en/int_statistical_composition.php?cod_produto=BRC0352F",
 }}
 
-def food_snapshot(items):
+def food_snapshot(items, extra_foods=None):
+    catalog = {**DIARY_FOODS, **(extra_foods or {})}
     rows = []
     totals = {k: 0.0 for k in MACROS}
     for item in items:
-        food = DIARY_FOODS.get(item.food_id)
+        food = catalog.get(item.food_id)
         if not food:
             raise ValueError("Alimento não encontrado no catálogo.")
         values = {k: round(float(food.get(k, 0)) * item.grams / float(food.get("grams", 100)), 2) for k in MACROS}

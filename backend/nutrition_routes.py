@@ -1,10 +1,11 @@
 ﻿"""FORGE Nutrition API routes."""
 import logging
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Query
 from pydantic import BaseModel, Field
 from typing import List, Optional, Literal
 from datetime import datetime, timezone, date as CalendarDate
 from food_diary import DIARY_FOODS, food_snapshot
+from external_food_catalog import search_external_foods, resolve_external_food
 import uuid, random
 
 from auth import get_current_user
@@ -759,12 +760,24 @@ async def consumed_food_catalog(request: Request, user=Depends(get_current_user)
     return {"foods": [{k: f.get(k) for k in ("id", "name", "aliases", "grams", "kcal", "protein_g", "carbs_g", "fat_g", "source", "source_url")} for f in DIARY_FOODS.values()]}
 
 
+@router.get("/consumed-foods/search")
+async def search_consumed_foods(q: str = Query(min_length=2, max_length=80), user=Depends(get_current_user)):
+    return {"foods": await search_external_foods(q)}
+
+
 @router.post("/consumed-meal")
 async def save_consumed_meal(payload: ConsumedMealIn, request: Request, user=Depends(get_current_user)):
     db = request.app.state.db
     await exigir_capacidade(db, user, ALIMENTACAO)
+    external_foods = {}
+    for item in payload.foods:
+        if item.food_id.startswith("off:"):
+            resolved = await resolve_external_food(item.food_id)
+            if not resolved:
+                raise HTTPException(422, "Não foi possível confirmar os dados desse alimento. Tente buscá-lo novamente.")
+            external_foods[item.food_id] = resolved
     try:
-        actual = food_snapshot(payload.foods)
+        actual = food_snapshot(payload.foods, external_foods)
     except ValueError as error:
         raise HTTPException(422, str(error))
     target = user["id"]
