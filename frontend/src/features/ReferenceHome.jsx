@@ -3,7 +3,8 @@ import axios from "axios";
 import {Check,ChevronRight,Clock,Droplets,Layers3,UserRound,X} from "lucide-react";
 import planPullArt from "../assets/forge-plan-pull.webp";
 import planLegsArt from "../assets/forge-muscle-map.jpg";
-import heroArt from "../assets/forge-gym-cinematic.jpg";
+import heroArt from "../assets/forge-home-athlete-reference.jpg";
+import fallbackArt from "../assets/forge-gym-cinematic.jpg";
 import "../home-hero-card.css";
 import {consumedTotals} from "./foodDiary";
 
@@ -15,8 +16,9 @@ const normalize=value=>String(value||"").normalize("NFD").replace(/[\u0300-\u036
 export const isPullPlan=(sessionName,focus=[])=>{const key=normalize([sessionName,...focus].join(" "));return /(^|\s)pull(\s|$)|dorsal|costas|largura|espessura/.test(key)};
 export const isLegPlan=(sessionName,focus=[])=>{const key=normalize([sessionName,...focus].join(" "));return /(^|\s)legs?(\s|$)|perna|quadriceps|posterior|glute|panturrilha/.test(key)};
 export const planArtworkKindFor=(sessionName,focus=[])=>isPullPlan(sessionName,focus)?"pull":isLegPlan(sessionName,focus)?"legs":"default";
-export const planArtworkFor=(sessionName,focus=[])=>{const kind=planArtworkKindFor(sessionName,focus);return kind==="pull"?planPullArt:kind==="legs"?planLegsArt:heroArt};
+export const planArtworkFor=(sessionName,focus=[])=>{const kind=planArtworkKindFor(sessionName,focus);return kind==="pull"?planPullArt:kind==="legs"?planLegsArt:fallbackArt};
 const Macro=({label,value,goal,tone})=>{const pct=goal?clamp(value/goal*100,0,100):0;return <div className={`ref3-macro ${tone}`}><span>{label}</span><i><b style={{width:`${pct}%`}}/></i><strong>{Math.round(value).toLocaleString("pt-BR")} <em>/ {Math.round(goal||0).toLocaleString("pt-BR")} g</em></strong></div>};
+const referenceDateLabel=date=>{const raw=new Intl.DateTimeFormat("pt-BR",{weekday:"long",day:"2-digit",month:"long"}).format(date).replace("-feira","");const cap=raw.charAt(0).toUpperCase()+raw.slice(1);return cap.replace(/ de ([a-záàâãéêíóôõúç]+)/i,(_,m)=>` de ${m.charAt(0).toUpperCase()+m.slice(1)}`)};
 
 export default function ReferenceHome({db,start,onRecoveryCheckin}){
   const p=db.program||{};
@@ -33,7 +35,7 @@ export default function ReferenceHome({db,start,onRecoveryCheckin}){
   const focus=(active.focus||p.focus||[]).slice(0,3),planArtwork=planArtworkFor(sessionName,focus);
   const firstName=(db.profile?.name||"").trim().split(" ")[0];
   const displayName=firstName&&firstName.toLowerCase()!=="novo"?firstName:"Atleta";
-  const now=new Date(),dateLabel=new Intl.DateTimeFormat("pt-BR",{weekday:"long",day:"2-digit",month:"long"}).format(now).replace("-feira","");
+  const now=new Date(),dateLabel=referenceDateLabel(now);
   const dayIndex=(now.getDay()+6)%7;
 
   const targets=nutrition?.targets||{},daily=nutrition?.daily_totals||{},goalKcal=Number(targets.goal_calories||daily.kcal||0),goalProtein=Number(targets.protein_g||0),goalCarbs=Number(targets.carbs_g||0),goalFat=Number(targets.fat_g||0);
@@ -45,7 +47,7 @@ export default function ReferenceHome({db,start,onRecoveryCheckin}){
   const undoWater=async()=>{if(waterBusy)return;setWaterBusy(true);try{const r=await axios.delete(`${API}/hydration/${localDateKey()}/last`);setHydration(r.data)}finally{setWaterBusy(false)}};
   const submitCheckin=async()=>{if(checkinBusy)return;setCheckinBusy(true);try{const r=await axios.post(`${API}/recovery`,{profile_id:db.profile?.id,local_date:localDateKey(),...checkinForm});setCheckin(r.data?.checkin||r.data);onRecoveryCheckin?.(r.data);setCheckinOpen(false)}finally{setCheckinBusy(false)}};
   const openPlan=()=>checkin?start():setCheckinOpen(true);
-  const fallbackPlanArtwork=e=>{if(e.currentTarget.dataset.fallback==="1")return;e.currentTarget.dataset.fallback="1";e.currentTarget.src=heroArt};
+  const fallbackPlanArtwork=e=>{if(e.currentTarget.dataset.fallback==="1")return;e.currentTarget.dataset.fallback="1";e.currentTarget.src=fallbackArt};
 
   return <div className="reference-home-v3" data-testid="reference-home-v3">
     <section className="ref3-top-hero" data-testid="home-top-hero">
@@ -54,7 +56,7 @@ export default function ReferenceHome({db,start,onRecoveryCheckin}){
       <div className="ref3-top-hero-copy">
         <strong className="ref3-top-hero-brand">FORGE</strong>
         <h1>Olá, {displayName}</h1>
-        <p>Pronto para mais um dia de evolução?</p>
+        <p>Pronto para mais um dia de<br/>evolução?</p>
       </div>
       <div className="ref3-top-hero-avatar"><UserRound size={24}/></div>
       <div className="ref3-top-hero-motto"><span>DISCIPLINA</span><span>GERA</span><span>RESULTADOS</span></div>
@@ -62,7 +64,7 @@ export default function ReferenceHome({db,start,onRecoveryCheckin}){
 
     <section className="ref3-week" data-testid="home-training-week"><h2>Resumo da semana</h2><div className="ref3-week-days">{WEEK.map((label,i)=>{const done=i<dayIndex&&i<activeIndex,current=i===dayIndex;return <div key={label} className={`${done?"done ":""}${current?"current":""}`}><span>{label}</span><i>{done?<Check size={18}/>:null}</i></div>})}</div></section>
 
-    <section className="ref3-plan" data-testid="daily-briefing"><h2>Plano de hoje</h2><p>{dateLabel}</p><button type="button" className="ref3-plan-card" onClick={openPlan}><div className="ref3-plan-art"><img src={planArtwork} alt={`Treino ${sessionName}`} loading="eager" onError={fallbackPlanArtwork}/><span><Layers3 size={14}/></span></div><div className="ref3-plan-copy"><strong>{sessionName}</strong><small>{focus.length?focus.join(", "):"Treino completo"}</small><div><em><Clock size={15}/>{duration}</em><em><Layers3 size={15}/>{plannedSets} séries</em></div></div><ChevronRight size={20}/></button><button className="ref3-a11y" data-testid="start-workout-button" onClick={start}>Começar treino</button>{!checkin&&<button className="ref3-a11y" data-testid="checkin-primary-button" onClick={()=>setCheckinOpen(true)}>Fazer check-in</button>}</section>
+    <section className="ref3-plan" data-testid="daily-briefing"><h2>Plano de hoje</h2><p>{dateLabel}</p><button type="button" className="ref3-plan-card" onClick={openPlan}><div className="ref3-plan-art"><img src={planArtwork} alt={`Treino ${sessionName}`} loading="eager" onError={fallbackPlanArtwork}/></div><div className="ref3-plan-copy"><strong>{sessionName}</strong><small>{focus.length?focus.join(", "):"Treino completo"}</small><div><em><Clock size={15}/>{duration}</em><em><Layers3 size={15}/>{plannedSets} séries</em></div></div><ChevronRight size={20}/></button><button className="ref3-a11y" data-testid="start-workout-button" onClick={start}>Começar treino</button>{!checkin&&<button className="ref3-a11y" data-testid="checkin-primary-button" onClick={()=>setCheckinOpen(true)}>Fazer check-in</button>}</section>
 
     <section className="ref3-nutrition" data-testid="home-nutrition-progress"><h2>Nutrição</h2><p>Meta diária</p><div className="ref3-calorie-row"><div className="ref3-calorie-ring" style={{background:`conic-gradient(#ff934f ${kcalPct}%,#262626 0)`}}><i/></div><div><strong>{Math.round(kcal).toLocaleString("pt-BR")} <em>/ {Math.round(goalKcal||0).toLocaleString("pt-BR")}</em></strong><span>kcal consumidas</span></div></div><div className="ref3-macros"><Macro label="Proteínas" value={consumed.protein_g} goal={goalProtein} tone="protein"/><Macro label="Carboidratos" value={consumed.carbs_g} goal={goalCarbs} tone="carbs"/><Macro label="Gorduras" value={consumed.fat_g} goal={goalFat} tone="fat"/></div></section>
 
