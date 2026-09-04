@@ -6,8 +6,18 @@ import {EXERCISE_ARTWORK_SPRITE,artworkSlotForExercise} from "./exerciseArtworkL
 const getExercise=(db,id)=>Array.isArray(db?.exercises)?(db.exercises.find(e=>e.id===id||e.exercise_id===id)||{}):{};
 const toRpe=rir=>{const m=String(rir??"").match(/\d+/);return Math.max(5,Math.min(10,10-Number(m?.[0]||2)))};
 const asArray=value=>Array.isArray(value)?value:(value==null||value===""?[]:[value]);
+const ART_COLUMNS=12;
 
-const ExerciseArtwork=({slot,label})=>{const style=slot>=0?{"--art-y":`${slot*-82}px`,"--art-y-small":`${slot*-72}px`,backgroundImage:`url(${EXERCISE_ARTWORK_SPRITE})`}:undefined;return <div className={`ref3-ex-art${slot<0?" fallback":""}`} style={style} role="img" aria-label={label} data-art-slot={slot}>{slot<0&&<Dumbbell size={27}/>}</div>};
+const ExerciseArtwork=({slot,label})=>{
+  const col=slot>=0?slot%ART_COLUMNS:0;
+  const row=slot>=0?Math.floor(slot/ART_COLUMNS):0;
+  const style=slot>=0?{
+    "--art-x":`${col*-82}px`,"--art-y":`${row*-82}px`,
+    "--art-x-small":`${col*-72}px`,"--art-y-small":`${row*-72}px`,
+    backgroundImage:`url(${EXERCISE_ARTWORK_SPRITE})`
+  }:undefined;
+  return <div className={`ref3-ex-art${slot<0?" fallback":""}`} style={style} role="img" aria-label={label} data-art-slot={slot} data-art-col={col} data-art-row={row}>{slot<0&&<Dumbbell size={27}/>}</div>
+};
 
 export default function ReferenceWorkoutPreview({db={},activeSession,items=[],onStart,onLibrary}){
   const safeItems=Array.isArray(items)?items:[];
