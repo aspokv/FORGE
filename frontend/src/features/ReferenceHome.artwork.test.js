@@ -18,6 +18,9 @@ test("Home shows the cinematic FORGE hero above the existing dashboard", () => {
   expect(hero.querySelector("img").getAttribute("alt")).toBe("Ambiente de treino FORGE");
   [".ref3-week", ".ref3-plan", ".ref3-nutrition", ".ref3-hydration"]
     .forEach(selector => expect(home.querySelector(selector)).not.toBeNull());
+  const drops=home.querySelectorAll(".ref3-drops svg");
+  expect(drops).toHaveLength(7);
+  expect(drops[0].getAttribute("class")).toContain("lucide-droplet");
 });
 
 describe("home plan artwork",()=>{
@@ -25,7 +28,7 @@ describe("home plan artwork",()=>{
   it("identifies Legs sessions and lower-body focus",()=>{
     expect(isLegPlan("Legs 2",["Quadríceps","Posteriores","Glúteos"])).toBe(true);
     expect(planArtworkKindFor("Legs 2",["Quadríceps","Posteriores","Glúteos"])).toBe("legs");
-    expect(String(planArtworkFor("Legs 2",["Quadríceps"]))).toContain("forge-plan-legs-reference");
+    expect(planArtworkFor("Legs 2",["Quadríceps"])).toBe("/images/anatomy/legs-quads-front.webp");
   });
   it("identifies Push sessions",()=>{
     expect(isPushPlan("Push 2",["Peitoral","Tríceps"])).toBe(true);
