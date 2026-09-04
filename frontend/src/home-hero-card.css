@@ -1,0 +1,18 @@
+.ref3-top-hero{position:relative;min-height:255px;margin:-6px 0 24px;overflow:hidden;border:1px solid rgba(255,255,255,.12);border-radius:20px;background:#0b0c0c;box-shadow:inset 0 1px 0 rgba(255,255,255,.035),0 18px 45px rgba(0,0,0,.28)}
+.ref3-top-hero>img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:66% 38%;filter:saturate(.78) contrast(1.08) brightness(.68)}
+.ref3-top-hero-shade{position:absolute;inset:0;background:linear-gradient(90deg,rgba(3,4,4,.96) 0%,rgba(4,5,5,.82) 38%,rgba(4,5,5,.25) 66%,rgba(3,4,4,.55) 100%),linear-gradient(0deg,rgba(4,5,5,.82),transparent 48%)}
+.ref3-top-hero-copy{position:absolute;z-index:2;left:22px;top:22px;max-width:58%}
+.ref3-top-hero-brand{display:inline-block;color:#efb06f;font:800 28px/1 Inter,system-ui,sans-serif;letter-spacing:.045em;font-style:italic}
+.ref3-top-hero-copy h1{margin:42px 0 0!important;color:#fff!important;font:750 31px/1.05 Inter,system-ui,sans-serif!important;letter-spacing:-.6px!important;text-transform:none!important}
+.ref3-top-hero-copy p{margin:8px 0 0;color:#c2c0bc;font:400 16px/1.35 Inter,system-ui,sans-serif}
+.ref3-top-hero-avatar{position:absolute;z-index:2;right:18px;top:18px;width:46px;height:46px;display:grid;place-items:center;border:1px solid rgba(255,255,255,.2);border-radius:50%;background:rgba(8,9,9,.62);backdrop-filter:blur(9px);color:#eee}
+.ref3-top-hero-motto{position:absolute;z-index:2;right:19px;bottom:25px;display:flex;flex-direction:column;gap:3px;padding-left:12px;border-left:2px solid #f29a55;color:#d7d3cd;font:600 10px/1.15 Inter,system-ui,sans-serif;letter-spacing:.18em}
+@media(max-width:430px){
+  .ref3-top-hero{min-height:238px;margin-left:0;margin-right:0;border-radius:18px}
+  .ref3-top-hero-copy{left:18px;top:19px;max-width:61%}
+  .ref3-top-hero-brand{font-size:25px}
+  .ref3-top-hero-copy h1{margin-top:39px!important;font-size:27px!important}
+  .ref3-top-hero-copy p{font-size:14px}
+  .ref3-top-hero-motto{right:15px;bottom:22px;font-size:9px}
+  .ref3-top-hero-avatar{right:14px;top:14px;width:42px;height:42px}
+}

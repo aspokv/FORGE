@@ -2,6 +2,8 @@ import {useEffect,useMemo,useState} from "react";
 import axios from "axios";
 import {Check,ChevronRight,Clock,Droplets,Layers3,UserRound,X} from "lucide-react";
 import planPullArt from "../assets/forge-plan-pull.webp";
+import heroArt from "../assets/forge-gym-cinematic.jpg";
+import "../home-hero-card.css";
 import {consumedTotals} from "./foodDiary";
 
 const API=`${process.env.REACT_APP_BACKEND_URL || ""}/api`;
@@ -27,6 +29,7 @@ export default function ReferenceHome({db,start,onRecoveryCheckin}){
   const raw=active.label||p.session||"Treino de hoje",sessionName=String(raw).split(/[—–]/).map(x=>x.trim()).filter(Boolean).pop()||raw;
   const focus=(active.focus||p.focus||[]).slice(0,3),planArtwork=planArtworkFor(sessionName,focus);
   const firstName=(db.profile?.name||"").trim().split(" ")[0];
+  const displayName=firstName&&firstName.toLowerCase()!=="novo"?firstName:"Atleta";
   const now=new Date(),dateLabel=new Intl.DateTimeFormat("pt-BR",{weekday:"long",day:"2-digit",month:"long"}).format(now).replace("-feira","");
   const dayIndex=(now.getDay()+6)%7;
 
@@ -41,8 +44,17 @@ export default function ReferenceHome({db,start,onRecoveryCheckin}){
   const openPlan=()=>checkin?start():setCheckinOpen(true);
 
   return <div className="reference-home-v3" data-testid="reference-home-v3">
-    <div className="ref3-home-brand" data-testid="home-forge-brand"><strong>FORGE</strong></div>
-    <header className="ref3-home-head"><div><h1>Olá, {firstName&&firstName.toLowerCase()!=="novo"?firstName:"Atleta"}</h1><p>Pronto para mais um dia de evolução?</p></div><div className="ref3-avatar"><UserRound size={25}/></div></header>
+    <section className="ref3-top-hero" data-testid="home-top-hero">
+      <img src={heroArt} alt="Ambiente de treino FORGE" loading="eager"/>
+      <div className="ref3-top-hero-shade"/>
+      <div className="ref3-top-hero-copy">
+        <strong className="ref3-top-hero-brand">FORGE</strong>
+        <h1>Olá, {displayName}</h1>
+        <p>Pronto para mais um dia de evolução?</p>
+      </div>
+      <div className="ref3-top-hero-avatar"><UserRound size={24}/></div>
+      <div className="ref3-top-hero-motto"><span>DISCIPLINA</span><span>GERA</span><span>RESULTADOS</span></div>
+    </section>
 
     <section className="ref3-week" data-testid="home-training-week"><h2>Resumo da semana</h2><div className="ref3-week-days">{WEEK.map((label,i)=>{const done=i<dayIndex&&i<activeIndex,current=i===dayIndex;return <div key={label} className={`${done?"done ":""}${current?"current":""}`}><span>{label}</span><i>{done?<Check size={18}/>:null}</i></div>})}</div></section>
 
