@@ -7,7 +7,7 @@ import {EXERCISE_ARTWORK_SPRITE,artworkSlotForExercise} from "./exerciseArtworkL
 const getExercise=(db,id)=>Array.isArray(db?.exercises)?(db.exercises.find(e=>e.id===id||e.exercise_id===id)||{}):{};
 const toRpe=rir=>{const m=String(rir??"").match(/\d+/);return Math.max(5,Math.min(10,10-Number(m?.[0]||2)))};
 const asArray=value=>Array.isArray(value)?value:(value==null||value===""?[]:[value]);
-const ART_SPRITE_SRC=`${EXERCISE_ARTWORK_SPRITE}?v=20260904c`;
+const ART_SPRITE_SRC=`${EXERCISE_ARTWORK_SPRITE}?v=20260904d`;
 
 const ExerciseArtwork=({slot,label})=>{
   const [failed,setFailed]=useState(false);

@@ -30,8 +30,10 @@ describe("premium exercise artwork library",()=>{
     expect(Array.from(sprite.subarray(23,26))).toEqual([0x9d,0x01,0x2a]);
     const width=sprite.readUInt16LE(26)&0x3fff;
     const height=sprite.readUInt16LE(28)&0x3fff;
-    expect(width).toBe(48);
-    expect(height).toBe(48*EXERCISE_ARTWORK_TILE_COUNT);
+    expect(width).toBe(192);
+    expect(height).toBe(192*EXERCISE_ARTWORK_TILE_COUNT);
+    expect(sprite.readUInt32LE(4)+8).toBe(sprite.length);
+    expect(sprite.length).toBeLessThan(512000);
   });
 
   it("renders catalog exercises with actual sprite image elements",()=>{
@@ -42,7 +44,7 @@ describe("premium exercise artwork library",()=>{
     expect(doc.querySelectorAll(".ref3-ex-art.fallback")).toHaveLength(0);
     const images=doc.querySelectorAll(".ref3-ex-art > img");
     expect(images).toHaveLength(sample.length);
-    images.forEach(img=>expect(img.getAttribute("src")).toContain("exercise-premium-sprite.webp?v=20260904c"));
+    images.forEach(img=>expect(img.getAttribute("src")).toContain("exercise-premium-sprite.webp?v=20260904d"));
   });
 
   it("uses vertical frame offsets for each exercise slot",()=>{
