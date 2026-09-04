@@ -18,6 +18,11 @@ on:
       - 'frontend/src/features/WorkoutLibrary.jsx'
       - 'frontend/src/features/workout-library.css'
       - 'frontend/src/features/WorkoutLibrary.interaction.test.js'
+      - 'frontend/src/features/ReferenceWorkoutPreview.jsx'
+      - 'frontend/src/features/exerciseArtworkLibrary.js'
+      - 'frontend/src/features/exerciseArtworkLibrary.test.js'
+      - 'frontend/src/features/exercise-artwork.css'
+      - 'frontend/public/images/reference/exercise-premium-sprite.webp'
       - 'frontend/src/features/ReferenceHome.jsx'
       - 'frontend/src/features/ReferenceHome.artwork.test.js'
       - 'frontend/src/features/product-layout.css'
@@ -40,6 +45,11 @@ on:
       - 'frontend/src/features/WorkoutLibrary.jsx'
       - 'frontend/src/features/workout-library.css'
       - 'frontend/src/features/WorkoutLibrary.interaction.test.js'
+      - 'frontend/src/features/ReferenceWorkoutPreview.jsx'
+      - 'frontend/src/features/exerciseArtworkLibrary.js'
+      - 'frontend/src/features/exerciseArtworkLibrary.test.js'
+      - 'frontend/src/features/exercise-artwork.css'
+      - 'frontend/public/images/reference/exercise-premium-sprite.webp'
       - 'frontend/src/features/ReferenceHome.jsx'
       - 'frontend/src/features/ReferenceHome.artwork.test.js'
       - 'frontend/src/features/product-layout.css'
@@ -88,8 +98,8 @@ jobs:
           cache-dependency-path: frontend/yarn.lock
       - name: Install frontend dependencies
         run: yarn install --frozen-lockfile
-      - name: Test mobile workout, home, and progress UI
-        run: CI=true yarn test --watchAll=false --runTestsByPath src/features/WorkoutLibrary.interaction.test.js src/features/ReferenceHome.artwork.test.js src/features/progressVisual.test.js
+      - name: Test mobile workout, home, progress, and artwork UI
+        run: CI=true yarn test --watchAll=false --runTestsByPath src/features/WorkoutLibrary.interaction.test.js src/features/ReferenceHome.artwork.test.js src/features/progressVisual.test.js src/features/exerciseArtworkLibrary.test.js
       - name: Build frontend
         env:
           CI: 'false'
