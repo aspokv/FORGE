@@ -5,6 +5,7 @@ import { ChevronRight, Plus, Trash2, X, Save, RotateCcw, Info, GripVertical, Lib
 import axios from "axios";
 import { TECHNIQUE_FALLBACK, findTechnique } from "./techniques";
 import WorkoutLibrary from "./WorkoutLibrary";
+import ExercisePhoto from "./ExercisePhoto";
 
 const REP_PRESETS = ["4–6", "6–8", "8–12", "10–15", "12–20"];
 const RIR_PRESETS = ["0", "1", "1–2", "2", "2–3", "3"];
@@ -155,7 +156,7 @@ export default function ProgramBuilder({ API, profile, exercises, techniques, pr
             <h2>Construa a sua semana</h2>
           </div>
           <div className="builder-header-actions">
-            <button className="secondary-button builder-library-button" data-testid="open-workout-library" onClick={() => setLibraryOpen(true)}><LibraryBig size={16}/> Biblioteca</button>
+            <button className="secondary-button builder-library-button" data-testid="open-workout-library" aria-label="Biblioteca" onClick={() => setLibraryOpen(true)}><LibraryBig size={16}/><span>Biblioteca</span></button>
             <button className="icon-button" data-testid="close-builder-button" onClick={onClose}><X size={20} /></button>
           </div>
         </div>
@@ -216,7 +217,7 @@ export default function ProgramBuilder({ API, profile, exercises, techniques, pr
                   <div className={dragEx === i ? "builder-exercise dragging" : "builder-exercise"} key={i} draggable onDragStart={e => { e.dataTransfer.setData("text/plain", i); e.dataTransfer.effectAllowed = "move"; setDragEx(i); }} onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; }} onDragEnd={() => setDragEx(null)} onDrop={e => { e.preventDefault(); const from = parseInt(e.dataTransfer.getData("text/plain"), 10); if (from !== i && !isNaN(from)) moveExercise(from, i); setDragEx(null); }}>
                     <div className="builder-exercise-head">
                       <GripVertical size={16} className="grip" />
-                      <span className="exercise-index">0{i + 1}</span>
+                      <ExercisePhoto exercise={{...ex,exercise_id:x.exercise_id}} className="editor-photo"/>
                       <select data-testid={`builder-exercise-${i}`} value={x.exercise_id} onChange={e => updateExercise(i, { exercise_id: e.target.value })}>
                         {exerciseList.map(e => <option key={e.id} value={e.id}>{e.name} · {e.muscle}</option>)}
                       </select>

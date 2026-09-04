@@ -1,0 +1,672 @@
+[
+  {
+    "id": "incline-smith",
+    "name": "Supino inclinado Smith",
+    "src": "/images/exercises/incline-smith-v1.webp"
+  },
+  {
+    "id": "lat-pulldown",
+    "name": "Puxada unilateral na polia",
+    "src": "/images/exercises/lat-pulldown-v1.webp"
+  },
+  {
+    "id": "lateral-raise",
+    "name": "Elevação lateral na polia",
+    "src": "/images/exercises/lateral-raise-v1.webp"
+  },
+  {
+    "id": "hack-squat",
+    "name": "Hack squat",
+    "src": "/images/exercises/hack-squat-v1.webp"
+  },
+  {
+    "id": "leg-curl",
+    "name": "Flexão de joelho sentado",
+    "src": "/images/exercises/leg-curl-v1.webp"
+  },
+  {
+    "id": "row",
+    "name": "Remada apoiada no peito",
+    "src": "/images/exercises/row-v1.webp"
+  },
+  {
+    "id": "bb-bench-press",
+    "name": "Supino reto com barra",
+    "src": "/images/exercises/bb-bench-press-v1.webp"
+  },
+  {
+    "id": "db-bench-press",
+    "name": "Supino reto com halteres",
+    "src": "/images/exercises/db-bench-press-v1.webp"
+  },
+  {
+    "id": "db-incline-press",
+    "name": "Supino inclinado com halteres",
+    "src": "/images/exercises/db-incline-press-v1.webp"
+  },
+  {
+    "id": "machine-chest-press",
+    "name": "Chest press máquina convergente",
+    "src": "/images/exercises/machine-chest-press-v1.webp"
+  },
+  {
+    "id": "cable-fly",
+    "name": "Crucifixo no cabo (cross)",
+    "src": "/images/exercises/cable-fly-v1.webp"
+  },
+  {
+    "id": "db-fly",
+    "name": "Crucifixo com halteres",
+    "src": "/images/exercises/db-fly-v1.webp"
+  },
+  {
+    "id": "db-pullover",
+    "name": "Pullover com halter",
+    "src": "/images/exercises/db-pullover-v1.webp"
+  },
+  {
+    "id": "cable-incline-fly",
+    "name": "Crucifixo inclinado no cabo",
+    "src": "/images/exercises/cable-incline-fly-v1.webp"
+  },
+  {
+    "id": "dip",
+    "name": "Paralelas / Dips",
+    "src": "/images/exercises/dip-v1.webp"
+  },
+  {
+    "id": "pullup",
+    "name": "Barra fixa pronada",
+    "src": "/images/exercises/pullup-v1.webp"
+  },
+  {
+    "id": "neutral-pullup",
+    "name": "Barra fixa neutra",
+    "src": "/images/exercises/neutral-pullup-v1.webp"
+  },
+  {
+    "id": "cable-pulldown",
+    "name": "Puxada alta na polia",
+    "src": "/images/exercises/cable-pulldown-v1.webp"
+  },
+  {
+    "id": "cable-straight-arm-pulldown",
+    "name": "Puxada reta com corda na polia",
+    "src": "/images/exercises/cable-straight-arm-pulldown-v1.webp"
+  },
+  {
+    "id": "bb-row",
+    "name": "Remada curvada com barra",
+    "src": "/images/exercises/bb-row-v1.webp"
+  },
+  {
+    "id": "db-row",
+    "name": "Remada unilateral com halter",
+    "src": "/images/exercises/db-row-v1.webp"
+  },
+  {
+    "id": "cable-row",
+    "name": "Remada baixa triângulo na polia",
+    "src": "/images/exercises/cable-row-v1.webp"
+  },
+  {
+    "id": "lat-prayer",
+    "name": "Puxador articulado / Pulldown",
+    "src": "/images/exercises/lat-prayer-v1.webp"
+  },
+  {
+    "id": "db-rear-fly",
+    "name": "Crucifixo inverso com halteres",
+    "src": "/images/exercises/db-rear-fly-v1.webp"
+  },
+  {
+    "id": "cable-face-pull",
+    "name": "Face pull no cabo",
+    "src": "/images/exercises/cable-face-pull-v1.webp"
+  },
+  {
+    "id": "machine-rear-fly",
+    "name": "Peck deck inverso",
+    "src": "/images/exercises/machine-rear-fly-v1.webp"
+  },
+  {
+    "id": "db-ohp",
+    "name": "Desenvolvimento com halteres",
+    "src": "/images/exercises/db-ohp-v1.webp"
+  },
+  {
+    "id": "smith-ohp",
+    "name": "Desenvolvimento máquina Smith",
+    "src": "/images/exercises/smith-ohp-v1.webp"
+  },
+  {
+    "id": "db-lateral-raise",
+    "name": "Elevação lateral com halteres",
+    "src": "/images/exercises/db-lateral-raise-v1.webp"
+  },
+  {
+    "id": "machine-lateral-raise",
+    "name": "Elevação lateral máquina",
+    "src": "/images/exercises/machine-lateral-raise-v1.webp"
+  },
+  {
+    "id": "bb-curl",
+    "name": "Rosca direta com barra",
+    "src": "/images/exercises/bb-curl-v1.webp"
+  },
+  {
+    "id": "db-curl",
+    "name": "Rosca alternada com halteres",
+    "src": "/images/exercises/db-curl-v1.webp"
+  },
+  {
+    "id": "cable-curl",
+    "name": "Rosca direta na polia",
+    "src": "/images/exercises/cable-curl-v1.webp"
+  },
+  {
+    "id": "preacher-curl",
+    "name": "Rosca no banco Scott",
+    "src": "/images/exercises/preacher-curl-v1.webp"
+  },
+  {
+    "id": "db-hammer-curl",
+    "name": "Martelo com halteres",
+    "src": "/images/exercises/db-hammer-curl-v1.webp"
+  },
+  {
+    "id": "cable-pushdown",
+    "name": "Tríceps corda na polia",
+    "src": "/images/exercises/cable-pushdown-v1.webp"
+  },
+  {
+    "id": "ez-skullcrusher",
+    "name": "Tríceps testa com barra EZ",
+    "src": "/images/exercises/ez-skullcrusher-v1.webp"
+  },
+  {
+    "id": "cable-overhead-extension",
+    "name": "Tríceps francês na polia",
+    "src": "/images/exercises/cable-overhead-extension-v1.webp"
+  },
+  {
+    "id": "db-overhead-extension",
+    "name": "Tríceps francês com halter",
+    "src": "/images/exercises/db-overhead-extension-v1.webp"
+  },
+  {
+    "id": "dip-machine",
+    "name": "Tríceps máquina",
+    "src": "/images/exercises/dip-machine-v1.webp"
+  },
+  {
+    "id": "bb-squat",
+    "name": "Agachamento com barra (high bar)",
+    "src": "/images/exercises/bb-squat-v1.webp"
+  },
+  {
+    "id": "leg-press",
+    "name": "Leg press 45°",
+    "src": "/images/exercises/leg-press-v1.webp"
+  },
+  {
+    "id": "leg-extension",
+    "name": "Cadeira extensora",
+    "src": "/images/exercises/leg-extension-v1.webp"
+  },
+  {
+    "id": "bulgarian-split-squat",
+    "name": "Agachamento búlgaro",
+    "src": "/images/exercises/bulgarian-split-squat-v1.webp"
+  },
+  {
+    "id": "lunge",
+    "name": "Avanço / Lunge",
+    "src": "/images/exercises/lunge-v1.webp"
+  },
+  {
+    "id": "rdl",
+    "name": "Stiff / RDL com barra",
+    "src": "/images/exercises/rdl-v1.webp"
+  },
+  {
+    "id": "db-rdl",
+    "name": "Stiff unilateral com halter",
+    "src": "/images/exercises/db-rdl-v1.webp"
+  },
+  {
+    "id": "lying-leg-curl",
+    "name": "Flexão de joelho deitado",
+    "src": "/images/exercises/lying-leg-curl-v1.webp"
+  },
+  {
+    "id": "hip-thrust",
+    "name": "Hip thrust barra",
+    "src": "/images/exercises/hip-thrust-v1.webp"
+  },
+  {
+    "id": "cable-glute-kickback",
+    "name": "Coice na polia",
+    "src": "/images/exercises/cable-glute-kickback-v1.webp"
+  },
+  {
+    "id": "abductor-machine",
+    "name": "Cadeira abdutora",
+    "src": "/images/exercises/abductor-machine-v1.webp"
+  },
+  {
+    "id": "standing-calf",
+    "name": "Panturrilha em pé (Smith)",
+    "src": "/images/exercises/standing-calf-v1.webp"
+  },
+  {
+    "id": "seated-calf",
+    "name": "Panturrilha sentado",
+    "src": "/images/exercises/seated-calf-v1.webp"
+  },
+  {
+    "id": "leg-press-calf",
+    "name": "Panturrilha no leg press",
+    "src": "/images/exercises/leg-press-calf-v1.webp"
+  },
+  {
+    "id": "cable-crunch",
+    "name": "Abdominal no cabo",
+    "src": "/images/exercises/cable-crunch-v1.webp"
+  },
+  {
+    "id": "hanging-leg-raise",
+    "name": "Elevação de pernas na barra",
+    "src": "/images/exercises/hanging-leg-raise-v1.webp"
+  },
+  {
+    "id": "machine-crunch",
+    "name": "Abdominal máquina",
+    "src": "/images/exercises/machine-crunch-v1.webp"
+  },
+  {
+    "id": "smith-hip-thrust",
+    "name": "Hip thrust Smith",
+    "src": "/images/exercises/smith-hip-thrust-v1.webp"
+  },
+  {
+    "id": "trap-bar-deadlift",
+    "name": "Levantamento com trap bar",
+    "src": "/images/exercises/trap-bar-deadlift-v1.webp"
+  },
+  {
+    "id": "conventional-deadlift",
+    "name": "Levantamento terra convencional",
+    "src": "/images/exercises/conventional-deadlift-v1.webp"
+  },
+  {
+    "id": "cable-hip-adduction",
+    "name": "Adução de quadril na polia",
+    "src": "/images/exercises/cable-hip-adduction-v1.webp"
+  },
+  {
+    "id": "adductor-machine",
+    "name": "Cadeira adutora",
+    "src": "/images/exercises/adductor-machine-v1.webp"
+  },
+  {
+    "id": "smith-bench-press",
+    "name": "Supino reto Smith",
+    "src": "/images/exercises/smith-bench-press-v1.webp"
+  },
+  {
+    "id": "db-decline-press",
+    "name": "Supino declinado com halteres",
+    "src": "/images/exercises/db-decline-press-v1.webp"
+  },
+  {
+    "id": "pec-deck",
+    "name": "Peck deck",
+    "src": "/images/exercises/pec-deck-v1.webp"
+  },
+  {
+    "id": "db-arnold-press",
+    "name": "Arnold Press",
+    "src": "/images/exercises/db-arnold-press-v1.webp"
+  },
+  {
+    "id": "cable-front-raise",
+    "name": "Elevação frontal no cabo",
+    "src": "/images/exercises/cable-front-raise-v1.webp"
+  },
+  {
+    "id": "cable-upright-row",
+    "name": "Remada alta no cabo",
+    "src": "/images/exercises/cable-upright-row-v1.webp"
+  },
+  {
+    "id": "incline-db-curl",
+    "name": "Rosca inclinada com halteres",
+    "src": "/images/exercises/incline-db-curl-v1.webp"
+  },
+  {
+    "id": "cable-hammer-curl",
+    "name": "Martelo na polia com corda",
+    "src": "/images/exercises/cable-hammer-curl-v1.webp"
+  },
+  {
+    "id": "rope-pushdown",
+    "name": "Tríceps corda V na polia",
+    "src": "/images/exercises/rope-pushdown-v1.webp"
+  },
+  {
+    "id": "close-grip-bench",
+    "name": "Supino fechado",
+    "src": "/images/exercises/close-grip-bench-v1.webp"
+  },
+  {
+    "id": "front-squat",
+    "name": "Agachamento frontal",
+    "src": "/images/exercises/front-squat-v1.webp"
+  },
+  {
+    "id": "goblet-squat",
+    "name": "Agachamento cálice",
+    "src": "/images/exercises/goblet-squat-v1.webp"
+  },
+  {
+    "id": "nordic-curl",
+    "name": "Nordic curl assistido",
+    "src": "/images/exercises/nordic-curl-v1.webp"
+  },
+  {
+    "id": "db-step-up",
+    "name": "Step up com halteres",
+    "src": "/images/exercises/db-step-up-v1.webp"
+  },
+  {
+    "id": "seated-hamstring-curl",
+    "name": "Flexão de joelho sentado",
+    "src": "/images/exercises/leg-curl-v1.webp"
+  },
+  {
+    "id": "glute-bridge",
+    "name": "Glute bridge",
+    "src": "/images/exercises/glute-bridge-v1.webp"
+  },
+  {
+    "id": "cable-woodchop",
+    "name": "Woodchop no cabo",
+    "src": "/images/exercises/cable-woodchop-v1.webp"
+  },
+  {
+    "id": "side-plank",
+    "name": "Prancha lateral",
+    "src": "/images/exercises/side-plank-v1.webp"
+  },
+  {
+    "id": "db-shrug",
+    "name": "Encolhimento com halteres",
+    "src": "/images/exercises/db-shrug-v1.webp"
+  },
+  {
+    "id": "smith-shrug",
+    "name": "Encolhimento Smith",
+    "src": "/images/exercises/smith-shrug-v1.webp"
+  },
+  {
+    "id": "db-calf-raise",
+    "name": "Panturrilha unilateral com halter",
+    "src": "/images/exercises/db-calf-raise-v1.webp"
+  },
+  {
+    "id": "db-adductor-lunge",
+    "name": "Lunge lateral com halter",
+    "src": "/images/exercises/db-adductor-lunge-v1.webp"
+  },
+  {
+    "id": "side-lying-adduction",
+    "name": "Aducao deitado lateral com halter",
+    "src": "/images/exercises/side-lying-adduction-v1.webp"
+  },
+  {
+    "id": "db-cable-curl",
+    "name": "Rosca concentrada com halter",
+    "src": "/images/exercises/db-cable-curl-v1.webp"
+  },
+  {
+    "id": "cable-rear-delt-crossover",
+    "name": "Crucifixo inverso no cabo",
+    "src": "/images/exercises/cable-rear-delt-crossover-v1.webp"
+  },
+  {
+    "id": "db-pullover-row",
+    "name": "Pullover combinado com halter",
+    "src": "/images/exercises/db-pullover-row-v1.webp"
+  },
+  {
+    "id": "bayesian-curl",
+    "name": "Rosca Bayesian na polia",
+    "src": "/images/exercises/bayesian-curl-v1.webp"
+  },
+  {
+    "id": "smith-squat",
+    "name": "Agachamento no Smith",
+    "src": "/images/exercises/smith-squat-v1.webp"
+  },
+  {
+    "id": "smith-lunge",
+    "name": "Avanço no Smith",
+    "src": "/images/exercises/smith-lunge-v1.webp"
+  },
+  {
+    "id": "single-leg-press",
+    "name": "Leg press unilateral",
+    "src": "/images/exercises/single-leg-press-v1.webp"
+  },
+  {
+    "id": "single-leg-extension",
+    "name": "Cadeira extensora unilateral",
+    "src": "/images/exercises/single-leg-extension-v1.webp"
+  },
+  {
+    "id": "db-incline-fly",
+    "name": "Crucifixo inclinado com halteres",
+    "src": "/images/exercises/db-incline-fly-v1.webp"
+  },
+  {
+    "id": "bb-incline-press",
+    "name": "Supino inclinado com barra",
+    "src": "/images/exercises/bb-incline-press-v1.webp"
+  },
+  {
+    "id": "pushup",
+    "name": "Flexão de braços",
+    "src": "/images/exercises/pushup-v1.webp"
+  },
+  {
+    "id": "db-front-raise",
+    "name": "Elevação frontal com halteres",
+    "src": "/images/exercises/db-front-raise-v1.webp"
+  },
+  {
+    "id": "reverse-pushdown",
+    "name": "Tríceps na polia com pegada supinada",
+    "src": "/images/exercises/reverse-pushdown-v1.webp"
+  },
+  {
+    "id": "bar-pushdown",
+    "name": "Tríceps na polia com barra reta",
+    "src": "/images/exercises/bar-pushdown-v1.webp"
+  },
+  {
+    "id": "db-leg-curl",
+    "name": "Flexão de joelho com halter",
+    "src": "/images/exercises/db-leg-curl-v1.webp"
+  },
+  {
+    "id": "sumo-db-deadlift",
+    "name": "Terra sumô com halter",
+    "src": "/images/exercises/sumo-db-deadlift-v1.webp"
+  },
+  {
+    "id": "db-stiff-bilateral",
+    "name": "Stiff com halteres bilateral",
+    "src": "/images/exercises/db-stiff-bilateral-v1.webp"
+  },
+  {
+    "id": "reverse-hyper",
+    "name": "Hiperextensão reversa adaptada",
+    "src": "/images/exercises/reverse-hyper-v1.webp"
+  },
+  {
+    "id": "back-extension",
+    "name": "Hiperextensão lombar",
+    "src": "/images/exercises/back-extension-v1.webp"
+  },
+  {
+    "id": "floor-crunch",
+    "name": "Abdominal crunch",
+    "src": "/images/exercises/floor-crunch-v1.webp"
+  },
+  {
+    "id": "jackknife",
+    "name": "Abdominal canivete",
+    "src": "/images/exercises/jackknife-v1.webp"
+  },
+  {
+    "id": "front-plank",
+    "name": "Prancha abdominal",
+    "src": "/images/exercises/front-plank-v1.webp"
+  },
+  {
+    "id": "bb-upright-row",
+    "name": "Remada alta com barra W",
+    "src": "/images/exercises/bb-upright-row-v1.webp"
+  },
+  {
+    "id": "high-cable-curl",
+    "name": "Rosca na polia alta",
+    "src": "/images/exercises/high-cable-curl-v1.webp"
+  },
+  {
+    "id": "sumo-deadlift",
+    "name": "Levantamento terra sumô",
+    "src": "/images/exercises/sumo-deadlift-v1.webp"
+  },
+  {
+    "id": "supinated-pulldown",
+    "name": "Puxada alta supinada fechada",
+    "src": "/images/exercises/supinated-pulldown-v1.webp"
+  },
+  {
+    "id": "rope-curl",
+    "name": "Rosca direta com corda",
+    "src": "/images/exercises/rope-curl-v1.webp"
+  },
+  {
+    "id": "four-point-kickback",
+    "name": "Glúteos em quatro apoios",
+    "src": "/images/exercises/four-point-kickback-v1.webp"
+  },
+  {
+    "id": "scissor-adduction",
+    "name": "Adução tesoura",
+    "src": "/images/exercises/scissor-adduction-v1.webp"
+  },
+  {
+    "id": "alternating-crunch",
+    "name": "Abdominal alto alternado",
+    "src": "/images/exercises/alternating-crunch-v1.webp"
+  },
+  {
+    "id": "bb-decline-press",
+    "name": "Supino declinado com barra",
+    "src": "/images/exercises/bb-decline-press-v1.webp"
+  },
+  {
+    "id": "reverse-crunch",
+    "name": "Abdominal infra com elevação de quadril",
+    "src": "/images/exercises/reverse-crunch-v1.webp"
+  },
+  {
+    "id": "decline-crunch",
+    "name": "Abdominal supra na prancha",
+    "src": "/images/exercises/decline-crunch-v1.webp"
+  },
+  {
+    "id": "machine-standing-calf",
+    "name": "Panturrilha em pé na máquina",
+    "src": "/images/exercises/machine-standing-calf-v1.webp"
+  },
+  {
+    "id": "supinated-bb-row",
+    "name": "Remada curvada supinada",
+    "src": "/images/exercises/supinated-bb-row-v1.webp"
+  },
+  {
+    "id": "supinated-cable-row",
+    "name": "Remada baixa supinada",
+    "src": "/images/exercises/supinated-cable-row-v1.webp"
+  },
+  {
+    "id": "rack-pull",
+    "name": "Meio terra",
+    "src": "/images/exercises/rack-pull-v1.webp"
+  },
+  {
+    "id": "seated-db-lateral",
+    "name": "Elevação lateral sentado com halteres",
+    "src": "/images/exercises/seated-db-lateral-v1.webp"
+  },
+  {
+    "id": "incline-lateral",
+    "name": "Elevação lateral unilateral no banco 45°",
+    "src": "/images/exercises/incline-lateral-v1.webp"
+  },
+  {
+    "id": "seated-db-front",
+    "name": "Elevação frontal sentado com halteres",
+    "src": "/images/exercises/seated-db-front-v1.webp"
+  },
+  {
+    "id": "bb-front-raise",
+    "name": "Elevação frontal com barra",
+    "src": "/images/exercises/bb-front-raise-v1.webp"
+  },
+  {
+    "id": "incline-rope-skullcrusher",
+    "name": "Tríceps testa com corda no banco 45°",
+    "src": "/images/exercises/incline-rope-skullcrusher-v1.webp"
+  },
+  {
+    "id": "cable-preacher",
+    "name": "Rosca Scott no cabo",
+    "src": "/images/exercises/cable-preacher-v1.webp"
+  },
+  {
+    "id": "spider-curl",
+    "name": "Rosca spider",
+    "src": "/images/exercises/spider-curl-v1.webp"
+  },
+  {
+    "id": "wrist-flexion-extension",
+    "name": "Flexão e extensão de punho",
+    "src": "/images/exercises/wrist-flexion-extension-v1.webp"
+  },
+  {
+    "id": "machine-ohp",
+    "name": "Desenvolvimento na máquina",
+    "src": "/images/exercises/machine-ohp-v1.webp"
+  },
+  {
+    "id": "standing-db-curl",
+    "name": "Rosca direta com halteres em pé",
+    "src": "/images/exercises/standing-db-curl-v1.webp"
+  },
+  {
+    "id": "neutral-pulldown",
+    "name": "Puxada alta com triângulo",
+    "src": "/images/exercises/neutral-pulldown-v1.webp"
+  },
+  {
+    "id": "wide-cable-row",
+    "name": "Remada baixa aberta",
+    "src": "/images/exercises/wide-cable-row-v1.webp"
+  }
+]

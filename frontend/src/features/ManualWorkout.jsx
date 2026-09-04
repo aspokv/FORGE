@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import axios from "axios";
+import ExercisePhoto from "./ExercisePhoto";
 import {
   AlertTriangle, ChevronDown, ChevronRight, ChevronUp, ClipboardPaste, Loader2, Plus,
   Save, Sliders, Trash2, X, Zap,
@@ -337,7 +338,7 @@ export default function ManualWorkout({ API, profile, exercises, onActivated, on
                 {day.exercises.map((x, exIdx) => (
                   <div className={x.needs_review ? "manual-exercise review" : "manual-exercise"} key={x._k} data-testid={`manual-exercise-${dayIdx}-${exIdx}`}>
                     <div className="manual-exercise-head">
-                      <span className="exercise-index">{String(exIdx + 1).padStart(2, "0")}</span>
+                      <ExercisePhoto exercise={{exercise_id:x.exercise_id,name:exerciseName(x.exercise_id)}} className="editor-photo"/>
                       <select
                         data-testid={`manual-exercise-select-${dayIdx}-${exIdx}`}
                         value={x.exercise_id || ""}
