@@ -18,6 +18,9 @@ on:
       - 'frontend/src/features/WorkoutLibrary.jsx'
       - 'frontend/src/features/workout-library.css'
       - 'frontend/src/features/WorkoutLibrary.interaction.test.js'
+      - 'frontend/src/features/ReferenceHome.jsx'
+      - 'frontend/src/features/ReferenceHome.artwork.test.js'
+      - 'frontend/src/home-hero-card.css'
       - '.github/workflows/training-engine-ci.yml'
   pull_request:
     paths:
@@ -35,6 +38,9 @@ on:
       - 'frontend/src/features/WorkoutLibrary.jsx'
       - 'frontend/src/features/workout-library.css'
       - 'frontend/src/features/WorkoutLibrary.interaction.test.js'
+      - 'frontend/src/features/ReferenceHome.jsx'
+      - 'frontend/src/features/ReferenceHome.artwork.test.js'
+      - 'frontend/src/home-hero-card.css'
       - '.github/workflows/training-engine-ci.yml'
 
 jobs:
@@ -78,8 +84,8 @@ jobs:
           cache-dependency-path: frontend/yarn.lock
       - name: Install frontend dependencies
         run: yarn install --frozen-lockfile
-      - name: Test mobile workout apply interaction
-        run: CI=true yarn test --watchAll=false --runTestsByPath src/features/WorkoutLibrary.interaction.test.js
+      - name: Test mobile workout and home UI
+        run: CI=true yarn test --watchAll=false --runTestsByPath src/features/WorkoutLibrary.interaction.test.js src/features/ReferenceHome.artwork.test.js
       - name: Build frontend
         env:
           CI: 'false'
