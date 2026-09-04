@@ -1,8 +1,15 @@
 import React, {act} from 'react';
 import {createRoot} from 'react-dom/client';
 import axios from 'axios';
-import FoodDiaryEditor from './FoodDiaryEditor';
+import FoodDiaryEditor,{matchesFoodQuery} from './FoodDiaryEditor';
 jest.mock('axios',()=>({get:jest.fn(),post:jest.fn()}));
+
+test('search ignores accents and includes aliases',()=>{
+  const food={name:'Carne moída (acém)',aliases:['carne moida refogada','guizado']};
+  expect(matchesFoodQuery(food,'carne moida')).toBe(true);
+  expect(matchesFoodQuery(food,'guizado')).toBe(true);
+  expect(matchesFoodQuery(food,'carne frango')).toBe(false);
+});
 
 test('save retry preserves id and sends weighed foods instead of client calories',async()=>{
   global.IS_REACT_ACT_ENVIRONMENT=true;

@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from auth import get_current_user
 from nutrition_routes import router
+from food_diary import DIARY_FOODS
 
 
 class Collection:
@@ -36,6 +37,10 @@ class Collection:
 
 
 class FoodDiaryTests(unittest.TestCase):
+    def test_ground_beef_is_in_consumed_food_catalog(self):
+        self.assertIn('beef-ground', DIARY_FOODS)
+        self.assertIn('carne moída', DIARY_FOODS['beef-ground']['name'].lower())
+
     def setUp(self):
         self.db = SimpleNamespace(nutrition_adherence=Collection(), nutrition_consumed_extras=Collection(), nutrition_plans=Collection())
         self.db.nutrition_plans.rows['plan'] = {'profile_id': 'alice', 'plan': {'meals': [{'name': 'Almoço'}]}}
@@ -46,9 +51,16 @@ class FoodDiaryTests(unittest.TestCase):
         app.dependency_overrides[get_current_user] = lambda: self.user
         self.client = TestClient(app)
         self.entitlement = patch('nutrition_routes.exigir_capacidade', new_callable=AsyncMock)
-        self.entitlement.start()
+        self.entitlement_mock = self.entitlement.start()
         self.addCleanup(self.entitlement.stop)
         self.payload = {'date': '2026-09-03', 'meal_index': 0, 'entry_id': '00000000-0000-4000-8000-000000000001', 'foods': [{'food_id': 'diary-beef-ribs-roasted', 'grams': 150}]}
+
+    def test_catalog_load_does_not_depend_on_billing_lookup(self):
+        self.entitlement_mock.side_effect = RuntimeError('billing unavailable')
+        response = self.client.get('/api/nutrition/consumed-foods')
+        self.assertEqual(response.status_code, 200, response.text)
+        ground = next(f for f in response.json()['foods'] if f['id'] == 'beef-ground')
+        self.assertIn('carne moida', ground['aliases'])
 
     def test_replacement_persists_server_calculation_without_changing_plan(self):
         before = copy.deepcopy(self.db.nutrition_plans.rows)

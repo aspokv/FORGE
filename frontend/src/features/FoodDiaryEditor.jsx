@@ -3,7 +3,13 @@ import axios from "axios";
 import {localFoodDate} from "./foodDiary";
 import "./food-diary.css";
 
-const clean=s=>s.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
+const clean=s=>String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim();
+export const matchesFoodQuery=(food,query)=>{
+  const terms=clean(query).split(/\s+/).filter(Boolean);
+  if(!terms.length)return true;
+  const text=clean([food.name,...(food.aliases||[])].join(" "));
+  return terms.every(term=>text.includes(term));
+};
 export default function FoodDiaryEditor({API,mealIndex,mealName,onSaved,onClose}) {
   const [catalog,setCatalog]=useState([]),[query,setQuery]=useState(""),[items,setItems]=useState([]);
   const [error,setError]=useState(""),[busy,setBusy]=useState(false),[loading,setLoading]=useState(true);
@@ -14,7 +20,7 @@ export default function FoodDiaryEditor({API,mealIndex,mealName,onSaved,onClose}
     axios.get(`${API}/nutrition/consumed-foods`,{signal:c.signal}).then(r=>setCatalog(r.data.foods||[])).catch(()=>{if(!c.signal.aborted)setError("Não foi possível carregar o catálogo. Feche e tente novamente.")}).finally(()=>{if(!c.signal.aborted)setLoading(false)});
     return()=>c.abort();
   },[API]);
-  const results=catalog.filter(f=>clean(f.name).includes(clean(query))).slice(0,12);
+  const results=catalog.filter(f=>matchesFoodQuery(f,query)).slice(0,12);
   const totals=items.reduce((sum,item)=>{["kcal","protein_g","carbs_g","fat_g"].forEach(k=>sum[k]+=Number(item[k]||0)*Number(item.amount||0)/Number(item.grams||100));return sum},{kcal:0,protein_g:0,carbs_g:0,fat_g:0});
   const save=async()=>{
     if(busy||!items.length)return;

@@ -756,8 +756,7 @@ async def get_adherence(date: CalendarDate, request: Request, user=Depends(get_c
 
 @router.get("/consumed-foods")
 async def consumed_food_catalog(request: Request, user=Depends(get_current_user)):
-    await exigir_capacidade(request.app.state.db, user, ALIMENTACAO)
-    return {"foods": [{k: f.get(k) for k in ("id", "name", "grams", "kcal", "protein_g", "carbs_g", "fat_g", "source", "source_url")} for f in DIARY_FOODS.values()]}
+    return {"foods": [{k: f.get(k) for k in ("id", "name", "aliases", "grams", "kcal", "protein_g", "carbs_g", "fat_g", "source", "source_url")} for f in DIARY_FOODS.values()]}
 
 
 @router.post("/consumed-meal")
