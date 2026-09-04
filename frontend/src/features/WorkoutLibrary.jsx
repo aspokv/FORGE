@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { BookOpen, Check, ChevronRight, Dumbbell, Layers3, Plus, ShieldAlert, Timer, X } from "lucide-react";
 import "./workout-library.css";
+import ExercisePhoto from "./ExercisePhoto";
 
 export const templateToSession = (template, day) => ({
   day,
@@ -226,7 +227,7 @@ export default function WorkoutLibrary({ API, exercises = [], onBuild, onTemplat
               </button>
               {previewId === template.id && <div className="library-mobile-session-preview" data-testid={`template-exercises-${template.id}`} onClick={event => event.stopPropagation()}>
                 <div className="library-mobile-preview-head"><span>EXERCÍCIOS DA SESSÃO</span><em>{template.total_sets} séries · {template.duration} min</em></div>
-                <div className="library-mobile-exercise-list">{template.exercises.map((item, exerciseIndexNumber) => <div key={`${item.exercise_id}-${exerciseIndexNumber}`}><span>{String(exerciseIndexNumber + 1).padStart(2,"0")}</span><div><b>{exerciseIndex[item.exercise_id]?.name || item.exercise_id}</b><small>{item.sets} séries · {item.reps} reps · RIR {item.rir}</small></div><em>{item.rest}</em></div>)}</div>
+                <div className="library-mobile-exercise-list">{template.exercises.map((item, exerciseIndexNumber) => <div key={`${item.exercise_id}-${exerciseIndexNumber}`}><ExercisePhoto exercise={exerciseIndex[item.exercise_id]||{exercise_id:item.exercise_id}} className="library-photo"/><div><b>{exerciseIndex[item.exercise_id]?.name || item.exercise_id}</b><small>{item.sets} séries · {item.reps} reps · RIR {item.rir}</small></div><em>{item.rest}</em></div>)}</div>
                 <button type="button" disabled={addingId === template.id || isApplied(template.id)} className="primary-button library-mobile-apply" onClick={() => applyTemplate(template)}>{addingId === template.id ? "Aplicando…" : isApplied(template.id) ? "Este é o treino atual" : <>Usar como treino atual <ChevronRight size={16}/></>}</button>
                 {actionTemplateId === template.id && actionMessage && <p data-testid="library-apply-inline-status" className={`library-action-message${actionMessage.includes("treino atual") ? " success" : " error"}`} role="status" aria-live="polite">{actionMessage}</p>}
               </div>}
@@ -240,7 +241,7 @@ export default function WorkoutLibrary({ API, exercises = [], onBuild, onTemplat
           <div className="library-preview-head"><div><p className="eyebrow">PRÉVIA DA SESSÃO</p><h3>{active.name}</h3></div><span>{active.total_sets} séries</span></div>
           <div className="library-exercise-list">
             {active.exercises.map((item, index) => <div key={`${item.exercise_id}-${index}`}>
-              <span>0{index + 1}</span>
+              <ExercisePhoto exercise={exerciseIndex[item.exercise_id]||{exercise_id:item.exercise_id}} className="library-photo"/>
               <div><b>{exerciseIndex[item.exercise_id]?.name || item.exercise_id}</b><small>{item.sets} séries · {item.reps} reps · RIR {item.rir}</small></div>
               <em>{item.rest}</em>
             </div>)}
@@ -303,7 +304,7 @@ export default function WorkoutLibrary({ API, exercises = [], onBuild, onTemplat
           <div className="program-session-list">
             {activePhase.sessions.map((workout, dayIndex) => <details key={`${activePhase.id}-${workout.label}`} open={dayIndex === 0}>
               <summary><span>D{dayIndex + 1}</span><div><b>{workout.label}</b><small>{workout.exercise_count} exercícios · {workout.total_sets} séries · {workout.duration} min</small></div><ChevronRight size={16}/></summary>
-              <div className="program-session-exercises">{workout.exercises.map((item, index) => <div key={`${item.exercise_id}-${index}`}><span>{String(index + 1).padStart(2, "0")}</span><div><b>{exerciseIndex[item.exercise_id]?.name || item.exercise_id}</b><small>{item.sets}× {item.reps} · RIR {item.rir}{item.technique_id !== "straight" ? ` · ${item.technique}` : ""}</small>{item.note&&<small>{item.note}</small>}</div><em>{item.rest}</em></div>)}</div>
+              <div className="program-session-exercises">{workout.exercises.map((item, index) => <div key={`${item.exercise_id}-${index}`}><ExercisePhoto exercise={exerciseIndex[item.exercise_id]||{exercise_id:item.exercise_id}} className="library-photo"/><div><b>{exerciseIndex[item.exercise_id]?.name || item.exercise_id}</b><small>{item.sets}× {item.reps} · RIR {item.rir}{item.technique_id !== "straight" ? ` · ${item.technique}` : ""}</small>{item.note&&<small>{item.note}</small>}</div><em>{item.rest}</em></div>)}</div>
             </details>)}
           </div>
           {activeProgram.safety === "expert" && <label className="expert-confirm"><input type="checkbox" checked={expertAccepted} onChange={event => setExpertAccepted(event.target.checked)}/><span>Confirmo que este modelo será revisado para nível, recuperação e histórico antes de ser salvo.</span></label>}

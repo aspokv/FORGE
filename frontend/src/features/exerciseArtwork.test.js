@@ -1,13 +1,13 @@
-import {artworkSlotFor} from "./ReferenceWorkoutPreview";
+import {reviewedArtworkForExercise} from "./reviewedExerciseArtwork";
 
 describe("exercise artwork mapping",()=>{
   test.each([
-    ["Remada apoiada no peito",0],
-    ["Puxada unilateral na polia",1],
-    ["Remada curvada com barra",2],
-    ["Pullover com halter",3],
-    ["Crucifixo inverso com halteres",4],
-    ["Rosca direta com barra",5],
-  ])("maps %s to its approved artwork",(name,slot)=>expect(artworkSlotFor(name)).toBe(slot));
-  test("does not lie with a random exercise image",()=>expect(artworkSlotFor("Agachamento livre")).toBe(-1));
+    ["Remada apoiada no peito","row"],
+    ["Puxada unilateral na polia","lat-pulldown"],
+    ["Remada curvada com barra","bb-row"],
+    ["Pullover com halter","db-pullover"],
+    ["Crucifixo inverso com halteres","db-rear-fly"],
+    ["Rosca direta com barra","bb-curl"],
+  ])("maps %s to its catalog photo",(name,id)=>expect(reviewedArtworkForExercise({name})).toBe(`/images/exercises/${id}-v1.webp`));
+  test("does not invent an association",()=>expect(reviewedArtworkForExercise({name:"Exercício desconhecido"})).toBeNull());
 });
