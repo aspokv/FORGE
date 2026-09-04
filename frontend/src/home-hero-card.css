@@ -7,6 +7,15 @@
 .ref3-top-hero-copy p{margin:8px 0 0;color:#c2c0bc;font:400 16px/1.35 Inter,system-ui,sans-serif}
 .ref3-top-hero-avatar{position:absolute;z-index:2;right:18px;top:18px;width:46px;height:46px;display:grid;place-items:center;border:1px solid rgba(255,255,255,.2);border-radius:50%;background:rgba(8,9,9,.62);backdrop-filter:blur(9px);color:#eee}
 .ref3-top-hero-motto{position:absolute;z-index:2;right:19px;bottom:25px;display:flex;flex-direction:column;gap:3px;padding-left:12px;border-left:2px solid #f29a55;color:#d7d3cd;font:600 10px/1.15 Inter,system-ui,sans-serif;letter-spacing:.18em}
+
+/* Plano de hoje: artwork sempre local, crop uniforme e sem faixa cinza/placeholder. */
+.reference-home-v3 .ref3-plan-card{grid-template-columns:96px minmax(0,1fr) 20px;min-height:124px;padding:13px;gap:15px}
+.reference-home-v3 .ref3-plan-art{width:96px;height:96px;position:relative;overflow:hidden;border-radius:12px;background:radial-gradient(circle at 50% 30%,#242526,#101111 72%);border:1px solid rgba(255,255,255,.09);isolation:isolate}
+.reference-home-v3 .ref3-plan-art img{display:block;width:100%;height:100%;object-fit:cover;object-position:center;background:#111212;transform:scale(1.015)}
+.reference-home-v3 .ref3-plan-art::after{content:"";position:absolute;z-index:1;inset:0;pointer-events:none;background:linear-gradient(180deg,transparent 58%,rgba(7,8,8,.42) 100%)}
+.reference-home-v3 .ref3-plan-art span{z-index:2;right:7px;bottom:7px}
+.reference-home-v3 .ref3-plan-copy{align-self:center}
+
 @media(max-width:430px){
   .ref3-top-hero{min-height:238px;margin-left:0;margin-right:0;border-radius:18px}
   .ref3-top-hero-copy{left:18px;top:19px;max-width:61%}
@@ -15,4 +24,11 @@
   .ref3-top-hero-copy p{font-size:14px}
   .ref3-top-hero-motto{right:15px;bottom:22px;font-size:9px}
   .ref3-top-hero-avatar{right:14px;top:14px;width:42px;height:42px}
+}
+
+@media(max-width:380px){
+  .reference-home-v3 .ref3-plan-card{grid-template-columns:86px minmax(0,1fr) 18px;gap:11px}
+  .reference-home-v3 .ref3-plan-art{width:86px;height:86px}
+  .reference-home-v3 .ref3-plan-copy>strong{font-size:19px}
+  .reference-home-v3 .ref3-plan-copy>small{font-size:13px}
 }
