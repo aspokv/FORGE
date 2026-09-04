@@ -30,6 +30,18 @@ describe("premium exercise artwork library",()=>{
     expect(doc.querySelectorAll(".ref3-ex-art[data-art-slot]")).toHaveLength(sample.length);
   });
 
+  it("positions every tile on the 12-column premium atlas",()=>{
+    const target=catalog.find(ex=>ex.id==="hack-squat")||catalog[0];
+    const slot=artworkSlotForExercise(target);
+    const html=renderToStaticMarkup(<ReferenceWorkoutPreview db={{exercises:catalog,program:{}}} activeSession={{label:"Legs"}} items={[{exercise_id:target.id,sets:3,reps:"8–12",rir:2}]} onStart={()=>{}} onLibrary={()=>{}}/>);
+    const doc=new DOMParser().parseFromString(html,"text/html");
+    const art=doc.querySelector(".ref3-ex-art");
+    expect(Number(art.getAttribute("data-art-col"))).toBe(slot%12);
+    expect(Number(art.getAttribute("data-art-row"))).toBe(Math.floor(slot/12));
+    expect(art.getAttribute("style")).toContain(`--art-x:${(slot%12)*-82}px`);
+    expect(art.getAttribute("style")).toContain(`--art-y:${Math.floor(slot/12)*-82}px`);
+  });
+
   it("does not crash on partial runtime payloads",()=>{
     expect(()=>renderToStaticMarkup(<ReferenceWorkoutPreview db={{program:{focus:"Costas"}}} activeSession={{label:"Pull 2",focus:"Costas"}} items={[{exercise_id:"custom-row",name:"Remada custom",equipment:"cable",sets:3,reps:"10",rir:2}]} onStart={()=>{}} onLibrary={()=>{}}/>)).not.toThrow();
     expect(()=>renderToStaticMarkup(<ReferenceWorkoutPreview db={{}} items={undefined} onStart={()=>{}} onLibrary={()=>{}}/>)).not.toThrow();
