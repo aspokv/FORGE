@@ -1,0 +1,234 @@
+/* Approved 2026-09-04 mobile reference lock. This file intentionally loads last. */
+@media (max-width: 800px) {
+  .forge-shell:has(.reference-home-v3) .main { background:#050606!important; }
+  .reference-home-v3 {
+    width:100%!important;
+    max-width:none!important;
+    margin:0!important;
+    padding:0 18px 102px!important;
+    background:#050606!important;
+    overflow-x:hidden;
+  }
+
+  /* HERO: full bleed, same proportions and composition as the approved screenshot. */
+  .ref3-top-hero {
+    position:relative!important;
+    width:100vw!important;
+    min-height:208px!important;
+    height:208px!important;
+    margin:0 calc(50% - 50vw)!important;
+    border:0!important;
+    border-radius:0!important;
+    overflow:hidden!important;
+    background:
+      radial-gradient(circle at 54% 48%,rgba(126,67,32,.11),transparent 32%),
+      linear-gradient(90deg,#050606 0%,#070808 44%,#050606 100%)!important;
+    box-shadow:none!important;
+  }
+  .ref3-top-hero>img {
+    position:absolute!important;
+    z-index:0!important;
+    top:0!important;
+    right:17%!important;
+    left:auto!important;
+    width:45%!important;
+    height:100%!important;
+    object-fit:cover!important;
+    object-position:center!important;
+    filter:saturate(.88) contrast(1.06) brightness(.92)!important;
+  }
+  .ref3-top-hero-shade {
+    z-index:1!important;
+    background:
+      linear-gradient(90deg,#050606 0%,rgba(5,6,6,.98) 27%,rgba(5,6,6,.40) 43%,rgba(5,6,6,.02) 62%,rgba(5,6,6,.55) 83%,#050606 100%),
+      linear-gradient(0deg,rgba(5,6,6,.24),transparent 52%)!important;
+  }
+  .ref3-top-hero-copy {
+    z-index:2!important;
+    left:18px!important;
+    top:24px!important;
+    max-width:48%!important;
+  }
+  .ref3-top-hero-brand {
+    position:relative!important;
+    color:#f0a463!important;
+    font:800 26px/1 Inter,system-ui,sans-serif!important;
+    letter-spacing:.055em!important;
+    font-style:italic!important;
+  }
+  .ref3-top-hero-brand:after {
+    content:"";
+    position:absolute;
+    left:0;
+    top:47px;
+    width:39px;
+    height:2px;
+    border-radius:2px;
+    background:#e8914c;
+  }
+  .ref3-top-hero-copy h1 {
+    margin:48px 0 0!important;
+    color:#fff!important;
+    font:750 29px/1.04 Inter,system-ui,sans-serif!important;
+    letter-spacing:-.65px!important;
+    text-transform:none!important;
+    white-space:nowrap;
+  }
+  .ref3-top-hero-copy p {
+    margin:10px 0 0!important;
+    color:#c3c0bd!important;
+    font:400 15px/1.45 Inter,system-ui,sans-serif!important;
+  }
+  .ref3-top-hero-avatar {
+    z-index:3!important;
+    right:15px!important;
+    top:24px!important;
+    width:44px!important;
+    height:44px!important;
+    border:1px solid rgba(255,255,255,.22)!important;
+    background:rgba(6,7,7,.34)!important;
+    color:#eee!important;
+    backdrop-filter:blur(4px)!important;
+  }
+  .ref3-top-hero-motto {
+    z-index:3!important;
+    right:19px!important;
+    bottom:45px!important;
+    padding:0!important;
+    border:0!important;
+    gap:3px!important;
+    color:#d9d6d1!important;
+    font:600 9px/1.08 Inter,system-ui,sans-serif!important;
+    letter-spacing:.18em!important;
+  }
+  .ref3-top-hero-motto:after {
+    content:"";
+    display:block;
+    width:28px;
+    height:2px;
+    margin-top:19px;
+    margin-left:auto;
+    background:#e8914c;
+    border-radius:2px;
+  }
+
+  /* Weekly card starts immediately after the hero, as in the reference. */
+  .ref3-week {
+    margin-top:0!important;
+    margin-bottom:17px!important;
+    border-radius:15px!important;
+    border-color:rgba(255,255,255,.16)!important;
+    background:linear-gradient(145deg,#111212,#0c0d0d)!important;
+  }
+  .ref3-week h2,.ref3-plan h2,.ref3-nutrition h2,.ref3-hydration h2 {
+    font-size:22px!important;
+    font-weight:680!important;
+    letter-spacing:-.3px!important;
+  }
+  .ref3-week-days span { font-size:12px!important; }
+  .ref3-week-days i { border-width:2px!important; }
+
+  /* Plan card. */
+  .ref3-plan { margin-bottom:14px!important; }
+  .ref3-plan>p {
+    margin:4px 0 10px!important;
+    font-size:16px!important;
+    text-transform:none!important;
+  }
+  .ref3-plan-card {
+    min-height:136px!important;
+    grid-template-columns:110px minmax(0,1fr) 42px!important;
+    gap:14px!important;
+    padding:11px!important;
+    border-radius:15px!important;
+    background:linear-gradient(135deg,#151616,#0d0e0e)!important;
+    border-color:rgba(255,255,255,.15)!important;
+  }
+  .ref3-plan-art {
+    width:110px!important;
+    height:110px!important;
+    border-radius:10px!important;
+    border:1px solid rgba(255,255,255,.09)!important;
+  }
+  .ref3-plan-art img { object-fit:cover!important; object-position:center 54%!important; }
+  .ref3-plan-art span { display:none!important; }
+  .ref3-plan-copy>strong { font-size:21px!important; font-weight:680!important; }
+  .ref3-plan-copy>small { font-size:14px!important; margin:7px 0 12px!important; }
+  .ref3-plan-copy>div { gap:8px!important; flex-wrap:nowrap!important; }
+  .ref3-plan-copy em { padding:7px 9px!important; font-size:13px!important; }
+  .ref3-plan-card>svg {
+    width:40px!important;
+    height:40px!important;
+    padding:9px!important;
+    border-radius:50%!important;
+    color:#fff!important;
+    background:#704023!important;
+    stroke-width:2.2!important;
+  }
+
+  /* Nutrition dimensions and rhythm from reference. */
+  .ref3-nutrition {
+    padding:16px 18px 17px!important;
+    margin-bottom:12px!important;
+    border-radius:15px!important;
+  }
+  .ref3-nutrition>p { margin:4px 0 10px!important; font-size:15px!important; }
+  .ref3-calorie-row { gap:22px!important; margin-bottom:16px!important; }
+  .ref3-calorie-ring { width:88px!important; height:88px!important; }
+  .ref3-calorie-ring i { width:67px!important; height:67px!important; }
+  .ref3-calorie-row strong { font-size:25px!important; font-weight:670!important; }
+  .ref3-calorie-row span { font-size:14px!important; }
+  .ref3-macros { gap:22px!important; }
+  .ref3-macro>span { font-size:13px!important; margin-bottom:7px!important; }
+  .ref3-macro>strong { font-size:13px!important; margin-top:7px!important; }
+
+  /* Hydration: outlined circular drops, exactly like the approved reference. */
+  .ref3-hydration { margin-bottom:0!important; border-radius:15px!important; }
+  .ref3-water-main { padding:16px 18px 17px!important; }
+  .ref3-water-main>strong { margin-top:6px!important; font-size:25px!important; }
+  .ref3-water-main>span { margin-top:2px!important; font-size:15px!important; }
+  .ref3-drops { margin-top:13px!important; gap:7px!important; }
+  .ref3-drops svg {
+    box-sizing:border-box!important;
+    width:42px!important;
+    height:42px!important;
+    padding:10px!important;
+    border:1px solid #505252!important;
+    border-radius:50%!important;
+    color:#d1d1cf!important;
+    fill:transparent!important;
+    stroke-width:1.7!important;
+  }
+  .ref3-drops svg.filled { border-color:#6d96a8!important; color:#78b8d3!important; fill:transparent!important; }
+
+  /* Bottom navigation: flat black bar with active indicator ABOVE the icon. */
+  .forge-shell:has(.reference-home-v3) .mobile-nav {
+    min-height:88px!important;
+    padding:5px 12px calc(8px + env(safe-area-inset-bottom))!important;
+    border-top:1px solid #202121!important;
+    background:#050606!important;
+    box-shadow:none!important;
+  }
+  .forge-shell:has(.reference-home-v3) .mobile-nav .nav-item {
+    min-height:72px!important;
+    font-size:11px!important;
+  }
+  .forge-shell:has(.reference-home-v3) .mobile-nav .nav-item.active:after {
+    top:0!important;
+    bottom:auto!important;
+    width:38px!important;
+    height:2px!important;
+  }
+}
+
+@media (max-width:390px) {
+  .reference-home-v3 { padding-left:14px!important; padding-right:14px!important; }
+  .ref3-top-hero-copy { left:16px!important; }
+  .ref3-top-hero-copy h1 { font-size:27px!important; }
+  .ref3-plan-card { grid-template-columns:96px minmax(0,1fr) 38px!important; gap:11px!important; }
+  .ref3-plan-art { width:96px!important; height:102px!important; }
+  .ref3-plan-copy>strong { font-size:19px!important; }
+  .ref3-plan-copy>small { font-size:12px!important; }
+  .ref3-plan-copy em { font-size:11px!important; padding:6px 7px!important; }
+  .ref3-drops svg { width:38px!important; height:38px!important; padding:9px!important; }
+}

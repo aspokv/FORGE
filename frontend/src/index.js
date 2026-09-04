@@ -19,6 +19,7 @@ import "@/workout-preview-density.css";
 import "@/header-typography.css";
 import "@/page-alignment.css";
 import "@/workout-nutrition-actions.css";
+import "@/home-reference-lock.css";
 
 const queryClient = new QueryClient({
   defaultOptions: {
