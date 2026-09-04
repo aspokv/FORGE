@@ -4,11 +4,46 @@ import React from "react";
 import {renderToStaticMarkup} from "react-dom/server";
 import ReferenceWorkoutPreview from "./ReferenceWorkoutPreview";
 import {EXERCISE_ARTWORK_TILE_COUNT,artworkSlotForExercise} from "./exerciseArtworkLibrary";
+import {REVIEWED_EXERCISE_ARTWORK,reviewedArtworkForExercise} from "./reviewedExerciseArtwork";
 
 const catalog=JSON.parse(fs.readFileSync(path.join(__dirname,"../../../backend/exercises.json"),"utf8"));
 const spritePath=path.join(__dirname,"../../public/images/reference/exercise-premium-sprite.webp");
 
 describe("premium exercise artwork library",()=>{
+  it.each(Object.keys(REVIEWED_EXERCISE_ARTWORK))("renders the reviewed photograph for %s",id=>{
+    const ex=catalog.find(item=>item.id===id);
+    expect(ex).toBeDefined();
+    const src=reviewedArtworkForExercise(ex);
+    const bytes=fs.readFileSync(path.join(__dirname,"../../public",src));
+    expect(bytes.subarray(0,4).toString()).toBe("RIFF");
+    expect(bytes.subarray(8,12).toString()).toBe("WEBP");
+    expect(bytes.readUInt16LE(26)&0x3fff).toBe(512);
+    expect(bytes.readUInt16LE(28)&0x3fff).toBe(512);
+    const html=renderToStaticMarkup(<ReferenceWorkoutPreview db={{exercises:catalog}} items={[{exercise_id:id}]}/>);
+    const doc=new DOMParser().parseFromString(html,"text/html");
+    const img=doc.querySelector(".ref3-ex-art > img");
+    expect(img.getAttribute("src")).toBe(src);
+    expect(img.classList.contains("ref3-reviewed-art")).toBe(true);
+    expect(img.hasAttribute("style")).toBe(false);
+    expect(doc.querySelector(".ref3-ex-art.fallback")).toBeNull();
+  });
+
+  it("does not apply a reviewed photo to a different exercise variant",()=>{
+    for(const ex of catalog.filter(ex=>!REVIEWED_EXERCISE_ARTWORK[ex.id])){
+      expect(reviewedArtworkForExercise(ex)).toBeNull();
+    }
+    expect(reviewedArtworkForExercise({id:"standing-calf",name:"Panturrilha sentado"})).toBeNull();
+    expect(reviewedArtworkForExercise({id:"leg-curl",name:"Mesa flexora"})).toBeNull();
+    expect(reviewedArtworkForExercise({id:"smith-hip-thrust",name:"Hip thrust barra"})).toBeNull();
+  });
+
+  it("supports exact accent-insensitive names when no ID is available",()=>{
+    expect(reviewedArtworkForExercise({name:"FLEXAO DE JOELHO DEITADO"})).toBe(REVIEWED_EXERCISE_ARTWORK["lying-leg-curl"]);
+    expect(reviewedArtworkForExercise({name:"Stiff unilateral com halter"})).toBeNull();
+    expect(reviewedArtworkForExercise({name:"Cadeira adutora"})).toBeNull();
+    expect(reviewedArtworkForExercise({name:"Panturrilha no leg press"})).toBeNull();
+  });
+
   it("covers every exercise in the FORGE catalog",()=>{
     const uncovered=catalog.filter(ex=>artworkSlotForExercise(ex)<0);
     expect(uncovered.map(ex=>`${ex.id}: ${ex.name}`)).toEqual([]);
