@@ -1,0 +1,37 @@
+name: Verify Live Home Compact
+on:
+  push:
+    branches: [verify-live-home-compact-20260904]
+
+jobs:
+  verify-live:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for VPS/Coolify production to serve compact Home build
+        shell: bash
+        run: |
+          set -euo pipefail
+          ORIGIN='https://forge.aiexec.com.br'
+          MARKER='--forge-home-compact-v2'
+          for attempt in $(seq 1 36); do
+            echo "Attempt ${attempt}/36"
+            html="$(curl -fsSL --connect-timeout 8 --max-time 20 "${ORIGIN}/" || true)"
+            if [ -n "$html" ]; then
+              mapfile -t css_paths < <(printf '%s' "$html" | grep -oE 'href="[^"]+\.css[^"]*"' | sed -E 's/^href="//;s/"$//' | sort -u)
+              for css_path in "${css_paths[@]:-}"; do
+                if [[ "$css_path" == http* ]]; then css_url="$css_path"; else css_url="${ORIGIN}${css_path}"; fi
+                css="$(curl -fsSL --connect-timeout 8 --max-time 20 "$css_url" || true)"
+                if printf '%s' "$css" | grep -Fq -- "$MARKER"; then
+                  echo "LIVE_OK marker=$MARKER css=$css_url"
+                  echo "HTTP_OK origin=$ORIGIN"
+                  exit 0
+                fi
+              done
+              echo "Production responds, but compact Home marker is not live yet."
+            else
+              echo "Production did not return HTML yet."
+            fi
+            sleep 10
+          done
+          echo 'LIVE_VERIFY_FAILED: production never served the expected compact Home CSS marker within 6 minutes.' >&2
+          exit 1
