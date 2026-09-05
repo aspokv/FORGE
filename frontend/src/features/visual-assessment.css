@@ -1,0 +1,135 @@
+/*
+ * Resultado da analise visual.
+ *
+ * Mesma linguagem do resto do FORGE: fundo escuro, acento laranja queimado, blocos
+ * separados por regua fina em vez de cartao dentro de cartao.
+ */
+
+.va-resultado {
+  border: 1px solid rgba(201, 162, 126, 0.21);
+  border-radius: 12px;
+  background: linear-gradient(145deg, #151719, #0b0d0e);
+  padding: 18px 16px 16px;
+  margin-top: 12px;
+  display: grid;
+  gap: 16px;
+}
+
+.va-topo {
+  display: grid;
+  gap: 4px;
+}
+
+.va-topo b {
+  font-size: 15px;
+  letter-spacing: -0.01em;
+}
+
+.va-topo .muted {
+  font-size: 12px;
+}
+
+.va-bloco {
+  display: grid;
+  gap: 8px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(201, 162, 126, 0.14);
+}
+
+.va-bloco:first-of-type {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.va-bloco h4 {
+  margin: 0;
+  font: 500 10px "IBM Plex Mono", ui-monospace, monospace;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.va-bloco p {
+  font-size: 13px;
+  line-height: 1.6;
+  color: #dedbd3;
+}
+
+/* Grupos musculares como etiquetas: leem-se de relance, sem virar tabela. */
+.va-etiquetas {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.va-etiquetas li {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 5px 11px;
+  font-size: 12.5px;
+  line-height: 1.2;
+}
+
+.va-forte li {
+  border-color: rgba(168, 198, 134, 0.42);
+  color: #cfe0b6;
+}
+
+.va-atencao li {
+  border-color: rgba(227, 107, 77, 0.45);
+  color: #f0b6a2;
+}
+
+.va-prioridades {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.va-prioridades li {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 13.5px;
+  line-height: 1.4;
+}
+
+.va-prioridades span {
+  font: 500 11px "IBM Plex Mono", ui-monospace, monospace;
+  color: var(--accent);
+  flex: none;
+}
+
+.va-limitacoes {
+  margin: 0;
+  padding-left: 16px;
+  display: grid;
+  gap: 5px;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+/*
+ * O aviso fecha o bloco e nao compete com o conteudo, mas nao pode ser escondido: e ele
+ * que deixa claro que sao observacoes visuais, e nao diagnostico.
+ */
+.va-aviso {
+  padding-top: 14px;
+  border-top: 1px solid rgba(201, 162, 126, 0.14);
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+@media (max-width: 560px) {
+  .va-resultado {
+    padding: 16px 14px 14px;
+    gap: 14px;
+  }
+}
