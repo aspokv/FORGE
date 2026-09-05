@@ -2,10 +2,13 @@
 """
 Armazenamento das fotos de avaliacao visual.
 
-ESTE MODULO AINDA NAO GUARDA NADA. Ele define o contrato, as variaveis de ambiente e a
-politica de exclusao ANTES de existir um bucket, que foi como o trabalho foi pedido — e e
-a ordem certa para dado de corpo de pessoa: decidir onde vive e quando morre antes de
-comecar a acumular.
+Provedor: Cloudflare R2, por endpoint compativel com S3. O contrato, as variaveis e a
+politica de exclusao foram fixados antes de existir bucket — que e a ordem certa para dado
+de corpo de pessoa: decidir onde vive e quando morre antes de comecar a acumular.
+
+Sem credencial no ambiente, o modulo se declara desligado e NAO derruba nada: a avaliacao
+visual continua funcionando, so nao guarda a foto. Isso e proposital — a interface nao pode
+ficar bloqueada esperando configuracao de infraestrutura.
 
 O QUE E ARMAZENADO ONDE
 -----------------------
@@ -41,10 +44,10 @@ FORGE_FOTOS_BUCKET        nome do bucket privado. Sem valor, o recurso fica desl
                           avaliacao segue funcionando sem guardar foto.
 FORGE_FOTOS_ENDPOINT      endpoint S3 (ex.: https://<conta>.r2.cloudflarestorage.com).
                           Vazio = AWS S3 padrao.
-FORGE_FOTOS_REGIAO        regiao do bucket ("auto" no R2).
-FORGE_FOTOS_CHAVE_ID      credencial de acesso.
-FORGE_FOTOS_CHAVE_SECRETA credencial secreta.
-FORGE_FOTOS_PREFIXO       prefixo das chaves. Padrao "avaliacoes/".
+FORGE_FOTOS_REGION        regiao do bucket ("auto" no R2).
+FORGE_FOTOS_KEY_ID        credencial de acesso.
+FORGE_FOTOS_KEY_SECRET    credencial secreta.
+FORGE_FOTOS_PREFIX        prefixo das chaves. Padrao "avaliacoes/".
 FORGE_FOTOS_URL_SEGUNDOS  validade da URL assinada. Padrao 300 (5 min).
 
 Nenhum valor e inventado aqui, e nenhum default aponta para bucket real: sem as variaveis
@@ -83,7 +86,7 @@ LIMITES DE ENTRADA
 ------------------
 - ate 4 fotos por avaliacao, uma por angulo;
 - JPG, PNG, WebP e HEIC quando o navegador conseguir converter;
-- ate 12 MB por arquivo ANTES da compressao;
+- ate 8 MB por arquivo ANTES da compressao;
 - comprimidas no cliente antes do upload, com o maior lado em 1600px;
 - o tipo e conferido pelo conteudo no servidor, e nao pela extensao nem pelo
   Content-Type que o cliente informou.
@@ -102,7 +105,7 @@ from typing import Optional
 
 ANGULOS = ("front", "back", "left", "right")
 MAXIMO_DE_FOTOS = 4
-TAMANHO_MAXIMO_BYTES = 12 * 1024 * 1024
+TAMANHO_MAXIMO_BYTES = 8 * 1024 * 1024
 TIPOS_ACEITOS = ("image/jpeg", "image/png", "image/webp")
 MAIOR_LADO_APOS_COMPRESSAO = 1600
 
@@ -129,10 +132,10 @@ def carregar_configuracao() -> ConfiguracaoDeFotos:
     return ConfiguracaoDeFotos(
         bucket=os.environ.get("FORGE_FOTOS_BUCKET", "").strip(),
         endpoint=(os.environ.get("FORGE_FOTOS_ENDPOINT", "").strip() or None),
-        regiao=os.environ.get("FORGE_FOTOS_REGIAO", "auto").strip() or "auto",
-        chave_id=os.environ.get("FORGE_FOTOS_CHAVE_ID", "").strip(),
-        chave_secreta=os.environ.get("FORGE_FOTOS_CHAVE_SECRETA", "").strip(),
-        prefixo=(os.environ.get("FORGE_FOTOS_PREFIXO", "avaliacoes/").strip() or "avaliacoes/"),
+        regiao=os.environ.get("FORGE_FOTOS_REGION", "auto").strip() or "auto",
+        chave_id=os.environ.get("FORGE_FOTOS_KEY_ID", "").strip(),
+        chave_secreta=os.environ.get("FORGE_FOTOS_KEY_SECRET", "").strip(),
+        prefixo=(os.environ.get("FORGE_FOTOS_PREFIX", "avaliacoes/").strip() or "avaliacoes/"),
         url_segundos=int(os.environ.get("FORGE_FOTOS_URL_SEGUNDOS", "300") or 300),
     )
 
@@ -160,3 +163,129 @@ def prefixo_da_avaliacao(prefixo: str, user_id: str, assessment_id: str) -> str:
     """Prefixo de uma avaliacao — usado quando o usuario apaga uma avaliacao especifica."""
     limpo = prefixo if prefixo.endswith("/") else prefixo + "/"
     return f"{limpo}{user_id}/{assessment_id}/"
+
+
+# ── Cliente R2 ─────────────────────────────────────────────────────────────────────────
+#
+# Tudo abaixo e opcional em tempo de execucao: se `carregar_configuracao().ativo` for
+# falso, nada aqui e chamado e o restante do produto segue igual.
+
+def _boto3():
+    """Importa boto3 so quando ha o que fazer com ele, para nao pesar o start do servidor."""
+    import boto3  # noqa: WPS433 — import tardio de proposito
+    from botocore.config import Config
+
+    return boto3, Config
+
+
+def cliente(cfg: "ConfiguracaoDeFotos"):
+    """
+    Cliente S3 apontado para o R2, ou None quando falta configuracao.
+
+    `signature_version="s3v4"` e exigencia do R2 para URL assinada. `addressing_style`
+    virtual e o que o R2 espera; com o estilo de caminho ele recusa a assinatura.
+    """
+    if not cfg.ativo:
+        return None
+    boto3, Config = _boto3()
+    return boto3.client(
+        "s3",
+        endpoint_url=cfg.endpoint,
+        region_name=cfg.regiao,
+        aws_access_key_id=cfg.chave_id,
+        aws_secret_access_key=cfg.chave_secreta,
+        config=Config(signature_version="s3v4", s3={"addressing_style": "virtual"}),
+    )
+
+
+# Assinatura dos formatos aceitos. O tipo e decidido pelos primeiros bytes, e nao pela
+# extensao nem pelo Content-Type que o cliente informou — os dois sao texto que o cliente
+# escreve, e nenhum dos dois prova o que o arquivo e.
+_ASSINATURAS = (
+    (b"\xff\xd8\xff", "image/jpeg"),
+    (b"\x89PNG\r\n\x1a\n", "image/png"),
+)
+
+
+def detectar_tipo(dados: bytes) -> Optional[str]:
+    """Tipo real do arquivo, pelo conteudo. None quando nao e imagem aceita."""
+    for assinatura, mime in _ASSINATURAS:
+        if dados.startswith(assinatura):
+            return mime
+    # WebP: "RIFF" ....  "WEBP"
+    if len(dados) >= 12 and dados[:4] == b"RIFF" and dados[8:12] == b"WEBP":
+        return "image/webp"
+    return None
+
+
+def validar_foto(dados: bytes) -> str:
+    """
+    Confere tamanho e tipo. Devolve o mime detectado ou levanta ValueError.
+
+    A mensagem de erro fala de arquivo, nunca de infraestrutura: ela chega ao usuario.
+    """
+    if not dados:
+        raise ValueError("Arquivo vazio.")
+    if len(dados) > TAMANHO_MAXIMO_BYTES:
+        raise ValueError("Imagem acima do tamanho permitido.")
+    mime = detectar_tipo(dados)
+    if mime not in TIPOS_ACEITOS:
+        raise ValueError("Formato de imagem não suportado.")
+    return mime
+
+
+def guardar_foto(cfg, cli, user_id: str, assessment_id: str, angulo: str,
+                 dados: bytes, mime: str) -> str:
+    """Sobe um objeto privado e devolve a chave. Nunca devolve URL."""
+    chave = chave_da_foto(cfg.prefixo, user_id, assessment_id, angulo)
+    extras = {}
+    # No R2 a criptografia em repouso e sempre ligada e o cabecalho de SSE e recusado.
+    # Em S3 da AWS (endpoint vazio) ele e necessario para o mesmo efeito.
+    if not cfg.endpoint:
+        extras["ServerSideEncryption"] = "AES256"
+    cli.put_object(
+        Bucket=cfg.bucket,
+        Key=chave,
+        Body=dados,
+        ContentType=mime,
+        # O objeto e privado; nao ha ACL publica em nenhum caminho.
+        **extras,
+    )
+    return chave
+
+
+def url_assinada(cfg, cli, chave: str) -> str:
+    """
+    URL de leitura com validade curta.
+
+    Curta de proposito: endereco de foto de corpo que dura horas vira link compartilhavel
+    sem querer. O padrao e cinco minutos, o suficiente para a tela carregar.
+    """
+    return cli.generate_presigned_url(
+        "get_object",
+        Params={"Bucket": cfg.bucket, "Key": chave},
+        ExpiresIn=cfg.url_segundos,
+    )
+
+
+def apagar_prefixo(cfg, cli, prefixo: str) -> int:
+    """
+    Apaga todos os objetos sob um prefixo. Devolve quantos foram.
+
+    Usado tanto para apagar uma avaliacao quanto para apagar a conta inteira — a diferenca
+    esta so no prefixo recebido, e e por isso que a chave comeca pelo user_id.
+    """
+    apagados = 0
+    token = None
+    while True:
+        argumentos = {"Bucket": cfg.bucket, "Prefix": prefixo}
+        if token:
+            argumentos["ContinuationToken"] = token
+        pagina = cli.list_objects_v2(**argumentos)
+        objetos = [{"Key": o["Key"]} for o in pagina.get("Contents", [])]
+        if objetos:
+            cli.delete_objects(Bucket=cfg.bucket, Delete={"Objects": objetos})
+            apagados += len(objetos)
+        if not pagina.get("IsTruncated"):
+            return apagados
+        token = pagina.get("NextContinuationToken")

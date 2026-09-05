@@ -14,6 +14,7 @@ import os, uuid, json, logging, base64
 from google import genai as google_genai
 
 from llm_providers import deepseek_model, get_coach_provider, FORGE_COACH_SYSTEM
+import visual_storage
 
 from auth import router as auth_router, get_current_user, seed_super_admin
 from admin_routes import router as admin_router
@@ -668,6 +669,32 @@ def _nome_seguro(nome: Optional[str]) -> str:
     return limpo or "foto"
 
 
+async def _guardar_fotos_da_avaliacao(user_id: str, assessment_id: str, lidas: list) -> list:
+    """
+    Sobe as fotos para o bucket privado e devolve os metadados para o Mongo.
+
+    Sem credencial configurada devolve a lista sem chave: a avaliacao continua valendo, so
+    nao entra no historico visual. Bloquear a analise porque falta variavel de ambiente
+    seria transformar pendencia de infraestrutura em falha de produto.
+
+    O que vai para o Mongo e a CHAVE, nunca a URL nem os bytes. URL gravada envelhece e
+    vaza; chave sozinha nao serve para nada sem credencial.
+    """
+    cfg = visual_storage.carregar_configuracao()
+    cli = visual_storage.cliente(cfg)
+    saida = []
+    for foto in lidas:
+        item = {"angle": foto["angle"], "bytes": len(foto["bytes"]), "mime": foto["mime"]}
+        if cli is not None:
+            try:
+                item["key"] = visual_storage.guardar_foto(
+                    cfg, cli, user_id, assessment_id, foto["angle"], foto["bytes"], foto["mime"])
+            except Exception as erro:  # noqa: BLE001 — falha de bucket nao derruba a analise
+                logger.warning("[forge] nao foi possivel guardar a foto: %s", str(erro)[:200])
+        saida.append(item)
+    return saida
+
+
 @api.post("/visual-assessment")
 async def visual_assessment(user=Depends(get_current_user), profile_id: str = Form(...), consent: bool = Form(...), views: str = Form(""), photos: List[UploadFile] = File(default=[])):
     target = user["id"] if user.get("role") == "ATHLETE" else profile_id
@@ -686,21 +713,40 @@ async def visual_assessment(user=Depends(get_current_user), profile_id: str = Fo
         "files": [_nome_seguro(p.filename) for p in photos],
         "created_at": datetime.now(timezone.utc).isoformat()
     }
-    if photos and photos[0].filename:
-        mime = (photos[0].content_type or "").split(";")[0].strip().lower()
-        if mime not in MIMES_DE_FOTO:
+    # Ate quatro fotos, uma por angulo. `vistas` traz o angulo de cada arquivo, na mesma
+    # ordem; sem isso nao daria para comparar "costas de hoje" com "costas de um mes atras".
+    enviadas = [p for p in (photos or []) if p.filename][:visual_storage.MAXIMO_DE_FOTOS]
+    lidas = []
+    for indice, foto in enumerate(enviadas):
+        declarado = (foto.content_type or "").split(";")[0].strip().lower()
+        if declarado not in MIMES_DE_FOTO:
             raise HTTPException(415, {"message": "Envie uma imagem JPEG, PNG ou WebP.",
                                       "reason": "unsupported_media_type"})
-        # Le com teto: sem isto, o arquivo inteiro entra em memoria antes de qualquer
+        # Le com teto: sem isto o arquivo inteiro entra em memoria antes de qualquer
         # verificacao, e o tamanho so seria conferido depois do estrago.
-        contents = await photos[0].read(LIMITE_DA_FOTO + 1)
-        if len(contents) > LIMITE_DA_FOTO:
+        conteudo = await foto.read(visual_storage.TAMANHO_MAXIMO_BYTES + 1)
+        if len(conteudo) > visual_storage.TAMANHO_MAXIMO_BYTES:
             raise HTTPException(413, {"message": "Imagem acima de 8 MB.",
                                       "reason": "payload_too_large"})
-        if not contents.startswith(ASSINATURAS_DE_IMAGEM):
+        # O tipo real vem dos bytes. O que o cliente declarou ja passou pela allowlist
+        # acima, mas declarar nao prova: os dois testes existem porque sao coisas
+        # diferentes, e a resposta precisa dizer qual das duas falhou.
+        mime = visual_storage.detectar_tipo(conteudo)
+        if mime not in visual_storage.TIPOS_ACEITOS:
             raise HTTPException(415, {"message": "O arquivo enviado não é uma imagem.",
                                       "reason": "not_an_image"})
-        analysis = await analyze_physique(contents, mime, record["views"])
+        angulo = vistas[indice] if indice < len(vistas) else visual_storage.ANGULOS[indice]
+        if angulo not in visual_storage.ANGULOS:
+            angulo = visual_storage.ANGULOS[indice]
+        lidas.append({"angle": angulo, "bytes": conteudo, "mime": mime})
+
+    # Guarda no bucket privado ANTES de analisar: se o armazenamento falhar, a avaliacao
+    # ainda acontece e o usuario recebe a analise — o que se perde e o historico daquela
+    # foto, nao a resposta.
+    record["photos"] = await _guardar_fotos_da_avaliacao(target, record["id"], lidas)
+
+    if lidas:
+        analysis = await analyze_physique(lidas[0]["bytes"], lidas[0]["mime"], record["views"])
     else:
         analysis = {"status": "unavailable", "message": "Nenhuma foto enviada.", "observations": {}, "suggested_priorities": []}
     record.update(analysis)
@@ -709,6 +755,83 @@ async def visual_assessment(user=Depends(get_current_user), profile_id: str = Fo
         vision_data = {m: {"development": obs.get("development", "proporcional"), "priority": "alta" if m in analysis.get("suggested_priorities", []) else "normal", "confidence": obs.get("confidence", "baixa")} for m, obs in analysis.get("observations", {}).items()}
         await db.profiles.update_one({"id": target}, {"$set": {"visual_assessment": vision_data, "visual_notes": {"symmetry": analysis.get("symmetry_notes", ""), "proportion": analysis.get("proportion_notes", ""), "limitations": analysis.get("limitations", [])}}}, upsert=True)
     return {k: v for k, v in record.items() if k != "_id"}
+
+
+@api.get("/visual-history/{profile_id}")
+async def visual_history(profile_id: str, user=Depends(get_current_user)):
+    """
+    Historico de avaliacoes visuais, da mais nova para a mais antiga.
+
+    Cada foto sai com uma URL ASSINADA de validade curta, gerada na hora. A chave nunca vai
+    para o cliente e a URL nunca e gravada: endereco de foto de corpo que dura horas vira
+    link compartilhavel sem querer.
+
+    Sem credencial de bucket, as avaliacoes ainda aparecem — sem imagem, com `photos` vazio.
+    A tela precisa continuar de pe enquanto a infraestrutura nao esta configurada.
+    """
+    target = owned_profile_id(user, profile_id)
+    cfg = visual_storage.carregar_configuracao()
+    cli = visual_storage.cliente(cfg)
+
+    itens = await db.visual_assessments.find(
+        {"profile_id": target}, {"_id": 0}
+    ).sort("created_at", -1).to_list(60)
+
+    saida = []
+    for item in itens:
+        fotos = []
+        for foto in item.get("photos") or []:
+            chave = foto.get("key")
+            if not chave or cli is None:
+                continue
+            try:
+                fotos.append({"angle": foto.get("angle"),
+                              "url": visual_storage.url_assinada(cfg, cli, chave)})
+            except Exception as erro:  # noqa: BLE001
+                logger.warning("[forge] falha ao assinar a foto: %s", str(erro)[:200])
+        saida.append({
+            "id": item.get("id"),
+            "created_at": item.get("created_at"),
+            "photos": fotos,
+            "status": item.get("status"),
+            "observations": item.get("observations") or {},
+            "symmetry_notes": item.get("symmetry_notes") or "",
+            "proportion_notes": item.get("proportion_notes") or "",
+            "suggested_priorities": item.get("suggested_priorities") or [],
+            "limitations": item.get("limitations") or [],
+        })
+    return {"assessments": saida, "storage_ready": cli is not None}
+
+
+@api.delete("/visual-assessment/{assessment_id}")
+async def delete_visual_assessment(assessment_id: str, user=Depends(get_current_user)):
+    """
+    Apaga UMA avaliacao: os objetos do prefixo dela no bucket e o documento no Mongo.
+
+    O filtro exige o dono. Sem isso, conhecer o id de outra pessoa bastaria para apagar a
+    avaliacao dela — e id nao e segredo.
+
+    Nao ha lixeira: pediu para apagar, apaga. E apagar UMA avaliacao nao toca nas outras,
+    porque o prefixo inclui o id dela.
+    """
+    dono = user["id"]
+    registro = await db.visual_assessments.find_one(
+        {"id": assessment_id, "profile_id": dono}, {"_id": 0, "id": 1})
+    if not registro:
+        raise HTTPException(404, "Avaliação não encontrada.")
+
+    cfg = visual_storage.carregar_configuracao()
+    cli = visual_storage.cliente(cfg)
+    apagados = 0
+    if cli is not None:
+        try:
+            apagados = visual_storage.apagar_prefixo(
+                cfg, cli, visual_storage.prefixo_da_avaliacao(cfg.prefixo, dono, assessment_id))
+        except Exception as erro:  # noqa: BLE001
+            logger.warning("[forge] falha ao apagar fotos: %s", str(erro)[:200])
+
+    await db.visual_assessments.delete_one({"id": assessment_id, "profile_id": dono})
+    return {"deleted": True, "photos_removed": apagados}
 
 
 @api.get("/visual-assessment/{profile_id}")
