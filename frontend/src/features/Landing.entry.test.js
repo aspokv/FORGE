@@ -47,10 +47,11 @@ test("o hero mostra tres telas reais e nenhum dado inventado", () => {
   const telas = doc.querySelectorAll(".lp-palco img");
   expect(telas).toHaveLength(3);
 
+  const alt = (sel) => doc.querySelector(sel).querySelector("img").getAttribute("alt");
   // Treino no centro; nutricao e progresso recuadas de cada lado.
-  expect(doc.querySelector(".lp-tela-centro").getAttribute("alt")).toContain("treino");
-  expect(doc.querySelector(".lp-tela-esquerda").getAttribute("alt")).toContain("nutrição");
-  expect(doc.querySelector(".lp-tela-direita").getAttribute("alt")).toContain("progresso");
+  expect(alt(".lp-fone-centro")).toContain("treino");
+  expect(alt(".lp-fone-esquerda")).toContain("nutrição");
+  expect(alt(".lp-fone-direita")).toContain("progresso");
 
   // A tela inicial nao entra no hero: ela aparece sozinha no storytelling logo abaixo.
   telas.forEach((t) => expect(t.getAttribute("src")).not.toContain("inicio"));
@@ -59,6 +60,31 @@ test("o hero mostra tres telas reais e nenhum dado inventado", () => {
   telas.forEach((t) => expect(t.getAttribute("src")).toBeTruthy());
   expect(doc.querySelector(".entry-screen")).toBeNull();
   expect(doc.body.textContent).not.toContain("Dados ilustrativos");
+});
+
+/**
+ * A regressao que motivou este refino.
+ *
+ * Duas telas foram trocadas por recortes que traziam a moldura do aparelho dentro do
+ * arquivo. Sendo o arquivo retangular, o fundo dele virava uma caixa preta de canto vivo
+ * sobre o cenario da landing, e cada arquivo vinha numa escala. O contrato que impede a
+ * volta disso: TODA tela e uma <img> dentro de um `.lp-fone`, e todas declaram a mesma
+ * medida — e o `.lp-fone` que arredonda, corta e sombreia.
+ */
+test("toda tela vive dentro da moldura desenhada, e nao dentro do arquivo", () => {
+  const doc = render();
+  const imagens = [...doc.querySelectorAll(".lp-fone img")];
+  const soltas = [...doc.querySelectorAll(".lp-palco img, .lp-story-palco img")]
+    .filter((i) => !i.closest(".lp-fone"));
+
+  expect(imagens.length).toBeGreaterThanOrEqual(7); // 3 no hero + 4 no storytelling
+  expect(soltas).toEqual([]);
+
+  // Mesma medida declarada em todas: escala diferente entre arquivos foi o outro defeito.
+  const medidas = new Set(
+    imagens.map((i) => `${i.getAttribute("width")}x${i.getAttribute("height")}`)
+  );
+  expect([...medidas]).toEqual(["648x1404"]);
 });
 
 test("a linha tecnica anuncia os tres pilares", () => {

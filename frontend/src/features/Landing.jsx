@@ -57,6 +57,10 @@ const PASSOS = [
 
 function Plano({ plano, onComecar }) {
   const curto = nomeCurto(plano.nome);
+  // Reais e centavos separados: em fonte monoespacada a virgula ocupa uma celula inteira
+  // e o preco sai lido como "39 , 90". Partido, da para fechar o vao e ainda deixar os
+  // centavos menores, que e como preco premium se apresenta.
+  const [reais, centavos] = brl(plano.preco).split(",");
   return (
     <article
       className={`lp-plano${plano.recomendado ? " recomendado" : ""}`}
@@ -64,10 +68,14 @@ function Plano({ plano, onComecar }) {
     >
       {plano.recomendado && <span className="lp-plano-flag">Recomendado</span>}
 
-      <p className="lp-eyebrow">{plano.nome}</p>
+      <p className="lp-plano-nome">{plano.nome}</p>
       <p className="lp-plano-preco">
-        <span>R$</span>
-        <b>{brl(plano.preco)}</b>
+        <span className="lp-plano-moeda">R$</span>
+        <b>
+          {reais}
+          <i>,</i>
+          <em>{centavos}</em>
+        </b>
         <small>/mês</small>
       </p>
       {plano.cobranca && <p className="lp-plano-cobranca">{plano.cobranca}</p>}
