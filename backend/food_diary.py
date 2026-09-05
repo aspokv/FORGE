@@ -58,7 +58,28 @@ _BRANDED_WHEY_FOODS = {fid: {"id": fid, "name": name, "grams": 30, "kcal": kcal,
     "source": "Valor típico por porção de 30 g — confirme o rótulo do sabor escolhido"}
     for fid, name, kcal, protein, carbs, fat, aliases in _BRANDED_WHEY_ROWS}
 
-DIARY_FOODS = {**FOOD_INDEX, **_COMMON_DIARY_FOODS, **_BRANDED_WHEY_FOODS, "diary-beef-ribs-roasted": {
+_REQUESTED_WHEY_FOODS = {
+    "mais-mu-whey-cookies": {"id": "mais-mu-whey-cookies", "name": "Whey Protein Cookies & Cream — +Mu", "grams": 35,
+        "kcal": 134, "protein_g": 20, "carbs_g": 9, "fat_g": 2, "aliases": ["mais mu whey", "+mu whey", "whey da mu", "whey mais mu"],
+        "source": "Rótulo +Mu — porção de 35 g; confira o sabor", "source_url": "https://www.yosuplementos.com.br/produto/whey-protein--mu-sache-35g/2472304"},
+    "mais-mu-whey-brownie": {"id": "mais-mu-whey-brownie", "name": "Whey Protein Brownie — +Mu", "grams": 35,
+        "kcal": 142, "protein_g": 20, "carbs_g": 9, "fat_g": 2.8, "aliases": ["mais mu brownie", "+mu brownie", "whey mu brownie"],
+        "source": "Rótulo +Mu — porção de 35 g", "source_url": "https://www.yosuplementos.com.br/produto/whey-protein--mu-sache-35g/2472304"},
+    "under-labz-100-whey-crush": {"id": "under-labz-100-whey-crush", "name": "100% Whey Crush — Under Labz", "grams": 30,
+        "kcal": 121, "protein_g": 20, "carbs_g": 7.2, "fat_g": 1.3, "aliases": ["under labs whey", "under labz whey", "whey crush", "crush whey"],
+        "source": "Rótulo Under Labz — Milk Cream/Strawbear, porção de 30 g", "source_url": "https://underlabz.com.br/pages/pagina-de-produto-a-b-100-whey-crush"},
+    "under-labz-protein-crush": {"id": "under-labz-protein-crush", "name": "Protein Crush — Under Labz", "grams": 35,
+        "kcal": 130, "protein_g": 21, "carbs_g": 10, "fat_g": 1, "aliases": ["under labs protein", "under labz protein", "protein crush"],
+        "source": "Rótulo Under Labz — porção de 35 g; confira o sabor", "source_url": "https://underlabz.com.br/products/protein-crush-900g/"},
+    "ftw-100-whey-protein": {"id": "ftw-100-whey-protein", "name": "100% Whey Protein — FTW", "grams": 40,
+        "kcal": 153, "protein_g": 15, "carbs_g": 19, "fat_g": 1.9, "aliases": ["ftw whey", "whey da ftw", "whey ftw", "100 whey ftw"],
+        "source": "Rótulo FTW — porção de 40 g; confira o sabor", "source_url": "https://www.ftw.com.br/produtos/proteina/whey-protein/whey-protein-100-refil-1kg-ftw"},
+    "ftw-delicious-whey": {"id": "ftw-delicious-whey", "name": "Delicious Whey — FTW", "grams": 30,
+        "kcal": 118, "protein_g": 21, "carbs_g": 4.4, "fat_g": 1.8, "aliases": ["delicious whey", "ftw delicious", "whey delicious ftw"],
+        "source": "Rótulo FTW — Chocolate Supreme, porção de 30 g", "source_url": "https://www.ftw.com.br/"},
+}
+
+DIARY_FOODS = {**FOOD_INDEX, **_COMMON_DIARY_FOODS, **_BRANDED_WHEY_FOODS, **_REQUESTED_WHEY_FOODS, "diary-beef-ribs-roasted": {
     "id": "diary-beef-ribs-roasted", "name": "Costela bovina assada, sem óleo, com sal (sem osso)",
     "grams": 100, "kcal": 360, "protein_g": 28.5, "carbs_g": 0, "fat_g": 27.4,
     "source": "TBCA BRC0352F — 100 g da parte comestível",
