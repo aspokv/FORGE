@@ -157,7 +157,13 @@ export default function Landing({ API, onComecar, onEntrar }) {
         <nav className="lp-nav" aria-label="Navegação principal">
           <a href="#por-dentro">Por dentro</a>
           <a href="#metodo">O método</a>
-          <a href="#planos">Planos</a>
+          <a
+            href="#planos"
+            data-testid="landing-primary-cta"
+            id="landing-conhecer-os-planos"
+          >
+            Conhecer os planos
+          </a>
         </nav>
         <button
           type="button"
@@ -172,47 +178,13 @@ export default function Landing({ API, onComecar, onEntrar }) {
       </header>
 
       {/*
-        O hero e curto de proposito: titulo, linha tecnica, os dois botoes e a composicao
-        logo abaixo deles. A composicao continua para a proxima dobra em vez de caber
-        inteira — e o que convida a rolar.
+        A capa: so o filme.
+        O bloco de abertura que existia aqui — antetitulo, titulo, linha de apoio, os dois
+        botoes e a linha tecnica — saiu por inteiro. Nada acima do video, nada por cima
+        dele, nem moldura em volta: a primeira dobra e o filme, e o argumento comeca na
+        secao seguinte.
       */}
-      <section className="lp-hero">
-        <p className="lp-hero-kicker">Sistema de performance individual</p>
-        <h1>
-          Seu próximo nível
-          <br />
-          <em>começa aqui.</em>
-        </h1>
-        <p className="lp-hero-lead">
-          Treino, nutrição e evolução. Um sistema construído para você.
-        </p>
-
-        <div className="lp-hero-acoes">
-          <a
-            className="lp-btn lp-btn-primario"
-            href="#planos"
-            data-testid="landing-primary-cta"
-            id="landing-conhecer-os-planos"
-          >
-            Conhecer os planos <ArrowRight size={16} aria-hidden="true" />
-          </a>
-          <button
-            type="button"
-            className="lp-btn lp-btn-fantasma"
-            onClick={onEntrar}
-            data-testid="landing-hero-login"
-            id="landing-ja-tenho-conta"
-            name="ja-tenho-conta"
-          >
-            Já tenho conta <ArrowRight size={14} aria-hidden="true" />
-          </button>
-        </div>
-
-        <p className="lp-hero-linha">
-          Treino personalizado <i aria-hidden="true">·</i> Nutrição{" "}
-          <i aria-hidden="true">·</i> Progressão
-        </p>
-
+      <section className="lp-capa" aria-label="FORGE">
         <LandingHeroVideo />
       </section>
 

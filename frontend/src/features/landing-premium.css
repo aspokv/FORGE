@@ -94,8 +94,8 @@ body.lp-ativa {
  *
  * `:where()` de proposito: ele nao soma especificidade nenhuma, entao a regra vale como
  * (0,0,0) e QUALQUER classe a vence. Escrito do jeito obvio — `.landing-premium p` — a
- * regra pesa (0,1,1) e passa por cima de `.lp-hero-linha`, `.lp-hero-kicker`,
- * `.lp-secao-lead`, `.lp-plano-preco` e companhia, que sao (0,1,0). Foi exatamente isso
+ * regra pesa (0,1,1) e passa por cima de `.lp-secao-lead`, `.lp-plano-preco` e
+ * companhia, que sao (0,1,0). Foi exatamente isso
  * que aconteceu: quase todo o espacamento da pagina estava sendo anulado em silencio, e o
  * resultado era o ar de coisa espremida. Nao ha aviso de build para esse tipo de erro.
  */
@@ -232,117 +232,54 @@ body.lp-ativa {
   color: var(--lp-texto);
 }
 
-/* ---- Hero ----------------------------------------------------------------- */
+/* ---- Capa: o filme ocupando a primeira dobra ------------------------------ */
 
-.lp-hero {
-  /* Pouco respiro em cima, de proposito: o produto tem de aparecer cedo. */
-  padding: clamp(28px, 5vh, 56px) 5vw 0;
-  text-align: center;
+/*
+ * A abertura e so o filme.
+ *
+ * Saiu daqui o bloco de texto do hero — antetitulo, titulo, apoio, dois botoes e a linha
+ * tecnica — com as regras que existiam para ele. As unicas que ficaram sao as que a secao
+ * de fechamento tambem usa (`.lp-hero-acoes` e os botoes), que continuam vivas mais
+ * abaixo nesta folha.
+ */
+.lp-capa {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.lp-hero-kicker {
-  font-family: var(--lp-mono);
-  font-size: 10px;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: var(--lp-suave);
-  margin-bottom: 18px;
-}
-
-.lp-hero h1 {
-  font-weight: 900;
-  font-size: clamp(2.5rem, 7.4vw, 5.4rem);
-  max-width: 16ch;
-}
-
-.lp-hero-lead {
-  margin-top: 20px;
-  max-width: 44ch;
-  font-size: clamp(0.98rem, 1.4vw, 1.12rem);
-  line-height: 1.65;
-  color: var(--lp-suave);
-}
-
-.lp-hero-acoes {
-  display: flex;
-  flex-wrap: wrap;
   justify-content: center;
-  gap: 12px;
-  margin-top: 30px;
+  /* Nada de respiro no topo: o filme comeca onde a barra termina. */
+  padding: 0 clamp(10px, 3vw, 24px);
 }
-
-/* A linha tecnica: o que o produto entrega, em tres palavras. */
-.lp-hero-linha {
-  margin-top: 30px;
-  font-family: var(--lp-mono);
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--lp-suave);
-}
-
-.lp-hero-linha i {
-  font-style: normal;
-  color: var(--lp-acento);
-  margin: 0 6px;
-}
-
-/* ---- Filme do hero -------------------------------------------------------- */
 
 .lp-filme {
-  margin: clamp(30px, 5vh, 58px) 0 0;
   width: 100%;
-  position: relative;
   display: flex;
   justify-content: center;
-}
-
-/* A luz quente por baixo. Discreta: e o chao da peca, nao um efeito. */
-.lp-filme::before {
-  content: "";
-  position: absolute;
-  inset: 20% -14% -12%;
-  background: radial-gradient(
-    58% 56% at 50% 88%,
-    rgba(233, 124, 86, 0.3) 0%,
-    rgba(214, 96, 64, 0.11) 36%,
-    rgba(12, 13, 15, 0) 74%
-  );
-  pointer-events: none;
 }
 
 /*
- * O quadro e medido pela ALTURA, e nao pela largura.
+ * A medida da peca, numa linha so.
  *
- * Assim o filme nunca estoura a altura do hero — que era a exigencia — e a largura sai da
- * proporcao 9:16 do arquivo, entao nao ha deformacao nem chance de barra horizontal. O
- * `max-width` e a rede de seguranca para tela baixa e estreita, onde 72vh daria uma
- * largura maior que a janela.
+ * `width` e o MENOR entre a largura util e a largura que faria a altura caber na dobra.
+ * A altura sai da proporcao, entao:
+ *   - no celular quem manda e a largura: o filme ocupa quase toda a tela;
+ *   - no desktop quem manda e a altura: ele preenche a dobra e a largura fica contida,
+ *     em vez de esticar por 1440px;
+ *   - em nenhum dos dois ha deformacao ou corte, porque o contêiner tem exatamente a
+ *     proporcao 9:16 do arquivo.
+ *
+ * Os 64px descontados sao a barra do topo; `svh` e nao `vh` para o calculo nao mudar
+ * quando a barra do navegador do celular recolhe.
  */
 .lp-filme-quadro {
   position: relative;
-  height: min(72vh, 700px);
-  max-width: 86vw;
   aspect-ratio: 9 / 16;
-  border-radius: var(--lp-raio);
+  width: min(94vw, (100svh - 64px) * 9 / 16);
+  max-width: 520px;
   overflow: hidden;
+  /* Sem borda, sem sombra, sem cartao: so o raio, para o canto nao ficar duro. */
+  border-radius: clamp(12px, 1.6vw, 20px);
   background: var(--lp-bg);
-  border: 1px solid rgba(227, 141, 110, 0.16);
-  box-shadow:
-    0 1px 0 rgba(255, 226, 214, 0.05) inset,
-    0 28px 70px -24px rgba(0, 0, 0, 0.88),
-    0 4px 14px -6px rgba(0, 0, 0, 0.6);
 }
 
-/*
- * Poster e video ocupam exatamente o mesmo lugar, um sobre o outro. O poster e o primeiro
- * quadro do filme, entao a troca nao pisca nem desloca nada: a altura ja esta reservada
- * pela proporcao do quadro antes de qualquer byte de video chegar.
- */
 .lp-filme-poster,
 .lp-filme-video {
   position: absolute;
@@ -361,6 +298,21 @@ body.lp-ativa {
 /* So aparece quando da para tocar; ate la quem esta na tela e o poster. */
 .lp-filme[data-pronto="sim"] .lp-filme-video {
   opacity: 1;
+}
+
+/*
+ * A base do filme dissolve no fundo da pagina.
+ *
+ * E o que costura a capa com a secao seguinte: sem isso o video termina numa linha reta e
+ * a transicao vira um corte. Fica por cima do video, sem receber evento nenhum.
+ */
+.lp-filme-quadro::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  height: 22%;
+  background: linear-gradient(to top, var(--lp-bg) 2%, rgba(12, 13, 15, 0) 100%);
+  pointer-events: none;
 }
 
 
@@ -884,24 +836,10 @@ body.lp-ativa {
   }
 
   .lp-topo-entrar {
-    /* No celular o botao do topo vira so a seta com rotulo curto; o hero ja tem o
-       "Ja tenho conta" inteiro logo abaixo. */
+    /* Rotulo compacto no celular: com a capa ocupando a dobra, a barra do topo tem de
+       ser discreta. O "Ja tenho conta" inteiro continua no fechamento da pagina. */
     padding: 0 0.9rem;
     font-size: 0.82rem;
-  }
-
-  .lp-hero {
-    padding-top: 26px;
-    text-align: left;
-    align-items: flex-start;
-  }
-
-  .lp-hero h1 {
-    max-width: none;
-  }
-
-  .lp-hero-lead {
-    max-width: none;
   }
 
   .lp-hero-acoes {
@@ -911,13 +849,6 @@ body.lp-ativa {
 
   .lp-hero-acoes .lp-btn {
     flex: 1 1 100%;
-  }
-
-  /* No celular a altura e o recurso escasso: o quadro cede altura para caber e a largura
-     acompanha a proporcao. Continua com margem dos dois lados. */
-  .lp-filme-quadro {
-    height: min(62vh, 620px);
-    max-width: 82vw;
   }
 
   .lp-abas {

@@ -18,9 +18,10 @@ function render() {
   return new DOMParser().parseFromString(html, "text/html");
 }
 
-test("a entrada publica preserva titulo, catalogo e login", () => {
+test("a entrada publica preserva catalogo e login", () => {
   const doc = render();
-  expect(doc.querySelector("h1").textContent).toContain("Seu próximo nível");
+  // O titulo do hero saiu junto com o bloco de abertura: a capa e so o filme. O que a
+  // entrada publica ainda precisa garantir e o caminho ate os planos e ate o login.
   expect(doc.querySelector('[data-testid="landing-primary-cta"]').getAttribute("href"))
     .toBe("#planos");
   expect(doc.querySelector("#planos")).not.toBeNull();
@@ -28,18 +29,37 @@ test("a entrada publica preserva titulo, catalogo e login", () => {
   expect(doc.querySelector(".landing-instrument")).toBeNull();
 });
 
+/**
+ * A capa nao tem nada por cima nem por baixo do filme.
+ *
+ * Foi o pedido explicito: sem titulo, sem CTA, sem cartao em volta. Este teste existe
+ * para a abertura nao voltar a ganhar um bloco de texto sem que alguem perceba.
+ */
+test("a capa e so o filme, sem texto nem botao sobreposto", () => {
+  const capa = render().querySelector(".lp-capa");
+  expect(capa).not.toBeNull();
+  expect(capa.querySelector("h1")).toBeNull();
+  expect(capa.querySelector("button")).toBeNull();
+  expect(capa.querySelector("a")).toBeNull();
+  // O unico conteudo e o quadro do filme.
+  expect(capa.querySelector(".lp-filme-quadro")).not.toBeNull();
+  expect(capa.textContent.trim()).toBe("");
+});
+
 test("os botoes de integracao existem com rotulo e identificador estaveis", () => {
   const doc = render();
   const rotulo = (sel) =>
     doc.querySelector(sel).textContent.replace(/\s+/g, " ").trim();
 
+  // "Conhecer os planos" deixou de ser botao do hero e passou a ser o link do menu:
+  // mesmo destino e mesmo identificador, para a integracao nao perder o gancho.
   expect(rotulo("#landing-conhecer-os-planos")).toBe("Conhecer os planos");
-  expect(rotulo("#landing-ja-tenho-conta")).toBe("Já tenho conta");
+  expect(doc.querySelector("#landing-conhecer-os-planos").getAttribute("href")).toBe("#planos");
   expect(rotulo("#landing-comecar-agora")).toBe("Começar agora");
 
-  // O topo e o rodape tambem levam para o login, com id proprio para nao duplicar.
-  expect(doc.querySelector("#landing-ja-tenho-conta-topo")).not.toBeNull();
-  expect(doc.querySelector("#landing-ja-tenho-conta-rodape")).not.toBeNull();
+  // O topo e o rodape levam para o login, com id proprio para nao duplicar.
+  expect(rotulo("#landing-ja-tenho-conta-topo")).toBe("Já tenho conta");
+  expect(rotulo("#landing-ja-tenho-conta-rodape")).toBe("Já tenho conta");
 });
 
 test("o hero abre com o filme, e nao com dado inventado", () => {
@@ -95,13 +115,6 @@ test("toda tela vive dentro da moldura desenhada, e nao dentro do arquivo", () =
     imagens.map((i) => `${i.getAttribute("width")}x${i.getAttribute("height")}`)
   );
   expect([...medidas]).toEqual(["648x1404"]);
-});
-
-test("a linha tecnica anuncia os tres pilares", () => {
-  const texto = render().querySelector(".lp-hero-linha").textContent;
-  expect(texto).toContain("Treino personalizado");
-  expect(texto).toContain("Nutrição");
-  expect(texto).toContain("Progressão");
 });
 
 test("o storytelling separa as quatro telas, incluindo a inicial", () => {
