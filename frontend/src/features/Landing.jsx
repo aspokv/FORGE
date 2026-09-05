@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { ArrowRight, Check, ShieldCheck } from "lucide-react";
-import LandingProductPreview from "./LandingProductPreview";
+import LandingHeroVideo from "./LandingHeroVideo";
 import LandingStorytelling from "./LandingStorytelling";
 import "./landing-premium.css";
 
@@ -213,7 +213,7 @@ export default function Landing({ API, onComecar, onEntrar }) {
           <i aria-hidden="true">·</i> Progressão
         </p>
 
-        <LandingProductPreview />
+        <LandingHeroVideo />
       </section>
 
       <LandingStorytelling />

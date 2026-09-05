@@ -42,45 +42,55 @@ test("os botoes de integracao existem com rotulo e identificador estaveis", () =
   expect(doc.querySelector("#landing-ja-tenho-conta-rodape")).not.toBeNull();
 });
 
-test("o hero mostra tres telas reais e nenhum dado inventado", () => {
+test("o hero abre com o filme, e nao com dado inventado", () => {
   const doc = render();
-  const telas = doc.querySelectorAll(".lp-palco img");
-  expect(telas).toHaveLength(3);
+  const quadro = doc.querySelector(".lp-filme-quadro");
+  expect(quadro).not.toBeNull();
 
-  const alt = (sel) => doc.querySelector(sel).querySelector("img").getAttribute("alt");
-  // Treino no centro; nutricao e progresso recuadas de cada lado.
-  expect(alt(".lp-fone-centro")).toContain("treino");
-  expect(alt(".lp-fone-esquerda")).toContain("nutrição");
-  expect(alt(".lp-fone-direita")).toContain("progresso");
+  // Poster e video no mesmo quadro: a altura ja esta reservada antes de o video chegar.
+  const poster = quadro.querySelector(".lp-filme-poster");
+  const video = quadro.querySelector("video");
+  expect(poster.getAttribute("src")).toBeTruthy();
+  expect(video.getAttribute("poster")).toBe(poster.getAttribute("src"));
+  expect(video.querySelector("source").getAttribute("type")).toBe("video/mp4");
+  expect(video.querySelector("source").getAttribute("src")).toBeTruthy();
 
-  // A tela inicial nao entra no hero: ela aparece sozinha no storytelling logo abaixo.
-  telas.forEach((t) => expect(t.getAttribute("src")).not.toContain("inicio"));
-
-  // Toda imagem do hero e um arquivo real, nao marcacao remontada.
-  telas.forEach((t) => expect(t.getAttribute("src")).toBeTruthy());
+  // A maquete remontada continua fora da pagina.
   expect(doc.querySelector(".entry-screen")).toBeNull();
   expect(doc.body.textContent).not.toContain("Dados ilustrativos");
 });
 
 /**
- * A regressao que motivou este refino.
+ * O contrato do video.
  *
- * Duas telas foram trocadas por recortes que traziam a moldura do aparelho dentro do
- * arquivo. Sendo o arquivo retangular, o fundo dele virava uma caixa preta de canto vivo
- * sobre o cenario da landing, e cada arquivo vinha numa escala. O contrato que impede a
- * volta disso: TODA tela e uma <img> dentro de um `.lp-fone`, e todas declaram a mesma
- * medida — e o `.lp-fone` que arredonda, corta e sombreia.
+ * Autoplay so e permitido sem som, e sem `playsinline` o iPhone abre em tela cheia no
+ * lugar de tocar embutido. Sao os quatro atributos que fazem a peca funcionar como cena
+ * em vez de player — e `controls` nao pode aparecer.
+ */
+test("o video toca sozinho, mudo, em loop e sem controles", () => {
+  const video = render().querySelector(".lp-filme-quadro video");
+  ["autoplay", "muted", "loop", "playsinline"].forEach((attr) =>
+    expect(video.hasAttribute(attr)).toBe(true)
+  );
+  expect(video.hasAttribute("controls")).toBe(false);
+});
+
+/**
+ * A regressao que motivou o refino anterior, agora so no storytelling.
+ *
+ * Duas telas ja foram trocadas por recortes que traziam a moldura dentro do arquivo, e o
+ * fundo retangular virava uma caixa preta sobre o cenario. O contrato que impede a volta
+ * disso: toda tela e uma <img> dentro de um `.lp-fone`, todas na mesma medida.
  */
 test("toda tela vive dentro da moldura desenhada, e nao dentro do arquivo", () => {
   const doc = render();
   const imagens = [...doc.querySelectorAll(".lp-fone img")];
-  const soltas = [...doc.querySelectorAll(".lp-palco img, .lp-story-palco img")]
+  const soltas = [...doc.querySelectorAll(".lp-story-palco img")]
     .filter((i) => !i.closest(".lp-fone"));
 
-  expect(imagens.length).toBeGreaterThanOrEqual(7); // 3 no hero + 4 no storytelling
+  expect(imagens).toHaveLength(4); // as quatro telas do storytelling
   expect(soltas).toEqual([]);
 
-  // Mesma medida declarada em todas: escala diferente entre arquivos foi o outro defeito.
   const medidas = new Set(
     imagens.map((i) => `${i.getAttribute("width")}x${i.getAttribute("height")}`)
   );
