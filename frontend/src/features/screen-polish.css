@@ -6,88 +6,76 @@
  * ajuste aqui e so das duas.
  */
 
-/* ── Treino: a foto do exercicio ocupando o que sobrava ────────────────────── */
+/* ── Treino: a foto do exercicio no tamanho da referencia ──────────────────── */
 
 /*
- * A miniatura estava em 64px e o cartao terminava bem antes da barra inferior — sobrava
- * tela sem uso. A arte de origem e 512x512 e ja preenche 94% da caixa, entao o ganho vem
- * de aumentar a caixa, e nao de mexer no recorte.
+ * Medido na peca de referencia, com regua sobre a imagem em vez de estimativa:
  *
- * O passo e modesto de proposito: 64 -> 78px acrescenta 14px por linha. Numa sessao de
- * cinco exercicios isso consome quase todo o vao que sobrava; numa de nove, que ja
- * rolava, a pagina apenas rola um pouco mais. Encher a tela na marra exigiria variar o
- * tamanho conforme a quantidade de exercicios, e ai a mesma lista mudaria de aparencia de
- * um dia para o outro.
+ *   foto / largura do cartao ....... 40%
+ *   foto / altura do cartao ........ 93%
+ *   proporcao da foto .............. ~6:5
  *
- * Sobre a ordem: `workout-preview-density.css` mira os mesmos elementos com seletores de
- * peso identico. Em empate quem decide e a ordem de carga, e nao a especificidade — a
- * primeira tentativa importou esta folha pelo componente, que entra ANTES do index.js, e
- * as regras simplesmente nao valiam. Nada avisa quando isso acontece: a regra aparece no
- * bundle, so nao ganha.
+ * A primeira tentativa saiu em 29% da largura porque eu li os pixels da peca como se
+ * fossem pixels de tela. A peca esta em escala reduzida na composicao (o aparelho ocupa
+ * cerca de 0,75 do tamanho real), entao os "78px" que medi la valem ~108px de tela. Daí
+ * ter ficado pequena.
  *
- * Por isso ela entra no fim da pilha de folhas de ajuste do index.js, junto das outras que
- * existem para o mesmo fim. Assim os seletores ficam no peso natural, sem `!important` e
- * sem inventar niveis para vencer disputa.
+ * Por isso a medida agora e uma FRACAO da largura, e nao um valor fixo: `36vw` mantem os
+ * 40% do cartao em qualquer aparelho, que e o que a referencia mostra.
  */
 @media (max-width: 800px) {
-  /*
-   * Foto retangular, e nao quadrada.
-   *
-   * A referencia mostra a imagem deitada, ocupando a altura inteira da linha — e o que
-   * lhe da presenca sem roubar a largura do texto. Em quadrado, chegar ao mesmo peso
-   * visual exigiria uma caixa tao alta que sobrariam tres exercicios por tela.
-   *
-   * 104x78 e 4:3. A arte de origem e 512x512, entao ela passa a ser recortada nas
-   * laterais: `cover` no lugar de `contain`, senao sobraria barra preta dos dois lados.
-   * Recorte lateral e seguro aqui porque o movimento esta sempre no centro do quadro.
-   */
   .reference-workout-v3 .ref3-exercises > div > article {
-    grid-template-columns: 104px minmax(0, 1fr) auto;
-    gap: 12px;
-    min-height: 86px;
-    padding: 6px 0;
+    grid-template-columns: clamp(118px, 36vw, 168px) minmax(0, 1fr);
+    gap: 14px;
+    min-height: 0;
+    padding: 8px 0;
   }
 
   .reference-workout-v3 .ref3-ex-art {
-    width: 104px;
-    height: 78px;
-    flex-basis: 104px;
-    border-radius: 10px;
+    width: clamp(118px, 36vw, 168px);
+    height: auto;
+    aspect-ratio: 6 / 5;
+    flex-basis: auto;
+    border-radius: 12px;
   }
 
+  /* A arte e 512x512; num quadro 6:5 ela e recortada nas laterais, o que e seguro porque
+     o movimento esta sempre no centro do quadro. `contain` deixaria barra preta. */
   .reference-workout-v3 .ref3-ex-art > img.ref3-reviewed-art {
     object-fit: cover;
   }
 
+  .reference-workout-v3 .ref3-ex-copy {
+    justify-content: center;
+    gap: 6px;
+  }
+
   .reference-workout-v3 .ref3-ex-copy strong {
-    font-size: 15.5px;
+    font-size: 16px;
+    line-height: 1.25;
+  }
+
+  .reference-workout-v3 .ref3-ex-copy span {
+    font-size: 13px;
   }
 
   /*
-   * O circulo de confirmacao sai no celular.
-   *
-   * Ele e decorativo — um `<i>`, sem clique, sem rotulo, sem teste — e ocupava 44px com
-   * o espaco. Com a foto maior, essa largura faz diferenca entre o nome do exercicio
-   * caber em duas linhas ou em tres. A referencia tambem nao o tem.
+   * O circulo de confirmacao sai no celular. Ele e decorativo — um `<i>`, sem clique,
+   * sem rotulo e sem teste — e com a foto no tamanho da referencia essa largura faz
+   * falta para o nome do exercicio. A referencia tambem nao o tem.
    */
   .reference-workout-v3 .ref3-check {
     display: none;
   }
 }
 
-/* Celular baixo: cresce menos, porque ali a altura e que e escassa. */
-@media (max-width: 800px) and (max-height: 760px) {
-  .reference-workout-v3 .ref3-exercises > div > article {
-    grid-template-columns: 92px minmax(0, 1fr) auto;
-    min-height: 76px;
-    padding: 5px 0;
-  }
-
-  .reference-workout-v3 .ref3-ex-art {
-    width: 92px;
-    height: 69px;
-    flex-basis: 92px;
-  }
+/*
+ * O RPE saiu da coluna propria e passou para a linha de meta ("3 séries x 5–8 · RPE 9"),
+ * como na referencia, que nao tem coluna de RPE. A informacao continua na tela; o que
+ * saiu foi a coluna. No desktop a grade cai de quatro para tres colunas.
+ */
+.ref3-exercises > div > article {
+  grid-template-columns: 82px minmax(0, 1fr) 38px;
 }
 
 /* ── Nutricao: o resumo do dia ─────────────────────────────────────────────── */
@@ -258,7 +246,7 @@
  * trocar funcionalidade por semelhanca.
  */
 .nutrition-page .nutrition-meal-grid > .meal-card {
-  grid-template-columns: 132px minmax(0, 1fr);
+  grid-template-columns: clamp(140px, 42vw, 190px) minmax(0, 1fr);
   column-gap: 14px;
   row-gap: 12px;
 }
@@ -266,8 +254,9 @@
 .nutrition-page .nutrition-meal-grid > .meal-card .meal-visual {
   grid-column: 1;
   grid-row: 1;
-  width: 132px;
-  height: 132px;
+  width: clamp(140px, 42vw, 190px);
+  height: auto;
+  aspect-ratio: 4 / 3;
   min-height: 0;
   align-self: start;
   border-radius: 10px;
@@ -286,13 +275,7 @@
 
 @media (max-width: 800px) {
   .nutrition-page .nutrition-meal-grid > .meal-card {
-    grid-template-columns: 108px minmax(0, 1fr);
     column-gap: 12px;
     padding: 12px;
-  }
-
-  .nutrition-page .nutrition-meal-grid > .meal-card .meal-visual {
-    width: 108px;
-    height: 108px;
   }
 }
