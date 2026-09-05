@@ -1,0 +1,876 @@
+/*
+ * Landing publica do FORGE.
+ *
+ * Folha propria, e nao acrescimo em acquisition.css: aquela e compartilhada com o funil
+ * (cadastro, pre-avaliacao, previa bloqueada) e tem teste de responsividade que le as
+ * regras dela por nome. Mexer la para arrumar a landing quebraria telas que nao tem nada
+ * a ver com esta.
+ *
+ * Tudo esta sob `.landing-premium`. A area autenticada continua com a tipografia e as
+ * cores de App.css, sem uma unica regra vazando para dentro dela.
+ *
+ * Tres familias, cada uma com um trabalho:
+ *   Archivo 800/900 — titulos. Peso alto e o que da o tom de lancamento.
+ *   Inter           — texto corrido e botoes. Feita para tela pequena.
+ *   IBM Plex Mono   — informacao tecnica: rotulos, indices, a linha de recursos.
+ *
+ * Sem @import de fonte aqui: magic-patterns-v2.css ja baixa as tres, e o projeto ja as
+ * declara em --forge-editorial. Um segundo pedido ao Google Fonts baixaria os mesmos
+ * arquivos de novo e atrasaria a primeira pintura da pagina que precisa ser rapida.
+ */
+
+/*
+ * Sticky depende disto.
+ *
+ * magic-patterns-v2.css define `body{overflow-x:hidden}` para o aplicativo inteiro. Ate
+ * 800px, mobile-premium.css tambem da overflow ao `html`, e ai a propagacao do overflow do
+ * body para a janela deixa de acontecer: o body vira contêiner de rolagem por conta
+ * propria e todo `position:sticky` dentro dele passa a se prender a um contêiner que nao
+ * rola. O painel do storytelling ia embora com o scroll e a secao aparecia em branco —
+ * so no celular, que e justamente onde ela mais importa.
+ *
+ * `clip` corta igual e nao cria contêiner de rolagem. A classe e posta pelo Landing ao
+ * montar e retirada ao desmontar, entao isto vale so na pagina publica: a area
+ * autenticada continua exatamente com o comportamento que sempre teve.
+ */
+body.lp-ativa {
+  overflow-x: clip;
+}
+
+.landing-premium {
+  --lp-bg: #0c0d0f;
+  --lp-superficie: #141619;
+  --lp-linha: #34383d;
+  --lp-texto: #f2f0ea;
+  --lp-suave: #a7aaa8;
+  --lp-acento: #e36b4d;
+
+  --lp-titulo: 'Archivo', 'Sora', system-ui, sans-serif;
+  --lp-corpo: 'Inter', 'IBM Plex Sans', system-ui, sans-serif;
+  --lp-mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  /* Proporcao do recorte das telas. Largura sai da altura, entao a moldura nunca
+     distorce, em nenhuma largura de tela. */
+  --lp-proporcao: 504 / 1168;
+
+  background: var(--lp-bg);
+  color: var(--lp-texto);
+  font-family: var(--lp-corpo);
+  min-height: 100vh;
+  /*
+   * `clip`, e NAO `hidden`.
+   *
+   * A composicao joga celulares para fora do centro em perspectiva e sem conter isso a
+   * tela estreita ganha barra horizontal. Mas `overflow-x: hidden` faz o `overflow-y`
+   * calcular para `auto`, o que transforma este elemento em contêiner de rolagem — e
+   * `position: sticky` passa a se prender a ele, que nao rola, em vez de a janela. O
+   * painel do storytelling ia embora com o scroll em vez de ficar preso, e a secao
+   * inteira aparecia em branco.
+   *
+   * `clip` corta igual e nao cria contêiner de rolagem, entao o sticky continua valendo.
+   */
+  overflow-x: clip;
+}
+
+.landing-premium h1,
+.landing-premium h2,
+.landing-premium h3 {
+  font-family: var(--lp-titulo);
+  font-weight: 800;
+  letter-spacing: -0.028em;
+  line-height: 1.02;
+  margin: 0;
+}
+
+/* O destaque do titulo. Uma cor so na pagina inteira, e ela aparece aqui. */
+.landing-premium h1 em,
+.landing-premium h2 em {
+  font-style: normal;
+  color: var(--lp-acento);
+}
+
+.landing-premium p {
+  margin: 0;
+}
+
+.lp-eyebrow {
+  font-family: var(--lp-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--lp-suave);
+}
+
+/* ---- Botoes --------------------------------------------------------------- */
+
+.lp-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  /* 48px: alvo de toque confortavel. Abaixo de 42 o dedo erra. */
+  min-height: 48px;
+  padding: 0 1.4rem;
+  border: 1px solid var(--lp-linha);
+  background: transparent;
+  color: var(--lp-texto);
+  font-family: var(--lp-corpo);
+  font-size: 0.94rem;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  transition: border-color 0.25s ease, background 0.25s ease, color 0.25s ease;
+}
+
+.lp-btn:hover {
+  border-color: var(--lp-texto);
+}
+
+.lp-btn-primario {
+  background: var(--lp-acento);
+  border-color: var(--lp-acento);
+  color: #17110e;
+  font-weight: 600;
+}
+
+.lp-btn-primario:hover {
+  background: #ef7d5f;
+  border-color: #ef7d5f;
+  color: #17110e;
+}
+
+.lp-btn-fantasma {
+  border-color: var(--lp-linha);
+  color: var(--lp-suave);
+}
+
+.lp-btn-fantasma:hover {
+  color: var(--lp-texto);
+}
+
+/* ---- Topo ----------------------------------------------------------------- */
+
+/*
+ * O cabecalho fica no fluxo, nao fixo. Fixo obrigaria um respiro do tamanho dele no topo
+ * do hero — exatamente o espaco vazio que era para sair.
+ */
+.lp-topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 5vw;
+  border-bottom: 1px solid rgba(52, 56, 61, 0.5);
+}
+
+.lp-marca {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--lp-mono);
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: 0.13em;
+}
+
+.lp-marca-selo {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  background: var(--lp-acento);
+  color: #15110f;
+  font-family: var(--lp-titulo);
+  font-weight: 900;
+  font-size: 17px;
+}
+
+.lp-nav {
+  display: flex;
+  gap: 26px;
+  font-size: 14px;
+}
+
+.lp-nav a {
+  color: var(--lp-suave);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.lp-nav a:hover {
+  color: var(--lp-texto);
+}
+
+/* ---- Hero ----------------------------------------------------------------- */
+
+.lp-hero {
+  /* Pouco respiro em cima, de proposito: o produto tem de aparecer cedo. */
+  padding: clamp(28px, 5vh, 56px) 5vw 0;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.lp-hero-kicker {
+  font-family: var(--lp-mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--lp-suave);
+  margin-bottom: 18px;
+}
+
+.lp-hero h1 {
+  font-weight: 900;
+  font-size: clamp(2.5rem, 7.4vw, 5.4rem);
+  max-width: 16ch;
+}
+
+.lp-hero-lead {
+  margin-top: 20px;
+  max-width: 44ch;
+  font-size: clamp(0.98rem, 1.4vw, 1.12rem);
+  line-height: 1.65;
+  color: var(--lp-suave);
+}
+
+.lp-hero-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 30px;
+}
+
+/* A linha tecnica: o que o produto entrega, em tres palavras. */
+.lp-hero-linha {
+  margin-top: 30px;
+  font-family: var(--lp-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--lp-suave);
+}
+
+.lp-hero-linha i {
+  font-style: normal;
+  color: var(--lp-acento);
+  margin: 0 6px;
+}
+
+/* ---- Composicao do hero: tres telas reais --------------------------------- */
+
+.lp-composicao {
+  margin: clamp(26px, 4vh, 48px) 0 0;
+  width: 100%;
+  position: relative;
+}
+
+/*
+ * A luz quente por baixo. Discreta: e o chao da composicao, nao um efeito.
+ * Fica atras das telas e nao recebe evento nenhum.
+ */
+.lp-composicao::before {
+  content: "";
+  position: absolute;
+  inset: 18% -10% -14%;
+  background: radial-gradient(
+    62% 58% at 50% 88%,
+    rgba(233, 124, 86, 0.34) 0%,
+    rgba(214, 96, 64, 0.13) 36%,
+    rgba(150, 64, 40, 0.04) 60%,
+    rgba(12, 13, 15, 0) 78%
+  );
+  pointer-events: none;
+}
+
+.lp-palco {
+  position: relative;
+  /*
+   * Alta o bastante para a composicao nao caber inteira na primeira dobra: ela e cortada
+   * pelo fim da tela e continua abaixo, que e o que convida a rolar.
+   */
+  height: clamp(380px, 66vh, 660px);
+  /* Um unico ponto de fuga para as tres telas, senao cada uma parece fotografada por uma
+     camera diferente. */
+  perspective: 1500px;
+  perspective-origin: 50% 44%;
+}
+
+.lp-tela {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  height: 100%;
+  width: auto;
+  aspect-ratio: var(--lp-proporcao);
+  object-fit: contain;
+  backface-visibility: hidden;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/*
+ * Cada tela tem inclinacao e recuo proprios. As laterais nao sao espelho uma da outra:
+ * angulos ligeiramente diferentes tiram a simetria de catalogo e fazem parecer uma foto
+ * de tres objetos, nao um diagrama.
+ */
+.lp-tela-centro {
+  transform: translate(-50%, -50%);
+  z-index: 3;
+}
+
+.lp-tela-esquerda {
+  transform: translate(-50%, -50%) translate3d(-58%, -2%, -130px) rotateY(-24deg)
+    scale(0.93);
+  opacity: 0.62;
+  filter: brightness(0.6);
+  z-index: 2;
+}
+
+.lp-tela-direita {
+  transform: translate(-50%, -50%) translate3d(58%, 1%, -155px) rotateY(21deg)
+    scale(0.9);
+  opacity: 0.55;
+  filter: brightness(0.55);
+  z-index: 1;
+}
+
+.lp-composicao figcaption {
+  margin-top: 18px;
+  font-family: var(--lp-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--lp-suave);
+  text-align: center;
+}
+
+/* ---- Storytelling: painel preso, telas passando ---------------------------- */
+
+.lp-story {
+  position: relative;
+  /* 100svh do painel preso + curso de scroll para as tres passagens. */
+  height: 450svh;
+}
+
+.lp-story-preso {
+  position: sticky;
+  top: 0;
+  height: 100svh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.lp-brilho {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      78% 56% at 50% 96%,
+      rgba(233, 124, 86, 0.34) 0%,
+      rgba(214, 96, 64, 0.13) 34%,
+      rgba(12, 13, 15, 0) 74%
+    );
+}
+
+.lp-abas {
+  position: relative;
+  z-index: 2;
+  flex: none;
+  display: flex;
+  justify-content: center;
+  padding: 34px 16px 8px;
+}
+
+.lp-abas ol {
+  display: flex;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lp-abas li span {
+  display: block;
+  padding: 4px 10px;
+  font-family: var(--lp-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(167, 170, 168, 0.45);
+  transition: color 0.4s ease;
+}
+
+.lp-abas li i {
+  display: block;
+  height: 1px;
+  background: rgba(52, 56, 61, 0.4);
+  transition: background 0.4s ease;
+}
+
+.lp-abas li.ativa span {
+  color: var(--lp-acento);
+}
+
+.lp-abas li.ativa i {
+  background: var(--lp-acento);
+}
+
+.lp-story-palco {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  min-height: 0;
+  perspective: 1700px;
+  perspective-origin: 50% 46%;
+}
+
+.lp-story-fone {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  /* A altura manda; a largura sai da proporcao. Num celular e o eixo curto que limita, e
+     o teto em vw so morde em tela estreita e alta. */
+  height: min(100%, 152vw);
+  aspect-ratio: var(--lp-proporcao);
+  backface-visibility: hidden;
+  will-change: transform;
+  /* Centralizacao ja no primeiro quadro: se o JS demorar, as telas ficam empilhadas no
+     centro, nunca deslocadas meia largura para o canto. */
+  transform: translate(-50%, -50%);
+}
+
+.lp-story-fone img {
+  display: block;
+  height: 100%;
+  width: 100%;
+  object-fit: contain;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* Veu em elemento proprio, e nao `filter` animado: opacidade compoe na GPU, filtro
+   repinta. Com quatro imagens grandes por quadro, a diferenca aparece no celular. */
+.lp-veu {
+  position: absolute;
+  inset: 0;
+  background: var(--lp-bg);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.lp-story-legenda {
+  position: relative;
+  z-index: 2;
+  flex: none;
+  padding: 12px 6vw 34px;
+  text-align: center;
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.lp-story-legenda h3 {
+  margin: 8px 0;
+  font-weight: 800;
+  font-size: clamp(1.3rem, 2.3vw, 2rem);
+}
+
+.lp-story-texto {
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--lp-suave);
+  max-width: 44ch;
+  margin: 0 auto;
+}
+
+/* Sem movimento: a mesma informacao, empilhada, sem prender o scroll. */
+.lp-story-parado {
+  height: auto;
+  padding: 60px 6vw;
+}
+
+.lp-story-parado ul {
+  display: grid;
+  gap: 64px;
+  grid-template-columns: repeat(2, 1fr);
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0;
+  list-style: none;
+}
+
+.lp-story-parado li {
+  text-align: center;
+}
+
+.lp-story-parado img {
+  width: 200px;
+  max-width: 100%;
+  margin: 0 auto 22px;
+  display: block;
+}
+
+.lp-story-parado h3 {
+  margin: 8px 0;
+  font-size: 1.3rem;
+}
+
+/* ---- Secoes de texto ------------------------------------------------------ */
+
+.lp-secao {
+  padding: clamp(64px, 10vh, 130px) 5vw;
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.lp-secao-titulo {
+  margin-bottom: clamp(36px, 6vh, 66px);
+  max-width: 40ch;
+}
+
+.lp-secao-titulo h2 {
+  margin-top: 14px;
+  font-size: clamp(1.8rem, 4vw, 3.1rem);
+}
+
+.lp-secao-lead {
+  margin-top: 18px;
+  font-size: 1rem;
+  line-height: 1.7;
+  color: var(--lp-suave);
+}
+
+.lp-passos {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--lp-linha);
+}
+
+.lp-passos li {
+  display: flex;
+  gap: 22px;
+  padding: 26px 0;
+  border-bottom: 1px solid var(--lp-linha);
+}
+
+.lp-passo-n {
+  font-family: var(--lp-mono);
+  font-size: 11px;
+  line-height: 1.9;
+  color: var(--lp-acento);
+  flex: none;
+}
+
+.lp-passos h3 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.lp-passos p {
+  margin-top: 7px;
+  font-size: 13.5px;
+  line-height: 1.65;
+  color: var(--lp-suave);
+}
+
+/* ---- Planos --------------------------------------------------------------- */
+
+/*
+ * Colunas separadas por uma borda de 1px, sem sombra e sem fundo diferente. O recomendado
+ * se distingue por uma regua no acento — o atalho do cartao com sombra e o que faz tabela
+ * de preco parecer modelo pronto.
+ */
+.lp-planos {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border-top: 1px solid var(--lp-linha);
+}
+
+.lp-plano {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 42px 30px;
+  border-bottom: 1px solid var(--lp-linha);
+}
+
+.lp-plano + .lp-plano {
+  border-left: 1px solid var(--lp-linha);
+}
+
+.lp-plano.recomendado::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--lp-acento);
+}
+
+.lp-plano-flag {
+  position: absolute;
+  top: 16px;
+  right: 22px;
+  background: var(--lp-acento);
+  color: #17110e;
+  padding: 3px 8px;
+  font-family: var(--lp-mono);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.lp-plano-preco {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.lp-plano-preco span {
+  font-family: var(--lp-mono);
+  font-size: 13px;
+  color: var(--lp-suave);
+}
+
+.lp-plano-preco b {
+  font-family: var(--lp-titulo);
+  font-weight: 900;
+  font-size: 2.9rem;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.lp-plano-preco small {
+  font-size: 13px;
+  color: var(--lp-suave);
+}
+
+.lp-plano-cobranca,
+.lp-plano-publico {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--lp-suave);
+}
+
+.lp-plano-publico {
+  border-left: 2px solid var(--lp-acento);
+  padding-left: 14px;
+  color: #dedbd3;
+}
+
+.lp-plano-recursos {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+  flex: 1;
+}
+
+.lp-plano-recursos li {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+
+.lp-plano-recursos svg {
+  color: var(--lp-acento);
+  flex: none;
+  margin-top: 2px;
+}
+
+.lp-plano-embreve {
+  border-top: 1px solid var(--lp-linha);
+  padding-top: 18px;
+}
+
+.lp-plano-embreve ul {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--lp-suave);
+}
+
+.lp-nota {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 24px;
+  font-size: 12px;
+  color: var(--lp-suave);
+}
+
+.lp-nota svg {
+  flex: none;
+}
+
+.lp-aviso,
+.lp-erro {
+  font-size: 14px;
+  color: var(--lp-suave);
+  padding-bottom: 18px;
+}
+
+.lp-erro {
+  color: #e8907a;
+}
+
+/* ---- Fechamento e rodape --------------------------------------------------- */
+
+.lp-fechamento {
+  padding: clamp(72px, 12vh, 150px) 5vw;
+  text-align: center;
+  border-top: 1px solid var(--lp-linha);
+}
+
+.lp-fechamento h2 {
+  font-size: clamp(2rem, 5vw, 3.6rem);
+  max-width: 18ch;
+  margin: 0 auto;
+}
+
+.lp-rodape {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 26px 5vw 40px;
+  border-top: 1px solid rgba(52, 56, 61, 0.5);
+  font-size: 12px;
+  color: var(--lp-suave);
+}
+
+/* ---- Tablet --------------------------------------------------------------- */
+
+@media (max-width: 900px) {
+  .lp-nav {
+    display: none;
+  }
+
+  .lp-planos {
+    grid-template-columns: 1fr;
+  }
+
+  .lp-plano + .lp-plano {
+    border-left: 0;
+  }
+
+  .lp-story-parado ul {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---- Celular -------------------------------------------------------------- */
+
+@media (max-width: 560px) {
+  .lp-topo {
+    padding: 14px 5vw;
+  }
+
+  .lp-topo-entrar {
+    /* No celular o botao do topo vira so a seta com rotulo curto; o hero ja tem o
+       "Ja tenho conta" inteiro logo abaixo. */
+    padding: 0 0.9rem;
+    font-size: 0.82rem;
+  }
+
+  .lp-hero {
+    padding-top: 26px;
+    text-align: left;
+    align-items: flex-start;
+  }
+
+  .lp-hero h1 {
+    max-width: none;
+  }
+
+  .lp-hero-lead {
+    max-width: none;
+  }
+
+  .lp-hero-acoes {
+    justify-content: stretch;
+    width: 100%;
+  }
+
+  .lp-hero-acoes .lp-btn {
+    flex: 1 1 100%;
+  }
+
+  /*
+   * Composicao simplificada: o treino em primeiro plano e apenas pequenas partes das
+   * outras duas atras. Sao empurradas mais para fora e escurecidas alem do desktop —
+   * numa tela estreita, vizinha legivel disputa atencao com a principal.
+   */
+  .lp-tela-esquerda {
+    transform: translate(-50%, -50%) translate3d(-52%, -1%, -160px) rotateY(-27deg)
+      scale(0.9);
+    opacity: 0.4;
+    filter: brightness(0.45);
+  }
+
+  .lp-tela-direita {
+    transform: translate(-50%, -50%) translate3d(52%, 1%, -180px) rotateY(24deg)
+      scale(0.88);
+    opacity: 0.34;
+    filter: brightness(0.4);
+  }
+
+  .lp-composicao figcaption {
+    text-align: left;
+  }
+
+  .lp-abas {
+    padding: 26px 10px 6px;
+  }
+
+  .lp-abas li span {
+    padding: 4px 6px;
+    font-size: 9px;
+    letter-spacing: 0.12em;
+  }
+
+  .lp-story-legenda {
+    padding: 10px 6vw 28px;
+  }
+
+  .lp-plano {
+    padding: 34px 4vw;
+  }
+
+  .lp-rodape {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+}
+
+/* ---- Quem pediu menos movimento ------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-premium *,
+  .landing-premium *::before,
+  .landing-premium *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
