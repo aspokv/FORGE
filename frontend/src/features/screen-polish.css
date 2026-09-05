@@ -30,42 +30,63 @@
  * sem inventar niveis para vencer disputa.
  */
 @media (max-width: 800px) {
+  /*
+   * Foto retangular, e nao quadrada.
+   *
+   * A referencia mostra a imagem deitada, ocupando a altura inteira da linha — e o que
+   * lhe da presenca sem roubar a largura do texto. Em quadrado, chegar ao mesmo peso
+   * visual exigiria uma caixa tao alta que sobrariam tres exercicios por tela.
+   *
+   * 104x78 e 4:3. A arte de origem e 512x512, entao ela passa a ser recortada nas
+   * laterais: `cover` no lugar de `contain`, senao sobraria barra preta dos dois lados.
+   * Recorte lateral e seguro aqui porque o movimento esta sempre no centro do quadro.
+   */
   .reference-workout-v3 .ref3-exercises > div > article {
-    grid-template-columns: 78px minmax(0, 1fr) auto 32px;
+    grid-template-columns: 104px minmax(0, 1fr) auto;
     gap: 12px;
-    min-height: 88px;
-    padding: 7px 0;
+    min-height: 86px;
+    padding: 6px 0;
   }
 
   .reference-workout-v3 .ref3-ex-art {
-    width: 78px;
+    width: 104px;
     height: 78px;
-    flex-basis: 78px;
-    border-radius: 12px;
+    flex-basis: 104px;
+    border-radius: 10px;
+  }
+
+  .reference-workout-v3 .ref3-ex-art > img.ref3-reviewed-art {
+    object-fit: cover;
   }
 
   .reference-workout-v3 .ref3-ex-copy strong {
     font-size: 15.5px;
   }
 
+  /*
+   * O circulo de confirmacao sai no celular.
+   *
+   * Ele e decorativo — um `<i>`, sem clique, sem rotulo, sem teste — e ocupava 44px com
+   * o espaco. Com a foto maior, essa largura faz diferenca entre o nome do exercicio
+   * caber em duas linhas ou em tres. A referencia tambem nao o tem.
+   */
   .reference-workout-v3 .ref3-check {
-    width: 32px;
-    height: 32px;
+    display: none;
   }
 }
 
 /* Celular baixo: cresce menos, porque ali a altura e que e escassa. */
 @media (max-width: 800px) and (max-height: 760px) {
   .reference-workout-v3 .ref3-exercises > div > article {
-    grid-template-columns: 68px minmax(0, 1fr) auto 30px;
-    min-height: 78px;
+    grid-template-columns: 92px minmax(0, 1fr) auto;
+    min-height: 76px;
     padding: 5px 0;
   }
 
   .reference-workout-v3 .ref3-ex-art {
-    width: 68px;
-    height: 68px;
-    flex-basis: 68px;
+    width: 92px;
+    height: 69px;
+    flex-basis: 92px;
   }
 }
 
@@ -214,5 +235,64 @@
   .nutrition-page .nutrition-summary > .nutrition-ring {
     width: 68px;
     height: 68px;
+  }
+}
+
+/* ── Nutricao: a foto do prato passa para a esquerda ───────────────────────── */
+
+/*
+ * Na referencia o prato vem primeiro e o texto depois. Faz sentido: a foto e o que
+ * identifica a refeicao de relance; o nome e a confirmacao.
+ *
+ * O cartao da referencia e curto — so rotulo, prato e caloria. O real e alto, porque lista
+ * os alimentos com botao de substituicao em cada um. Isso muda o desenho: uma foto
+ * esticada na altura inteira deste cartao viraria uma tira estreita de 112 por 400, que
+ * corta o prato em vez de mostra-lo.
+ *
+ * Entao a foto fica QUADRADA no alto, ao lado do cabecalho, e a lista de alimentos passa
+ * por baixo das duas colunas, em largura cheia. Sem tira, sem coluna vazia sob a foto, e
+ * o prato aparece inteiro — que era o ponto.
+ *
+ * Nada de funcionalidade sai: concluir, pular e substituir continuam onde estavam. A
+ * referencia e peca de divulgacao e nao tem nenhum desses controles; some-los seria
+ * trocar funcionalidade por semelhanca.
+ */
+.nutrition-page .nutrition-meal-grid > .meal-card {
+  grid-template-columns: 132px minmax(0, 1fr);
+  column-gap: 14px;
+  row-gap: 12px;
+}
+
+.nutrition-page .nutrition-meal-grid > .meal-card .meal-visual {
+  grid-column: 1;
+  grid-row: 1;
+  width: 132px;
+  height: 132px;
+  min-height: 0;
+  align-self: start;
+  border-radius: 10px;
+}
+
+.nutrition-page .nutrition-meal-grid > .meal-card .meal-head {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: center;
+}
+
+/* Todo o resto — lista de alimentos, painel de substituicao, rodape — em largura cheia. */
+.nutrition-page .nutrition-meal-grid > .meal-card > *:not(.meal-visual):not(.meal-head) {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 800px) {
+  .nutrition-page .nutrition-meal-grid > .meal-card {
+    grid-template-columns: 108px minmax(0, 1fr);
+    column-gap: 12px;
+    padding: 12px;
+  }
+
+  .nutrition-page .nutrition-meal-grid > .meal-card .meal-visual {
+    width: 108px;
+    height: 108px;
   }
 }
