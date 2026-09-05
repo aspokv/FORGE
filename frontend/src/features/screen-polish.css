@@ -1,0 +1,218 @@
+/*
+ * Acabamento das telas de Treino e Nutricao no celular.
+ *
+ * Folha propria em vez de emendar nas existentes: `reference-exact-v3.css`,
+ * `workout-preview-density.css` e `App.css` sao compartilhadas por varias telas, e o
+ * ajuste aqui e so das duas.
+ */
+
+/* ── Treino: a foto do exercicio ocupando o que sobrava ────────────────────── */
+
+/*
+ * A miniatura estava em 64px e o cartao terminava bem antes da barra inferior — sobrava
+ * tela sem uso. A arte de origem e 512x512 e ja preenche 94% da caixa, entao o ganho vem
+ * de aumentar a caixa, e nao de mexer no recorte.
+ *
+ * O passo e modesto de proposito: 64 -> 78px acrescenta 14px por linha. Numa sessao de
+ * cinco exercicios isso consome quase todo o vao que sobrava; numa de nove, que ja
+ * rolava, a pagina apenas rola um pouco mais. Encher a tela na marra exigiria variar o
+ * tamanho conforme a quantidade de exercicios, e ai a mesma lista mudaria de aparencia de
+ * um dia para o outro.
+ *
+ * Sobre a ordem: `workout-preview-density.css` mira os mesmos elementos com seletores de
+ * peso identico. Em empate quem decide e a ordem de carga, e nao a especificidade — a
+ * primeira tentativa importou esta folha pelo componente, que entra ANTES do index.js, e
+ * as regras simplesmente nao valiam. Nada avisa quando isso acontece: a regra aparece no
+ * bundle, so nao ganha.
+ *
+ * Por isso ela entra no fim da pilha de folhas de ajuste do index.js, junto das outras que
+ * existem para o mesmo fim. Assim os seletores ficam no peso natural, sem `!important` e
+ * sem inventar niveis para vencer disputa.
+ */
+@media (max-width: 800px) {
+  .reference-workout-v3 .ref3-exercises > div > article {
+    grid-template-columns: 78px minmax(0, 1fr) auto 32px;
+    gap: 12px;
+    min-height: 88px;
+    padding: 7px 0;
+  }
+
+  .reference-workout-v3 .ref3-ex-art {
+    width: 78px;
+    height: 78px;
+    flex-basis: 78px;
+    border-radius: 12px;
+  }
+
+  .reference-workout-v3 .ref3-ex-copy strong {
+    font-size: 15.5px;
+  }
+
+  .reference-workout-v3 .ref3-check {
+    width: 32px;
+    height: 32px;
+  }
+}
+
+/* Celular baixo: cresce menos, porque ali a altura e que e escassa. */
+@media (max-width: 800px) and (max-height: 760px) {
+  .reference-workout-v3 .ref3-exercises > div > article {
+    grid-template-columns: 68px minmax(0, 1fr) auto 30px;
+    min-height: 78px;
+    padding: 5px 0;
+  }
+
+  .reference-workout-v3 .ref3-ex-art {
+    width: 68px;
+    height: 68px;
+    flex-basis: 68px;
+  }
+}
+
+/* ── Nutricao: o resumo do dia ─────────────────────────────────────────────── */
+
+/*
+ * Antes: um cartao com borda e fundo proprio, contendo quatro caixas — cada uma com
+ * borda, raio, degrade e 18px de recheio. Caixa dentro de caixa dentro de caixa. Em duas
+ * colunas no celular sobrava a GORDURA sozinha numa terceira linha, ao lado de um vao
+ * vazio, e o bloco passava de 400px de altura antes de qualquer prato aparecer.
+ *
+ * Agora e UM cartao com uma grade de tres colunas:
+ *
+ *     META DIARIA        |  (anel)
+ *     2871 kcal          |   0%
+ *     ───────────────────────────────
+ *     PROTEINA | CARBO | GORDURA
+ *
+ * A informacao e a mesma; o que sai e a moldura repetida. O bloco cai para cerca de um
+ * terco da altura, e o primeiro prato sobe junto.
+ *
+ * A grade e do proprio `.nutrition-summary`, e a `.macro-strip` vira `display: contents`
+ * — assim os quatro numeros e o anel, que sao irmaos em niveis diferentes na marcacao,
+ * dividem a mesma grade sem precisar mexer no JSX.
+ *
+ * Tudo sob `.nutrition-page` de proposito: `.macro-strip` tambem e usada na tela de
+ * importacao de dieta, que nao muda.
+ */
+.nutrition-page .nutrition-summary {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 14px 18px;
+  align-items: center;
+  padding: 18px 18px 16px;
+  border-radius: 14px;
+}
+
+.nutrition-page .nutrition-summary .macro-strip {
+  display: contents;
+}
+
+.nutrition-page .nutrition-summary .macro-strip > div {
+  /* Sem borda, sem fundo, sem sombra: o cartao de fora ja e a moldura. */
+  background: none;
+  border: 0;
+  box-shadow: none;
+  border-radius: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+/* Meta calorica: o numero principal, ocupando duas colunas ao lado do anel. */
+.nutrition-page .nutrition-summary .macro-strip > .calories {
+  grid-column: 1 / 3;
+  grid-row: 1;
+}
+
+.nutrition-page .nutrition-summary .macro-strip > .calories b {
+  font-size: 40px;
+  line-height: 1;
+  margin-top: 4px;
+}
+
+.nutrition-page .nutrition-summary .macro-strip > .calories b small {
+  font-size: 14px;
+}
+
+/*
+ * Os tres macros na segunda linha, em colunas iguais e com uma regua acima. Colunas
+ * iguais e o que faz os numeros lerem como comparaveis entre si.
+ */
+.nutrition-page .nutrition-summary .macro-strip > div:not(.calories) {
+  grid-row: 2;
+  padding-top: 14px;
+  border-top: 1px solid rgba(201, 162, 126, 0.16);
+}
+
+.nutrition-page .nutrition-summary .macro-strip > div:nth-of-type(2) { grid-column: 1; }
+.nutrition-page .nutrition-summary .macro-strip > div:nth-of-type(3) { grid-column: 2; }
+.nutrition-page .nutrition-summary .macro-strip > div:nth-of-type(4) { grid-column: 3; }
+
+.nutrition-page .nutrition-summary .macro-strip > div:not(.calories) b {
+  font-size: 21px;
+  margin-top: 3px;
+}
+
+/* O anel encolhe e sobe para a linha da meta, em vez de flutuar centralizado. */
+.nutrition-page .nutrition-summary > .nutrition-ring {
+  grid-column: 3;
+  grid-row: 1;
+  width: 76px;
+  height: 76px;
+  justify-self: end;
+}
+
+.nutrition-page .nutrition-summary > .nutrition-ring::before {
+  inset: 7px;
+}
+
+.nutrition-page .nutrition-summary > .nutrition-ring span {
+  font-size: 18px;
+}
+
+/* ── Nutricao: o caminho ate o primeiro prato ──────────────────────────────── */
+
+@media (max-width: 800px) {
+  /*
+   * O titulo ocupava duas linhas e 80px de altura, empurrando os pratos para fora da
+   * primeira dobra. Em 27px ele cabe numa linha so e continua sendo, claramente, o titulo
+   * da tela.
+   *
+   * O seletor e longo porque precisa vencer
+   * `.forge-shell .content:not(.decision-home) .section-intro h2` de reference-platform.css
+   * — que e o titulo padrao de TODA tela da plataforma, em clamp(34px, 4.4vw, 52px).
+   * Encolher aqui e desvio proposital de uma tela so, entao ele traz `.nutrition-page` no
+   * meio: pesa um nivel a mais e nao toca em Treino, Progresso ou Perfil.
+   */
+  .nutrition-page .section-intro {
+    margin-bottom: 18px;
+  }
+
+  .forge-shell .content.nutrition-page:not(.decision-home) .section-intro h2 {
+    font-size: clamp(1.55rem, 6.6vw, 1.9rem);
+    line-height: 1.08;
+  }
+
+  .nutrition-page .nutrition-tabs {
+    margin-bottom: 12px;
+  }
+
+  /* A linha do consumido e apoio, nao manchete. */
+  .nutrition-page > p.muted {
+    font-size: 12.5px;
+    line-height: 1.5;
+  }
+
+  .nutrition-page .nutrition-summary {
+    padding: 16px 16px 14px;
+    gap: 12px 14px;
+  }
+
+  .nutrition-page .nutrition-summary .macro-strip > .calories b {
+    font-size: 34px;
+  }
+
+  .nutrition-page .nutrition-summary > .nutrition-ring {
+    width: 68px;
+    height: 68px;
+  }
+}

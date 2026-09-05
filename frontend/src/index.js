@@ -20,6 +20,7 @@ import "@/header-typography.css";
 import "@/page-alignment.css";
 import "@/workout-nutrition-actions.css";
 import "@/home-reference-lock.css";
+import "@/features/screen-polish.css";
 
 const queryClient = new QueryClient({
   defaultOptions: {
