@@ -1,22 +1,57 @@
-import {Check, Clock, Droplets, Dumbbell, House, Layers3, TrendingUp, UserRound, Utensils} from "lucide-react";
-import planArt from "../assets/forge-plan-pull.webp";
+import telaTreino from "../assets/forge-tela-treino.webp";
+import telaNutricao from "../assets/forge-tela-nutricao.webp";
+import telaProgresso from "../assets/forge-tela-progresso.webp";
 
-/** Read-only composition based on the approved Home. Never mounts authenticated
- * Home or requests athlete data on the public page. All figures are sample data. */
+/**
+ * A composicao do hero: tres telas reais do FORGE, em profundidade.
+ *
+ * Treino no centro, nutricao e progresso recuadas de cada lado. E a promessa da pagina
+ * dita em uma imagem — o FORGE junta as tres coisas — antes de o storytelling abaixo
+ * separar cada uma e explicar.
+ *
+ * A tela inicial NAO entra aqui de proposito: ela aparece sozinha mais abaixo, e repetir
+ * a mesma imagem duas vezes gastaria a novidade da segunda aparicao.
+ *
+ * Sao capturas reais, nao uma maquete montada em HTML. A versao anterior desta pagina
+ * remontava a Home em marcacao com numeros ilustrativos ("1.420 / 2.400 kcal"), o que
+ * obrigava a legenda "Dados ilustrativos" e ainda assim mostrava uma interface que nao
+ * existia. Imagem real nao precisa de ressalva e nao pode divergir do produto.
+ */
 export default function LandingProductPreview() {
-  return <figure className="entry-product" aria-label="Demonstração da tela inicial do FORGE">
-    <div className="entry-phone">
-      <div className="entry-phone-speaker" aria-hidden="true" />
-      <div className="entry-screen">
-        <div className="entry-screen-brand">FORGE <UserRound size={16}/></div>
-        <div className="entry-screen-greeting"><strong>Olá, Atleta.</strong><span>Seu próximo treino começa com direção.</span></div>
-        <section className="entry-week"><h3>Resumo da semana</h3><div>{["SEG","TER","QUA","QUI","SEX","SÁB","DOM"].map((day,i)=><span key={day}>{day}<i className={i===2?"today":""}>{i<2&&<Check size={12}/>}</i></span>)}</div></section>
-        <section className="entry-today"><h3>Plano de hoje</h3><div><img src={planArt} alt="Ilustração do treino de costas" width="72" height="82"/><div><strong>Pull 2</strong><span>Costas · Bíceps</span><small><Clock size={11}/>60 min <Layers3 size={11}/>16 séries</small></div><Dumbbell size={17}/></div></section>
-        <section className="entry-nutrition"><h3>Nutrição</h3><span>Meta diária</span><div className="entry-calories"><svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="26"/><circle cx="32" cy="32" r="26" strokeDasharray="98 164"/></svg><div><strong>1.420 <small>/ 2.400</small></strong><span>kcal consumidas</span></div></div><div className="entry-macros">{[["Proteínas","112 / 180 g"],["Carboidratos","150 / 260 g"],["Gorduras","41 / 70 g"]].map(([name,value])=><div key={name}><span>{name}</span><i/><small>{value}</small></div>)}</div></section>
-        <section className="entry-water"><h3>Hidratação</h3><strong>1,5 <small>/ 2,5 L</small></strong><div aria-hidden="true">{Array.from({length:7},(_,i)=><Droplets key={i} size={20} className={i<4?"filled":""}/>)}</div></section>
-        <div className="entry-phone-nav" aria-hidden="true">{[[House,"Início"],[Dumbbell,"Treino"],[Utensils,"Nutrição"],[TrendingUp,"Progresso"],[UserRound,"Perfil"]].map(([Icon,label])=><span key={label}><Icon size={16}/>{label}</span>)}</div>
+  return (
+    <figure className="lp-composicao" aria-labelledby="lp-composicao-legenda">
+      <div className="lp-palco">
+        <img
+          className="lp-tela lp-tela-esquerda"
+          src={telaNutricao}
+          alt="Tela de nutrição do FORGE, com as refeições do dia e as calorias de cada uma."
+          width="504"
+          height="1168"
+          loading="eager"
+          decoding="async"
+        />
+        <img
+          className="lp-tela lp-tela-direita"
+          src={telaProgresso}
+          alt="Tela de progresso do FORGE, com a carga por semana e o mapa de estímulo."
+          width="504"
+          height="1168"
+          loading="eager"
+          decoding="async"
+        />
+        <img
+          className="lp-tela lp-tela-centro"
+          src={telaTreino}
+          alt="Tela de treino do FORGE: peitoral e ombros, 60 minutos, com a lista de exercícios e séries."
+          width="504"
+          height="1168"
+          loading="eager"
+          decoding="async"
+        />
       </div>
-    </div>
-    <figcaption>INTERFACE FORGE <span>Dados ilustrativos · plano conforme sua avaliação</span></figcaption>
-  </figure>;
+      <figcaption id="lp-composicao-legenda">
+        Treino, nutrição e progresso no mesmo sistema
+      </figcaption>
+    </figure>
+  );
 }
