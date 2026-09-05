@@ -38,7 +38,27 @@ _COMMON_DIARY_FOODS = {fid: {"id": fid, "name": name, "grams": 100, "kcal": kcal
     "source": "Valor médio estimado por 100 g — confirme o rótulo quando disponível"}
     for fid, name, kcal, protein, carbs, fat, aliases in _COMMON_DIARY_ROWS}
 
-DIARY_FOODS = {**FOOD_INDEX, **_COMMON_DIARY_FOODS, "diary-beef-ribs-roasted": {
+# Opções populares ficam disponíveis imediatamente, mesmo se o provedor mundial
+# estiver lento. Os valores são por porção de 30 g e o rótulo continua sendo a
+# referência final, pois sabor e lote podem alterar a composição.
+_BRANDED_WHEY_ROWS = [
+    ("growth-whey-concentrado", "Whey Protein Concentrado — Growth Supplements", 120, 23, 4.5, 2.0, ["growth whey", "whey growth"]),
+    ("max-titanium-top-whey", "Top Whey 3W — Max Titanium", 120, 21, 4.6, 2.0, ["max titanium whey", "top whey"]),
+    ("integralmedica-nutri-whey", "Nutri Whey Protein — Integralmédica", 119, 22, 4.0, 1.7, ["integralmedica whey", "nutri whey"]),
+    ("dux-whey-concentrado", "Whey Protein Concentrado — DUX Nutrition", 118, 22, 3.3, 1.8, ["dux whey", "whey dux"]),
+    ("probiotica-100-pure-whey", "100% Pure Whey — Probiótica", 121, 23, 3.8, 1.7, ["probiotica whey", "pure whey"]),
+    ("soldiers-whey-concentrado", "Whey Protein Concentrado — Soldiers Nutrition", 119, 23, 3.5, 1.6, ["soldiers whey", "whey soldiers"]),
+    ("black-skull-whey-100-hd", "Whey 100% HD — Black Skull", 120, 21, 5.0, 1.7, ["black skull whey", "whey hd"]),
+    ("adaptogen-tasty-whey", "Tasty Whey — Adaptogen Science", 119, 21, 5.0, 1.6, ["adaptogen whey", "tasty whey"]),
+    ("essential-pure-whey", "Pure Whey — Essential Nutrition", 116, 22, 3.0, 1.8, ["essential whey", "pure whey essential"]),
+    ("optimum-gold-standard-whey", "Gold Standard 100% Whey — Optimum Nutrition", 120, 24, 3.0, 1.0, ["optimum whey", "gold standard whey", "on whey"]),
+]
+_BRANDED_WHEY_FOODS = {fid: {"id": fid, "name": name, "grams": 30, "kcal": kcal,
+    "protein_g": protein, "carbs_g": carbs, "fat_g": fat, "aliases": aliases,
+    "source": "Valor típico por porção de 30 g — confirme o rótulo do sabor escolhido"}
+    for fid, name, kcal, protein, carbs, fat, aliases in _BRANDED_WHEY_ROWS}
+
+DIARY_FOODS = {**FOOD_INDEX, **_COMMON_DIARY_FOODS, **_BRANDED_WHEY_FOODS, "diary-beef-ribs-roasted": {
     "id": "diary-beef-ribs-roasted", "name": "Costela bovina assada, sem óleo, com sal (sem osso)",
     "grams": 100, "kcal": 360, "protein_g": 28.5, "carbs_g": 0, "fat_g": 27.4,
     "source": "TBCA BRC0352F — 100 g da parte comestível",

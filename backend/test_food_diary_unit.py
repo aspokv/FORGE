@@ -62,6 +62,12 @@ class FoodDiaryTests(unittest.TestCase):
         ground = next(f for f in response.json()['foods'] if f['id'] == 'beef-ground')
         self.assertIn('carne moida', ground['aliases'])
 
+    def test_catalog_has_popular_whey_brands_without_external_dependency(self):
+        response = self.client.get('/api/nutrition/consumed-foods')
+        names = " ".join(food['name'] for food in response.json()['foods'])
+        for brand in ('Growth Supplements', 'Max Titanium', 'Integralmédica', 'DUX Nutrition', 'Optimum Nutrition'):
+            self.assertIn(brand, names)
+
     def test_replacement_persists_server_calculation_without_changing_plan(self):
         before = copy.deepcopy(self.db.nutrition_plans.rows)
         r = self.client.post('/api/nutrition/consumed-meal', json=self.payload)
