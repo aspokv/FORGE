@@ -32,7 +32,8 @@ const ESPACO = 0.82;
 const ANGULO = 26; // graus de inclinacao por passo de distancia
 const PROFUNDIDADE = 150; // px de recuo em Z por passo
 const ENCOLHE = 0.075;
-const ESCURECE = 0.58; // veu sobre a tela vizinha
+const ESCURECE = 0.62; // veu sobre a tela vizinha
+const DESFOQUE = 2.6; // px de desfoque por passo de distancia, para a ativa se destacar
 const LIMITE = 2.2; // onde giro, recuo, escala e veu saturam
 const SOME_DE = 1.25;
 const SOME_ATE = 1.75;
@@ -56,7 +57,7 @@ export const TELAS = [
     texto:
       "Divisão, exercícios, séries e cargas decididos a partir da sua avaliação. " +
       "Você abre o aplicativo e começa.",
-    alt: "Tela de treino do FORGE: peitoral e ombros, 60 minutos, com a lista de exercícios e séries.",
+    alt: "Tela de treino do FORGE: Upper 1, 60 minutos, com a lista de exercícios e séries.",
   },
   {
     id: "nutricao",
@@ -67,7 +68,7 @@ export const TELAS = [
     texto:
       "Refeições com meta calórica e macros, prontas para o dia. Faltou um alimento? " +
       "A substituição equivalente mantém o plano de pé.",
-    alt: "Tela de nutrição do FORGE: café da manhã, almoço e lanche com calorias e porções.",
+    alt: "Tela de nutrição do FORGE: refeição do dia com calorias, alimentos e porções.",
   },
   {
     id: "inicio",
@@ -87,9 +88,9 @@ export const TELAS = [
     indice: "04",
     titulo: "A evolução fica registrada, não na sua memória.",
     texto:
-      "Cargas por semana, onde o estímulo se concentra e quantos dias você realmente " +
+      "Onde você mais evoluiu, quanto subiu em cada exercício e quantos dias realmente " +
       "treinou. É daqui que sai o ajuste do próximo ciclo.",
-    alt: "Tela de progresso do FORGE: cargas por semana, mapa de estímulo e consistência de 28 dias.",
+    alt: "Tela de progresso do FORGE: melhores resultados, com a carga ganha em cada exercício.",
   },
 ];
 
@@ -149,6 +150,7 @@ function estadoDaTela(d, larguraDoFone) {
     giro: Math.sign(d) * dist * ANGULO,
     escala: 1 - dist * ENCOLHE,
     veu: Math.min(dist * ESCURECE, 0.9),
+    desfoque: Math.min(dist, 1.4) * DESFOQUE,
     opacidade: 1 - limitar((bruta - SOME_DE) / (SOME_ATE - SOME_DE), 0, 1),
   };
 }
@@ -187,6 +189,13 @@ export default function LandingStorytelling() {
         `translate(-50%, -50%) translate3d(${s.x.toFixed(2)}px, 0, ${s.z.toFixed(2)}px) ` +
         `rotateY(${s.giro.toFixed(2)}deg) scale(${s.escala.toFixed(4)})`;
       el.style.opacity = s.opacidade.toFixed(3);
+      // Faixas de 0,5px: suave o bastante para nao dar degrau e raro o bastante para o
+      // repaint do filtro nao acontecer todo quadro.
+      const faixa = Math.round(s.desfoque * 2) / 2;
+      if (el.dataset.desfoque !== String(faixa)) {
+        el.dataset.desfoque = String(faixa);
+        el.style.filter = faixa > 0.1 ? `blur(${faixa}px)` : "none";
+      }
       // O empilhamento segue a distancia, senao a ordem do documento contradiz a
       // perspectiva e a tela de tras aparece na frente.
       el.style.zIndex = String(100 - Math.round(Math.abs(s.x) / 10));
@@ -271,7 +280,17 @@ export default function LandingStorytelling() {
         <ul>
           {TELAS.map((t) => (
             <li key={t.id}>
-              <img src={t.src} alt={t.alt} width="504" height="1168" loading="lazy" />
+              <div className="lp-fone">
+                <img
+                  className="lp-fone-tela"
+                  src={t.src}
+                  alt={t.alt}
+                  width="648"
+                  height="1404"
+                  loading="lazy"
+                  decoding="async"
+                />
+              </div>
               <p className="lp-eyebrow">
                 {t.indice} / {t.aba}
               </p>
@@ -313,10 +332,17 @@ export default function LandingStorytelling() {
           {TELAS.map((t, i) => (
             <div
               key={t.id}
-              className="lp-story-fone"
+              className="lp-story-fone lp-fone"
               ref={(el) => (fones.current[i] = el)}
             >
-              <img src={t.src} alt={t.alt} width="504" height="1168" decoding="async" />
+              <img
+                className="lp-fone-tela"
+                src={t.src}
+                alt={t.alt}
+                width="648"
+                height="1404"
+                decoding="async"
+              />
               <span
                 className="lp-veu"
                 aria-hidden="true"
