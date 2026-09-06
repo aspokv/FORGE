@@ -1,0 +1,128 @@
+/*
+ * Perfil — a tela mais aninhada do produto.
+ *
+ * A auditoria encontrou cartão dentro de cartão dentro de cartão, e sete botões de peso
+ * idêntico numa lista onde "Sair da conta" tinha o mesmo desenho de "Criar meu próprio
+ * treino". Também era onde mais valor interno vazava para a tela: `FORGE_AUTO` como
+ * título, `ELITE · ACTIVE` como legenda, "PERFIL LOCAL" como sobrelinha.
+ *
+ * A recomposição não reescreve a tela: separa por peso o que tem peso diferente, tira as
+ * bordas que só empilhavam caixa, e transforma os selos de plano e situação em selo de
+ * verdade em vez de texto cru.
+ */
+
+/* ── Selos de plano e situação ─────────────────────────────────────────────
+ * "ELITE · ACTIVE" era o valor do banco impresso. Vira selo: o estado se lê pela forma,
+ * e não só pela palavra.
+ */
+.fg-selos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e-2);
+  margin: var(--e-2) 0 0;
+}
+
+.fg-selo {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px var(--e-3);
+  border: 1px solid var(--fg-linha-forte);
+  border-radius: var(--r-pilula);
+  color: var(--fg-texto-2);
+  font: 600 var(--t-etiqueta) / 1.4 var(--fg-corpo);
+  letter-spacing: .02em;
+}
+
+.fg-selo.ok {
+  border-color: rgba(127, 174, 134, .4);
+  background: var(--fg-ok-fundo);
+  color: var(--fg-ok);
+}
+
+/* ── Lista de ações ────────────────────────────────────────────────────────
+ * Linha com ícone, rótulo e seta — a anatomia de "isto leva a outro lugar". Régua fina
+ * entre linhas em vez de um botão-caixa por item: sete caixas iguais não são hierarquia.
+ */
+.fg-lista-acoes {
+  display: flex;
+  flex-direction: column;
+  margin-top: var(--e-2);
+}
+
+.fg-acao-linha {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--e-3);
+  width: 100%;
+  min-height: var(--fg-toque);
+  padding: var(--e-3) 0;
+  border: 0;
+  border-top: 1px solid var(--fg-linha);
+  background: none;
+  color: var(--fg-texto);
+  font: 500 var(--t-corpo) / 1.35 var(--fg-corpo);
+  text-align: left;
+  cursor: pointer;
+  transition: color var(--m-reacao) var(--m-curva);
+}
+
+.fg-lista-acoes > .fg-acao-linha:first-child { border-top: 0; }
+
+.fg-acao-linha > svg:first-child { color: var(--fg-metal); flex: none; }
+.fg-acao-linha > svg:last-child { color: var(--fg-texto-3); flex: none; }
+.fg-acao-linha:active { color: var(--fg-metal); }
+.fg-acao-linha:focus-visible { outline: 2px solid var(--fg-metal); outline-offset: 2px; border-radius: var(--r-campo); }
+
+/*
+ * Sair da conta é saída, e não avanço: fica separado, discreto, e longe do polegar que
+ * percorre a lista. Antes tinha o mesmo desenho de "Criar meu próprio treino".
+ */
+.fg-sair {
+  width: 100%;
+  margin-top: var(--e-5);
+  padding-top: var(--e-4);
+  border-top: 1px solid var(--fg-linha);
+  border-radius: 0;
+  color: var(--fg-texto-3);
+  justify-content: flex-start;
+  gap: var(--e-2);
+}
+
+.fg-sair:active { color: var(--fg-erro); background: none; }
+
+/* ── Menos caixa ───────────────────────────────────────────────────────────
+ * Os painéis do Perfil eram cartões contendo cartões contendo cartões. O nível de fora
+ * perde borda e fundo: quem separa passa a ser o espaço e a régua.
+ */
+/*
+ * A especificidade aqui iguala `.forge-shell .content:not(.decision-home) .panel`, que
+ * pinta borda, raio de 16px e um gradiente radial em todo painel. Empatar e deixar a
+ * ordem de carregamento decidir e o certo — esta folha e a ultima do `index.js`. Vencer
+ * com `!important` seria a oitava camada, que e exatamente o que a auditoria condenou.
+ */
+.forge-shell .content.profile-page > .panel {
+  background: none;
+  border: 0;
+  border-top: 1px solid var(--fg-linha);
+  border-radius: 0;
+  padding: var(--e-5) 0 0;
+  margin-top: var(--e-5);
+}
+
+.forge-shell .content.profile-page > .panel:first-of-type { border-top: 0; margin-top: var(--e-4); padding-top: 0; }
+
+/* O avatar era uma elipse achatada porque nada garantia a proporção. */
+.profile-page .avatar {
+  width: 56px;
+  height: 56px;
+  flex: none;
+  border-radius: var(--r-pilula);
+  background: var(--fg-acao-fraca);
+  color: var(--fg-metal);
+  font: 700 var(--t-cartao) / 1 var(--fg-display);
+  letter-spacing: .04em;
+}
+
+.profile-page .profile-panel { align-items: flex-start; gap: var(--e-3); }
+.profile-page .profile-panel h3 { font-size: var(--t-cartao); margin: 2px 0 4px; }

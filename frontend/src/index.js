@@ -27,6 +27,7 @@ import "@/features/screen-polish.css";
 // A folha do Inicio vem por ULTIMO: importada pelo componente, ela carregava ANTES das
 // folhas daqui e perdia todo empate de especificidade para as camadas antigas.
 import "@/features/forge-inicio.css";
+import "@/features/forge-perfil.css";
 
 const queryClient = new QueryClient({
   defaultOptions: {

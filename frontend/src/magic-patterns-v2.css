@@ -129,7 +129,10 @@ body{
 
 /* ----- superfícies compartilhadas ----- */
 .forge-shell .content:not(.decision-home){max-width:1180px!important}
-.forge-shell .panel,.forge-shell .card,.forge-shell .exercise,.forge-shell .meal-card,
+/* O Perfil sai desta regra: la a folha forge-perfil.css e a dona, e esta linha usa
+   !important, entao nenhuma especificidade a venceria sem empilhar mais um. Excluir
+   o alvo e mais honesto que somar a oitava camada. */
+.forge-shell .content:not(.profile-page) .panel,.forge-shell .card,.forge-shell .exercise,.forge-shell .meal-card,
 .forge-shell .plan-card,.forge-shell .subscription-panel,.forge-shell .progress-card,
 .forge-shell .analysis-card,.forge-shell .profile-card,.forge-shell .preference-card,
 .forge-shell .builder-panel,.forge-shell .manual-panel{
