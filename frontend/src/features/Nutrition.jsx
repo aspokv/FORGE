@@ -5,6 +5,7 @@ import NutritionDailyFooter from "./NutritionDailyFooter";
 import NutritionImport from "./NutritionImport";
 import FoodDiaryEditor from "./FoodDiaryEditor";
 import {localFoodDate, consumedTotals} from "./foodDiary";
+import { macrosDaRefeicao, textoDoMacro } from "./macrosDaRefeicao";
 
 // Humanized display for naturally-countable foods (eggs, whites): the backend computes
 // display_quantity/display_unit from the real grams (e.g. "3 ovos"); grams stay the
@@ -16,6 +17,25 @@ function formatQty(item) {
     return `${qtyStr} ${item.display_unit}`;
   }
   return `${item?.grams ?? 0}g`;
+}
+
+/**
+ * Os tres macros da refeicao, em linha.
+ *
+ * Sao somados dos alimentos porque a refeicao nao traz carboidrato — e um macro faltando
+ * no cartao e pior que a soma. Quando um alimento nao informa um campo, aparece "não
+ * informado" em vez de um total menor que o verdadeiro: numero incompleto que parece
+ * certo engana mais que a ausencia.
+ */
+function MacrosDaRefeicao({ refeicao }) {
+  const m = macrosDaRefeicao(refeicao);
+  return (
+    <ul className="meal-macros" data-testid="meal-macros">
+      <li><b>{textoDoMacro(m.protein)}</b><span>proteína</span></li>
+      <li><b>{textoDoMacro(m.carbs)}</b><span>carboidratos</span></li>
+      <li><b>{textoDoMacro(m.fat)}</b><span>gorduras</span></li>
+    </ul>
+  );
 }
 
 function mealVisualKey(name = "") {
@@ -456,6 +476,10 @@ export default function Nutrition({ API, profileId, db }) {
               <div className="meal-head">
                 <div><p className="eyebrow">{m.name}</p><h3>{Math.round(mealKcal)} kcal</h3></div>
               </div>
+              {/* Macros somados dos alimentos: o que a pessoa vai comer, e nao a meta que
+                  o plano calculou. O carboidrato nem vem na refeicao — so existe somando
+                  os alimentos. Em largura cheia, cabem numa linha so. */}
+              <MacrosDaRefeicao refeicao={m} />
               <div className="food-list">
                 {(m.foods || []).map((it, j) => (
                   <div className="food-row" key={j}>
@@ -651,6 +675,11 @@ export default function Nutrition({ API, profileId, db }) {
             </div>
 
             <div className={`meal-visual meal-visual-${mealVisualKey(meal.name)}`} role="img" aria-label={`Imagem ilustrativa de ${meal.name}`} />
+
+            {/* Macros somados dos alimentos: o que a pessoa vai comer, e nao a meta que
+                o plano calculou. O carboidrato nem vem na refeicao — so existe somando os
+                alimentos. Em largura cheia, cabem numa linha so. */}
+            <MacrosDaRefeicao refeicao={meal} />
 
             <div className="food-list">
               {meal.foods?.map((item, j) => {

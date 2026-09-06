@@ -279,3 +279,72 @@
     padding: 12px;
   }
 }
+
+/* ── Macros da refeicao ───────────────────────────────────────────────────── */
+
+/*
+ * Os tres macros em linha, logo abaixo das calorias. Sem caixa em volta: o cartao da
+ * refeicao ja e a moldura, e mais um contorno aqui seria a terceira borda aninhada.
+ */
+.meal-macros {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 8px 0 0;
+  padding: 0;
+}
+
+.meal-macros li {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  min-width: 0;
+}
+
+.meal-macros b {
+  font: 600 13px "IBM Plex Mono", ui-monospace, monospace;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.meal-macros span {
+  font-size: 10.5px;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+}
+
+/* ── O cartao da refeicao ─────────────────────────────────────────────────── */
+
+@media (max-width: 800px) {
+  /*
+   * A foto do prato e o elemento principal, e o texto precisa de contraste contra ela.
+   * O cartao ganha profundidade por degrade e sombra baixa, em vez de mais um contorno
+   * cinza sobre preto chapado.
+   */
+  .nutrition-page .nutrition-meal-grid > .meal-card {
+    border-radius: 16px;
+    border: 1px solid rgba(216, 171, 128, 0.14);
+    background:
+      radial-gradient(90% 60% at 0% 0%, rgba(216, 171, 128, 0.07), transparent 58%),
+      linear-gradient(168deg, #191a1c 0%, #121314 52%, #0d0e0f 100%);
+    box-shadow: 0 16px 36px -26px #000, inset 0 1px 0 rgba(255, 255, 255, 0.035);
+  }
+
+  .nutrition-page .nutrition-meal-grid > .meal-card .meal-visual {
+    box-shadow: 0 8px 20px -12px rgba(0, 0, 0, 0.8);
+  }
+
+  /* O nome da refeicao para de competir com as calorias: rotulo pequeno, numero grande. */
+  .nutrition-page .nutrition-meal-grid > .meal-card .meal-head .eyebrow {
+    font-size: 9.5px;
+    letter-spacing: 0.18em;
+    color: #d8ab80;
+  }
+
+  .nutrition-page .nutrition-meal-grid > .meal-card .meal-head h3 {
+    margin-top: 3px;
+    font-size: clamp(19px, 5.2vw, 23px);
+    letter-spacing: -0.02em;
+  }
+}

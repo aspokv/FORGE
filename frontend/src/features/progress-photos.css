@@ -263,18 +263,6 @@
   scroll-snap-align: start;
 }
 
-.pf-data > button:first-child {
-  display: grid;
-  gap: 2px;
-  min-height: 52px;
-  padding: 8px 14px;
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  background: rgba(255, 255, 255, 0.028);
-  color: var(--muted);
-  text-align: left;
-}
-
 .pf-data b {
   font-size: 13px;
   color: var(--text);
@@ -287,11 +275,11 @@
 }
 
 /* Os dois lados da comparacao ficam marcados, com papeis distintos. */
-.pf-data.antiga > button:first-child {
+.pf-data.antiga > span {
   border-color: rgba(216, 171, 128, 0.42);
 }
 
-.pf-data.nova > button:first-child {
+.pf-data.nova > span {
   border-color: rgba(227, 107, 77, 0.55);
   background: rgba(227, 107, 77, 0.1);
 }
@@ -399,4 +387,224 @@
   .progress-page .progress-intelligence > .panel {
     border-radius: 14px;
   }
+}
+
+/* ── Envio de UMA foto ────────────────────────────────────────────────────── */
+
+.vp-envio {
+  display: grid;
+  gap: 12px;
+}
+
+/*
+ * Um alvo grande e claro, no lugar de quatro molduras vazias. Retrato, porque e o
+ * formato da foto de avaliacao — quadrado cortaria pernas ou cabeca.
+ */
+.vp-adicionar {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 6px;
+  aspect-ratio: 3 / 4;
+  max-height: 46vh;
+  border-radius: 14px;
+  border: 1px dashed rgba(216, 171, 128, 0.34);
+  background: linear-gradient(180deg, rgba(216, 171, 128, 0.05), rgba(0, 0, 0, 0.2));
+  color: var(--pf-ouro, #d8ab80);
+  text-align: center;
+  padding: 18px;
+  cursor: pointer;
+}
+
+.vp-adicionar b {
+  font-size: 15px;
+}
+
+.vp-adicionar span {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--muted);
+  max-width: 22ch;
+}
+
+.vp-adicionar input {
+  display: none;
+}
+
+.vp-previa {
+  position: relative;
+  margin: 0;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.vp-previa img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  max-height: 46vh;
+  object-fit: cover;
+}
+
+.vp-remover {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(10, 11, 12, 0.82);
+  color: #f2f0ea;
+}
+
+.vp-angulo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 48px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.028);
+}
+
+.vp-angulo label {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.vp-angulo select {
+  min-height: 40px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: right;
+}
+
+/*
+ * A falha explica o que fazer, e nao o codigo do erro. "415" nao ajuda ninguem; saber se
+ * o problema foi o arquivo, a foto ou o servico ajuda — e a acao de cada caso e diferente.
+ */
+.vp-falha {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(227, 107, 77, 0.32);
+  background: rgba(227, 107, 77, 0.07);
+}
+
+.vp-falha b {
+  font-size: 14px;
+  color: #f0b6a2;
+}
+
+.vp-falha p {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.vp-tentar {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  justify-self: start;
+  min-height: 42px;
+  padding: 0 14px;
+  margin-top: 4px;
+  border-radius: 999px;
+  border: 1px solid rgba(227, 107, 77, 0.45);
+  background: transparent;
+  color: #f0b6a2;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.vp-progresso {
+  display: grid;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.vp-barra {
+  height: 4px;
+  border-radius: 99px;
+  background: #24282b;
+  overflow: hidden;
+}
+
+.vp-barra i {
+  display: block;
+  height: 100%;
+  background: var(--pf-brasa, #e36b4d);
+  transition: width 0.25s ease;
+}
+
+.vp-acoes {
+  display: flex;
+  gap: 8px;
+}
+
+.vp-primario,
+.vp-secundario {
+  flex: 1;
+  min-height: 50px;
+  border-radius: 12px;
+  font-size: 14.5px;
+  font-weight: 600;
+}
+
+.vp-primario {
+  border: 0;
+  background: linear-gradient(180deg, #e36b4d, #c9553a);
+  color: #17110e;
+}
+
+/* Desabilitado precisa PARECER desabilitado: primario cheio e inerte faz a pessoa achar
+   que o aplicativo travou em vez de entender que falta escolher a foto. */
+.vp-primario:disabled {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
+.vp-secundario {
+  flex: 0 0 auto;
+  padding: 0 18px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: transparent;
+  color: var(--muted);
+}
+
+/* ── Uma foto so: ela ocupa a largura inteira ─────────────────────────────── */
+
+.pf-comparacao.sozinha {
+  grid-template-columns: 1fr;
+}
+
+.pf-comparacao.sozinha .pf-moldura {
+  max-height: 52vh;
+}
+
+/* ── Datas, quando ha mais de uma do mesmo angulo ─────────────────────────── */
+
+.pf-data > span {
+  display: grid;
+  gap: 2px;
+  min-height: 52px;
+  padding: 8px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.028);
+  color: var(--muted);
 }

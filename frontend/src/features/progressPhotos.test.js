@@ -25,14 +25,28 @@ test("os quatro angulos sao exatamente os que o servidor aceita", () => {
   expect(ANGULOS).toHaveLength(4);
 });
 
-test("o envio aceita selecao multipla e formatos de celular", () => {
+test("o envio e de UMA foto, e nao de quatro espacos ao mesmo tempo", () => {
   const doc = render(<VisualPhotoUpload API="/api" profileId="u1" />);
   const entrada = doc.querySelector('[data-testid="adicionar-fotos"] input');
-  expect(entrada.hasAttribute("multiple")).toBe(true);
+  // Quatro molduras vazias de uma vez lem como formulario a preencher.
+  expect(entrada.hasAttribute("multiple")).toBe(false);
   const aceita = entrada.getAttribute("accept");
   ["image/jpeg", "image/png", "image/webp", "image/heic"].forEach((t) =>
     expect(aceita).toContain(t)
   );
+});
+
+test("o angulo comeca em Frente, que e o que quase todo mundo manda", () => {
+  const doc = render(<VisualPhotoUpload API="/api" profileId="u1" />);
+  const sel = doc.querySelector('[data-testid="angulo-foto"]');
+  const selecionada = sel.querySelector("option[selected]") || sel.querySelector("option");
+  expect(selecionada.getAttribute("value")).toBe("front");
+});
+
+test("a tela de envio nao mostra quatro espacos de angulo", () => {
+  const doc = render(<VisualPhotoUpload API="/api" profileId="u1" />);
+  expect(doc.querySelectorAll('[data-testid="adicionar-fotos"]')).toHaveLength(1);
+  expect(doc.querySelectorAll(".vp-previa")).toHaveLength(0);
 });
 
 test("sem foto escolhida, o envio fica desabilitado", () => {
@@ -42,17 +56,18 @@ test("sem foto escolhida, o envio fica desabilitado", () => {
   ).toBe(true);
 });
 
-test("a tela diz que uma foto basta, sem exigir as quatro", () => {
+test("o envio orienta o enquadramento em vez de pedir montagem", () => {
   const texto = render(<VisualPhotoUpload API="/api" profileId="u1" />).body.textContent;
-  expect(texto).toContain("Uma foto já funciona");
+  expect(texto).toContain("Corpo inteiro");
+  expect(texto).not.toContain("colagem");
 });
 
 /* ── Estados da tela ───────────────────────────────────────────────────────── */
 
 test("carregando mostra esqueleto, e nao texto de espera nem cara de erro", () => {
   const doc = render(<ProgressPhotos API="/api" profileId="u1" />);
-  // O estado inicial na montagem do servidor e "carregando".
-  expect(doc.querySelectorAll(".pf-brilho").length).toBe(2);
+  // Um quadro so: o padrao e uma foto por atualizacao.
+  expect(doc.querySelectorAll(".pf-brilho").length).toBe(1);
   expect(doc.body.textContent).not.toContain("Erro");
   expect(doc.body.textContent).not.toContain("Carregando");
 });

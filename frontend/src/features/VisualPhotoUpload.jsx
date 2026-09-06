@@ -1,19 +1,20 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import axios from "axios";
-import { Camera, Plus, X } from "lucide-react";
+import { Camera, RefreshCw, X } from "lucide-react";
 
 import { comprimirImagem } from "./comprimirImagem";
 import "./visual-assessment.css";
 
 /**
- * Envio da avaliacao visual: ate quatro fotos, uma por angulo.
+ * Envio de UMA foto por atualizacao.
  *
- * A versao anterior aceitava UM arquivo. Quatro angulos mudam o produto, nao so a tela: e
- * o que permite comparar "costas de hoje" com "costas de um mes atras" mais adiante, no
- * historico. Por isso o angulo e escolhido no envio, e nao adivinhado depois.
+ * A versao anterior oferecia quatro espacos de angulo na mesma tela. Parecia completa e
+ * era o contrario: quatro molduras vazias de uma vez lem como formulario a preencher, e a
+ * pessoa que so queria mandar uma foto de frente ficava sem saber se podia.
  *
- * Enviar com uma foto continua valendo. Mais angulos deixam a leitura mais completa, e a
- * tela diz isso — mas nao exige.
+ * Agora o caminho e um so — escolher a foto, confirmar o angulo (frente por padrao, que e
+ * o que quase todo mundo manda) e enviar. Outros angulos continuam possiveis, em
+ * atualizacoes separadas, e a comparacao junta as datas do mesmo angulo depois.
  */
 
 export const ANGULOS = [
@@ -23,183 +24,171 @@ export const ANGULOS = [
   { id: "right", rotulo: "Lado direito" },
 ];
 
-const TAMANHO_MAXIMO = 8 * 1024 * 1024;
+/**
+ * Traduz a recusa em algo que a pessoa possa resolver.
+ *
+ * "Erro 415" nao ajuda ninguem. O que ajuda e saber se o problema foi o arquivo, a foto,
+ * ou o servico — e o que dizer para cada caso e diferente.
+ */
+function explicar(erro) {
+  const motivo = erro?.response?.data?.detail?.reason;
+  const status = erro?.response?.status;
 
-export default function VisualPhotoUpload({ API, profileId, onConcluido }) {
-  const [fotos, setFotos] = useState([]); // {angulo, arquivo, miniatura, bytes}
+  if (motivo === "unsupported_media_type" || motivo === "not_an_image") {
+    return {
+      titulo: "Esse arquivo não é uma imagem que dá para ler",
+      texto: "Envie uma foto em JPG, PNG ou WebP — a foto direto da galeria costuma servir.",
+    };
+  }
+  if (motivo === "payload_too_large" || status === 413) {
+    return {
+      titulo: "A imagem ficou grande demais",
+      texto: "Tente uma foto com menos resolução, ou tire uma nova pelo próprio celular.",
+    };
+  }
+  if (status === 401 || status === 403) {
+    return {
+      titulo: "Sua sessão expirou",
+      texto: "Entre de novo e repita o envio; a foto não foi perdida.",
+    };
+  }
+  if (status >= 500 || !status) {
+    return {
+      titulo: "Não foi possível concluir agora",
+      texto: "Foi uma falha temporária do serviço. A foto está aqui — é só tentar de novo.",
+    };
+  }
+  return {
+    titulo: "Não foi possível enviar essa foto",
+    texto: "Confira se a pessoa aparece inteira, com boa luz e sem contraluz, e tente de novo.",
+  };
+}
+
+export default function VisualPhotoUpload({ API, profileId, onConcluido, onCancelar }) {
+  const [foto, setFoto] = useState(null); // {arquivo, miniatura}
+  const [angulo, setAngulo] = useState("front");
   const [enviando, setEnviando] = useState(false);
   const [progresso, setProgresso] = useState(0);
-  const [erro, setErro] = useState("");
+  const [falha, setFalha] = useState(null);
   const entrada = useRef(null);
 
-  // Miniatura vive num object URL; sem revogar, cada troca de foto vaza memoria.
-  useEffect(() => {
-    return () => fotos.forEach((f) => URL.revokeObjectURL(f.miniatura));
-    // Intencionalmente so na desmontagem: a revogacao por item acontece em `remover`.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const proximoAngulo = useCallback(
-    (usados) => ANGULOS.find((a) => !usados.includes(a.id))?.id || null,
-    []
-  );
+  useEffect(() => () => foto && URL.revokeObjectURL(foto.miniatura), [foto]);
 
   const escolher = async (evento) => {
-    const arquivos = [...(evento.target.files || [])];
-    evento.target.value = ""; // permite reescolher o mesmo arquivo
-    if (!arquivos.length) return;
-    setErro("");
-
-    const atuais = [...fotos];
-    for (const arquivo of arquivos) {
-      if (atuais.length >= ANGULOS.length) break;
-      if (arquivo.size > TAMANHO_MAXIMO * 4) {
-        setErro("Uma das imagens é grande demais.");
-        continue;
-      }
-      try {
-        // Comprime ANTES de qualquer coisa: o que sobe e o que a pessoa gastou de dados.
-        const comprimida = await comprimirImagem(arquivo);
-        atuais.push({
-          angulo: proximoAngulo(atuais.map((f) => f.angulo)),
-          arquivo: comprimida,
-          miniatura: URL.createObjectURL(comprimida),
-          bytes: comprimida.size,
-        });
-      } catch {
-        setErro("Não foi possível preparar uma das imagens.");
-      }
+    const arquivo = (evento.target.files || [])[0];
+    evento.target.value = "";
+    if (!arquivo) return;
+    setFalha(null);
+    try {
+      const comprimida = await comprimirImagem(arquivo);
+      if (foto) URL.revokeObjectURL(foto.miniatura);
+      setFoto({ arquivo: comprimida, miniatura: URL.createObjectURL(comprimida) });
+    } catch {
+      setFalha({
+        titulo: "Não deu para preparar essa imagem",
+        texto: "Escolha outra foto, ou tire uma nova pelo celular.",
+      });
     }
-    setFotos(atuais.filter((f) => f.angulo));
-  };
-
-  const remover = (indice) => {
-    setFotos((atuais) => {
-      URL.revokeObjectURL(atuais[indice].miniatura);
-      return atuais.filter((_, i) => i !== indice);
-    });
-  };
-
-  const trocarAngulo = (indice, angulo) => {
-    setFotos((atuais) =>
-      atuais.map((f, i) => {
-        if (i === indice) return { ...f, angulo };
-        // Angulo e unico: quem ja usava esse troca com o que esta saindo.
-        if (f.angulo === angulo) return { ...f, angulo: atuais[indice].angulo };
-        return f;
-      })
-    );
   };
 
   const enviar = async () => {
-    if (!fotos.length || enviando) return;
+    if (!foto || enviando) return;
     setEnviando(true);
     setProgresso(0);
-    setErro("");
+    setFalha(null);
 
     const corpo = new FormData();
     corpo.append("profile_id", profileId || "");
     corpo.append("consent", "true");
-    corpo.append("views", JSON.stringify(fotos.map((f) => f.angulo)));
-    fotos.forEach((f) => corpo.append("photos", f.arquivo, `${f.angulo}.jpg`));
+    corpo.append("views", JSON.stringify([angulo]));
+    corpo.append("photos", foto.arquivo, `${angulo}.jpg`);
 
     try {
       const r = await axios.post(`${API}/visual-assessment`, corpo, {
         onUploadProgress: (e) => {
           if (!e.total) return;
-          // Para em 95%: o resto e a analise no servidor, que nao tem progresso para
-          // informar. Cravar 100% aqui e depois esperar seria mentir para quem olha.
+          // Para em 95%: o resto e a leitura no servidor, que nao tem progresso a
+          // informar. Cravar 100% antes da resposta seria mentir para quem olha.
           setProgresso(Math.min(95, Math.round((e.loaded / e.total) * 95)));
         },
       });
       setProgresso(100);
-      fotos.forEach((f) => URL.revokeObjectURL(f.miniatura));
-      setFotos([]);
+      URL.revokeObjectURL(foto.miniatura);
+      setFoto(null);
       onConcluido?.(r.data);
     } catch (e) {
-      // O motivo tecnico fica no console; na tela vai o que da para fazer a respeito.
       console.error("[forge] falha ao enviar a avaliação visual:", e);
-      const recusa = e?.response?.data?.detail;
-      setErro(
-        typeof recusa?.message === "string"
-          ? recusa.message
-          : "Não foi possível enviar agora. Tente novamente em alguns minutos."
-      );
+      setFalha(explicar(e));
     } finally {
       setEnviando(false);
     }
   };
 
-  const usados = fotos.map((f) => f.angulo);
-  const faltam = ANGULOS.filter((a) => !usados.includes(a.id));
-
   return (
     <div className="vp-envio" data-testid="visual-photo-upload">
-      <div className="vp-grade">
-        {fotos.map((foto, i) => (
-          <figure className="vp-item" key={`${foto.angulo}-${i}`}>
-            <img src={foto.miniatura} alt={`Prévia — ${foto.angulo}`} />
+      {foto ? (
+        <figure className="vp-previa">
+          <img src={foto.miniatura} alt="Prévia da foto escolhida" />
+          {!enviando && (
             <button
               type="button"
               className="vp-remover"
-              aria-label="Remover foto"
-              data-testid={`remover-foto-${i}`}
-              onClick={() => remover(i)}
-              disabled={enviando}
+              aria-label="Trocar a foto"
+              data-testid="trocar-foto"
+              onClick={() => {
+                URL.revokeObjectURL(foto.miniatura);
+                setFoto(null);
+              }}
             >
-              <X size={14} />
+              <X size={15} />
             </button>
-            <figcaption>
-              <select
-                value={foto.angulo}
-                aria-label="Ângulo da foto"
-                data-testid={`angulo-foto-${i}`}
-                onChange={(e) => trocarAngulo(i, e.target.value)}
-                disabled={enviando}
-              >
-                {ANGULOS.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.rotulo}
-                  </option>
-                ))}
-              </select>
-            </figcaption>
-          </figure>
-        ))}
+          )}
+        </figure>
+      ) : (
+        <label className="vp-adicionar" data-testid="adicionar-fotos">
+          <Camera size={26} aria-hidden="true" />
+          <b>Adicionar foto</b>
+          <span>Corpo inteiro, boa luz, sem contraluz.</span>
+          <input
+            ref={entrada}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+            disabled={enviando}
+            onChange={escolher}
+          />
+        </label>
+      )}
 
-        {fotos.length < ANGULOS.length && (
-          <label className="vp-adicionar" data-testid="adicionar-fotos">
-            <Plus size={22} aria-hidden="true" />
-            <span>Adicionar fotos</span>
-            <input
-              ref={entrada}
-              type="file"
-              accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
-              multiple
-              disabled={enviando}
-              onChange={escolher}
-            />
-          </label>
-        )}
+      <div className="vp-angulo">
+        <label htmlFor="vp-angulo-sel">Ângulo desta foto</label>
+        <select
+          id="vp-angulo-sel"
+          value={angulo}
+          data-testid="angulo-foto"
+          disabled={enviando}
+          onChange={(e) => setAngulo(e.target.value)}
+        >
+          {ANGULOS.map((a) => (
+            <option key={a.id} value={a.id}>
+              {a.rotulo}
+            </option>
+          ))}
+        </select>
       </div>
 
-      <p className="vp-dica">
-        {fotos.length === 0 ? (
-          <>
-            <Camera size={13} aria-hidden="true" /> Frente, costas e os dois lados. Uma
-            foto já funciona; mais ângulos deixam a leitura mais completa.
-          </>
-        ) : faltam.length ? (
-          <>Faltam: {faltam.map((a) => a.rotulo).join(", ")}. Você pode enviar assim mesmo.</>
-        ) : (
-          <>Os quatro ângulos enviados.</>
-        )}
-      </p>
-
-      {erro && (
-        <p className="vp-erro" role="alert" data-testid="visual-upload-error">
-          {erro}
-        </p>
+      {falha && (
+        <div className="vp-falha" role="alert" data-testid="visual-upload-error">
+          <b>{falha.titulo}</b>
+          <p>{falha.texto}</p>
+          <button
+            type="button"
+            className="vp-tentar"
+            data-testid="tentar-novamente"
+            onClick={() => (foto ? enviar() : entrada.current?.click())}
+          >
+            <RefreshCw size={14} aria-hidden="true" /> Tentar novamente
+          </button>
+        </div>
       )}
 
       {enviando && (
@@ -207,22 +196,27 @@ export default function VisualPhotoUpload({ API, profileId, onConcluido }) {
           <div className="vp-barra">
             <i style={{ width: `${progresso}%` }} />
           </div>
-          <span>
-            {progresso < 95 ? `Enviando ${progresso}%` : "Lendo o que as fotos mostram…"}
-          </span>
+          <span>{progresso < 95 ? `Enviando ${progresso}%` : "Lendo a foto…"}</span>
         </div>
       )}
 
-      <button
-        type="button"
-        className="primary-button"
-        data-testid="submit-visual-assessment"
-        disabled={!fotos.length || enviando}
-        aria-busy={enviando}
-        onClick={enviar}
-      >
-        {enviando ? "Enviando…" : `Enviar ${fotos.length || ""} ${fotos.length === 1 ? "foto" : "fotos"}`.trim()}
-      </button>
+      <div className="vp-acoes">
+        {onCancelar && !enviando && (
+          <button type="button" className="vp-secundario" onClick={onCancelar}>
+            Cancelar
+          </button>
+        )}
+        <button
+          type="button"
+          className="vp-primario"
+          data-testid="submit-visual-assessment"
+          disabled={!foto || enviando}
+          aria-busy={enviando}
+          onClick={enviar}
+        >
+          {enviando ? "Enviando…" : "Enviar foto"}
+        </button>
+      </div>
     </div>
   );
 }
