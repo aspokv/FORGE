@@ -113,9 +113,12 @@ export default function VisualPhotoUpload({ API, profileId, onConcluido, onCance
         },
       });
       setProgresso(100);
-      URL.revokeObjectURL(foto.miniatura);
+      // A miniatura NAO e descartada aqui: quem recebe passa a ser dono dela e a mostra
+      // enquanto a URL assinada do servidor nao chega — ou enquanto o bucket nao existe.
+      // Revogar agora deixaria a pessoa olhando um vazio logo depois de enviar a foto.
+      const local = { angulo, url: foto.miniatura };
       setFoto(null);
-      onConcluido?.(r.data);
+      onConcluido?.(r.data, local);
     } catch (e) {
       console.error("[forge] falha ao enviar a avaliação visual:", e);
       setFalha(explicar(e));
