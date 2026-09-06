@@ -63,8 +63,8 @@ test("o resultado vem organizado nos blocos pedidos", () => {
     "Observações do FORGE",
     "Pontos fortes",
     "Pontos de atenção",
-    "Recomendações personalizadas",
-    "Simetria e proporção",
+    "Prioridades de treino",
+    "Simetria, proporção e postura",
     "Limitações da análise",
   ].forEach((bloco) => expect(texto).toContain(bloco));
 });
@@ -87,6 +87,32 @@ test("pontos fortes e de atencao saem das observacoes, sem inventar", () => {
 test("deixa claro que sao observacoes visuais, e nao diagnostico", () => {
   const texto = render(COMPLETO).body.textContent;
   expect(texto).toContain("não diagnóstico médico");
+});
+
+test("a fala de treinador tem prioridade sobre as etiquetas derivadas", () => {
+  const doc = render({
+    ...COMPLETO,
+    strong_points: ["Dorsais dão largura clara na vista de frente."],
+    attention_points: ["Panturrilhas ficam atrás do resto da perna."],
+    training_priorities: ["Panturrilhas: dois estímulos semanais, com pausa embaixo."],
+    next_cycle: ["Segure a carga do supino e suba volume de posterior de ombro."],
+    posture_notes: "Ombro direito levemente à frente na foto de frente.",
+  });
+  const texto = doc.body.textContent;
+  expect(texto).toContain("Dorsais dão largura clara");
+  expect(texto).toContain("Panturrilhas: dois estímulos semanais");
+  expect(texto).toContain("Segure a carga do supino");
+  expect(texto).toContain("Ombro direito levemente à frente");
+  // Com a frase do treinador presente, a etiqueta crua nao aparece.
+  expect(doc.querySelectorAll(".va-forte li")).toHaveLength(0);
+});
+
+test("avaliacao antiga, sem os campos novos, ainda mostra alguma coisa", () => {
+  // Perfil gravado antes deste formato nao tem strong_points. Sem o degrau para as
+  // etiquetas derivadas de `observations`, o historico dessas pessoas ficaria vazio.
+  const doc = render(COMPLETO);
+  expect(doc.querySelectorAll(".va-forte li").length).toBeGreaterThan(0);
+  expect(doc.body.textContent).toContain("Prioridades de treino");
 });
 
 test("aguenta uma analise sem observacoes, sem quebrar", () => {

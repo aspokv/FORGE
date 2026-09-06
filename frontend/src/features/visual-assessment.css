@@ -444,3 +444,30 @@
   background: transparent;
   transform: none;
 }
+
+/* Frases de treinador: uma observacao por linha, com marcador que nao rouba atencao. */
+.va-frases {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 9px;
+}
+
+.va-frases li {
+  position: relative;
+  padding-left: 14px;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: #dedbd3;
+}
+
+.va-frases li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.62em;
+  width: 5px;
+  height: 1px;
+  background: var(--accent);
+}

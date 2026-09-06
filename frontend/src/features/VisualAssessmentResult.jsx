@@ -47,6 +47,18 @@ function Bloco({ titulo, children }) {
   );
 }
 
+/** Frases de treinador: uma por linha, com marcador discreto. */
+function Frases({ itens }) {
+  if (!itens?.length) return null;
+  return (
+    <ul className="va-frases">
+      {itens.map((x) => (
+        <li key={x}>{x}</li>
+      ))}
+    </ul>
+  );
+}
+
 function Etiquetas({ itens, tom }) {
   if (!itens?.length) return null;
   return (
@@ -78,9 +90,17 @@ export default function VisualAssessmentResult({ resultado }) {
   }
 
   const { fortes, atencao } = separar(resultado.observations);
+  // As frases de treinador vem da analise. Quando faltam — avaliacao antiga, gravada antes
+  // deste formato — a tela cai nas etiquetas derivadas de `observations`, que sempre
+  // existem. Sem esse degrau o historico ficaria vazio para quem ja tinha avaliacao.
+  const frasesFortes = resultado.strong_points || [];
+  const frasesAtencao = resultado.attention_points || [];
+  const prioridadesTreino = resultado.training_priorities || [];
+  const proximoCiclo = resultado.next_cycle || [];
   const prioridades = resultado.suggested_priorities || [];
   const limitacoes = resultado.limitations || [];
-  const temSimetria = resultado.symmetry_notes || resultado.proportion_notes;
+  const temSimetria =
+    resultado.symmetry_notes || resultado.proportion_notes || resultado.posture_notes;
 
   return (
     <div className="va-resultado" data-testid="visual-result-notice">
@@ -90,7 +110,9 @@ export default function VisualAssessmentResult({ resultado }) {
       </header>
 
       <Bloco titulo="Pontos fortes">
-        {fortes.length ? (
+        {frasesFortes.length ? (
+          <Frases itens={frasesFortes} />
+        ) : fortes.length ? (
           <Etiquetas itens={fortes} tom="forte" />
         ) : (
           <p className="muted">
@@ -100,17 +122,19 @@ export default function VisualAssessmentResult({ resultado }) {
       </Bloco>
 
       <Bloco titulo="Pontos de atenção">
-        {atencao.length ? (
+        {frasesAtencao.length ? (
+          <Frases itens={frasesAtencao} />
+        ) : atencao.length ? (
           <Etiquetas itens={atencao} tom="atencao" />
         ) : (
           <p className="muted">Nenhum grupo apareceu claramente abaixo dos demais.</p>
         )}
       </Bloco>
 
-      {prioridades.length > 0 && (
-        <Bloco titulo="Recomendações personalizadas">
+      {(prioridadesTreino.length > 0 || prioridades.length > 0) && (
+        <Bloco titulo="Prioridades de treino">
           <ol className="va-prioridades">
-            {prioridades.map((p, i) => (
+            {(prioridadesTreino.length ? prioridadesTreino : prioridades).map((p, i) => (
               <li key={p}>
                 <span>{String(i + 1).padStart(2, "0")}</span>
                 {p}
@@ -120,10 +144,17 @@ export default function VisualAssessmentResult({ resultado }) {
         </Bloco>
       )}
 
+      {proximoCiclo.length > 0 && (
+        <Bloco titulo="Recomendações personalizadas">
+          <Frases itens={proximoCiclo} />
+        </Bloco>
+      )}
+
       {temSimetria && (
-        <Bloco titulo="Simetria e proporção">
+        <Bloco titulo="Simetria, proporção e postura">
           {resultado.symmetry_notes && <p>{resultado.symmetry_notes}</p>}
           {resultado.proportion_notes && <p>{resultado.proportion_notes}</p>}
+          {resultado.posture_notes && <p>{resultado.posture_notes}</p>}
         </Bloco>
       )}
 
