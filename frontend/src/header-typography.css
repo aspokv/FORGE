@@ -15,16 +15,6 @@
   letter-spacing: .06em !important;
   color: var(--forge-champagne) !important;
 }
-
-/* A compact masthead above the existing greeting; cards remain untouched. */
-.reference-home-v3 .ref3-home-brand {
-  display: flex;
-  align-items: center;
-  min-height: 36px;
-  padding-bottom: 7px;
-  margin-bottom: 10px;
-  border-bottom: 1px solid var(--forge-line-warm);
-}
 .forge-shell .ref3-home-brand > strong {
   font-size: 23px;
   line-height: 1.2;

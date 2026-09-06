@@ -1,0 +1,416 @@
+/*
+ * Início — a porta de entrada, recomposta.
+ *
+ * A auditoria encontrou cinco cartões de peso visual idêntico e quinze círculos vazios:
+ * sete do resumo da semana, um anel de nutrição e sete gotas de hidratação. O treino de
+ * hoje — a única coisa que a pessoa abriu o aplicativo para fazer — pesava o mesmo que a
+ * hidratação. E a ação de começar o treino era um botão INVISÍVEL, escondido para leitor
+ * de tela: quem olhava precisava adivinhar que o cartão inteiro era clicável.
+ *
+ * A recomposição segue o sistema de Treino e Nutrição: uma superfície forte no topo, o
+ * treino de hoje em primeiro plano com UMA ação evidente, e o resto como resumo compacto
+ * separado por régua em vez de mais um cartão.
+ *
+ * Círculo vazio não é dado, é ruído. A semana virou faixa; o anel e as gotas viraram
+ * barra e número, que dizem a mesma coisa com precisão maior e menos tinta.
+ */
+
+.reference-home-v3 {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-5);
+  padding-bottom: calc(var(--fg-barra) + env(safe-area-inset-bottom, 0px) + var(--e-6));
+  background: var(--fg-fundo);
+}
+
+/* ── Topo ──────────────────────────────────────────────────────────────────
+ * A foto continua — superfície forte é o que a tela de Treino acerta. O que sai é o lema
+ * de três linhas que colidia com a imagem e quebrava com rag ruim em 360px.
+ */
+.ref3-top-hero {
+  position: relative;
+  aspect-ratio: 16 / 11;
+  max-height: 260px;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.ref3-top-hero > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 62% 28%;
+}
+
+.ref3-top-hero-shade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, var(--fg-fundo) 4%, rgba(11, 12, 14, .72) 34%, rgba(11, 12, 14, .18) 72%);
+}
+
+.ref3-top-hero-copy {
+  position: absolute;
+  inset: auto 0 0 0;
+  z-index: 1;
+  padding: 0 var(--fg-margem) var(--e-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-1);
+}
+
+.ref3-top-hero-brand {
+  font: 800 var(--t-etiqueta) / 1 var(--fg-display);
+  letter-spacing: .3em;
+  color: var(--fg-acao);
+}
+
+.ref3-top-hero-copy h1 {
+  margin: 0;
+  font-family: var(--fg-display);
+  font-size: var(--t-display);
+  font-weight: 800;
+  line-height: var(--lh-apertada);
+  letter-spacing: -.02em;
+  color: var(--fg-texto);
+}
+
+.ref3-top-hero-copy p {
+  margin: 0;
+  font: 500 var(--t-apoio) / 1.4 var(--fg-mono);
+  letter-spacing: .04em;
+  color: var(--fg-texto-2);
+}
+
+.ref3-top-hero-avatar {
+  position: absolute;
+  top: var(--e-4);
+  right: var(--fg-margem);
+  z-index: 1;
+  width: var(--fg-toque);
+  height: var(--fg-toque);
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, .18);
+  border-radius: var(--r-pilula);
+  background: rgba(10, 11, 12, .55);
+  backdrop-filter: blur(8px);
+  color: var(--fg-texto);
+}
+
+/* ── Blocos de conteúdo ────────────────────────────────────────────────────
+ * Régua fina em vez de cartão. Cinco cartões de peso igual não são hierarquia.
+ */
+.ref3-plan,
+.ref3-week,
+.ref3-nutrition,
+.ref3-hydration {
+  padding: 0 var(--fg-margem);
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-3);
+}
+
+.ref3-week,
+.ref3-nutrition,
+.ref3-hydration {
+  padding-top: var(--e-4);
+  margin: 0 var(--fg-margem);
+  padding-left: 0;
+  padding-right: 0;
+  border-top: 1px solid var(--fg-linha);
+}
+
+/* O bloco do plano encosta na regua seguinte: o espaco entre a acao e a proxima secao ja
+   vem do `gap` da coluna, e somar padding em cima dele abria um vao sem funcao. */
+.ref3-plan { padding-bottom: var(--e-1); }
+
+.reference-home-v3 h2 {
+  margin: 0;
+  font-family: var(--fg-display);
+  font-size: var(--t-titulo);
+  font-weight: 700;
+  line-height: var(--lh-titulo);
+  letter-spacing: -.01em;
+  color: var(--fg-texto);
+}
+
+/* ── Treino de hoje — o primeiro plano ─────────────────────────────────────
+ * É o motivo de a pessoa ter aberto o aplicativo. Ganha foto, nome em display, os dois
+ * dados que importam em chip, e uma ação visível.
+ */
+.ref3-plan-card {
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 1px solid var(--fg-linha);
+  border-radius: var(--r-folha);
+  overflow: hidden;
+  background: var(--fg-superficie);
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+}
+
+.ref3-plan-art { position: relative; aspect-ratio: 16 / 9; }
+
+.ref3-plan-art img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ref3-plan-art::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(9, 10, 11, .96) 5%, rgba(9, 10, 11, .5) 42%, transparent 74%);
+}
+
+.ref3-plan-copy {
+  position: absolute;
+  inset: auto 0 0 0;
+  padding: var(--e-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-2);
+}
+
+.ref3-plan-copy strong {
+  font-family: var(--fg-display);
+  font-size: var(--t-display);
+  font-weight: 800;
+  line-height: var(--lh-apertada);
+  letter-spacing: -.02em;
+  color: var(--fg-texto);
+}
+
+.ref3-plan-copy small {
+  font: 400 var(--t-apoio) / 1.4 var(--fg-corpo);
+  color: var(--fg-texto-2);
+  /* Duas linhas no máximo: a lista de foco pode ser longa e não pode empurrar os chips. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.ref3-plan-copy > div { display: flex; flex-wrap: wrap; gap: var(--e-2); margin-top: var(--e-1); }
+
+.ref3-plan-copy em {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px var(--e-3);
+  border: 1px solid var(--fg-linha-forte);
+  border-radius: var(--r-pilula);
+  background: rgba(10, 11, 12, .5);
+  color: var(--fg-texto-2);
+  font: 500 var(--t-apoio) / 1 var(--fg-corpo);
+  font-style: normal;
+  white-space: nowrap;
+}
+
+.ref3-plan-copy em svg { color: var(--fg-metal); flex: none; }
+
+/* ── Semana ────────────────────────────────────────────────────────────────
+ * Sete círculos grandes e vazios diziam nada e ocupavam uma faixa inteira. Vira marca
+ * fina: cheia quando treinou, contornada no dia de hoje, apagada no resto.
+ */
+.ref3-week-days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: var(--e-1);
+}
+
+.ref3-week-days > div {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.ref3-week-days span {
+  font: 600 10px / 1 var(--fg-mono);
+  letter-spacing: .08em;
+  color: var(--fg-texto-3);
+}
+
+.ref3-week-days i {
+  display: block;
+  width: 100%;
+  height: 4px;
+  border-radius: var(--r-pilula);
+  background: var(--fg-linha);
+}
+
+.ref3-week-days i svg { display: none; }
+.ref3-week-days .done i { background: var(--fg-ok); }
+.ref3-week-days .current span { color: var(--fg-acao); }
+.ref3-week-days .current i { background: var(--fg-acao); }
+
+/* ── Nutrição e hidratação — resumo, e não painel ──────────────────────────
+ * O anel cônico e as sete gotas eram doze elementos decorativos para dois números. Barra
+ * fina mais o número diz a mesma coisa com precisão maior.
+ */
+.ref3-resumo-linha {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--e-3);
+}
+
+.ref3-resumo-valor {
+  font: 600 var(--t-titulo) / 1 var(--fg-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-texto);
+}
+
+.ref3-resumo-valor em {
+  font-style: normal;
+  font-size: var(--t-apoio);
+  font-weight: 500;
+  color: var(--fg-texto-3);
+}
+
+.ref3-barra {
+  height: 6px;
+  border-radius: var(--r-pilula);
+  background: var(--fg-superficie-alta);
+  overflow: hidden;
+}
+
+.ref3-barra > b {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--fg-acao);
+  transition: width var(--m-transicao) var(--m-curva);
+}
+
+.ref3-barra.ok > b { background: var(--fg-ok); }
+
+/* Os três macros, no mesmo desenho da Nutrição — a tela toda fala a mesma língua. */
+.ref3-macros {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--e-2);
+}
+
+.ref3-macro { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+
+.ref3-macro b {
+  font: 600 var(--t-cartao) / 1 var(--fg-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-texto);
+}
+
+.ref3-macro b em { font-style: normal; font-size: var(--t-apoio); color: var(--fg-texto-3); }
+
+.ref3-macro span {
+  font: 500 var(--t-etiqueta) / 1.3 var(--fg-mono);
+  letter-spacing: var(--ls-etiqueta);
+  text-transform: uppercase;
+  color: var(--fg-texto-3);
+}
+
+/* ── Ações rápidas ─────────────────────────────────────────────────────────
+ * Os três controles de água em uma linha, cada um com 44px. Antes ficavam escondidos
+ * atrás de um toque no cartão inteiro — descoberta por acidente não é navegação.
+ */
+.ref3-water-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--e-2);
+}
+
+.ref3-water-actions button {
+  min-height: var(--fg-toque);
+  padding: 0 var(--e-2);
+  border: 1px solid var(--fg-linha-forte);
+  border-radius: var(--r-pilula);
+  background: transparent;
+  color: var(--fg-texto);
+  font: 600 var(--t-apoio) / 1 var(--fg-corpo);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ref3-water-actions button:disabled { opacity: .45; }
+.ref3-water-actions button:active { background: var(--fg-superficie-toque); }
+
+/* ── Ficha de check-in ─────────────────────────────────────────────────────── */
+.ref3-sheet {
+  position: fixed;
+  inset: auto 0 0 0;
+  z-index: 20;
+  padding: var(--e-5) var(--fg-margem) calc(var(--e-5) + env(safe-area-inset-bottom, 0px));
+  background: var(--fg-superficie);
+  border-top: 1px solid var(--fg-linha-forte);
+  border-radius: var(--r-folha) var(--r-folha) 0 0;
+  box-shadow: var(--s-flutuante);
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-3);
+  max-height: 86vh;
+  overflow-y: auto;
+}
+
+.ref3-sheet > span {
+  font: 600 var(--t-etiqueta) / 1 var(--fg-mono);
+  letter-spacing: var(--ls-etiqueta);
+  text-transform: uppercase;
+  color: var(--fg-metal);
+}
+
+.ref3-sheet-close {
+  position: absolute;
+  top: var(--e-3);
+  right: var(--fg-margem);
+  width: var(--fg-toque);
+  height: var(--fg-toque);
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: var(--r-pilula);
+  background: var(--fg-superficie-alta);
+  color: var(--fg-texto-2);
+  cursor: pointer;
+}
+
+.ref3-checkin-grid { display: flex; flex-direction: column; gap: var(--e-3); }
+
+.ref3-checkin-grid label {
+  display: grid;
+  grid-template-columns: 108px minmax(0, 1fr) 24px;
+  align-items: center;
+  gap: var(--e-3);
+  font: 500 var(--t-apoio) / 1.3 var(--fg-corpo);
+  color: var(--fg-texto-2);
+}
+
+.ref3-checkin-grid input { width: 100%; accent-color: var(--fg-acao); min-height: var(--fg-toque); }
+
+.ref3-checkin-grid b {
+  font: 600 var(--t-corpo) / 1 var(--fg-mono);
+  color: var(--fg-texto);
+  text-align: right;
+}
+
+/* Leitor de tela apenas: rótulo que existe para navegação assistida, sem ocupar a tela. */
+.ref3-a11y {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}

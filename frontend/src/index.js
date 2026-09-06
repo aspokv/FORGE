@@ -18,13 +18,15 @@ import "@/mobile-premium.css";
 import "@/magic-patterns-v2.css";
 import "@/reference-exact-v3.css";
 import "@/progress-fix.css";
-import "@/home-first-screen.css";
 import "@/workout-preview-density.css";
 import "@/header-typography.css";
 import "@/page-alignment.css";
 import "@/workout-nutrition-actions.css";
 import "@/home-reference-lock.css";
 import "@/features/screen-polish.css";
+// A folha do Inicio vem por ULTIMO: importada pelo componente, ela carregava ANTES das
+// folhas daqui e perdia todo empate de especificidade para as camadas antigas.
+import "@/features/forge-inicio.css";
 
 const queryClient = new QueryClient({
   defaultOptions: {
