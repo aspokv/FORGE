@@ -29,8 +29,28 @@ test("a abertura mantem foto, marca e o nome de quem entrou", () => {
 
 test("as quatro secoes continuam de pe", () => {
   const home = casa();
-  [".ref3-week", ".ref3-plan", ".ref3-nutrition", ".ref3-hydration"]
-    .forEach(seletor => expect(home.querySelector(seletor)).not.toBeNull());
+  ["home-training-week", "home-acoes-rapidas", "home-nutrition-progress", "home-hydration", "daily-briefing"]
+    .forEach(id => expect(home.querySelector(`[data-testid="${id}"]`)).not.toBeNull());
+});
+
+test("nutricao e hidratacao vem ANTES do cartao do treino", () => {
+  // Sao o que a pessoa toca varias vezes por dia. Embaixo de um cartao grande de treino,
+  // ficavam fora da primeira dobra — que e onde precisam estar.
+  const html = casa().innerHTML;
+  const rapidas = html.indexOf('data-testid="home-acoes-rapidas"');
+  const treino = html.indexOf('data-testid="daily-briefing"');
+  expect(rapidas).toBeGreaterThan(-1);
+  expect(treino).toBeGreaterThan(-1);
+  expect(rapidas).toBeLessThan(treino);
+});
+
+test("a figura do treino e contida, e nao recortada", () => {
+  // `push-front.webp` e retrato 576x768. Num `object-fit: cover` dentro de faixa 16/9 ela
+  // perdia 58% da altura e o corte caia no torso, decapitando a figura. O alt vazio e
+  // deliberado: a arte e decorativa, o nome do treino ja esta escrito ao lado.
+  const img = casa().querySelector(".ref3-plan-art img");
+  expect(img).not.toBeNull();
+  expect(img.getAttribute("alt")).toBe("");
 });
 
 test("comecar treino e um botao visivel, e nao so para leitor de tela", () => {

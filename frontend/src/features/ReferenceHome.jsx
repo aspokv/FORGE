@@ -1,6 +1,6 @@
 import {useEffect,useMemo,useState} from "react";
 import axios from "axios";
-import {ChevronRight,Clock,Layers3,UserRound,X} from "lucide-react";
+import {ChevronRight,Clock,Droplet,Layers3,RotateCcw,UserRound,Utensils,X} from "lucide-react";
 import planPullArt from "../assets/forge-plan-pull.webp";
 import heroArt from "../assets/forge-home-athlete-reference.jpg";
 import fallbackArt from "../assets/forge-gym-cinematic.jpg";
@@ -16,13 +16,6 @@ export const isLegPlan=(sessionName,focus=[])=>{const key=normalize([sessionName
 export const isPushPlan=(sessionName,focus=[])=>{const key=normalize([sessionName,...focus].join(" "));return /(^|\s)push(\s|$)|peito|peitoral|triceps|ombro/.test(key)};
 export const planArtworkKindFor=(sessionName,focus=[])=>isPullPlan(sessionName,focus)?"pull":isLegPlan(sessionName,focus)?"legs":isPushPlan(sessionName,focus)?"push":"default";
 export const planArtworkFor=(sessionName,focus=[])=>{const kind=planArtworkKindFor(sessionName,focus);return kind==="pull"?planPullArt:kind==="legs"?"/images/anatomy/legs-quads-front.webp":kind==="push"?"/images/anatomy/push-front.webp":fallbackArt};
-// Rotulo embaixo, numero em cima, mono com tabular-nums: o mesmo desenho dos macros da
-// Nutricao, para a tela toda falar a mesma lingua.
-const Macro=({label,value,goal})=>
-  <div className="ref3-macro">
-    <b>{Math.round(value).toLocaleString("pt-BR")}<em> / {Math.round(goal||0).toLocaleString("pt-BR")} g</em></b>
-    <span>{label}</span>
-  </div>;
 const referenceDateLabel=date=>{const raw=new Intl.DateTimeFormat("pt-BR",{weekday:"long",day:"2-digit",month:"long"}).format(date).replace("-feira","");const cap=raw.charAt(0).toUpperCase()+raw.slice(1);return cap.replace(/ de ([a-záàâãéêíóôõúç]+)/i,(_,m)=>` de ${m.charAt(0).toUpperCase()+m.slice(1)}`)};
 
 export default function ReferenceHome({db,start,onRecoveryCheckin}){
@@ -71,58 +64,62 @@ export default function ReferenceHome({db,start,onRecoveryCheckin}){
 
     <section className="ref3-week" data-testid="home-training-week"><h2>Resumo da semana</h2><div className="ref3-week-days">{WEEK.map((label,i)=>{const done=i<dayIndex&&i<activeIndex,current=i===dayIndex;return <div key={label} className={`${done?"done ":""}${current?"current":""}`}><span>{label}</span><i/></div>})}</div></section>
 
-    {/* O treino de hoje e o motivo de a pessoa ter aberto o aplicativo: ganha o primeiro
-        plano e UMA acao visivel. Antes "Comecar treino" era um botao escondido para leitor
-        de tela, e quem olhava precisava adivinhar que o cartao inteiro era clicavel. */}
+    {/* Nutricao e hidratacao sobem para antes do treino: sao o que a pessoa toca varias
+        vezes por dia, e ficar embaixo de um cartao grande as empurrava para fora da
+        primeira dobra. Dois cartoes compactos, lado a lado, com o numero e a barra. */}
+    <section className="ref3-rapidas" data-testid="home-acoes-rapidas">
+      <h2 className="fg-etiqueta">Hoje</h2>
+      <div className="ref3-rapidas-grade">
+        <article className="ref3-rapida" data-testid="home-nutrition-progress">
+          <p className="ref3-rapida-topo"><Utensils size={15}/> Nutrição</p>
+          <p className="ref3-rapida-valor">
+            {Math.round(kcal).toLocaleString("pt-BR")}<em> / {Math.round(goalKcal||0).toLocaleString("pt-BR")} kcal</em>
+          </p>
+          <div className="ref3-barra"><b style={{width:`${kcalPct}%`}}/></div>
+          {/* Os tres macros numa linha so: o detalhe mora na tela de Nutricao, aqui basta
+              a conferida rapida. */}
+          <p className="ref3-rapida-macros">
+            P {Math.round(consumed.protein_g)}<i>/{Math.round(goalProtein||0)}</i>
+            {"  "}C {Math.round(consumed.carbs_g)}<i>/{Math.round(goalCarbs||0)}</i>
+            {"  "}G {Math.round(consumed.fat_g)}<i>/{Math.round(goalFat||0)}</i>
+          </p>
+        </article>
+
+        <article className="ref3-rapida" data-testid="home-hydration">
+          <p className="ref3-rapida-topo"><Droplet size={15}/> Hidratação</p>
+          <p className="ref3-rapida-valor">
+            {(water/1000).toLocaleString("pt-BR",{maximumFractionDigits:2})}<em> / {(waterGoal/1000).toLocaleString("pt-BR",{maximumFractionDigits:1})} L</em>
+          </p>
+          <div className={waterPct>=100?"ref3-barra ok":"ref3-barra"}><b style={{width:`${waterPct}%`}}/></div>
+          <div className="ref3-water-actions">
+            <button type="button" data-testid="hydration-add-250" disabled={waterBusy} onClick={()=>addWater(250)}>+250</button>
+            <button type="button" data-testid="hydration-add-500" disabled={waterBusy} onClick={()=>addWater(500)}>+500</button>
+            <button type="button" aria-label="Desfazer último registro de água" data-testid="hydration-undo" disabled={waterBusy||water===0} onClick={undoWater}><RotateCcw size={14}/></button>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    {/* O cartao do treino nao recorta mais a figura. A arte de anatomia e retrato 0,75:1;
+        forcada numa faixa 16/9 com `cover`, perdia 58% da altura e cortava cabeca e
+        pernas. Agora fica AO LADO do texto, contida, na proporcao que tem. */}
     <section className="ref3-plan" data-testid="daily-briefing">
       <h2>Treino de hoje</h2>
       <button type="button" className="ref3-plan-card" onClick={openPlan}>
         <div className="ref3-plan-art">
-          <img src={planArtwork} alt={`Treino ${sessionName}`} loading="eager" onError={fallbackPlanArtwork}/>
+          <img src={planArtwork} alt="" loading="eager" onError={fallbackPlanArtwork}/>
         </div>
         <div className="ref3-plan-copy">
           <strong>{sessionName}</strong>
           <small>{focus.length?focus.join(", "):"Treino completo"}</small>
-          <div><em><Clock size={15}/>{duration}</em><em><Layers3 size={15}/>{plannedSets} séries</em></div>
+          <div><em><Clock size={14}/>{duration}</em><em><Layers3 size={14}/>{plannedSets} séries</em></div>
         </div>
+        <ChevronRight size={18} className="ref3-plan-seta"/>
       </button>
       <button type="button" className="fg-btn fg-btn-cheio" data-testid="start-workout-button" onClick={openPlan}>
         Começar treino <ChevronRight size={18}/>
       </button>
       {!checkin&&<button type="button" className="fg-btn fg-btn-2 fg-btn-cheio" data-testid="checkin-primary-button" onClick={()=>setCheckinOpen(true)}>Fazer check-in antes</button>}
-    </section>
-
-    {/* O anel conico era um circulo vazio para um numero. Barra fina mais o valor diz a
-        mesma coisa com precisao maior e menos tinta. */}
-    <section className="ref3-nutrition" data-testid="home-nutrition-progress">
-      <div className="ref3-resumo-linha">
-        <h2>Nutrição</h2>
-        <span className="ref3-resumo-valor">{Math.round(kcal).toLocaleString("pt-BR")}<em> / {Math.round(goalKcal||0).toLocaleString("pt-BR")} kcal</em></span>
-      </div>
-      <div className="ref3-barra"><b style={{width:`${kcalPct}%`}}/></div>
-      <div className="ref3-macros">
-        <Macro label="Proteínas" value={consumed.protein_g} goal={goalProtein}/>
-        <Macro label="Carboidratos" value={consumed.carbs_g} goal={goalCarbs}/>
-        <Macro label="Gorduras" value={consumed.fat_g} goal={goalFat}/>
-      </div>
-    </section>
-
-    {/* Sete gotas eram sete icones decorativos para um numero, e os controles so
-        apareciam depois de tocar no cartao inteiro — descoberta por acidente nao e
-        navegacao. Agora o valor e uma barra, e as tres acoes estao sempre visiveis. */}
-    <section className="ref3-hydration" data-testid="home-hydration">
-      <div className="ref3-resumo-linha">
-        <h2>Hidratação</h2>
-        <span className="ref3-resumo-valor">
-          {(water/1000).toLocaleString("pt-BR",{maximumFractionDigits:2})}<em> / {(waterGoal/1000).toLocaleString("pt-BR",{maximumFractionDigits:1})} L</em>
-        </span>
-      </div>
-      <div className={waterPct>=100?"ref3-barra ok":"ref3-barra"}><b style={{width:`${waterPct}%`}}/></div>
-      <div className="ref3-water-actions">
-        <button type="button" data-testid="hydration-add-250" disabled={waterBusy} onClick={()=>addWater(250)}>+250 ml</button>
-        <button type="button" data-testid="hydration-add-500" disabled={waterBusy} onClick={()=>addWater(500)}>+500 ml</button>
-        <button type="button" data-testid="hydration-undo" disabled={waterBusy||water===0} onClick={undoWater}>Desfazer</button>
-      </div>
     </section>
 
     {checkinOpen&&<div className="ref3-sheet" data-testid="today-checkin-modal"><button className="ref3-sheet-close" onClick={()=>setCheckinOpen(false)}><X size={20}/></button><span>CHECK-IN DE HOJE</span><h2>Como você chega para o treino?</h2><div className="ref3-checkin-grid">{[["Sono","sleep"],["Energia","energy"],["Motivação","motivation"],["Dor muscular","soreness"],["Estresse","stress"]].map(([label,key])=><label key={key}><span>{label}</span><input type="range" min="1" max="5" value={checkinForm[key]} onChange={e=>setCheckinForm(f=>({...f,[key]:Number(e.target.value)}))}/><b>{checkinForm[key]}</b></label>)}</div><button className="ref3-primary" data-testid="save-today-checkin" disabled={checkinBusy} onClick={submitCheckin}>{checkinBusy?"Salvando…":"Salvar check-in"}</button><button className="ref3-direct" onClick={start}>Começar direto</button></div>}

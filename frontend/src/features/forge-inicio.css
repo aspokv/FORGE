@@ -18,7 +18,7 @@
 .reference-home-v3 {
   display: flex;
   flex-direction: column;
-  gap: var(--e-5);
+  gap: var(--e-4);
   padding-bottom: calc(var(--fg-barra) + env(safe-area-inset-bottom, 0px) + var(--e-6));
   background: var(--fg-fundo);
 }
@@ -29,8 +29,12 @@
  */
 .ref3-top-hero {
   position: relative;
-  aspect-ratio: 16 / 11;
-  max-height: 260px;
+  /*
+   * Altura limitada, e nao proporcional. Com `aspect-ratio` puro o hero crescia junto com a
+   * largura — 247px em 360 e 283px em 412 —, empurrando o botao de comecar treino para fora
+   * da dobra JUSTO nas telas maiores. `clamp` mantem a capa generosa e previsivel.
+   */
+  height: clamp(168px, 44vw, 196px);
   overflow: hidden;
   isolation: isolate;
 }
@@ -40,7 +44,11 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: 62% 28%;
+  /*
+   * O terco superior e onde mora o rosto na maioria das fotos de atleta. Centralizar
+   * cortava a cabeca — e "nao cortar o rosto" e requisito, nao preferencia.
+   */
+  object-position: center 26%;
 }
 
 .ref3-top-hero-shade {
@@ -103,18 +111,17 @@
  */
 .ref3-plan,
 .ref3-week,
-.ref3-nutrition,
-.ref3-hydration {
+.ref3-rapidas {
   padding: 0 var(--fg-margem);
   display: flex;
   flex-direction: column;
-  gap: var(--e-3);
+  gap: var(--e-2);
 }
 
 .ref3-week,
-.ref3-nutrition,
-.ref3-hydration {
-  padding-top: var(--e-4);
+.ref3-rapidas,
+.ref3-plan {
+  padding-top: var(--e-3);
   margin: 0 var(--fg-margem);
   padding-left: 0;
   padding-right: 0;
@@ -135,85 +142,163 @@
   color: var(--fg-texto);
 }
 
-/* ── Treino de hoje — o primeiro plano ─────────────────────────────────────
- * É o motivo de a pessoa ter aberto o aplicativo. Ganha foto, nome em display, os dois
- * dados que importam em chip, e uma ação visível.
+/* ── Treino de hoje ────────────────────────────────────────────────────────
+ * A figura fica AO LADO do texto, e não atrás dele.
+ *
+ * A arte de anatomia é 576x768 — retrato de 0,75:1. Forçada numa faixa 16/9 com
+ * `object-fit: cover`, ela perdia 58% da altura e o recorte caía no torso: cabeça e pernas
+ * cortadas, enquadramento com cara de acidente. `contain` numa caixa de proporção própria
+ * mostra a figura inteira, seja ela retrato (anatomia), quadrada (pull) ou paisagem (foto
+ * de academia) — as três proporções que `planArtworkFor` pode devolver.
+ *
+ * O cartão também encolheu: era uma capa de 16/9 mais o texto por cima, quase 200px que
+ * empurravam nutrição e hidratação para fora da primeira dobra.
  */
 .ref3-plan-card {
-  position: relative;
-  display: block;
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--e-3);
   width: 100%;
-  padding: 0;
+  padding: var(--e-3);
   border: 1px solid var(--fg-linha);
-  border-radius: var(--r-folha);
-  overflow: hidden;
+  border-radius: var(--r-cartao);
   background: var(--fg-superficie);
   text-align: left;
   color: inherit;
   cursor: pointer;
 }
 
-.ref3-plan-art { position: relative; aspect-ratio: 16 / 9; }
+.ref3-plan-art {
+  width: 76px;
+  height: 92px;
+  border-radius: var(--r-campo);
+  background: linear-gradient(160deg, var(--fg-superficie-alta), #101215);
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+}
 
 .ref3-plan-art img {
-  display: block;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  /* `contain` e não `cover`: a figura inteira, sem corte, qualquer que seja a proporção. */
+  object-fit: contain;
+  object-position: center;
 }
 
-.ref3-plan-art::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(to top, rgba(9, 10, 11, .96) 5%, rgba(9, 10, 11, .5) 42%, transparent 74%);
-}
-
-.ref3-plan-copy {
-  position: absolute;
-  inset: auto 0 0 0;
-  padding: var(--e-4);
-  display: flex;
-  flex-direction: column;
-  gap: var(--e-2);
-}
+.ref3-plan-copy { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
 
 .ref3-plan-copy strong {
   font-family: var(--fg-display);
-  font-size: var(--t-display);
+  font-size: var(--t-titulo);
   font-weight: 800;
   line-height: var(--lh-apertada);
-  letter-spacing: -.02em;
+  letter-spacing: -.01em;
   color: var(--fg-texto);
 }
 
 .ref3-plan-copy small {
-  font: 400 var(--t-apoio) / 1.4 var(--fg-corpo);
+  font: 400 var(--t-apoio) / 1.35 var(--fg-corpo);
   color: var(--fg-texto-2);
-  /* Duas linhas no máximo: a lista de foco pode ser longa e não pode empurrar os chips. */
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
-.ref3-plan-copy > div { display: flex; flex-wrap: wrap; gap: var(--e-2); margin-top: var(--e-1); }
+/* Duração e séries são dado secundário: mono pequeno, sem moldura de chip disputando com
+   o nome do treino. */
+.ref3-plan-copy > div { display: flex; flex-wrap: wrap; gap: var(--e-3); margin-top: 2px; }
 
 .ref3-plan-copy em {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px var(--e-3);
-  border: 1px solid var(--fg-linha-forte);
-  border-radius: var(--r-pilula);
-  background: rgba(10, 11, 12, .5);
-  color: var(--fg-texto-2);
-  font: 500 var(--t-apoio) / 1 var(--fg-corpo);
+  gap: 5px;
+  font: 500 var(--t-dado) / 1 var(--fg-mono);
   font-style: normal;
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-texto-3);
   white-space: nowrap;
 }
 
 .ref3-plan-copy em svg { color: var(--fg-metal); flex: none; }
+.ref3-plan-seta { color: var(--fg-texto-3); flex: none; }
+
+/* ── Ações rápidas ─────────────────────────────────────────────────────────
+ * Dois cartões compactos, lado a lado. São o que a pessoa toca várias vezes por dia e
+ * precisam caber na primeira dobra junto com o treino.
+ */
+.ref3-rapidas { display: flex; flex-direction: column; gap: var(--e-3); }
+
+.ref3-rapidas-grade {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--e-2);
+  align-items: stretch;
+}
+
+.ref3-rapida {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-2);
+  min-width: 0;
+  padding: var(--e-3);
+  border: 1px solid var(--fg-linha);
+  border-radius: var(--r-cartao);
+  background: var(--fg-superficie);
+}
+
+.ref3-rapida-topo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font: 600 var(--t-etiqueta) / 1 var(--fg-mono);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--fg-texto-3);
+}
+
+.ref3-rapida-topo svg { color: var(--fg-metal); flex: none; }
+
+.ref3-rapida-valor {
+  margin: 0;
+  font: 600 var(--t-titulo) / 1 var(--fg-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-texto);
+}
+
+.ref3-rapida-valor em {
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--fg-texto-3);
+}
+
+.ref3-rapida-macros {
+  margin: 0;
+  /* Uma linha so em 360px: quebrar em duas esticava o cartao e desalinhava a dupla. */
+  font: 500 10px / 1.3 var(--fg-mono);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-texto-2);
+}
+
+.ref3-rapida-macros i { font-style: normal; color: var(--fg-texto-3); }
+
+/* A linha de ações do cartão de água cresce para preencher a altura do irmão, para os dois
+   cartões terminarem alinhados. */
+.ref3-rapida .ref3-water-actions { margin-top: auto; }
+
+.ref3-week h2 {
+  font-family: var(--fg-mono);
+  font-size: var(--t-etiqueta);
+  font-weight: 600;
+  letter-spacing: var(--ls-etiqueta);
+  text-transform: uppercase;
+  color: var(--fg-texto-3);
+}
 
 /* ── Semana ────────────────────────────────────────────────────────────────
  * Sete círculos grandes e vazios diziam nada e ocupavam uma faixa inteira. Vira marca
@@ -323,22 +408,24 @@
  */
 .ref3-water-actions {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--e-2);
+  /* Os dois volumes ganham a largura; desfazer vira icone, porque e a acao menos usada. */
+  grid-template-columns: 1fr 1fr auto;
+  gap: 6px;
 }
 
 .ref3-water-actions button {
+  display: grid;
+  place-items: center;
   min-height: var(--fg-toque);
-  padding: 0 var(--e-2);
-  border: 1px solid var(--fg-linha-forte);
-  border-radius: var(--r-pilula);
-  background: transparent;
+  min-width: var(--fg-toque);
+  padding: 0 6px;
+  border: 1px solid var(--fg-linha);
+  border-radius: var(--r-campo);
+  background: var(--fg-superficie-alta);
   color: var(--fg-texto);
-  font: 600 var(--t-apoio) / 1 var(--fg-corpo);
+  font: 600 var(--t-apoio) / 1 var(--fg-mono);
   cursor: pointer;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .ref3-water-actions button:disabled { opacity: .45; }
