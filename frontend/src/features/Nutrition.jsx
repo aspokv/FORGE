@@ -6,6 +6,7 @@ import NutritionImport from "./NutritionImport";
 import FoodDiaryEditor from "./FoodDiaryEditor";
 import {localFoodDate, consumedTotals} from "./foodDiary";
 import { macrosDaRefeicao, textoDoMacro } from "./macrosDaRefeicao";
+import "./forge-nutricao.css";
 
 // Humanized display for naturally-countable foods (eggs, whites): the backend computes
 // display_quantity/display_unit from the real grams (e.g. "3 ovos"); grams stay the
@@ -30,7 +31,7 @@ function formatQty(item) {
 function MacrosDaRefeicao({ refeicao }) {
   const m = macrosDaRefeicao(refeicao);
   return (
-    <ul className="meal-macros" data-testid="meal-macros">
+    <ul className="fg-macros" data-testid="meal-macros">
       <li><b>{textoDoMacro(m.protein)}</b><span>proteína</span></li>
       <li><b>{textoDoMacro(m.carbs)}</b><span>carboidratos</span></li>
       <li><b>{textoDoMacro(m.fat)}</b><span>gorduras</span></li>
@@ -609,8 +610,16 @@ export default function Nutrition({ API, profileId, db }) {
       </div>
 
       <div className="nutrition-tabs" role="tablist" aria-label="Visualização do plano"><button className="active">Dia</button><button>Semana</button><button>Lista</button></div>
-      <button type="button" className="secondary-button food-diary-trigger" onClick={()=>setDiaryEditor({mealIndex:null})}>Adicionar um extra</button>
-      <p className="muted" aria-live="polite">Consumido hoje: {Math.round(consumed.kcal)} kcal · Proteínas {Math.round(consumed.protein_g)} g · Carboidratos {Math.round(consumed.carbs_g)} g · Gorduras {Math.round(consumed.fat_g)} g</p>
+      {/* As duas acoes secundarias dividem uma linha em vez de empilhar em largura cheia:
+          nenhuma delas e a acao principal da tela, e ocupar duas faixas inteiras dava a
+          elas um peso que nao tem. */}
+      <div className="fg-acoes-linha">
+        <button type="button" className="fg-btn fg-btn-2" onClick={()=>setDiaryEditor({mealIndex:null})}>Adicionar um extra</button>
+        <button type="button" className="fg-btn fg-btn-2" data-testid="open-diet-import" onClick={() => setImportOpen(true)}>
+          <ClipboardPaste size={16} /> Colar minha dieta
+        </button>
+      </div>
+      <p className="fg-consumo-hoje" aria-live="polite">Consumido hoje: {Math.round(consumed.kcal)} kcal · Proteínas {Math.round(consumed.protein_g)} g · Carboidratos {Math.round(consumed.carbs_g)} g · Gorduras {Math.round(consumed.fat_g)} g</p>
       {diaryEditor?.mealIndex===null&&<FoodDiaryEditor API={API} mealIndex={null} onSaved={refreshDiary} onClose={()=>setDiaryEditor(null)}/>}
       {(diary.extras||[]).map(extra=><div className="food-diary-actual" key={extra.entry_id}><strong>Extra · {Math.round(extra.actual.totals.kcal)} kcal</strong><p>{extra.actual.foods.map(f=>`${f.name} (${f.grams} g)`).join(" · ")}</p><button type="button" className="secondary-button" onClick={async()=>{try{await axios.delete(`${API}/nutrition/consumed-extra/${extra.entry_id}`);await refreshDiary()}catch{setError("Não foi possível remover o extra.")}}}>Remover extra</button></div>)}
       <section className="nutrition-summary">
@@ -622,11 +631,6 @@ export default function Nutrition({ API, profileId, db }) {
         </div>
         <div className="nutrition-ring" style={{ background: `conic-gradient(var(--success) 0 ${dayProgress}%, #24282b ${dayProgress}% 100%)` }}><span>{dayProgress}<small>%</small></span><em>consumido</em></div>
       </section>
-
-      <button className="secondary-button" data-testid="open-diet-import"
-        style={{ marginTop: 14 }} onClick={() => setImportOpen(true)}>
-        <ClipboardPaste size={16} /> Colar minha dieta / periodizar
-      </button>
 
       {importOpen && (
         <NutritionImport
@@ -650,54 +654,60 @@ export default function Nutrition({ API, profileId, db }) {
       {meals.map((meal, i) => {
         const status = mealStatus[i];
         return (
-          <section className={status === "completed" ? "meal-card done" : "meal-card"} key={i}>
-            <div className="meal-head">
-              <div>
-                <p className="eyebrow">{meal.name}</p>
-                <h3>{Math.round(meal.target_cal || 0)} kcal</h3>
-              </div>
-              <div className="meal-status">
+          <section className={`fg-refeicao${status === "completed" ? " concluida" : ""}`} key={i}>
+            {/* A foto carrega o titulo em vez de dividir a linha com ele: o nome desce
+                para o pe da imagem, sobre a sombra, onde o contraste e garantido. */}
+            <div
+              className={`fg-refeicao-capa meal-visual-${mealVisualKey(meal.name)}`}
+              role="img"
+              aria-label={`Imagem ilustrativa de ${meal.name}`}>
+              <div className="fg-refeicao-estado">
                 <button
-                  className={status === "completed" ? "meal-status-btn active-ok" : "meal-status-btn"}
+                  className={status === "completed" ? "marcado-ok" : ""}
                   aria-label={`Concluir ${meal.name}`}
                   data-testid={`meal-complete-${i}`}
                   onClick={() => markMeal(i, "completed")}>
-                  <Check size={16} />
+                  <Check size={18} />
                 </button>
                 <button
-                  className={status === "skipped" ? "meal-status-btn active-skip" : "meal-status-btn"}
+                  className={status === "skipped" ? "marcado-pular" : ""}
                   aria-label={`Pular ${meal.name}`}
                   data-testid={`meal-skip-${i}`}
                   onClick={() => markMeal(i, "skipped")}>
-                  <X size={16} />
+                  <X size={18} />
                 </button>
+              </div>
+              <div className="fg-refeicao-titulo">
+                <p className="fg-etiqueta">{meal.name}</p>
+                <b>{Math.round(meal.target_cal || 0)}<small>kcal</small></b>
               </div>
             </div>
 
-            <div className={`meal-visual meal-visual-${mealVisualKey(meal.name)}`} role="img" aria-label={`Imagem ilustrativa de ${meal.name}`} />
-
+            <div className="fg-refeicao-corpo">
             {/* Macros somados dos alimentos: o que a pessoa vai comer, e nao a meta que
                 o plano calculou. O carboidrato nem vem na refeicao — so existe somando os
-                alimentos. Em largura cheia, cabem numa linha so. */}
+                alimentos. */}
             <MacrosDaRefeicao refeicao={meal} />
 
-            <div className="food-list">
+            <div className="fg-alimentos">
               {meal.foods?.map((item, j) => {
                 const f = item.food || {};
                 const open = subResult?.mealIdx === i && subResult?.foodId === item.food_id;
                 return (
-                  <div className="food-row" key={j}>
-                    <div className="food-row-main">
-                      <div className="food-row-info">
-                        <b>{f.name || item.food_id}</b>
-                        <span className="muted">{formatQty(item)} · {Math.round(f.kcal || 0)} kcal</span>
-                      </div>
-                      <button className="food-sub-btn" data-testid={`substitute-${i}-${item.food_id}`} onClick={() => doSubstitute(i, item.food_id)}>
-                        <RefreshCw size={13} /> Substituir
-                      </button>
+                  <div className="fg-alimento" key={j}>
+                    <div>
+                      <p className="fg-alimento-nome">{f.name || item.food_id}</p>
+                      <p className="fg-alimento-porcao">{formatQty(item)} · {Math.round(f.kcal || 0)} kcal</p>
                     </div>
+                    <button
+                      className="fg-substituir"
+                      aria-label={`Substituir ${f.name || item.food_id}`}
+                      data-testid={`substitute-${i}-${item.food_id}`}
+                      onClick={() => doSubstitute(i, item.food_id)}>
+                      <RefreshCw size={15} /> <span>Substituir</span>
+                    </button>
                     {open && (
-                      <div className="substitute-panel" data-testid={`substitute-panel-${i}-${item.food_id}`}>
+                      <div className="substitute-panel" style={{ gridColumn: "1 / -1" }} data-testid={`substitute-panel-${i}-${item.food_id}`}>
                         <p className="eyebrow">SUBSTITUIR · {f.name || item.food_id} — {formatQty(item)}</p>
                         {subResult.loading ? (
                           <p className="muted" style={{ fontSize: 12 }}>Buscando opções...</p>
@@ -734,9 +744,11 @@ export default function Nutrition({ API, profileId, db }) {
                 );
               })}
             </div>
-            <button type="button" className="secondary-button food-diary-trigger" onClick={()=>setDiaryEditor({mealIndex:i})}>Registrar o que comi</button>
+            {/* Uma acao evidente por cartao. */}
+            <button type="button" className="fg-btn fg-btn-2 fg-btn-cheio" onClick={()=>setDiaryEditor({mealIndex:i})}>Registrar o que comi</button>
             {diary.meals?.find(row=>row.meal_index===i)?.actual&&<div className="food-diary-actual"><strong>Consumo registrado no lugar desta refeição</strong><p>{diary.meals.find(row=>row.meal_index===i).actual.foods.map(f=>`${f.name} (${f.grams} g)`).join(" · ")}</p><p>A lista acima continua sendo seu plano original. Marcar “Concluir” volta a contar o planejado; “Pular” retira esta refeição do consumo.</p></div>}
-            {diaryEditor?.mealIndex===i&&<div style={{gridColumn:"1 / -1"}}><FoodDiaryEditor key={i} API={API} mealIndex={i} mealName={meal.name} onSaved={refreshDiary} onClose={()=>setDiaryEditor(null)}/></div>}
+            {diaryEditor?.mealIndex===i&&<FoodDiaryEditor key={i} API={API} mealIndex={i} mealName={meal.name} onSaved={refreshDiary} onClose={()=>setDiaryEditor(null)}/>}
+            </div>
           </section>
         );
       })}
