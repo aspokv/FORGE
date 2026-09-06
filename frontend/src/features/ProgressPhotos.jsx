@@ -1,54 +1,177 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import axios from "axios";
-import { CalendarDays, ImageOff, Plus, Trash2, X } from "lucide-react";
+import { ImageOff, Plus, Trash2, X } from "lucide-react";
 
 import VisualAssessmentResult from "./VisualAssessmentResult";
-import VisualPhotoUpload from "./VisualPhotoUpload";
-import { ANGULOS } from "./VisualPhotoUpload";
+import VisualPhotoUpload, { ANGULOS } from "./VisualPhotoUpload";
+import {
+  compararAvaliacoes,
+  dataCurta,
+  dataLonga,
+  intervaloEmPalavras,
+} from "./compararAvaliacoes";
 import "./visual-assessment.css";
+import "./progress-photos.css";
 
 /**
- * Evolucao das fotos: o historico visual e a comparacao entre duas datas.
+ * Evolucao das fotos — pensada para 360px de largura, e so depois para o resto.
  *
- * A tela de Progresso ja mostrava carga, series e consistencia. O que faltava era o que a
- * pessoa realmente quer ver — a foto de antes ao lado da de agora. Numero convence depois;
- * a imagem convence primeiro.
+ * O que a pessoa quer ver e a foto de antes ao lado da de agora. Numero convence depois; a
+ * imagem convence primeiro. Por isso as duas fotos ficam grandes, lado a lado, e tudo o
+ * mais — escolha de data, de angulo, analise — se organiza em volta delas.
  *
- * A comparacao e sempre do MESMO angulo. Comparar frente com costas nao diz nada, e deixar
- * isso acontecer por descuido daria uma falsa sensacao de mudanca.
+ * A comparacao e sempre do MESMO angulo. Frente contra costas nao diz nada, e deixar isso
+ * acontecer por descuido daria falsa sensacao de mudanca.
  */
-
-const formatarData = (iso) => {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
-};
-
-/** Distancia entre duas avaliacoes, em linguagem de gente. */
-function intervalo(deIso, ateIso) {
-  const de = new Date(deIso);
-  const ate = new Date(ateIso);
-  if (Number.isNaN(de.getTime()) || Number.isNaN(ate.getTime())) return "";
-  const dias = Math.round((ate - de) / 86400000);
-  if (dias <= 0) return "mesmo dia";
-  if (dias === 1) return "1 dia depois";
-  if (dias < 14) return `${dias} dias depois`;
-  if (dias < 60) return `${Math.round(dias / 7)} semanas depois`;
-  const meses = Math.round(dias / 30);
-  return meses === 1 ? "1 mês depois" : `${meses} meses depois`;
-}
 
 const fotoDoAngulo = (avaliacao, angulo) =>
   (avaliacao?.photos || []).find((f) => f.angle === angulo) || null;
+
+const rotuloDoAngulo = (id) => ANGULOS.find((a) => a.id === id)?.rotulo || id;
+
+/* ── Estados de uma foto ────────────────────────────────────────────────────── */
+
+/**
+ * Um quadro de foto, com os tres estados possiveis: carregando, imagem, indisponivel.
+ *
+ * O estado "indisponivel" e desenhado como ausencia calma, e nao como erro: uma foto que
+ * ainda nao carregou nao e um defeito que a pessoa precise resolver, e um quadro vermelho
+ * de alerta assustaria a toa.
+ */
+function Quadro({ foto, rotulo, data, temRegistro }) {
+  const [estado, setEstado] = useState(foto?.url ? "carregando" : "vazio");
+
+  useEffect(() => {
+    setEstado(foto?.url ? "carregando" : "vazio");
+  }, [foto?.url]);
+
+  return (
+    <figure className="pf-quadro" data-estado={estado}>
+      <div className="pf-moldura">
+        {foto?.url && (
+          <img
+            src={foto.url}
+            alt={`${rotulo} — ${data}`}
+            loading="lazy"
+            decoding="async"
+            onLoad={() => setEstado("pronto")}
+            onError={() => setEstado("vazio")}
+          />
+        )}
+        {estado === "carregando" && <span className="pf-brilho" aria-hidden="true" />}
+        {estado === "vazio" && (
+          /*
+           * Dois estados diferentes, e a diferenca importa: "esse angulo nao foi enviado"
+           * e informacao acionavel — da para enviar depois. "A imagem nao carregou" nao e
+           * culpa de quem esta olhando e nao pede acao nenhuma. Um texto so para os dois
+           * mandaria a pessoa procurar uma foto que ela ja tirou.
+           */
+          <span className="pf-ausente">
+            <ImageOff size={18} aria-hidden="true" />
+            <small>{temRegistro ? "Imagem indisponível" : `Sem ${rotulo.toLowerCase()}`}</small>
+          </span>
+        )}
+      </div>
+      <figcaption>{data}</figcaption>
+    </figure>
+  );
+}
+
+/* ── Leitura da comparacao ──────────────────────────────────────────────────── */
+
+/**
+ * "O que mudou / Onde evoluiu mais / Proximo foco".
+ *
+ * Tudo aqui sai das duas leituras: um grupo so aparece como mudanca quando as DUAS
+ * avaliacoes o classificaram com confianca suficiente e os niveis diferem. Quando nao ha
+ * base, a tela diz isso — inventar evolucao seria o pior defeito possivel numa tela cujo
+ * proposito e mostrar evolucao.
+ */
+/** Monta a frase da mudanca com concordancia certa — "3 grupos subiram", nao "subiu". */
+function frasesDaMudanca(c) {
+  const partes = [];
+  if (c.melhoraram.length) {
+    partes.push(c.melhoraram.length === 1
+      ? "1 grupo subiu de nível"
+      : `${c.melhoraram.length} grupos subiram de nível`);
+  }
+  if (c.pioraram.length) {
+    partes.push(c.pioraram.length === 1
+      ? "1 apareceu abaixo da leitura anterior"
+      : `${c.pioraram.length} apareceram abaixo da leitura anterior`);
+  }
+  const inicio = partes.join(", e ");
+  const iguais = c.mantiveram === 0
+    ? ""
+    : c.mantiveram === 1 ? " 1 seguiu igual." : ` ${c.mantiveram} seguiram igual.`;
+  return `${inicio}.${iguais}`.trim();
+}
+
+function Leitura({ antiga, nova }) {
+  const c = useMemo(() => compararAvaliacoes(antiga, nova), [antiga, nova]);
+  const proximo = nova?.next_cycle?.length ? nova.next_cycle : nova?.training_priorities || [];
+
+  return (
+    <div className="pf-leitura" data-testid="leitura-comparacao">
+      <section>
+        <h4>O que mudou</h4>
+        {!c.confiavel ? (
+          <p className="pf-suave">
+            {c.motivo === "sem_par"
+              ? "Escolha duas avaliações diferentes para comparar."
+              : "As duas leituras não têm grupos em comum com nitidez suficiente para afirmar mudança."}
+          </p>
+        ) : c.melhoraram.length || c.pioraram.length ? (
+          <p>{frasesDaMudanca(c)}</p>
+        ) : (
+          <p>As duas leituras apontam o mesmo quadro em {c.comparados} grupos.</p>
+        )}
+      </section>
+
+      <section>
+        <h4>Onde evoluiu mais</h4>
+        {c.confiavel && c.melhoraram.length ? (
+          <ul className="pf-etiquetas">
+            {c.melhoraram.slice(0, 6).map((m) => (
+              <li key={m}>{m}</li>
+            ))}
+          </ul>
+        ) : (
+          <p className="pf-suave">
+            {c.confiavel
+              ? "Nenhum grupo subiu de nível entre as duas datas."
+              : "Sem base para apontar evolução por região."}
+          </p>
+        )}
+      </section>
+
+      <section>
+        <h4>Próximo foco</h4>
+        {proximo.length ? (
+          <ul className="pf-passos">
+            {proximo.slice(0, 3).map((p) => (
+              <li key={p}>{p}</li>
+            ))}
+          </ul>
+        ) : (
+          <p className="pf-suave">
+            A leitura mais recente não trouxe um foco definido para o próximo ciclo.
+          </p>
+        )}
+      </section>
+    </div>
+  );
+}
+
+/* ── Tela ───────────────────────────────────────────────────────────────────── */
 
 export default function ProgressPhotos({ API, profileId }) {
   const [historico, setHistorico] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [armazenamentoPronto, setArmazenamentoPronto] = useState(true);
   const [angulo, setAngulo] = useState("front");
-  const [idEsquerda, setIdEsquerda] = useState(null);
-  const [idDireita, setIdDireita] = useState(null);
+  const [idAntiga, setIdAntiga] = useState(null);
+  const [idNova, setIdNova] = useState(null);
   const [enviando, setEnviando] = useState(false);
 
   const carregar = useCallback(async () => {
@@ -57,13 +180,14 @@ export default function ProgressPhotos({ API, profileId }) {
       const lista = r.data?.assessments || [];
       setHistorico(lista);
       setArmazenamentoPronto(Boolean(r.data?.storage_ready));
-      // Padrao util: a mais antiga contra a mais nova, que e a comparacao que interessa.
       if (lista.length >= 2) {
-        setIdEsquerda(lista[lista.length - 1].id);
-        setIdDireita(lista[0].id);
+        // A primeira contra a mais recente: e a comparacao que a pessoa quer ver.
+        setIdAntiga(lista[lista.length - 1].id);
+        setIdNova(lista[0].id);
+      } else if (lista.length === 1) {
+        setIdNova(lista[0].id);
       }
     } catch (e) {
-      // Sem historico a tela continua de pe; o motivo tecnico nao vai para o usuario.
       console.error("[forge] não foi possível carregar o histórico visual:", e);
       setHistorico([]);
     } finally {
@@ -75,16 +199,10 @@ export default function ProgressPhotos({ API, profileId }) {
     if (profileId) carregar();
   }, [profileId, carregar]);
 
-  const esquerda = useMemo(
-    () => historico.find((a) => a.id === idEsquerda) || null,
-    [historico, idEsquerda]
-  );
-  const direita = useMemo(
-    () => historico.find((a) => a.id === idDireita) || null,
-    [historico, idDireita]
-  );
+  const antiga = useMemo(() => historico.find((a) => a.id === idAntiga) || null, [historico, idAntiga]);
+  const nova = useMemo(() => historico.find((a) => a.id === idNova) || null, [historico, idNova]);
 
-  /** Angulos que existem em ao menos uma avaliacao — nao adianta oferecer o que nao ha. */
+  /** Angulos presentes em alguma avaliacao — oferecer o que nao existe seria ruido. */
   const angulosDisponiveis = useMemo(() => {
     const presentes = new Set();
     historico.forEach((a) => (a.photos || []).forEach((f) => presentes.add(f.angle)));
@@ -101,34 +219,62 @@ export default function ProgressPhotos({ API, profileId }) {
     try {
       await axios.delete(`${API}/visual-assessment/${id}`);
       setHistorico((atual) => atual.filter((a) => a.id !== id));
-      if (idEsquerda === id) setIdEsquerda(null);
-      if (idDireita === id) setIdDireita(null);
+      if (idAntiga === id) setIdAntiga(null);
+      if (idNova === id) setIdNova(null);
     } catch (e) {
       console.error("[forge] não foi possível apagar a avaliação:", e);
     }
   };
 
-  const fotoEsq = fotoDoAngulo(esquerda, angulo);
-  const fotoDir = fotoDoAngulo(direita, angulo);
-  const podeComparar = Boolean(fotoEsq && fotoDir && esquerda.id !== direita.id);
+  /** Toca numa data: a mais recente das duas vira a "nova", a outra vira a "antiga". */
+  const escolher = (id) => {
+    if (id === idNova || id === idAntiga) return;
+    setIdAntiga(idNova);
+    setIdNova(id);
+  };
+
+  const temPar = Boolean(antiga && nova && antiga.id !== nova.id);
+  const cabecalho = (
+    <header className="pf-topo">
+      <div>
+        <p className="pf-eyebrow">Evolução das fotos</p>
+        <h3>Veja a diferença.</h3>
+      </div>
+      <button
+        type="button"
+        className="pf-acao"
+        data-testid="nova-atualizacao-visual"
+        onClick={() => setEnviando((x) => !x)}
+      >
+        {enviando ? <X size={16} aria-hidden="true" /> : <Plus size={16} aria-hidden="true" />}
+        <span>{enviando ? "Fechar" : "Nova"}</span>
+      </button>
+    </header>
+  );
+
+  if (carregando) {
+    return (
+      <section className="pf-secao" data-testid="progress-photos">
+        {cabecalho}
+        <div className="pf-comparacao" aria-hidden="true">
+          <div className="pf-quadro" data-estado="carregando">
+            <div className="pf-moldura">
+              <span className="pf-brilho" />
+            </div>
+          </div>
+          <div className="pf-quadro" data-estado="carregando">
+            <div className="pf-moldura">
+              <span className="pf-brilho" />
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   return (
-    <section className="panel vp-secao" data-testid="progress-photos">
-      <header className="vp-cabecalho">
-        <div>
-          <p className="eyebrow">EVOLUÇÃO DAS FOTOS</p>
-          <h3>Veja a diferença, não só os números.</h3>
-        </div>
-        <button
-          type="button"
-          className="secondary-button"
-          data-testid="nova-atualizacao-visual"
-          onClick={() => setEnviando((x) => !x)}
-        >
-          {enviando ? <X size={15} aria-hidden="true" /> : <Plus size={15} aria-hidden="true" />}{" "}
-          {enviando ? "Fechar" : "Nova atualização"}
-        </button>
-      </header>
+    <section className="pf-secao" data-testid="progress-photos">
+      {cabecalho}
 
       {enviando && (
         <VisualPhotoUpload
@@ -136,31 +282,33 @@ export default function ProgressPhotos({ API, profileId }) {
           profileId={profileId}
           onConcluido={() => {
             setEnviando(false);
+            setCarregando(true);
             carregar();
           }}
         />
       )}
 
-      {carregando && <p className="muted">Carregando suas avaliações…</p>}
-
-      {!carregando && historico.length === 0 && (
-        <p className="muted" data-testid="sem-avaliacoes">
-          Você ainda não tem avaliações visuais. A primeira vira o seu ponto de partida —
-          é ela que dá sentido a todas as próximas.
-        </p>
-      )}
-
-      {!carregando && historico.length > 0 && !armazenamentoPronto && (
-        <p className="muted" data-testid="sem-armazenamento">
-          As fotos destas avaliações não estão disponíveis para visualização no momento. As
-          observações continuam abaixo.
-        </p>
+      {historico.length === 0 && !enviando && (
+        <div className="pf-vazio" data-testid="sem-avaliacoes">
+          <p>A primeira avaliação vira o seu ponto de partida.</p>
+          <span>É ela que dá sentido a todas as próximas.</span>
+          <button type="button" className="pf-acao cheia" onClick={() => setEnviando(true)}>
+            <Plus size={16} aria-hidden="true" /> Enviar minhas fotos
+          </button>
+        </div>
       )}
 
       {historico.length > 0 && (
         <>
+          {!armazenamentoPronto && (
+            <p className="pf-suave" data-testid="sem-armazenamento">
+              As imagens não estão disponíveis para visualização no momento. As observações
+              continuam abaixo.
+            </p>
+          )}
+
           {angulosDisponiveis.length > 1 && (
-            <div className="vp-angulos" role="tablist" aria-label="Ângulo comparado">
+            <div className="pf-angulos" role="tablist" aria-label="Ângulo comparado">
               {angulosDisponiveis.map((a) => (
                 <button
                   key={a.id}
@@ -177,76 +325,88 @@ export default function ProgressPhotos({ API, profileId }) {
             </div>
           )}
 
-          {podeComparar ? (
-            <>
-              <div className="vp-comparacao" data-testid="comparacao-lado-a-lado">
-                <figure>
-                  <img src={fotoEsq.url} alt={`Avaliação de ${formatarData(esquerda.created_at)}`} />
-                  <figcaption>
-                    <CalendarDays size={12} aria-hidden="true" />
-                    {formatarData(esquerda.created_at)}
-                  </figcaption>
-                </figure>
-                <figure>
-                  <img src={fotoDir.url} alt={`Avaliação de ${formatarData(direita.created_at)}`} />
-                  <figcaption>
-                    <CalendarDays size={12} aria-hidden="true" />
-                    {formatarData(direita.created_at)}
-                  </figcaption>
-                </figure>
-              </div>
-              <p className="vp-intervalo">
-                {intervalo(esquerda.created_at, direita.created_at)}
-              </p>
-            </>
+          <div className="pf-comparacao" data-testid="comparacao-lado-a-lado">
+            {temPar ? (
+              <>
+                <Quadro
+                  foto={fotoDoAngulo(antiga, angulo)}
+                  rotulo={rotuloDoAngulo(angulo)}
+                  data={dataCurta(antiga.created_at)}
+                  temRegistro={(antiga.views || []).includes(angulo)}
+                />
+                <Quadro
+                  foto={fotoDoAngulo(nova, angulo)}
+                  rotulo={rotuloDoAngulo(angulo)}
+                  data={dataCurta(nova.created_at)}
+                  temRegistro={(nova.views || []).includes(angulo)}
+                />
+              </>
+            ) : (
+              nova && (
+                <Quadro
+                  foto={fotoDoAngulo(nova, angulo)}
+                  rotulo={rotuloDoAngulo(angulo)}
+                  data={dataCurta(nova.created_at)}
+                  temRegistro={(nova.views || []).includes(angulo)}
+                />
+              )
+            )}
+          </div>
+
+          {temPar ? (
+            <p className="pf-intervalo" data-testid="intervalo">
+              {intervaloEmPalavras(antiga.created_at, nova.created_at)}
+            </p>
           ) : (
-            <p className="muted" data-testid="sem-comparacao">
-              {historico.length < 2
-                ? "Com uma segunda avaliação, as duas aparecem aqui lado a lado."
-                : "As duas datas escolhidas não têm foto do mesmo ângulo, então não dá para comparar com honestidade."}
+            <p className="pf-suave" data-testid="uma-avaliacao">
+              {dataLonga(nova?.created_at)} · com a próxima, as duas aparecem aqui lado a
+              lado.
             </p>
           )}
 
-          {/* A analise fica ABAIXO das imagens, como pedido: a foto convence, o texto explica. */}
-          {direita && <VisualAssessmentResult resultado={{ ...direita, status: direita.status || "completed" }} />}
-
-          <div className="vp-linha-do-tempo" data-testid="linha-do-tempo">
-            <p className="eyebrow">Suas avaliações</p>
-            <ul>
+          {historico.length > 1 && (
+            <div className="pf-datas" data-testid="linha-do-tempo">
               {historico.map((a) => {
-                const foto = fotoDoAngulo(a, angulo);
+                const papel = a.id === idNova ? "nova" : a.id === idAntiga ? "antiga" : "";
                 return (
-                  <li key={a.id} className={a.id === idDireita ? "atual" : ""}>
+                  <div key={a.id} className={`pf-data ${papel}`}>
                     <button
                       type="button"
-                      className="vp-miniatura"
                       data-testid={`escolher-${a.id}`}
-                      onClick={() => (idEsquerda === a.id ? setIdDireita(a.id) : setIdEsquerda(a.id))}
-                      aria-label={`Comparar a avaliação de ${formatarData(a.created_at)}`}
+                      onClick={() => escolher(a.id)}
+                      aria-pressed={Boolean(papel)}
                     >
-                      {foto ? (
-                        <img src={foto.url} alt="" />
-                      ) : (
-                        <span className="vp-sem-foto" aria-hidden="true">
-                          <ImageOff size={16} />
-                        </span>
-                      )}
-                      <small>{formatarData(a.created_at)}</small>
+                      <b>{dataCurta(a.created_at)}</b>
+                      <small>
+                        {(() => {
+                          const n = (a.views || []).length || (a.photos || []).length;
+                          return `${n} ${n === 1 ? "ângulo" : "ângulos"}`;
+                        })()}
+                      </small>
                     </button>
                     <button
                       type="button"
-                      className="vp-apagar"
-                      aria-label={`Apagar a avaliação de ${formatarData(a.created_at)}`}
+                      className="pf-apagar"
+                      aria-label={`Apagar a avaliação de ${dataLonga(a.created_at)}`}
                       data-testid={`apagar-${a.id}`}
                       onClick={() => apagar(a.id)}
                     >
                       <Trash2 size={13} />
                     </button>
-                  </li>
+                  </div>
                 );
               })}
-            </ul>
-          </div>
+            </div>
+          )}
+
+          {/* A leitura fica ABAIXO das fotos: a imagem convence, o texto explica. */}
+          {temPar && <Leitura antiga={antiga} nova={nova} />}
+
+          {nova && (
+            <VisualAssessmentResult
+              resultado={{ ...nova, status: nova.status || "completed" }}
+            />
+          )}
         </>
       )}
     </section>

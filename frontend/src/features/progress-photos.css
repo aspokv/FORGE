@@ -1,0 +1,402 @@
+/* ══ Evolucao das fotos — desenhada para 360px ═══════════════════════════════
+ *
+ * Tudo aqui parte da largura mais estreita que precisa atender. Nada foi pensado no
+ * desktop e reduzido depois: as medidas sao fracoes da tela, entao 360, 375, 390 e 412
+ * recebem a mesma proporcao, e nao a mesma sobra.
+ *
+ * Profundidade vem de degrade grafite e de uma luz quente no alto do cartao, e nao de
+ * borda cinza generica. Preto chapado com contorno de 1px e o que faz um aplicativo
+ * parecer gratuito.
+ */
+
+.pf-secao {
+  --pf-ouro: #d8ab80;
+  --pf-brasa: #e36b4d;
+
+  display: grid;
+  gap: 14px;
+  padding: 16px 14px 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(216, 171, 128, 0.16);
+  background:
+    radial-gradient(120% 70% at 50% -10%, rgba(216, 171, 128, 0.09), transparent 60%),
+    linear-gradient(168deg, #17181a 0%, #101113 46%, #0b0c0d 100%);
+  box-shadow: 0 20px 44px -28px #000, inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.pf-topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.pf-eyebrow {
+  font: 500 9.5px "IBM Plex Mono", ui-monospace, monospace;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--pf-ouro);
+}
+
+.pf-topo h3 {
+  margin: 5px 0 0;
+  /* Proporcional a tela, e nao um numero fixo que fica desproporcional em 360. */
+  font-size: clamp(19px, 5.4vw, 23px);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+/* Alvo de toque de 44px — o minimo para o dedo nao errar. */
+.pf-acao {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 14px;
+  flex: none;
+  border-radius: 999px;
+  border: 1px solid rgba(216, 171, 128, 0.34);
+  background: rgba(216, 171, 128, 0.08);
+  color: var(--pf-ouro);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.pf-acao.cheia {
+  width: 100%;
+  justify-content: center;
+  background: linear-gradient(180deg, var(--pf-brasa), #c9553a);
+  border-color: transparent;
+  color: #17110e;
+}
+
+/* ── Sem nenhuma avaliacao ────────────────────────────────────────────────── */
+
+/*
+ * Compacto de proposito. Cartao vazio e alto parece falha de carregamento; este ocupa o
+ * que precisa para dizer a frase e oferecer a acao, e nada mais.
+ */
+.pf-vazio {
+  display: grid;
+  gap: 6px;
+  padding: 18px 16px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.028), rgba(0, 0, 0, 0.18));
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.pf-vazio p {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.pf-vazio span {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.pf-vazio .pf-acao {
+  margin-top: 8px;
+}
+
+/* ── Angulos ──────────────────────────────────────────────────────────────── */
+
+.pf-angulos {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  /* Sangra ate a borda do cartao: sem isso o ultimo item parece cortado por defeito. */
+  margin: 0 -14px;
+  padding: 0 14px 2px;
+}
+
+.pf-angulos::-webkit-scrollbar {
+  display: none;
+}
+
+.pf-angulos button {
+  flex: none;
+  scroll-snap-align: start;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--muted);
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+
+.pf-angulos button.ativo {
+  border-color: rgba(227, 107, 77, 0.5);
+  background: rgba(227, 107, 77, 0.12);
+  color: #f0b6a2;
+}
+
+/* ── As fotos ─────────────────────────────────────────────────────────────── */
+
+/*
+ * Duas colunas SEMPRE, inclusive em 360px. Empilhar destruiria a comparacao, que e o
+ * proposito da tela. Em 360 cada foto fica com cerca de 155 por 207px — grande o bastante
+ * para se enxergar diferenca de contorno.
+ */
+.pf-comparacao {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+/* Com uma avaliacao so, a unica foto ocupa a largura toda em vez de deixar um buraco. */
+.pf-comparacao:has(> .pf-quadro:only-child) {
+  grid-template-columns: 1fr;
+}
+
+.pf-quadro {
+  margin: 0;
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.pf-moldura {
+  position: relative;
+  aspect-ratio: 3 / 4;
+  border-radius: 12px;
+  overflow: hidden;
+  background: linear-gradient(180deg, #191a1c, #0e0f10);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.pf-moldura img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Carregando: luz que atravessa, sem texto e sem cara de erro. */
+.pf-brilho {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 20%, rgba(255, 255, 255, 0.055) 50%, transparent 80%);
+  background-size: 220% 100%;
+  animation: pf-passa 1.5s ease-in-out infinite;
+}
+
+@keyframes pf-passa {
+  from { background-position: 130% 0; }
+  to { background-position: -30% 0; }
+}
+
+/*
+ * Ausencia calma, e nao alerta. Uma foto que nao existe naquele angulo nao e um problema
+ * que a pessoa precise resolver; vermelho e icone de erro assustariam a toa.
+ */
+.pf-ausente {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 6px;
+  color: rgba(167, 170, 168, 0.55);
+  text-align: center;
+  padding: 8px;
+}
+
+.pf-ausente small {
+  font-size: 10.5px;
+  line-height: 1.3;
+}
+
+.pf-quadro figcaption {
+  font: 500 10.5px "IBM Plex Mono", ui-monospace, monospace;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  text-align: center;
+}
+
+.pf-intervalo {
+  text-align: center;
+  font: 600 11px "IBM Plex Mono", ui-monospace, monospace;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--pf-brasa);
+}
+
+.pf-suave {
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+/* ── Datas ────────────────────────────────────────────────────────────────── */
+
+/*
+ * Uma entrada por avaliacao, com UMA data. A versao anterior repetia a data em cada
+ * miniatura de angulo, e a mesma avaliacao aparecia quatro vezes na fila.
+ */
+.pf-datas {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  margin: 0 -14px;
+  padding: 2px 14px 4px;
+}
+
+.pf-datas::-webkit-scrollbar {
+  display: none;
+}
+
+.pf-data {
+  position: relative;
+  flex: none;
+  scroll-snap-align: start;
+}
+
+.pf-data > button:first-child {
+  display: grid;
+  gap: 2px;
+  min-height: 52px;
+  padding: 8px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.028);
+  color: var(--muted);
+  text-align: left;
+}
+
+.pf-data b {
+  font-size: 13px;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.pf-data small {
+  font: 9.5px "IBM Plex Mono", ui-monospace, monospace;
+  letter-spacing: 0.06em;
+}
+
+/* Os dois lados da comparacao ficam marcados, com papeis distintos. */
+.pf-data.antiga > button:first-child {
+  border-color: rgba(216, 171, 128, 0.42);
+}
+
+.pf-data.nova > button:first-child {
+  border-color: rgba(227, 107, 77, 0.55);
+  background: rgba(227, 107, 77, 0.1);
+}
+
+.pf-apagar {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 50%;
+  background: #16181a;
+  color: var(--muted);
+}
+
+/* ── Leitura da comparacao ────────────────────────────────────────────────── */
+
+.pf-leitura {
+  display: grid;
+  gap: 14px;
+  padding: 14px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(216, 171, 128, 0.05), rgba(0, 0, 0, 0.16));
+  border: 1px solid rgba(216, 171, 128, 0.13);
+}
+
+.pf-leitura h4 {
+  margin: 0 0 6px;
+  font: 500 9.5px "IBM Plex Mono", ui-monospace, monospace;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--pf-ouro);
+}
+
+.pf-leitura p {
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: #dedbd3;
+}
+
+.pf-etiquetas {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pf-etiquetas li {
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(168, 198, 134, 0.4);
+  color: #cfe0b6;
+  font-size: 12px;
+}
+
+.pf-passos {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.pf-passos li {
+  position: relative;
+  padding-left: 14px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: #dedbd3;
+}
+
+.pf-passos li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.6em;
+  width: 6px;
+  height: 1px;
+  background: var(--pf-brasa);
+}
+
+/* ── A tela de Progresso em volta ─────────────────────────────────────────── */
+
+@media (max-width: 800px) {
+  /*
+   * O conteudo terminava atras da barra inferior fixa. O respiro sai da altura da barra
+   * mais a area segura do aparelho — sem isso, o ultimo cartao fica inalcancavel.
+   */
+  .progress-page {
+    padding-bottom: calc(96px + env(safe-area-inset-bottom)) !important;
+  }
+
+  /* A evolucao e o assunto principal; o resto vem depois e mais calmo. */
+  .progress-page .pf-secao {
+    margin-bottom: 14px;
+  }
+
+  .progress-page .progress-hero,
+  .progress-page .progress-results,
+  .progress-page .progress-intelligence > .panel {
+    border-radius: 14px;
+  }
+}

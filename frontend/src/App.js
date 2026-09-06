@@ -410,8 +410,8 @@ function Progress({analytics,profileId}){
   const bodyTrend=analytics.body_trend||[],milestones=analytics.milestones||[];
   return <div className="content progress-page">
     <div className="section-intro"><p className="eyebrow">PROGRESSO</p><h2>Onde você mais evoluiu.</h2><p className="muted">Resultados claros primeiro; detalhes técnicos quando você quiser aprofundar.</p></div>
-    <section className="panel progress-hero"data-testid="progress-hero"><p className="eyebrow">SUA EVOLUÇÃO</p><strong>{heroValue}</strong><p>{heroCopy}</p></section>
     <ProgressPhotos API={API}profileId={profileId}/>
+    <section className="panel progress-hero"data-testid="progress-hero"><p className="eyebrow">SUA EVOLUÇÃO</p><strong>{heroValue}</strong><p>{heroCopy}</p></section>
     <section className="panel progress-results">
       <p className="eyebrow">SEUS MELHORES RESULTADOS</p>
       {results.length?results.map(p=>{const delta=Number(p.delta_weight)||0;return <div className="pr-row"key={p.exercise}><div className="pr-icon"><Trophy size={16}/></div><div><b>{p.exercise}</b><p className="muted">{delta>0?`${Number(p.weight).toLocaleString("pt-BR")} kg · +${delta.toLocaleString("pt-BR")} kg desde o início`:`${p.value} · melhor série registrada`}</p></div><strong>{delta>0?`+${delta.toLocaleString("pt-BR")} kg`:p.value}</strong></div>})

@@ -804,10 +804,19 @@ async def visual_history(profile_id: str, user=Depends(get_current_user)):
             "id": item.get("id"),
             "created_at": item.get("created_at"),
             "photos": fotos,
+            # Os angulos REGISTRADOS na avaliacao, mesmo quando a imagem nao pode ser
+            # servida. E o que separa "esse angulo nao foi enviado" de "a imagem nao
+            # carregou" — dois estados diferentes na tela.
+            "views": item.get("views") or [f.get("angle") for f in (item.get("photos") or [])],
             "status": item.get("status"),
             "observations": item.get("observations") or {},
             "symmetry_notes": item.get("symmetry_notes") or "",
             "proportion_notes": item.get("proportion_notes") or "",
+            "posture_notes": item.get("posture_notes") or "",
+            "strong_points": item.get("strong_points") or [],
+            "attention_points": item.get("attention_points") or [],
+            "training_priorities": item.get("training_priorities") or [],
+            "next_cycle": item.get("next_cycle") or [],
             "suggested_priorities": item.get("suggested_priorities") or [],
             "limitations": item.get("limitations") or [],
         })
