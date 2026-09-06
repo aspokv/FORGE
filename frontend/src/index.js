@@ -1,6 +1,10 @@
 import React, { Suspense } from "react";
 import ReactDOM from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+// A folha de tokens vem ANTES de todas: ela so declara, e as folhas seguintes passam a
+// referenciar em vez de inventar. Ordem importa — declarar depois nao alcanca quem ja leu.
+import "@/forge-tokens.css";
+import "@/forge-primitivos.css";
 import "@/index.css";
 import App from "@/App";
 import "@/typography-premium.css";

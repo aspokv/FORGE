@@ -1,0 +1,131 @@
+/*
+ * FORGE — a fonte única do sistema visual.
+ *
+ * A auditoria mediu o estrago: 841 valores de cor literais, 68 tamanhos de fonte, 130
+ * sombras, 24 raios e nove blocos `:root` concorrentes espalhados por 32 folhas. Nada
+ * disso é desleixo pontual — é o rastro de sete camadas de correção empilhadas, cada uma
+ * vencendo a anterior com `!important`.
+ *
+ * Esta folha não redesenha nada. Ela só DECLARA, e é importada antes de todas as outras
+ * para que as antigas passem a referenciar em vez de inventar. A migração é progressiva de
+ * propósito: trocar 32 folhas de uma vez quebraria telas que hoje funcionam.
+ *
+ * A identidade não muda. A brasa continua sendo a cor de agir e o dourado continua sendo
+ * metal tipográfico — o que muda é passarem a ter um nome só, em um lugar só.
+ */
+
+:root {
+  /* ── Superfícies ───────────────────────────────────────────────────────────
+   * Quatro degraus, e a distância entre eles é o que dá profundidade sem sombra.
+   * O fundo é grafite e não preto puro: preto vazio não é sofisticação, é ausência,
+   * e a foto do exercício precisa de um chão que a sustente.
+   */
+  --fg-fundo: #0b0c0e;
+  --fg-superficie: #15171a;
+  --fg-superficie-alta: #1d2024;
+  --fg-superficie-toque: #24282d;
+
+  /* Linhas. A régua fina substitui a caixa quando o que separa é hierarquia, e não toque. */
+  --fg-linha: #282c31;
+  --fg-linha-forte: #3a3f46;
+
+  /* ── Texto ─────────────────────────────────────────────────────────────── */
+  --fg-texto: #f3f1ec;
+  --fg-texto-2: #a2a7ab;
+  --fg-texto-3: #6f7479;
+
+  /* ── Marca ─────────────────────────────────────────────────────────────────
+   * UMA cor de agir. Antes eram três disputando o mesmo papel: laranja no Início,
+   * dourado no Treino e no Perfil, um terceiro dourado no Progresso. O acento é o que
+   * a pessoa aprende como "a cor de tocar"; três cores quebram esse aprendizado a cada
+   * aba. O dourado passa a ser metal de destaque tipográfico, nunca botão.
+   */
+  --fg-acao: #e36b4d;
+  --fg-acao-forte: #f07d5e;
+  --fg-acao-fraca: rgba(227, 107, 77, .14);
+  --fg-acao-tinta: #17100d;
+  --fg-metal: #d8ab80;
+  --fg-metal-fraca: rgba(216, 171, 128, .12);
+
+  /* ── Semânticas ───────────────────────────────────────────────────────────
+   * Separadas do acento de propósito: sucesso e erro não competem com a ação.
+   */
+  --fg-ok: #7fae86;
+  --fg-ok-fundo: rgba(127, 174, 134, .12);
+  --fg-atencao: #d7a85c;
+  --fg-atencao-fundo: rgba(215, 168, 92, .12);
+  --fg-erro: #d8735c;
+  --fg-erro-fundo: rgba(216, 115, 92, .12);
+
+  /* ── Tipografia ───────────────────────────────────────────────────────────
+   * Três faces, três papéis. Archivo carrega peso e largura para título; Inter lê bem
+   * em corpo pequeno; o mono é para número, porque dígito em coluna precisa alinhar.
+   */
+  --fg-display: "Archivo", "Inter", system-ui, sans-serif;
+  --fg-corpo: "Inter", system-ui, -apple-system, sans-serif;
+  --fg-mono: "IBM Plex Mono", ui-monospace, monospace;
+
+  /* Sete degraus no lugar de 68. Um tamanho que não está aqui é um tamanho a corrigir. */
+  --t-display: 30px;
+  --t-titulo: 21px;
+  --t-cartao: 17px;
+  --t-corpo: 15px;
+  --t-apoio: 13px;
+  --t-dado: 13px;
+  --t-etiqueta: 11px;
+
+  --lh-apertada: 1.1;
+  --lh-titulo: 1.25;
+  --lh-corpo: 1.55;
+
+  /* Sobrelinha em caixa alta precisa de ar entre as letras para não virar mancha. */
+  --ls-etiqueta: .14em;
+
+  /* ── Espaço ───────────────────────────────────────────────────────────────
+   * Escala de 4. Valor fora dela é acidente, não decisão.
+   */
+  --e-1: 4px;
+  --e-2: 8px;
+  --e-3: 12px;
+  --e-4: 16px;
+  --e-5: 24px;
+  --e-6: 32px;
+  --e-7: 48px;
+
+  /* Margem lateral da tela: constante em toda a aplicação, para tudo alinhar. */
+  --fg-margem: 16px;
+
+  /* ── Raio ─────────────────────────────────────────────────────────────────
+   * Quatro, por papel. Substitui os 24 atuais.
+   */
+  --r-campo: 6px;
+  --r-cartao: 14px;
+  --r-folha: 20px;
+  --r-pilula: 999px;
+
+  /* ── Sombra ───────────────────────────────────────────────────────────────
+   * Duas. Borda, fundo, raio e sombra são quatro sinais de "objeto separado"; gastar os
+   * quatro em todo bloco achata a hierarquia em vez de criá-la.
+   */
+  --s-elevado: 0 2px 10px rgba(0, 0, 0, .34);
+  --s-flutuante: 0 -6px 22px rgba(0, 0, 0, .42);
+
+  /* ── Toque e movimento ────────────────────────────────────────────────────
+   * 44px é o mínimo de tudo que se toca, sem exceção. A auditoria achou 33 alvos abaixo
+   * disso só na Nutrição.
+   */
+  --fg-toque: 44px;
+  --m-reacao: 140ms;
+  --m-transicao: 220ms;
+  --m-curva: cubic-bezier(.22, .61, .36, 1);
+
+  /* Altura da barra inferior, para as telas reservarem o rodapé sem adivinhar. */
+  --fg-barra: 64px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --m-reacao: 0ms;
+    --m-transicao: 0ms;
+  }
+}

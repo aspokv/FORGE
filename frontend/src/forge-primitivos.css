@@ -1,0 +1,383 @@
+/*
+ * FORGE — primitivos compartilhados.
+ *
+ * Todo seletor aqui usa o prefixo `fg-`, e isso é deliberado: as 32 folhas antigas
+ * continuam funcionando intocadas, e cada tela migra quando for a vez dela. Trocar tudo de
+ * uma vez quebraria o que hoje está de pé.
+ *
+ * A composição segue o que a tela de Treino já acerta e o que a referência de acabamento
+ * resolve bem: cabeçalho de seção com atalho à direita, cartão com foto ocupando área de
+ * verdade, metadado em chip, linha de item com miniatura e estado, uma ação evidente ao
+ * fim. A paleta é a do FORGE — brasa para agir, dourado como metal tipográfico.
+ *
+ * Nada aqui usa `!important`. Se um primitivo precisar dele para vencer, o certo é remover
+ * a regra antiga, e não empilhar a oitava camada.
+ */
+
+/* ── Ritmo da tela ─────────────────────────────────────────────────────────── */
+
+.fg-tela {
+  padding: var(--e-5) var(--fg-margem);
+  /* A barra inferior é fixa: sem esta reserva ela cobre o último item de toda lista. */
+  padding-bottom: calc(var(--fg-barra) + env(safe-area-inset-bottom, 0px) + var(--e-6));
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-5);
+}
+
+/* ── Cabeçalho de seção ────────────────────────────────────────────────────
+ * Título à esquerda, atalho à direita. O atalho só existe quando há mais para ver — um
+ * "ver todos" que leva a nada é pior que nenhum.
+ */
+.fg-secao {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--e-3);
+}
+
+.fg-secao h2,
+.fg-secao h3 {
+  margin: 0;
+  font-family: var(--fg-display);
+  font-size: var(--t-titulo);
+  font-weight: 700;
+  line-height: var(--lh-titulo);
+  letter-spacing: -.01em;
+  color: var(--fg-texto);
+}
+
+.fg-secao > button,
+.fg-secao > a {
+  flex: none;
+  border: 0;
+  background: none;
+  padding: var(--e-2) 0 var(--e-2) var(--e-3);
+  color: var(--fg-metal);
+  font: 600 var(--t-apoio) / 1 var(--fg-corpo);
+  cursor: pointer;
+}
+
+.fg-etiqueta {
+  margin: 0;
+  font: 600 var(--t-etiqueta) / 1.3 var(--fg-mono);
+  letter-spacing: var(--ls-etiqueta);
+  text-transform: uppercase;
+  color: var(--fg-texto-3);
+}
+
+/* ── Botão ─────────────────────────────────────────────────────────────────
+ * Um botão primário por tela. `min-height` de 44px não é sugestão: a auditoria achou 33
+ * alvos abaixo disso só na Nutrição.
+ */
+.fg-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--e-2);
+  min-height: var(--fg-toque);
+  padding: 0 var(--e-5);
+  border: 1px solid transparent;
+  border-radius: var(--r-pilula);
+  background: var(--fg-acao);
+  color: var(--fg-acao-tinta);
+  font: 700 var(--t-corpo) / 1 var(--fg-corpo);
+  cursor: pointer;
+  transition: background var(--m-reacao) var(--m-curva),
+              transform var(--m-reacao) var(--m-curva);
+}
+
+.fg-btn:active { transform: scale(.985); }
+.fg-btn:disabled { opacity: .45; cursor: default; transform: none; }
+
+.fg-btn-cheio { width: 100%; }
+
+/* Secundário: mesma anatomia, peso menor. Contorno em vez de preenchimento. */
+.fg-btn-2 {
+  background: transparent;
+  border-color: var(--fg-linha-forte);
+  color: var(--fg-texto);
+  font-weight: 600;
+}
+
+.fg-btn-2:active { background: var(--fg-superficie-toque); }
+
+/* Discreto: para o que é saída, e não avanço. */
+.fg-btn-3 {
+  background: transparent;
+  border-color: transparent;
+  color: var(--fg-texto-2);
+  font-weight: 500;
+  padding: 0 var(--e-3);
+}
+
+.fg-btn:focus-visible,
+.fg-chip:focus-visible,
+.fg-item:focus-visible {
+  outline: 2px solid var(--fg-metal);
+  outline-offset: 2px;
+}
+
+/* ── Chip de metadado ──────────────────────────────────────────────────────
+ * "45 min", "320 kcal". Informação densa em pouco espaço, sem virar mais uma caixa.
+ */
+.fg-chips { display: flex; flex-wrap: wrap; gap: var(--e-2); }
+
+.fg-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px var(--e-3);
+  border: 1px solid var(--fg-linha);
+  border-radius: var(--r-pilula);
+  background: var(--fg-superficie-alta);
+  color: var(--fg-texto-2);
+  font: 500 var(--t-apoio) / 1 var(--fg-corpo);
+  white-space: nowrap;
+}
+
+.fg-chip svg { color: var(--fg-texto-3); flex: none; }
+.fg-chip-forte { color: var(--fg-metal); border-color: var(--fg-metal-fraca); }
+
+/* ── Cartão ────────────────────────────────────────────────────────────────
+ * Cartão é exceção, e não o padrão. Borda, fundo, raio e sombra são quatro sinais de
+ * "objeto separado"; gastar os quatro em todo bloco achata a hierarquia em vez de criá-la.
+ * Aqui gastamos dois — fundo e raio —, e a sombra fica para o que flutua de verdade.
+ */
+.fg-cartao {
+  background: var(--fg-superficie);
+  border: 1px solid var(--fg-linha);
+  border-radius: var(--r-cartao);
+  padding: var(--e-4);
+  min-width: 0;
+}
+
+.fg-cartao-limpo { border: 0; padding: 0; background: none; }
+
+/* Cartão com foto: a imagem é a superfície, e o texto se apoia nela. */
+.fg-capa {
+  position: relative;
+  border-radius: var(--r-folha);
+  overflow: hidden;
+  background: var(--fg-superficie);
+  isolation: isolate;
+}
+
+.fg-capa > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.fg-capa-sombra {
+  position: absolute;
+  inset: 0;
+  /* A sombra sobe do pé: o texto vive embaixo, e a foto respira em cima. */
+  background: linear-gradient(to top, rgba(8, 9, 10, .93) 8%, rgba(8, 9, 10, .55) 42%, transparent 72%);
+}
+
+.fg-capa-texto {
+  position: absolute;
+  inset: auto 0 0 0;
+  padding: var(--e-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-2);
+}
+
+.fg-capa-texto h3 {
+  margin: 0;
+  font-family: var(--fg-display);
+  font-size: var(--t-display);
+  font-weight: 800;
+  line-height: var(--lh-apertada);
+  letter-spacing: -.02em;
+  color: var(--fg-texto);
+  text-wrap: balance;
+}
+
+/* ── Linha de item ─────────────────────────────────────────────────────────
+ * Miniatura, nome, dado, estado. É a anatomia da lista de exercícios, e serve igual para
+ * alimento e para refeição. Régua fina entre as linhas em vez de um cartão por item:
+ * doze cartões empilhados não são hierarquia, são ruído.
+ */
+.fg-lista { display: flex; flex-direction: column; }
+
+.fg-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--e-3);
+  width: 100%;
+  min-height: var(--fg-toque);
+  padding: var(--e-3) 0;
+  border: 0;
+  border-top: 1px solid var(--fg-linha);
+  background: none;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+}
+
+.fg-lista > .fg-item:first-child { border-top: 0; }
+
+.fg-item-foto {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--r-campo);
+  object-fit: cover;
+  background: var(--fg-superficie-alta);
+  flex: none;
+}
+
+.fg-item-nome {
+  margin: 0;
+  font: 600 var(--t-cartao) / 1.3 var(--fg-corpo);
+  color: var(--fg-texto);
+}
+
+.fg-item-dado {
+  margin: 3px 0 0;
+  font: 500 var(--t-apoio) / 1.3 var(--fg-corpo);
+  color: var(--fg-texto-2);
+}
+
+.fg-item-estado {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r-pilula);
+  border: 1px solid var(--fg-linha-forte);
+  color: transparent;
+}
+
+.fg-item-estado.feito {
+  background: var(--fg-acao);
+  border-color: var(--fg-acao);
+  color: var(--fg-acao-tinta);
+}
+
+/* ── Números lado a lado ───────────────────────────────────────────────────
+ * Rótulo em cima, valor embaixo, três por linha. `tabular-nums` porque dígito em coluna
+ * que dança de largura parece defeito.
+ */
+.fg-numeros {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--e-3);
+}
+
+.fg-numero { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+
+.fg-numero b {
+  font: 600 var(--t-titulo) / 1 var(--fg-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-texto);
+}
+
+.fg-numero span {
+  font: 500 var(--t-etiqueta) / 1.3 var(--fg-mono);
+  letter-spacing: var(--ls-etiqueta);
+  text-transform: uppercase;
+  color: var(--fg-texto-3);
+}
+
+/* ── Estado vazio ──────────────────────────────────────────────────────────
+ * Uma frase que promete o resultado, uma linha de apoio, uma ação. Sem ilustração
+ * genérica. Existiam quatro desenhos diferentes para este mesmo momento — e é onde o
+ * usuário novo passa mais tempo.
+ */
+.fg-vazio {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--e-3);
+  padding: var(--e-5) var(--e-4);
+  border: 1px dashed var(--fg-linha-forte);
+  border-radius: var(--r-cartao);
+  background: var(--fg-superficie);
+}
+
+.fg-vazio h3 {
+  margin: 0;
+  font-family: var(--fg-display);
+  font-size: var(--t-cartao);
+  font-weight: 700;
+  line-height: var(--lh-titulo);
+  color: var(--fg-texto);
+  text-wrap: balance;
+}
+
+.fg-vazio p {
+  margin: 0;
+  font: 400 var(--t-apoio) / var(--lh-corpo) var(--fg-corpo);
+  color: var(--fg-texto-2);
+  max-width: 42ch;
+}
+
+.fg-vazio .fg-btn { margin-top: var(--e-1); }
+
+/* ── Esqueleto ─────────────────────────────────────────────────────────────
+ * Luz que atravessa, sem texto e sem cara de erro. "Carregando..." escrito diz ao usuário
+ * que ele espera; o esqueleto diz o que vai chegar.
+ */
+.fg-esqueleto {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--r-cartao);
+  background: var(--fg-superficie);
+}
+
+.fg-esqueleto::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 20%, rgba(255, 255, 255, .05) 50%, transparent 80%);
+  background-size: 220% 100%;
+  animation: fg-passa 1.5s ease-in-out infinite;
+}
+
+@keyframes fg-passa {
+  from { background-position: 130% 0; }
+  to { background-position: -30% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fg-esqueleto::after { animation: none; }
+}
+
+/* ── Mensagem de erro ──────────────────────────────────────────────────────
+ * Causa provável em linguagem humana, e uma saída. Nunca código HTTP, nunca a palavra
+ * "Erro" sozinha: quem lê não ganha nada sabendo que houve um erro — ganha sabendo o que
+ * fazer agora.
+ */
+.fg-erro {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--e-2);
+  padding: var(--e-4);
+  border: 1px solid var(--fg-erro);
+  border-left-width: 3px;
+  border-radius: var(--r-cartao);
+  background: var(--fg-erro-fundo);
+}
+
+.fg-erro h3 {
+  margin: 0;
+  font: 700 var(--t-cartao) / var(--lh-titulo) var(--fg-corpo);
+  color: var(--fg-texto);
+  text-wrap: balance;
+}
+
+.fg-erro p {
+  margin: 0;
+  font: 400 var(--t-apoio) / var(--lh-corpo) var(--fg-corpo);
+  color: var(--fg-texto-2);
+  max-width: 44ch;
+}
+
+.fg-erro .fg-btn { margin-top: var(--e-1); }
