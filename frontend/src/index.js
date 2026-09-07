@@ -28,8 +28,8 @@ import "@/features/screen-polish.css";
 // folhas daqui e perdia todo empate de especificidade para as camadas antigas.
 import "@/features/forge-inicio.css";
 import "@/features/forge-perfil.css";
-// Camada visual recuperada do redesign aprovado, adaptada aos componentes reais do FORGE.
-import "@/approved-mobile-visual.css";
+// Referência visual oficial aprovada pelo Astra 6. Deve carregar por último.
+import "@/astra-visual.css";
 
 const queryClient = new QueryClient({
   defaultOptions: {
