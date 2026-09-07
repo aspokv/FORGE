@@ -2,7 +2,7 @@ import {useEffect,useMemo,useState} from "react";
 import axios from "axios";
 import {ChevronRight,Clock,Droplet,Layers3,RotateCcw,UserRound,Utensils,X} from "lucide-react";
 import planPullArt from "../assets/forge-plan-pull.webp";
-import heroArt from "../assets/forge-home-athlete-reference.jpg";
+import heroArt from "../assets/forge-home-hero.jpg";
 import fallbackArt from "../assets/forge-gym-cinematic.jpg";
 import {consumedTotals} from "./foodDiary";
 
@@ -48,18 +48,19 @@ export default function ReferenceHome({db,start,onRecoveryCheckin}){
   const fallbackPlanArtwork=e=>{if(e.currentTarget.dataset.fallback==="1")return;e.currentTarget.dataset.fallback="1";e.currentTarget.src=fallbackArt};
 
   return <div className="reference-home-v3" data-testid="reference-home-v3">
-    {/* A foto fica — superficie forte e o que a tela de Treino acerta. O que sai e o lema
-        de tres linhas, que colidia com a imagem e quebrava com rag ruim em 360px, e a
-        pergunta de duas linhas, que nao informava nada. A data entra no lugar. */}
+    {/* A arte e uma composicao FECHADA, com o letreiro FORGE ja dentro dela — nao e pano de
+        fundo. Entao nada e escrito por cima: ela ocupa a faixa inteira, na propria
+        proporcao, sem corte, e a saudacao vem LOGO ABAIXO em fundo solido, onde a
+        legibilidade e garantida em vez de negociada com um gradiente. */}
     <section className="ref3-top-hero" data-testid="home-top-hero">
-      <img src={heroArt} alt="Ambiente de treino FORGE" loading="eager"/>
-      <div className="ref3-top-hero-shade"/>
-      <div className="ref3-top-hero-copy">
-        <strong className="ref3-top-hero-brand">FORGE</strong>
-        <h1>Olá, {displayName}</h1>
-        <p>{dateLabel}</p>
+      <img className="ref3-top-hero-arte" src={heroArt} alt="FORGE" loading="eager" fetchPriority="high"/>
+      <div className="ref3-saudacao">
+        <div>
+          <h1>Olá, {displayName}</h1>
+          <p>{dateLabel}</p>
+        </div>
+        <span className="ref3-top-hero-avatar"><UserRound size={22}/></span>
       </div>
-      <div className="ref3-top-hero-avatar"><UserRound size={22}/></div>
     </section>
 
     <section className="ref3-week" data-testid="home-training-week"><h2>Resumo da semana</h2><div className="ref3-week-days">{WEEK.map((label,i)=>{const done=i<dayIndex&&i<activeIndex,current=i===dayIndex;return <div key={label} className={`${done?"done ":""}${current?"current":""}`}><span>{label}</span><i/></div>})}</div></section>

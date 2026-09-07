@@ -18,13 +18,23 @@ const casa = (extra = {}) => {
     .querySelector('[data-testid="reference-home-v3"]');
 };
 
-test("a abertura mantem foto, marca e o nome de quem entrou", () => {
+test("a abertura e a arte da marca, com a saudacao ABAIXO dela", () => {
+  // A arte traz o letreiro FORGE dentro dela. Por isso nao ha rotulo de marca escrito por
+  // cima — seria o logotipo duas vezes — e o nome nao disputa espaco com a imagem: desce
+  // para fundo solido, onde a legibilidade e garantida em vez de negociada com gradiente.
   const home = casa();
   const hero = home.querySelector('[data-testid="home-top-hero"]');
   expect(home.firstElementChild).toBe(hero);
-  expect(hero.querySelector(".ref3-top-hero-brand").textContent).toBe("FORGE");
-  expect(hero.querySelector("h1").textContent).toContain("Nicolas");
-  expect(hero.querySelector("img").getAttribute("alt")).toBe("Ambiente de treino FORGE");
+  expect(hero.querySelector(".ref3-top-hero-brand")).toBeNull();
+
+  const arte = hero.querySelector(".ref3-top-hero-arte");
+  expect(arte).not.toBeNull();
+  expect(arte.getAttribute("alt")).toBe("FORGE");
+
+  const saudacao = hero.querySelector(".ref3-saudacao");
+  expect(saudacao.querySelector("h1").textContent).toContain("Nicolas");
+  // A saudacao vem depois da arte, e nao sobre ela.
+  expect(arte.compareDocumentPosition(saudacao) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 });
 
 test("as quatro secoes continuam de pe", () => {

@@ -24,86 +24,75 @@
 }
 
 /* ── Topo ──────────────────────────────────────────────────────────────────
- * A foto continua — superfície forte é o que a tela de Treino acerta. O que sai é o lema
- * de três linhas que colidia com a imagem e quebrava com rag ruim em 360px.
+ * A arte da marca é uma composição fechada — o letreiro FORGE já vive dentro dela, com os
+ * dois atletas nas bordas. Tratá-la como pano de fundo obrigaria a recortá-la e a escrever
+ * por cima do próprio logotipo.
+ *
+ * Então ela não é recortada: entra na proporção que tem (2,38:1) e ocupa a largura
+ * inteira. A saudação desce para fundo sólido, onde a legibilidade é garantida em vez de
+ * negociada com um gradiente sobre imagem escura e movimentada.
+ *
+ * O arquivo original tinha 3200px e 2,4 MB. Numa faixa de no máximo 412px, mesmo a 3x de
+ * densidade, 1280px bastam — 78 KB.
  */
 .ref3-top-hero {
-  position: relative;
-  /*
-   * Altura limitada, e nao proporcional. Com `aspect-ratio` puro o hero crescia junto com a
-   * largura — 247px em 360 e 283px em 412 —, empurrando o botao de comecar treino para fora
-   * da dobra JUSTO nas telas maiores. `clamp` mantem a capa generosa e previsivel.
-   */
-  height: clamp(168px, 44vw, 196px);
-  overflow: hidden;
-  isolation: isolate;
-}
-
-.ref3-top-hero > img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  /*
-   * O terco superior e onde mora o rosto na maioria das fotos de atleta. Centralizar
-   * cortava a cabeca — e "nao cortar o rosto" e requisito, nao preferencia.
-   */
-  object-position: center 26%;
-}
-
-.ref3-top-hero-shade {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(to top, var(--fg-fundo) 4%, rgba(11, 12, 14, .72) 34%, rgba(11, 12, 14, .18) 72%);
-}
-
-.ref3-top-hero-copy {
-  position: absolute;
-  inset: auto 0 0 0;
-  z-index: 1;
-  padding: 0 var(--fg-margem) var(--e-4);
   display: flex;
   flex-direction: column;
-  gap: var(--e-1);
+  gap: var(--e-3);
 }
 
-.ref3-top-hero-brand {
-  font: 800 var(--t-etiqueta) / 1 var(--fg-display);
-  letter-spacing: .3em;
-  color: var(--fg-acao);
+.ref3-top-hero-arte {
+  display: block;
+  width: 100%;
+  height: auto;
+  /* Reserva a altura antes de a imagem chegar: sem isto o conteúdo abaixo pula quando ela
+     carrega, e o salto acontece exatamente na primeira dobra. */
+  /*
+   * 3200x1210 em vez de 3200x1344: sai apenas a faixa inferior, que e chao escuro sem
+   * elemento algum (luminancia media 14 de 255). `object-position: top` garante que o
+   * corte venha SEMPRE de baixo — os rostos e o letreiro ficam intactos.
+   */
+  aspect-ratio: 3200 / 1210;
+  object-fit: cover;
+  object-position: center top;
+  background: var(--fg-superficie);
 }
 
-.ref3-top-hero-copy h1 {
+.ref3-saudacao {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--e-3);
+  padding: 0 var(--fg-margem);
+}
+
+.ref3-saudacao h1 {
   margin: 0;
   font-family: var(--fg-display);
-  font-size: var(--t-display);
+  font-size: var(--t-titulo);
   font-weight: 800;
   line-height: var(--lh-apertada);
   letter-spacing: -.02em;
   color: var(--fg-texto);
 }
 
-.ref3-top-hero-copy p {
-  margin: 0;
+.ref3-saudacao p {
+  margin: 3px 0 0;
   font: 500 var(--t-apoio) / 1.4 var(--fg-mono);
   letter-spacing: .04em;
   color: var(--fg-texto-2);
 }
 
 .ref3-top-hero-avatar {
-  position: absolute;
-  top: var(--e-4);
-  right: var(--fg-margem);
-  z-index: 1;
+  flex: none;
   width: var(--fg-toque);
   height: var(--fg-toque);
   display: grid;
   place-items: center;
-  border: 1px solid rgba(255, 255, 255, .18);
+  border: 1px solid var(--fg-linha-forte);
   border-radius: var(--r-pilula);
-  background: rgba(10, 11, 12, .55);
-  backdrop-filter: blur(8px);
-  color: var(--fg-texto);
+  background: var(--fg-superficie);
+  color: var(--fg-texto-2);
 }
 
 /* ── Blocos de conteúdo ────────────────────────────────────────────────────
@@ -121,7 +110,7 @@
 .ref3-week,
 .ref3-rapidas,
 .ref3-plan {
-  padding-top: var(--e-3);
+  padding-top: var(--e-2);
   margin: 0 var(--fg-margem);
   padding-left: 0;
   padding-right: 0;
@@ -156,7 +145,7 @@
  */
 .ref3-plan-card {
   display: grid;
-  grid-template-columns: 76px minmax(0, 1fr) auto;
+  grid-template-columns: 70px minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--e-3);
   width: 100%;
@@ -170,8 +159,8 @@
 }
 
 .ref3-plan-art {
-  width: 76px;
-  height: 92px;
+  width: 70px;
+  height: 84px;
   border-radius: var(--r-campo);
   background: linear-gradient(160deg, var(--fg-superficie-alta), #101215);
   overflow: hidden;
