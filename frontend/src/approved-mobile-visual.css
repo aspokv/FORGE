@@ -1,0 +1,369 @@
+/*
+ * FORGE approved mobile visual layer.
+ *
+ * Recovered from the visual language of the accidentally redesigned checkout: deep
+ * graphite surfaces, a cool blue/violet action gradient, compact glass-like cards and
+ * deliberate mobile spacing. This file changes presentation only. It does not add
+ * data, routes, API calls, mock content or interaction handlers.
+ */
+
+:root {
+  --fg-fundo: #07090f;
+  --fg-superficie: #111520;
+  --fg-superficie-alta: #181e2d;
+  --fg-superficie-toque: #222a3c;
+  --fg-linha: #293247;
+  --fg-linha-forte: #3b4966;
+  --fg-texto: #f7f8fb;
+  --fg-texto-2: #aeb5c5;
+  --fg-texto-3: #707a90;
+  --fg-acao: #7560ff;
+  --fg-acao-forte: #9b70ff;
+  --fg-acao-fraca: rgba(117, 96, 255, .16);
+  --fg-acao-tinta: #ffffff;
+  --fg-metal: #8fcaff;
+  --fg-metal-fraca: rgba(143, 202, 255, .18);
+  --fg-ok: #61e1b1;
+  --fg-ok-fundo: rgba(97, 225, 177, .13);
+  --fg-atencao: #f7c96d;
+  --fg-atencao-fundo: rgba(247, 201, 109, .13);
+  --fg-erro: #ff7c9b;
+  --fg-erro-fundo: rgba(255, 124, 155, .13);
+  --r-campo: 10px;
+  --r-cartao: 16px;
+  --r-folha: 22px;
+  --s-elevado: 0 18px 46px rgba(0, 0, 0, .28);
+  --s-flutuante: 0 -12px 34px rgba(0, 0, 0, .46);
+}
+
+html { background: #07090f; }
+body {
+  min-width: 320px;
+  background:
+    radial-gradient(circle at 86% -8%, rgba(77, 92, 190, .22), transparent 30rem),
+    radial-gradient(circle at 10% 110%, rgba(42, 111, 196, .13), transparent 28rem),
+    #07090f;
+  color: var(--fg-texto);
+}
+
+button,
+input,
+textarea,
+select { -webkit-tap-highlight-color: transparent; }
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline-color: #8ecbff;
+}
+
+.forge-shell {
+  background:
+    radial-gradient(circle at 78% -20%, rgba(101, 72, 190, .26), transparent 32rem),
+    linear-gradient(180deg, #080a11 0%, #07090f 68%, #090c15 100%);
+}
+
+.rail {
+  background: rgba(10, 13, 22, .88);
+  border-right-color: rgba(143, 202, 255, .16);
+  box-shadow: 18px 0 50px rgba(0, 0, 0, .14);
+  backdrop-filter: blur(18px);
+}
+
+.brand-mark {
+  background: linear-gradient(135deg, #168cff, #7457ff 62%, #a855f7);
+  color: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(92, 76, 255, .32);
+}
+
+.rail-caption,
+.eyebrow { color: #8ea0c2; }
+.nav-item { border-radius: 10px; }
+.nav-item:hover,
+.nav-item.active {
+  background: linear-gradient(100deg, rgba(24, 140, 255, .14), rgba(117, 87, 255, .16));
+}
+.nav-item.active { border-left-color: #7b6aff; }
+.nav-item.active svg { color: #8fcaff; }
+.rail-bottom { color: var(--fg-ok); }
+
+.main { background: transparent; }
+.topbar {
+  background: rgba(10, 13, 22, .82);
+  border-bottom-color: rgba(143, 202, 255, .14);
+  backdrop-filter: blur(18px);
+}
+.topbar h1 { color: #ffffff; }
+.icon-button {
+  border-color: rgba(143, 202, 255, .22);
+  border-radius: 12px;
+  background: rgba(24, 30, 45, .86);
+}
+.icon-button:hover { background: #222a3c; }
+[aria-label="Abrir biblioteca de treinos"] {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.content { max-width: 1180px; }
+.panel,
+.chart-panel,
+.completion-hero,
+.next-session-card,
+.empty-state {
+  border-color: rgba(143, 202, 255, .16);
+  border-radius: var(--r-cartao);
+  background:
+    linear-gradient(145deg, rgba(24, 30, 45, .94), rgba(12, 16, 27, .96));
+  box-shadow: inset 0 1px rgba(255, 255, 255, .035), var(--s-elevado);
+}
+
+.primary-button,
+.finish-button,
+.fg-btn,
+.pf-acao.cheia {
+  border: 0;
+  border-radius: 12px;
+  background: linear-gradient(105deg, #168cff, #7457ff 62%, #a855f7);
+  color: #ffffff;
+  box-shadow: 0 12px 30px rgba(79, 70, 229, .28), inset 0 1px rgba(255, 255, 255, .24);
+}
+.primary-button:hover,
+.finish-button:hover,
+.fg-btn:hover { background: linear-gradient(105deg, #31a0ff, #836dff 62%, #b669ff); }
+.secondary-button,
+.fg-btn-2 {
+  border-color: rgba(143, 202, 255, .24);
+  border-radius: 12px;
+  background: rgba(24, 30, 45, .76);
+  color: var(--fg-texto);
+}
+.secondary-button:hover,
+.fg-btn-2:active { border-color: #8fcaff; background: rgba(65, 79, 125, .34); }
+
+.forge-home-final,
+.nutrition-page,
+.progress-page,
+.profile-page,
+.training-library-view { background: transparent; }
+
+.ledger-context { padding-top: 4px; }
+.ledger-meta { color: #8ea0c2; }
+.ledger-greeting { color: #ffffff; }
+.home-coach-pro,
+.home-workout-hero,
+.ledger-week,
+.ledger-macros,
+.ledger-hydration,
+.ledger-milestone,
+.forge-home-tools {
+  border-color: rgba(143, 202, 255, .16);
+  border-radius: var(--r-cartao);
+  background: linear-gradient(145deg, rgba(24, 30, 45, .94), rgba(10, 14, 24, .96));
+  box-shadow: inset 0 1px rgba(255, 255, 255, .035), var(--s-elevado);
+}
+.home-workout-hero {
+  border-color: rgba(117, 96, 255, .42);
+  background:
+    radial-gradient(circle at 92% 0%, rgba(122, 87, 255, .34), transparent 42%),
+    linear-gradient(145deg, #161d31, #0c1120 72%);
+}
+.home-workout-hero::before { background: linear-gradient(90deg, #168cff, #a855f7); }
+.home-workout-focus span,
+.focus-row span {
+  border-color: rgba(143, 202, 255, .26);
+  border-radius: 999px;
+  background: rgba(24, 140, 255, .08);
+  color: #b8dcff;
+}
+.today-action-detail strong,
+.ledger-section-note,
+.ledger-meta { color: #aeb5c5; }
+.today-action-direct,
+.text-button { color: #8fcaff; }
+.ledger-week-item.current .ledger-week-step,
+.ledger-week-item.current .ledger-week-line { background: #7560ff; }
+.ledger-macros,
+.ledger-hydration,
+.ledger-milestone { background: rgba(17, 21, 32, .74); }
+.macro-rail-track,
+.hydration-track { background: #252d42; }
+.macro-rail-track i,
+.hydration-track i { background: linear-gradient(90deg, #168cff, #a855f7); }
+.forge-home-tools { background: rgba(17, 21, 32, .68); }
+
+.workout-page { max-width: 980px; }
+.workout-overview,
+.exercise,
+.session-checkout,
+.partial-completion,
+.next-session-card {
+  border-color: rgba(143, 202, 255, .16);
+  border-radius: var(--r-cartao);
+  background: linear-gradient(145deg, rgba(24, 30, 45, .94), rgba(9, 13, 22, .97));
+  box-shadow: inset 0 1px rgba(255, 255, 255, .03), var(--s-elevado);
+}
+.workout-overview-copy b,
+.workout-head h2 { color: #ffffff; }
+.workout-overview-copy::before,
+.exercise::before { background: linear-gradient(180deg, #168cff, #a855f7); }
+.exercise:hover { border-color: rgba(143, 202, 255, .38); }
+.exercise-title,
+.set-row { border-color: rgba(143, 202, 255, .11); }
+.exercise-title { background: linear-gradient(110deg, rgba(24, 140, 255, .06), transparent 50%); }
+.exercise-index,
+.technique-badge,
+.progression-hint .suggest b { color: #8fcaff; }
+.technique-badge { min-height: 44px; }
+.exercise-title .swap,
+.set-row input,
+.set-check,
+.inline-rest-actions button,
+.discomfort-options button {
+  border-color: rgba(143, 202, 255, .2);
+  border-radius: 10px;
+  background: rgba(24, 30, 45, .72);
+}
+.set-row input { color: #ffffff; }
+.exercise-title .swap { min-height: 44px; }
+.workout-live-reference .exercise-title .swap { min-height: 44px !important; }
+.set-row input,
+.set-check { min-height: 44px; height: 44px; }
+.set-check { min-width: 44px; width: 44px; }
+.set-check:hover,
+.discomfort-options button:hover,
+.discomfort-options button.active { border-color: #8fcaff; color: #8fcaff; }
+.set-row.current { border-left-color: #8fcaff; background: rgba(24, 140, 255, .06); }
+.set-row.completed { background: rgba(97, 225, 177, .045); }
+.set-row.completed .set-check { border-color: var(--fg-ok); color: var(--fg-ok); background: rgba(97, 225, 177, .12); }
+
+.training-view-tabs,
+.library-mode,
+.library-audience-filter,
+.library-card-grid article,
+.library-preview,
+.library-draft,
+.program-card-grid > article {
+  border-color: rgba(143, 202, 255, .16);
+  border-radius: var(--r-cartao);
+  background: linear-gradient(145deg, rgba(24, 30, 45, .92), rgba(10, 14, 24, .96));
+}
+.training-view-tabs button.active,
+.library-mode button.active,
+.library-audience-filter button.active,
+.library-card-grid article.active,
+.program-card-grid > article.active {
+  border-color: rgba(117, 96, 255, .7);
+  background: linear-gradient(145deg, rgba(39, 38, 83, .72), rgba(17, 23, 42, .96));
+}
+.library-card-grid article::before,
+.program-card-grid > article::after { background: linear-gradient(135deg, #168cff, #a855f7); }
+
+.nutrition-page .macro-strip div,
+.meal-card,
+.fg-refeicao,
+.fg-cartao,
+.meal-detail,
+.nutrition-summary,
+.food-diary-panel {
+  border-color: rgba(143, 202, 255, .16);
+  border-radius: var(--r-cartao);
+  background: linear-gradient(145deg, rgba(24, 30, 45, .94), rgba(10, 14, 24, .96));
+  box-shadow: inset 0 1px rgba(255, 255, 255, .03), var(--s-elevado);
+}
+.nutrition-page .macro-strip b,
+.nutrition-ring span,
+.weight-current b { color: #8fcaff; }
+.nutrition-page .macro-strip div:nth-child(2) b { color: #61e1b1; }
+.nutrition-page .macro-strip div:nth-child(3) b { color: #f7c96d; }
+.fg-refeicao-capa { background-color: #181e2d; }
+.fg-refeicao-capa::after { background: linear-gradient(to top, rgba(7, 9, 15, .96) 6%, rgba(7, 9, 15, .54) 46%, rgba(7, 9, 15, .08) 80%); }
+.fg-refeicao-titulo .fg-etiqueta,
+.fg-substituir:hover,
+.fg-refeicao-estado button:hover { color: #8fcaff; }
+.fg-refeicao-estado button.marcado-pular { background: #7560ff; border-color: #7560ff; color: #ffffff; }
+.fg-refeicao-estado button.marcado-ok { background: #61e1b1; border-color: #61e1b1; }
+.fg-substituir { min-width: 44px; min-height: 44px; justify-content: center; }
+.nutrition-tabs button.active { border-color: #7560ff; color: #8fcaff; }
+
+.progress-page .panel,
+.progress-page .pf-secao,
+.progress-page .progress-hero,
+.progress-page .progress-results,
+.progress-page .progress-intelligence > .panel {
+  border-color: rgba(143, 202, 255, .16);
+  border-radius: var(--r-cartao);
+  background: linear-gradient(145deg, rgba(24, 30, 45, .94), rgba(10, 14, 24, .96));
+  box-shadow: inset 0 1px rgba(255, 255, 255, .03), var(--s-elevado);
+}
+.pf-secao { --pf-ouro: #8fcaff; --pf-brasa: #7560ff; }
+.pf-acao { border-color: rgba(143, 202, 255, .28); background: rgba(24, 140, 255, .1); color: #8fcaff; }
+.pf-acao.cheia { color: #ffffff; }
+.pf-angulos button.ativo { border-color: rgba(117, 96, 255, .7); background: rgba(117, 96, 255, .16); color: #bdb5ff; }
+.pf-leitura { border-color: rgba(143, 202, 255, .18); background: linear-gradient(180deg, rgba(24, 140, 255, .06), rgba(0, 0, 0, .16)); }
+.pf-etiquetas li { border-color: rgba(97, 225, 177, .4); color: #a8f2d2; }
+
+.profile-panel,
+.training-preferences,
+.profile-page > .panel,
+.auth-card,
+.auth-shell .panel {
+  border-color: rgba(143, 202, 255, .16);
+  border-radius: var(--r-cartao);
+  background: linear-gradient(145deg, rgba(24, 30, 45, .94), rgba(10, 14, 24, .96));
+  box-shadow: inset 0 1px rgba(255, 255, 255, .03), var(--s-elevado);
+}
+.avatar { background: linear-gradient(135deg, #168cff, #a855f7); color: #ffffff; border-radius: 14px; }
+
+.mobile-nav {
+  background: rgba(8, 11, 19, .94);
+  border-top-color: rgba(143, 202, 255, .18);
+  box-shadow: 0 -14px 30px rgba(0, 0, 0, .24);
+  backdrop-filter: blur(18px);
+}
+.mobile-nav .nav-item.active { border-top-color: #8fcaff; background: transparent; }
+
+/* The narrowest viewport is the source of truth. All content can shrink, while touch
+   targets remain at least 44px and horizontal page overflow stays impossible. */
+@media (max-width: 800px) {
+  body { overflow-x: hidden; }
+  .content { width: 100%; max-width: 100%; padding-left: 14px; padding-right: 14px; }
+  .topbar { padding-left: 16px; padding-right: 16px; }
+  .topbar h1 { font-size: clamp(1.55rem, 7.5vw, 1.95rem); }
+  .home-coach-pro,
+  .home-workout-hero,
+  .ledger-week,
+  .ledger-macros,
+  .ledger-hydration,
+  .ledger-milestone,
+  .forge-home-tools { border-radius: 16px; }
+  .home-workout-hero { padding: 16px; }
+  .today-action-actions { display: grid; grid-template-columns: 1fr; gap: 8px; }
+  .primary-button,
+  .secondary-button,
+  .fg-btn,
+  .today-action-direct { min-height: 44px; }
+  .panel { padding: 18px; }
+  .workout-page { padding-left: 10px; padding-right: 10px; }
+  .workout-overview,
+  .exercise { border-radius: 16px; }
+  .nutrition-page .macro-strip { gap: 8px; }
+  .nutrition-page .macro-strip div { padding: 13px 12px; }
+  .pf-secao { padding-left: 13px; padding-right: 13px; }
+}
+
+@media (max-width: 390px) {
+  .content { padding-left: 10px; padding-right: 10px; }
+  .topbar { padding-left: 12px; padding-right: 12px; }
+  .panel { padding: 15px; }
+  .home-workout-hero { padding: 14px; }
+  .today-action-top b { font-size: clamp(1.55rem, 8.6vw, 2.2rem); }
+  .ledger-section-head { gap: 8px; }
+  .ledger-section-note { font-size: 10px; }
+  .workout-page { padding-left: 8px; padding-right: 8px; }
+  .set-grid,
+  .set-row { grid-template-columns: 28px minmax(42px, 1fr) 59px 48px 43px 44px; }
+}
