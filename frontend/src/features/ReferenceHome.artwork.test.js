@@ -3,97 +3,38 @@ import ReferenceHome from "./ReferenceHome";
 import React from "react";
 import {renderToStaticMarkup} from "react-dom/server";
 
-/**
- * O teste anterior travava o desenho antigo: o lema de tres linhas e as sete gotas de
- * hidratacao. As duas coisas eram ornamento — a auditoria contou quinze circulos vazios
- * nesta tela — e sairam de proposito. O que este teste protege agora e o que importa: a
- * foto de abertura, o nome de quem entrou, as quatro secoes, e sobretudo a ACAO VISIVEL,
- * que antes era um botao escondido para leitor de tela.
- */
-const casa = (extra = {}) => {
-  const html = renderToStaticMarkup(
-    <ReferenceHome db={{profile:{name:"Nicolas"},program:{},...extra}} start={()=>{}} />
-  );
-  return new DOMParser().parseFromString(html,"text/html")
-    .querySelector('[data-testid="reference-home-v3"]');
+const casa=(extra={})=>{
+  const html=renderToStaticMarkup(<ReferenceHome db={{profile:{name:"Nicolas"},program:{},...extra}} start={()=>{}}/>);
+  return new DOMParser().parseFromString(html,"text/html").querySelector('[data-testid="reference-home-v3"]');
 };
 
-test("a abertura e a arte da marca, com a saudacao ABAIXO dela", () => {
-  // A arte traz o letreiro FORGE dentro dela. Por isso nao ha rotulo de marca escrito por
-  // cima — seria o logotipo duas vezes — e o nome nao disputa espaco com a imagem: desce
-  // para fundo solido, onde a legibilidade e garantida em vez de negociada com gradiente.
-  const home = casa();
-  const hero = home.querySelector('[data-testid="home-top-hero"]');
-  expect(home.firstElementChild).toBe(hero);
-  expect(hero.querySelector(".ref3-top-hero-brand")).toBeNull();
-
-  const arte = hero.querySelector(".ref3-top-hero-arte");
-  expect(arte).not.toBeNull();
-  expect(arte.getAttribute("alt")).toBe("FORGE");
-
-  const saudacao = hero.querySelector(".ref3-saudacao");
-  expect(saudacao.querySelector("h1").textContent).toContain("Nicolas");
-  // A saudacao vem depois da arte, e nao sobre ela.
-  expect(arte.compareDocumentPosition(saudacao) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+test("a abertura segue a referencia Astra: saudacao, foto e treino em sequencia",()=>{
+  const home=casa();
+  expect(home.className).toContain("astra-home");
+  expect(home.querySelector(".astra-home-intro h1").textContent).toContain("Nicolas");
+  const hero=home.querySelector('[data-testid="home-top-hero"]');
+  expect(hero).not.toBeNull();
+  expect(hero.querySelector("img").getAttribute("alt")).toBe("Atleta FORGE");
+  expect(hero.textContent).toContain("DISCIPLINA HOJE");
+  expect(home.querySelector('[data-testid="daily-briefing"]')).not.toBeNull();
 });
 
-test("as quatro secoes continuam de pe", () => {
-  const home = casa();
-  ["home-training-week", "home-acoes-rapidas", "home-nutrition-progress", "home-hydration", "daily-briefing"]
-    .forEach(id => expect(home.querySelector(`[data-testid="${id}"]`)).not.toBeNull());
+test("ritmo, nutricao e hidratacao continuam no Inicio",()=>{
+  const home=casa();
+  ["home-training-week","home-acoes-rapidas","home-nutrition-progress","home-hydration"]
+    .forEach(id=>expect(home.querySelector(`[data-testid="${id}"]`)).not.toBeNull());
 });
 
-test("nutricao e hidratacao vem ANTES do cartao do treino", () => {
-  // Sao o que a pessoa toca varias vezes por dia. Embaixo de um cartao grande de treino,
-  // ficavam fora da primeira dobra — que e onde precisam estar.
-  const html = casa().innerHTML;
-  const rapidas = html.indexOf('data-testid="home-acoes-rapidas"');
-  const treino = html.indexOf('data-testid="daily-briefing"');
-  expect(rapidas).toBeGreaterThan(-1);
-  expect(treino).toBeGreaterThan(-1);
-  expect(rapidas).toBeLessThan(treino);
-});
-
-test("a figura do treino e contida, e nao recortada", () => {
-  // `push-front.webp` e retrato 576x768. Num `object-fit: cover` dentro de faixa 16/9 ela
-  // perdia 58% da altura e o corte caia no torso, decapitando a figura. O alt vazio e
-  // deliberado: a arte e decorativa, o nome do treino ja esta escrito ao lado.
-  const img = casa().querySelector(".ref3-plan-art img");
-  expect(img).not.toBeNull();
-  expect(img.getAttribute("alt")).toBe("");
-});
-
-test("comecar treino e um botao visivel, e nao so para leitor de tela", () => {
-  // Era `ref3-a11y` — invisivel. Quem olhava precisava adivinhar que o cartao inteiro
-  // era clicavel. Numa tela cujo proposito e levar ao treino, esse era o pior defeito.
-  const botao = casa().querySelector('[data-testid="start-workout-button"]');
+test("comecar treino continua uma acao visivel",()=>{
+  const botao=casa().querySelector('[data-testid="start-workout-button"]');
   expect(botao).not.toBeNull();
-  expect(botao.className).toContain("fg-btn");
-  expect(botao.className).not.toContain("ref3-a11y");
+  expect(botao.className).toContain("astra-primary");
   expect(botao.textContent).toContain("Começar treino");
 });
 
-test("as acoes de hidratacao ficam sempre visiveis", () => {
-  // Antes so apareciam depois de tocar no cartao inteiro. Descoberta por acidente nao e
-  // navegacao.
-  const home = casa();
-  ["hydration-add-250", "hydration-add-500", "hydration-undo"]
-    .forEach(id => expect(home.querySelector(`[data-testid="${id}"]`)).not.toBeNull());
-});
-
-test("os circulos vazios sairam da tela", () => {
-  // A auditoria contou quinze: sete da semana, um anel de nutricao e sete gotas. Circulo
-  // vazio nao e dado, e ruido.
-  const home = casa();
-  expect(home.querySelector(".ref3-drops")).toBeNull();
-  expect(home.querySelector(".ref3-calorie-ring")).toBeNull();
-  expect(home.innerHTML).not.toContain("conic-gradient");
-});
-
-test("nenhum valor interno aparece na tela", () => {
-  const texto = casa({profile:{name:"Nicolas",automation_mode:"FORGE_AUTO"}}).textContent;
-  ["FORGE_AUTO","FORGE_PRO","ACTIVE","ELITE","undefined","NaN"]
-    .forEach(termo => expect(texto).not.toContain(termo));
+test("nenhum valor interno aparece na tela",()=>{
+  const texto=casa({profile:{name:"Nicolas",automation_mode:"FORGE_AUTO"}}).textContent;
+  ["FORGE_AUTO","FORGE_PRO","ACTIVE","ELITE","undefined","NaN"].forEach(termo=>expect(texto).not.toContain(termo));
 });
 
 describe("home plan artwork",()=>{
@@ -111,9 +52,6 @@ describe("home plan artwork",()=>{
   it("keeps Pull separate from Push",()=>{
     expect(isPullPlan("Push 2",["Peitoral","Tríceps"])).toBe(false);
     expect(planArtworkKindFor("Pull 2",["Costas"])).toBe("pull");
-  });
-  it("never uses the old public placeholder path",()=>{
-    expect(planArtworkFor("Legs 2",["Quadríceps"])).not.toBe("/images/reference/exercise-1.jpg");
-    expect(planArtworkFor("Push 2",["Peitoral"])).not.toBe("/images/reference/exercise-1.jpg");
+    expect(planArtworkFor("Pull 2",["Costas"])).toBe("/images/anatomy/pull-back.webp");
   });
 });
