@@ -1,0 +1,74 @@
+/* Home brand refinement: clean FORGE wordmark + inclusive two-athlete hero.
+ * Keep this layer intentionally tiny and last in the cascade so the approved Astra
+ * geometry remains untouched.
+ */
+
+/* The current wordmark is cropped from the branded source image. Screen blending makes
+ * the near-black source background disappear into the mineral shell, leaving only the
+ * metallic FORGE lettering visible instead of a rectangular image patch. */
+.forge-shell .a6-logo {
+  background: transparent;
+  isolation: isolate;
+}
+
+.forge-shell .a6-logo img {
+  mix-blend-mode: screen;
+  filter: saturate(1.08) contrast(1.06) drop-shadow(0 2px 8px rgba(255, 129, 45, .16));
+}
+
+/* Home only: rebuild the hero artwork from the already-shipped premium FORGE banner.
+ * The banner contains both athletes around the centre mark; each half deliberately zooms
+ * into one athlete and avoids the centre logo, matching the approved woman + man reference
+ * without changing any card geometry, copy, CTA or live data. */
+.forge-shell .a6-screen-1 .a6-hero {
+  background: #080909;
+  isolation: isolate;
+}
+
+.forge-shell .a6-screen-1 .a6-hero > img {
+  opacity: 0;
+}
+
+.forge-shell .a6-screen-1 .a6-hero::before,
+.forge-shell .a6-screen-1 .a6-hero::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 54%;
+  z-index: 0;
+  background-image:
+    linear-gradient(180deg, rgba(8, 9, 9, .04) 0%, rgba(8, 9, 9, .12) 62%, rgba(8, 9, 9, .48) 100%),
+    url("./assets/forge-home-hero.jpg");
+  background-repeat: no-repeat;
+  background-size: 250% auto;
+}
+
+/* Right side of source = female athlete, placed on the left like the approved reference. */
+.forge-shell .a6-screen-1 .a6-hero::before {
+  left: 0;
+  background-position: 100% 50%;
+  -webkit-mask-image: linear-gradient(90deg, #000 0%, #000 78%, transparent 100%);
+  mask-image: linear-gradient(90deg, #000 0%, #000 78%, transparent 100%);
+}
+
+/* Left side of source = male athlete, placed on the right. */
+.forge-shell .a6-screen-1 .a6-hero::after {
+  right: 0;
+  background-position: 0% 50%;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 22%, #000 100%);
+  mask-image: linear-gradient(90deg, transparent 0%, #000 22%, #000 100%);
+}
+
+.forge-shell .a6-screen-1 .a6-hero-copy {
+  position: relative;
+  z-index: 2;
+}
+
+@media (max-width: 374px) {
+  .forge-shell .a6-screen-1 .a6-hero::before,
+  .forge-shell .a6-screen-1 .a6-hero::after {
+    width: 56%;
+    background-size: 270% auto;
+  }
+}
