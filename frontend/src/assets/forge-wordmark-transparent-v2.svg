@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 150" role="img" aria-labelledby="title desc">
+  <title id="title">FORGE</title>
+  <desc id="desc">Logo oficial FORGE em metal cobre e laranja, sem fundo.</desc>
+  <defs>
+    <linearGradient id="copper" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff1d4"/>
+      <stop offset="0.16" stop-color="#f7c58f"/>
+      <stop offset="0.38" stop-color="#ff9b55"/>
+      <stop offset="0.60" stop-color="#e86f2f"/>
+      <stop offset="0.82" stop-color="#a94719"/>
+      <stop offset="1" stop-color="#6e2f14"/>
+    </linearGradient>
+    <linearGradient id="edge" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffe1b7" stop-opacity="0.95"/>
+      <stop offset="0.45" stop-color="#ff8a42" stop-opacity="0.25"/>
+      <stop offset="1" stop-color="#7c3213" stop-opacity="0.85"/>
+    </linearGradient>
+    <filter id="shadow" x="-15%" y="-25%" width="130%" height="160%">
+      <feDropShadow dx="0" dy="4" stdDeviation="3" flood-color="#000000" flood-opacity="0.58"/>
+      <feDropShadow dx="0" dy="0" stdDeviation="1.2" flood-color="#ff8a42" flood-opacity="0.25"/>
+    </filter>
+    <clipPath id="oClip">
+      <text x="0" y="111" font-family="Impact, Haettenschweiler, 'Arial Black', sans-serif" font-size="126" font-weight="900" letter-spacing="-6">FORGE</text>
+    </clipPath>
+  </defs>
+  <g filter="url(#shadow)">
+    <text x="0" y="111" font-family="Impact, Haettenschweiler, 'Arial Black', sans-serif" font-size="126" font-weight="900" letter-spacing="-6" fill="url(#copper)" stroke="#5d260e" stroke-width="1.6" paint-order="stroke fill">FORGE</text>
+    <path d="M190 23c11 17 8 31 2 41 12-5 18-15 19-28 18 20 27 40 18 62-8 19-24 31-43 35-21-4-37-17-43-36-6-20 4-38 19-54-2 14 2 23 11 30 0-17 6-32 17-50z" fill="#080909" clip-path="url(#oClip)"/>
+    <path d="M188 58c9 13 11 22 6 33-4 8-11 14-20 17 2-10-3-18-10-24 6-11 14-19 24-26z" fill="#ff9b55" clip-path="url(#oClip)"/>
+    <path d="M6 18H617" stroke="url(#edge)" stroke-width="1" opacity="0.22"/>
+  </g>
+</svg>
