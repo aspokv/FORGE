@@ -30,6 +30,9 @@ import "@/features/forge-inicio.css";
 import "@/features/forge-perfil.css";
 // Exact geometry from the delivered Astra HTML, isolated from legacy editor styles.
 import "@/astra6-exact.css";
+// Two surgical home refinements requested after Astra approval: transparent-looking
+// wordmark treatment and the inclusive woman + man hero artwork.
+import "@/home-brand-refine.css";
 
 const queryClient = new QueryClient({
   defaultOptions: {
