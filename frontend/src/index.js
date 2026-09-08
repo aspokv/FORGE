@@ -28,8 +28,8 @@ import "@/features/screen-polish.css";
 // folhas daqui e perdia todo empate de especificidade para as camadas antigas.
 import "@/features/forge-inicio.css";
 import "@/features/forge-perfil.css";
-// Referência visual oficial aprovada pelo Astra 6. Deve carregar por último.
-import "@/astra-visual.css";
+// Exact geometry from the delivered Astra HTML, isolated from legacy editor styles.
+import "@/astra6-exact.css";
 
 const queryClient = new QueryClient({
   defaultOptions: {
