@@ -7,7 +7,7 @@ export function AstraIcon({name}) {return <svg className="a6-ico" viewBox="0 0 2
 export function AstraPage({screen,children,onLibrary,testId}) {
   const nav=useContext(AstraNavigation);
   return <div className={`a6 a6-screen-${screen}`} data-testid={testId}>
-    <header className="a6-app-header"><div className="a6-logo" role="img" aria-label="FORGE"><img src={brand} alt=""/></div><button type="button" className="a6-iconbutton" aria-label={onLibrary?"Abrir biblioteca de treinos":"Abrir perfil"} onClick={onLibrary||nav.profile}><AstraIcon name={onLibrary?"book":"profile"}/></button></header>
+    <header className="a6-app-header"><div className="a6-logo" role="img" aria-label="FORGE"><img src={brand} alt="" style={{position:"static",width:"100%",height:"100%",maxWidth:"100%",objectFit:"contain"}}/></div><button type="button" className="a6-iconbutton" aria-label={onLibrary?"Abrir biblioteca de treinos":"Abrir perfil"} onClick={onLibrary||nav.profile}><AstraIcon name={onLibrary?"book":"profile"}/></button></header>
     <div className="a6-scroll">{children}</div>
   </div>;
 }
