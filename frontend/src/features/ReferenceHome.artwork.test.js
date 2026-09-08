@@ -19,6 +19,15 @@ test("a abertura segue a referencia Astra: saudacao, foto e treino em sequencia"
   expect(home.querySelector('[data-testid="daily-briefing"]')).not.toBeNull();
 });
 
+test("header usa wordmark FORGE limpo e hero continua inclusivo",()=>{
+  const home=casa();
+  const logo=home.querySelector('.a6-logo[aria-label="FORGE"] img');
+  expect(logo).not.toBeNull();
+  expect(logo.getAttribute("src")).toBeTruthy();
+  const hero=home.querySelector('[data-testid="home-top-hero"] img');
+  expect(hero.getAttribute("alt")).toContain("Homem e mulher");
+});
+
 test("ritmo, nutricao e hidratacao continuam no Inicio",()=>{
   const home=casa();
   ["home-training-week","home-acoes-rapidas","home-nutrition-progress","home-hydration"]
