@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 118" role="img" aria-labelledby="title desc">
+  <title id="title">FORGE</title>
+  <desc id="desc">Wordmark FORGE em metal cobre e laranja, sem fundo.</desc>
+  <defs>
+    <linearGradient id="metal" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffe0b6"/>
+      <stop offset=".18" stop-color="#f7b36f"/>
+      <stop offset=".48" stop-color="#ff8a42"/>
+      <stop offset=".78" stop-color="#b84f1d"/>
+      <stop offset="1" stop-color="#6e2d10"/>
+    </linearGradient>
+    <linearGradient id="flame" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff1d3"/>
+      <stop offset=".34" stop-color="#ffb25e"/>
+      <stop offset="1" stop-color="#ff6d2e"/>
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-30%" width="140%" height="160%">
+      <feDropShadow dx="0" dy="3" stdDeviation="2.5" flood-color="#000" flood-opacity=".55"/>
+      <feDropShadow dx="0" dy="0" stdDeviation="1.5" flood-color="#ff8a42" flood-opacity=".25"/>
+    </filter>
+  </defs>
+  <g filter="url(#glow)" transform="skewX(-6)">
+    <text x="6" y="91" font-family="Impact, Arial Black, Arial, sans-serif" font-size="94" font-weight="900" letter-spacing="-3" fill="url(#metal)">F</text>
+    <g transform="translate(87 8)">
+      <ellipse cx="54" cy="49" rx="48" ry="45" fill="url(#metal)"/>
+      <ellipse cx="54" cy="49" rx="24" ry="23" fill="#080909"/>
+      <path d="M57 9c9 14 5 23 1 29 10-4 14-11 15-20 13 14 20 28 13 44-6 14-18 23-31 25-15-2-27-12-31-26-4-14 3-27 14-39-1 10 2 16 8 21 0-12 4-22 11-34z" fill="url(#flame)"/>
+      <path d="M56 37c6 9 8 15 4 23-3 6-8 10-14 12 1-7-2-12-7-16 4-7 9-13 17-19z" fill="#080909" opacity=".92"/>
+    </g>
+    <text x="190" y="91" font-family="Impact, Arial Black, Arial, sans-serif" font-size="94" font-weight="900" letter-spacing="-3" fill="url(#metal)">RGE</text>
+  </g>
+</svg>
