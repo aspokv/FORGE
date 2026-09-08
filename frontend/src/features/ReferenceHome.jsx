@@ -2,7 +2,7 @@ import {useEffect,useMemo,useState} from "react";
 import axios from "axios";
 import {X} from "lucide-react";
 import {AstraPage,AstraIntro,AstraAction,AstraMeta,AstraIcon} from "./AstraUI";
-import athleteArt from "../assets/forge-home-athlete-reference.jpg";
+import heroArt from "../assets/forge-home-duo-hero";
 import {consumedTotals} from "./foodDiary";
 
 const API=`${process.env.REACT_APP_BACKEND_URL || ""}/api`;
@@ -42,7 +42,7 @@ export default function ReferenceHome({db,start,onRecoveryCheckin}){
   const trained=new Set((db.recent_sets||[]).map(row=>{const d=new Date(row.created_at);return Number.isNaN(d.getTime())?"":new Intl.DateTimeFormat("sv-SE").format(d)}));
   return <AstraPage screen={0} testId="reference-home-v3">
     <AstraIntro eyebrow={dateLabel} title={`Olá, ${displayName}.`} subtitle="Seu próximo passo está aqui."/>
-    <div className="a6-hero" data-testid="home-top-hero"><img src={athleteArt} alt="Atleta em ambiente de treino" loading="eager" fetchPriority="high"/><div className="a6-hero-copy">DISCIPLINA HOJE.<br/>RESULTADOS SEMPRE.</div></div>
+    <div className="a6-hero" data-testid="home-top-hero"><img src={heroArt} alt="Homem e mulher atletas em ambiente de treino FORGE" loading="eager" fetchPriority="high"/><span style={{position:"absolute",width:1,height:1,padding:0,margin:-1,overflow:"hidden",clip:"rect(0, 0, 0, 0)",whiteSpace:"nowrap",border:0}}>DISCIPLINA HOJE. RESULTADOS SEMPRE.</span></div>
     <section className="a6-panel a6-workout-card" data-testid="daily-briefing">
       <div className="a6-split"><div className="a6-eyebrow">SEU TREINO DE HOJE</div><span className="a6-pill">{String(active.label||p.session||"Sessão atual").split(/[—–]/)[0].trim()}</span></div>
       <h2>{sessionName}</h2><p>{focus.length?focus.join(" · "):"Treino completo"}</p>
