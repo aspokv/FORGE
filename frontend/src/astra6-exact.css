@@ -1,0 +1,303 @@
+/* Geometry and colors transcribed from FORGE-HTML-Static.html. Namespaced to avoid legacy skins. */
+.a6{height:100dvh;display:flex;flex-direction:column;background:radial-gradient(ellipse at 50% -100px,#33393960,transparent 42%),#080909;overflow:hidden}
+.a6-status{height:39px;flex:0 0 39px;display:flex;align-items:center;justify-content:space-between;padding:8px 25px 0;font-size:11px;font-weight:700;position:relative}
+.a6-island{position:absolute;left:50%;top:11px;transform:translateX(-50%);width:96px;height:23px;background:#000;border-radius:20px}
+.a6-status-right{display:flex;gap:6px;align-items:center}
+.a6-battery{width:20px;height:10px;border:1px solid #bbb;border-radius:3px;position:relative}
+.a6-battery:before{content:'';position:absolute;inset:2px;background:#eee;border-radius:1px}
+.a6-app-header{height:63px;flex:0 0 63px;padding:8px 22px;display:flex;align-items:center;justify-content:space-between}
+.a6-iconbutton{height:44px;width:44px;display:grid;place-items:center;color:var(--muted)}
+.a6-iconbutton .a6-ico{width:20px;height:20px}
+.a6-scroll{flex:1;overflow:auto;scrollbar-width:none;overscroll-behavior:contain;padding:8px 20px 20px}
+.a6-scroll::-webkit-scrollbar{display:none}
+.a6-eyebrow{font-size:10px;letter-spacing:1.65px;line-height:1.4;text-transform:uppercase;font-weight:700;color:#EFBA8D;margin:0 0 5px}
+.a6 h1{font-size:28px;line-height:1.12;letter-spacing:-.8px;margin:0 0 6px;font-weight:700}
+.a6 h2{font-size:18px;line-height:1.2;letter-spacing:-.3px;margin:0}
+.a6 h3{font-size:15px;line-height:1.3;margin:0}
+.a6 p{margin:0;font-size:12px;line-height:1.5;color:var(--muted)}
+.a6-intro{margin-bottom:17px}
+.a6-panel{background:linear-gradient(125deg,#24272788,#141616 48%,#111313);border:1px solid var(--line);border-radius:16px;box-shadow:inset 0 1px 1px #fff000,0 8px 20px #0004;overflow:hidden}
+.a6-hero{position:relative;height:181px;border:1px solid #95704f;border-radius:17px 17px 0 0;overflow:hidden;margin-bottom:-13px}
+.a6-hero img{width:100%;height:100%;object-fit:cover;object-position:50% 27%}
+.a6-hero:after{position:absolute;content:'';inset:0;background:linear-gradient(0deg,#080909e8,transparent 80%)}
+.a6-hero-copy{position:absolute;z-index:1;bottom:29px;left:16px;color:#fff;font-size:10px;letter-spacing:2.5px;line-height:1.5;font-weight:700}
+.a6-workout-card{position:relative;padding:16px;border-color:#725238;background:linear-gradient(130deg,#242626,#141615 70%,#392c2255)}
+.a6-split{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.a6-pill{font-size:10px;border:1px solid #91623d;border-radius:8px;color:#ffd3b1;padding:5px 9px;white-space:nowrap}
+.a6-meta{display:flex;gap:20px;color:#d1d3d2;font-size:11px;align-items:center;margin:13px 0}
+.a6-meta span{display:flex;gap:6px;align-items:center}
+.a6-meta .a6-ico{color:var(--flame);width:16px;height:16px}
+.a6-primary{width:100%;min-height:48px;border:1px solid #ffb695;border-radius:10px;background:linear-gradient(115deg,#FF9C6D,#FF815C 65%,#F76C42);color:#21110B;display:flex;align-items:center;justify-content:center;gap:12px;font-size:13px;font-weight:700;box-shadow:inset 0 1px 1px #fff7,0 4px 18px #e963251b}
+.a6-primary .a6-ico{width:15px;height:15px}
+.a6-section-title{display:flex;align-items:center;justify-content:space-between;margin:18px 0 11px;gap:8px}
+.a6-section-title h2{font-size:16px}
+.a6-section-title small{font-size:10px;color:var(--muted)}
+.a6-week{display:grid;grid-template-columns:repeat(7,1fr);gap:8px}
+.a6-day{text-align:center;font-size:9px;color:var(--muted)}
+.a6-day strong{display:grid;place-items:center;height:36px;font-size:12px;margin-top:7px;border-radius:8px;background:linear-gradient(#242627,#121313);color:#dedfdd}
+.a6-day.a6-done strong{color:var(--done)}
+.a6-day.a6-selected strong{background:linear-gradient(#ffa16a,#ef7645);color:#231308;box-shadow:0 2px 12px #ff8a4233}
+.a6-mini-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:15px}
+.a6-mini{padding:12px;display:flex;align-items:center;gap:10px}
+.a6-mini .a6-ico{color:var(--flame)}
+.a6-mini.a6-water .a6-ico{color:var(--water)}
+.a6-mini p{font-size:10px}
+.a6-mini strong{font-size:12px}
+.a6-water strong{color:var(--water)}
+.a6-tabs{display:flex;gap:3px;background:linear-gradient(#202222,#101212);border:1px solid #3b3d3c;border-radius:10px;padding:3px;margin:14px 0 12px}
+.a6-tabs button{flex:1;min-height:38px;font-size:11px;color:var(--muted);border-radius:7px}
+.a6-tabs .a6-selected{background:linear-gradient(#353737,#252726);box-shadow:inset 0 0 0 1px #71604f;color:#FFD1AC}
+.a6-training-summary{padding:19px 15px;position:relative;min-height:166px}
+.a6-training-summary h2{font-size:24px;line-height:1.12;letter-spacing:-.6px;max-width:210px}
+.a6-training-summary p{margin-top:7px}
+.a6-training-summary .a6-meta{margin-bottom:0}
+.a6-anatomy{position:absolute;right:10px;top:12px;width:95px;height:140px;object-fit:contain;mix-blend-mode:screen}
+.a6-warmup{display:flex;gap:12px;align-items:center;width:100%;text-align:left;min-height:66px;border-bottom:1px solid #303333;margin-top:8px}
+.a6-iconbox{width:42px;height:42px;flex-shrink:0;border:1px solid #70543c;background:linear-gradient(#222523,#0a0b0b);border-radius:11px;display:grid;place-items:center;color:#fcb986}
+.a6-warmup span:nth-child(2){flex:1}
+.a6-warmup b{font-size:12px}
+.a6-warmup small{color:var(--muted);font-size:10px}
+.a6-exercise{display:flex;align-items:center;gap:12px;border-bottom:1px solid #282c2a;min-height:72px}
+.a6-exercise img{height:54px;width:55px;object-fit:cover;border-radius:9px;border:1px solid #554739}
+.a6-exercise .a6-exercise-text{flex:1;min-width:0}
+.a6-exercise h3{font-size:12px;margin-bottom:5px}
+.a6-exercise p{font-size:11px}
+.a6-exercise .a6-number{color:var(--flame);font-size:10px;align-self:flex-start;margin-top:17px}
+.a6-training-cta{margin-top:16px}
+.a6-gauge-panel{padding:10px 16px 18px;position:relative}
+.a6-gauge{height:221px;position:relative;display:grid;place-items:center}
+.a6-gauge svg{height:215px;width:252px;overflow:visible}
+.a6-gauge-label{position:absolute;text-align:center;top:63px;left:0;right:0}
+.a6-gauge-label .a6-eyebrow{font-size:9px;letter-spacing:1px}
+.a6-gauge-label strong{display:block;font-size:38px;letter-spacing:-1px;line-height:1.2}
+.a6-gauge-label p{font-size:11px}
+.a6-gauge-percent{position:absolute;right:0;top:13px;color:var(--flame);font-size:13px;font-weight:700;text-align:right}
+.a6-gauge-percent small{display:block;font-size:9px;color:#d9b797;margin-top:3px}
+.a6-macros{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.a6-macro p{font-size:11px}
+.a6-macro strong{display:block;font-size:18px;margin:3px 0}
+.a6-macro strong small{font-size:12px;font-weight:400}
+.a6-macro .a6-goal{font-size:10px;color:var(--muted);margin-bottom:9px}
+.a6-bar{height:5px;border-radius:4px;background:#333637;overflow:hidden}
+.a6-bar span{display:block;height:100%;border-radius:4px;background:var(--macro)}
+.a6-macro{--macro:var(--protein)}
+.a6-macro.a6-carb{--macro:var(--carb)}
+.a6-macro.a6-fat{--macro:var(--fat)}
+.a6-macro p{color:var(--macro)}
+.a6-textbutton{color:var(--flame);min-height:44px;padding:0 6px;font-size:11px}
+.a6-meal{display:flex;gap:12px;align-items:center;padding:10px;margin-bottom:10px;min-height:77px}
+.a6-meal img{width:53px;height:53px;object-fit:cover;border-radius:10px}
+.a6-meal h3{font-size:13px}
+.a6-meal p{font-size:11px;margin-top:3px}
+.a6-check{width:26px;color:var(--done)}
+.a6-meal.a6-next{min-height:103px}
+.a6-meal.a6-next img{width:80px;height:80px}
+.a6-meal.a6-next .a6-eyebrow{font-size:9px;letter-spacing:1px}
+.a6-water-strip{display:flex;align-items:center;gap:10px;margin-top:14px;color:var(--water);font-size:12px}
+.a6-water-strip span{flex:1}
+.a6-water-strip button{min-width:64px;min-height:44px;border:1px solid #385665;border-radius:10px;color:var(--water);font-size:11px}
+.a6-chart-panel{padding:17px 16px 11px}
+.a6-big-number{font-size:39px;line-height:1;letter-spacing:-1.5px;font-weight:700}
+.a6-big-number small{font-size:24px}
+.a6-period{border:1px solid #575752;padding:7px;border-radius:6px;font-size:9px;color:var(--muted)}
+.a6-chart-panel p{font-size:11px;margin-top:10px}
+.a6-line-chart{width:100%;height:156px;margin-top:8px;overflow:visible}
+.a6-line-chart text{fill:#b9bdbe;font-family:Arial;font-size:11px}
+.a6-pr-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.a6-pr{padding:14px 12px}
+.a6-pr p{font-size:11px}
+.a6-pr strong{font-size:27px;display:block;color:var(--flame);margin:5px 0}
+.a6-pr strong small{font-size:13px;font-weight:400}
+.a6-pr .a6-delta{font-size:10px;color:var(--muted)}
+.a6-adherence{display:grid;grid-template-columns:repeat(14,1fr);gap:7px;padding:8px 8px 0}
+.a6-tick{height:30px;background:linear-gradient(#4a4e4e,#222525);border-radius:4px;position:relative;overflow:hidden}
+.a6-tick.a6-ok{background:linear-gradient(#a4e8c8,#428b67)}
+.a6-tick.a6-future{opacity:.35}
+.a6-tick.a6-partial:after{content:'';position:absolute;inset:14px 0 0;background:var(--done)}
+.a6-week-labels{display:flex;justify-content:space-between;color:var(--muted);font-size:9px;margin:9px 12px 0}
+.a6-profile-head{text-align:center;padding:2px 0 17px}
+.a6-avatar{display:grid;place-items:center;width:79px;height:79px;margin:0 auto 15px;border-radius:50%;border:3px solid #c68c59;background:radial-gradient(circle at 40% 30%,#39302a,#111412 80%);box-shadow:0 0 0 4px #201c17,0 0 28px #ff8a4210;color:#ffc18c;font-size:24px;font-weight:700}
+.a6-profile-head h1{font-size:25px}
+.a6-profile-head p{font-size:12px;margin:5px 0 12px}
+.a6-profile-head .a6-pill{display:inline-block}
+.a6-stats{display:grid;grid-template-columns:repeat(3,1fr);padding:15px 4px;margin-bottom:22px}
+.a6-stats div{text-align:center;border-right:1px solid #363838}
+.a6-stats div:last-child{border:0}
+.a6-stats strong{display:block;font-size:24px;line-height:1.1}
+.a6-stats strong small{font-size:12px}
+.a6-stats p{font-size:10px;margin-top:5px}
+.a6-group-label{font-size:10px;color:#e5b991;letter-spacing:1.4px;font-weight:700;margin:20px 2px 5px}
+.a6-profile-row{width:100%;text-align:left;display:flex;align-items:center;gap:12px;min-height:66px;padding:8px 0;border-bottom:1px solid #2d3030}
+.a6-profile-row .a6-copy{flex:1}
+.a6-profile-row h3{font-size:13px}
+.a6-profile-row p{font-size:11px;margin-top:4px}
+.a6-profile-row>.a6-ico{width:15px;height:15px;color:var(--muted)}
+.a6-bottom-nav{height:74px;flex:0 0 74px;display:grid;grid-template-columns:repeat(5,1fr);background:linear-gradient(#141716,#080909);border-top:1px solid #343633;padding:5px 7px 13px;position:relative}
+.a6-bottom-nav:after{content:'';position:absolute;bottom:5px;left:50%;transform:translateX(-50%);width:98px;height:3px;border-radius:4px;background:#626766}
+.a6-bottom-nav button{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:5px;min-height:48px;min-width:44px;text-decoration:none;color:#bec3c1;font-size:9px;position:relative}
+.a6-bottom-nav button.a6-active{color:var(--flame)}
+.a6-bottom-nav button.a6-active:before{content:'';position:absolute;width:20px;height:2px;top:-6px;background:var(--flame);box-shadow:0 0 10px #ff8a4277}
+.a6-bottom-nav .a6-ico{width:20px;height:20px}
+.a6-toast{position:fixed;bottom:88px;left:20px;right:20px;padding:15px;background:#262c29;border:1px solid #74604d;border-radius:12px;font-size:12px;box-shadow:0 8px 20px #0009;z-index:20}
+.a6-toast[hidden]{display:none}
+
+.a6-panel{box-shadow:inset 0 1px 1px #ffffff0b,0 8px 20px #0004}
+.a6-tabs button{min-height:44px}
+.a6.a6-screen-1 .a6-intro p{display:none}
+.a6.a6-screen-1 .a6-intro{margin-bottom:10px}
+.a6.a6-screen-1 .a6-tabs{margin-top:8px;margin-bottom:10px}
+.a6.a6-screen-1 .a6-training-summary{min-height:152px;padding-top:14px;padding-bottom:14px}
+.a6.a6-screen-1 .a6-anatomy{height:131px;top:10px}
+.a6.a6-screen-1 .a6-exercise{min-height:64px}
+.a6.a6-screen-1 .a6-warmup{min-height:61px}
+.a6.a6-screen-1 .a6-section-title{margin-top:14px}
+.a6.a6-screen-1 .a6-training-cta{margin-top:13px}
+.a6-adherence{grid-template-columns:repeat(28,1fr);gap:4px;padding-left:2px;padding-right:2px}
+.a6-screen-3 .a6-section-title{margin-top:16px}
+.a6-device iframe{border:0;box-shadow:0 0 0 2px #242525}
+.a6-screen-3 .a6-scroll>p:last-child{margin-top:10px!important}
+.a6-board-head .a6-logo{mask-image:linear-gradient(0deg,transparent,#000 13%,#000 95%,transparent)}
+
+@media(max-width:374px){.a6-scroll{padding-left:16px;padding-right:16px}
+.a6-app-header{padding-left:18px;padding-right:18px}
+.a6 h1{font-size:27px}
+.a6-anatomy{width:84px;right:7px}
+.a6-training-summary h2{font-size:23px}
+.a6-macros{gap:12px}
+.a6-exercise{gap:10px}
+.a6-hero{height:173px}
+.a6-week{gap:6px}
+}
+
+.a6-screen-2 .a6-intro{margin-bottom:13px}
+.a6-screen-2 .a6-gauge{height:197px}
+.a6-screen-2 .a6-gauge svg{height:194px;width:230px}
+.a6-screen-2 .a6-gauge-label{top:50px}
+.a6-screen-2 .a6-gauge-label strong{font-size:36px}
+.a6-screen-2 .a6-gauge-panel{padding-bottom:14px}
+.a6-screen-2 .a6-meal{min-height:72px}
+.a6-screen-2 .a6-meal.a6-next{min-height:94px}
+.a6-screen-2 .a6-meal.a6-next img{width:72px;height:72px}
+.a6-screen-2 .a6-water-strip{margin-top:10px}
+.a6-screen-3 .a6-scroll>p:last-child{display:none}
+
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}
+}
+
+
+
+
+/* Host integration: the OS/browser owns its status bar. No fake clock or device frame. */
+.a6,.a6-bottom-nav{
+ --mineral:#080909;--graphite:#161819;--raised:#202223;--line:#363838;
+ --flame:#FF8A42;--action:#FF815C;--warm:#F7F3EC;--muted:#B9BDBE;
+ --protein:#479DFF;--carb:#F4D34F;--fat:#BA8AFF;--water:#81CEFA;
+ --excess:#FF747B;--done:#74DCAB;--bronze:#BD8962;--edge:rgba(255,220,180,.22);
+ color:var(--warm);font-family:Arial,Helvetica,sans-serif;font-size:12px;
+}
+.forge-shell .a6 {height:calc(100dvh - 74px - env(safe-area-inset-bottom,0px));width:100%;min-height:0;padding-top:env(safe-area-inset-top,0px)}
+.a6 *{box-sizing:border-box}
+.forge-shell .a6 :is(h1,h2,h3,p,small,strong,span,button,summary){font-family:Arial,Helvetica,sans-serif;font-style:normal;text-transform:none}
+.forge-shell .a6 h1{font-size:28px;font-weight:700;line-height:1.12;letter-spacing:-.8px;margin:0 0 6px}
+.forge-shell .a6 h2{font-size:18px;font-weight:700;line-height:1.2;letter-spacing:-.3px;margin:0}
+.forge-shell .a6 h3{font-size:15px;font-weight:700;line-height:1.3;margin:0}
+.forge-shell .a6 p{font-size:12px;line-height:1.5;color:var(--muted);margin:0}
+:where(.a6) button{cursor:pointer;font:inherit}
+.a6 :is(.a6-iconbutton,.a6-profile-row,.a6-warmup,.a6-textbutton,.a6-tabs button,.a6-water-controls button){background:none}
+.a6 button:disabled{opacity:.5;cursor:wait}
+.a6 :is(button,summary):focus-visible,.a6-bottom-nav button:focus-visible{outline:2px solid var(--water);outline-offset:3px}
+.a6 summary{cursor:pointer;list-style:none}
+.a6 summary::-webkit-details-marker{display:none}
+.a6-ico{display:block;width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:1.65;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.a6-logo{position:relative;width:112px;height:29px;overflow:hidden;filter:drop-shadow(0 1px 5px #ff812d20)}
+.forge-shell .a6-logo img{position:absolute;width:227px;max-width:none;left:-57.5px;top:-33px}
+.forge-shell:has(.a6){background:#080909}
+.forge-shell:has(.a6) .main{padding:0!important;background:#080909!important}
+.forge-shell:has(.a6) .main>.topbar{display:none!important}
+.forge-shell:has(.a6) .mobile-nav{display:none!important}
+.forge-shell .a6 .a6-eyebrow{text-transform:uppercase;font-size:10px;font-weight:700;letter-spacing:1.65px;line-height:1.4;color:#EFBA8D;margin:0 0 5px}
+.forge-shell .a6 .a6-primary{width:100%;min-height:48px;border:1px solid #ffb695;border-radius:10px;background:linear-gradient(115deg,#FF9C6D,#FF815C 65%,#F76C42);color:#21110B;font-size:13px;font-weight:700}
+.forge-shell .a6 .a6-section-title h2{font-size:16px}
+.forge-shell .a6 .a6-section-title small{font-size:10px}
+.forge-shell .a6 .a6-training-summary h2{font-size:24px;line-height:1.12;max-width:210px}
+.a6-summary-copy{padding-right:85px;min-width:0}
+.a6-summary-copy .a6-meta{flex-wrap:wrap;gap:8px 16px}
+.a6 .a6-panel{min-width:0}
+.forge-shell .a6 .a6-exercise{min-height:64px}
+.forge-shell .a6 .a6-exercise h3{font-size:12px;margin-bottom:5px}
+.forge-shell .a6 .a6-exercise p{font-size:11px}
+.forge-shell .a6 .a6-exercise .exercise-photo{width:55px;height:54px;min-width:55px;aspect-ratio:auto;border:1px solid #554739;border-radius:9px;flex:none}
+.forge-shell .a6 .a6-exercise .exercise-photo img{width:100%;height:100%;object-fit:contain;border:0;border-radius:8px}
+.forge-shell .a6 .a6-tabs button{min-height:44px;font-size:11px;border-radius:7px;color:var(--muted)}
+.forge-shell .a6 .a6-tabs .a6-selected{background:linear-gradient(#353737,#252726);box-shadow:inset 0 0 0 1px #71604f;color:#FFD1AC}
+.forge-shell .a6 .a6-warmup b{font-size:12px}
+.a6-warmup-detail{padding:12px 0}
+.forge-shell .a6 .a6-mini p{font-size:10px}
+.forge-shell .a6 .a6-mini strong{font-size:12px}
+.a6-mini-water .a6-mini{min-height:56px}
+.a6-mini-water{align-self:start}
+.a6-muted{color:var(--muted);font-weight:400}
+.a6-water-controls{padding:0 10px 10px;display:flex;flex-wrap:wrap;gap:4px}
+.a6-water-controls button{min-height:44px;min-width:44px;font-size:11px;color:var(--water)}
+.a6 .ref3-sheet{color:var(--warm);font-family:Arial,Helvetica,sans-serif}
+.a6 .ref3-sheet button{min-height:44px}
+.a6 .ref3-sheet .ref3-primary{background:var(--action);color:#21110b}
+.a6 .ref3-sheet .ref3-sheet-close{align-self:flex-end}
+.a6-bottom-nav{display:none}
+.a6 .a6-scroll{min-width:0;min-height:0}
+.a6 :is(h1,h2,h3,p,.a6-pill){overflow-wrap:anywhere}
+.a6 .a6-pill{white-space:normal;max-width:48%}
+.a6 .a6-intro{min-width:0}
+.forge-shell .a6 .a6-profile-head h1{font-size:25px}
+.forge-shell .a6 .a6-profile-head p{font-size:12px;margin:5px 0 12px}
+.forge-shell .a6 .a6-stats p{font-size:10px;margin-top:5px}
+.forge-shell .a6 .a6-profile-row h3{font-size:13px}
+.forge-shell .a6 .a6-profile-row p{font-size:11px;margin-top:4px}
+.a6-details{margin-top:16px}
+.a6-details>summary{min-height:44px;display:flex;align-items:center;color:var(--flame)}
+.a6-editor{margin-top:12px;padding:16px;border:1px solid var(--line);border-radius:16px}
+.a6-editor .panel{max-width:100%;min-width:0}
+.a6-editor button{min-height:44px}
+.forge-shell .a6 .a6-training-summary p{margin-top:7px}
+.forge-shell .a6 .a6-iconbutton{border:0;color:var(--muted)}
+.forge-shell .a6 .a6-profile-row{border:0;border-bottom:1px solid #2d3030;color:var(--warm)}
+.forge-shell .a6 .a6-warmup{border:0;border-bottom:1px solid #303333;color:var(--warm)}
+.forge-shell .a6 .a6-warmup p{font-size:10px}
+.forge-shell .a6 .a6-tabs button{border:0}
+.forge-shell .a6 .a6-textbutton{border:0;font-size:11px;color:var(--flame)}
+.forge-shell .a6 .a6-macro p{font-size:11px;color:var(--macro)}
+.forge-shell .a6 .a6-gauge-label p{font-size:11px}
+.forge-shell .a6 .a6-gauge-label .a6-eyebrow{font-size:9px;letter-spacing:1px}
+.forge-shell .a6 .a6-chart-panel p{font-size:11px;margin-top:10px}
+.forge-shell .a6 .a6-pr p{font-size:11px}
+.a6-chart-empty{min-height:156px;display:flex;align-items:center}
+.a6-meal-details{margin-bottom:10px}
+.a6-meal-details>.a6-meal{margin-bottom:0}
+.a6-meal>div{min-width:0;flex:1}
+.a6-meal img{flex-shrink:0}
+.forge-shell .a6 .a6-meal h3{font-size:13px}
+.forge-shell .a6 .a6-meal p{font-size:11px;margin-top:3px}
+.forge-shell .a6 .a6-meal .a6-eyebrow{font-size:9px;letter-spacing:1px}
+.forge-shell .a6 .a6-water-strip button{background:none;border:1px solid #385665;font-size:11px;color:var(--water);flex-shrink:0}
+.a6 .a6-profile-head .a6-pill{max-width:100%}
+.a6 .a6-water-controls button{border:0}
+.a6 .a6-profile-row .a6-copy{min-width:0}
+.a6 :is(.a6-pr-grid,.a6-mini-grid){grid-template-columns:repeat(2,minmax(0,1fr))}
+.a6 .a6-editor :is(input,select,textarea){max-width:100%;min-width:0}
+@media(max-width:800px){
+ .forge-shell .main{margin-left:0;width:100%}
+ .forge-shell:has(.a6) .a6-bottom-nav{display:grid;position:fixed;bottom:0;left:0;right:0;z-index:5;height:calc(74px + env(safe-area-inset-bottom,0px));padding-bottom:calc(13px + env(safe-area-inset-bottom,0px))}
+ .a6-bottom-nav button{border:0;background:none;font-family:Arial,Helvetica,sans-serif;cursor:pointer}
+ .a6-bottom-nav button[aria-current=page]{color:var(--flame)}
+ .a6-bottom-nav button[aria-current=page]:before{content:'';position:absolute;width:20px;height:2px;top:-6px;background:var(--flame);box-shadow:0 0 10px #ff8a4277}
+}
+@media(min-width:801px){
+ .forge-shell .a6{height:100dvh;max-width:760px;margin:auto}
+ .a6 .a6-app-header,.a6 .a6-scroll{padding-left:32px;padding-right:32px}
+ .a6 .a6-scroll{padding-bottom:40px}
+ .a6 .a6-logo{margin-left:0}
+}
+@media(max-width:374px){
+ .forge-shell .a6 h1{font-size:27px}
+ .forge-shell .a6 .a6-training-summary h2{font-size:23px}
+}

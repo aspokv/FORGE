@@ -58,8 +58,13 @@ def test_low_recovery_changes_dose_not_exercise_count():
 
 
 def test_pull_validator_rejects_direct_biceps_before_unfinished_back_work():
-    bad_session = [{
-        "day": 1,
+    # PPL identifies the session by its position in the complete cycle, not its label.
+    # A single entry at index zero is Push, even if its label says Pull.
+    sessions = engine.build_all_sessions(
+        _profile(), engine.SPLIT_PUSH_PULL_LEGS, 3, 60
+    )
+    sessions[1] = {
+        "day": 2,
         "label": "Pull",
         "demand": "MODERATE",
         "focus": [],
@@ -70,10 +75,17 @@ def test_pull_validator_rejects_direct_biceps_before_unfinished_back_work():
             {"exercise_id": "cable-row", "sets": 3},
             {"exercise_id": "machine-rear-fly", "sets": 2},
         ],
-    }]
+    }
 
     warnings = engine.validate_sessions(
-        bad_session, _profile(), engine.SPLIT_PUSH_PULL_LEGS, 1, 60
+        sessions, _profile(), engine.SPLIT_PUSH_PULL_LEGS, 3, 60
     )
 
     assert any("biceps work appears before primary back work" in warning for warning in warnings)
+
+    exercises = sessions[1]["exercises"]
+    exercises.append(exercises.pop(1))
+    corrected = engine.validate_sessions(
+        sessions, _profile(), engine.SPLIT_PUSH_PULL_LEGS, 3, 60
+    )
+    assert not any("biceps work appears before primary back work" in warning for warning in corrected)

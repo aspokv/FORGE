@@ -7,6 +7,15 @@ import FoodDiaryEditor from "./FoodDiaryEditor";
 import {localFoodDate, consumedTotals} from "./foodDiary";
 import { macrosDaRefeicao, textoDoMacro } from "./macrosDaRefeicao";
 import "./forge-nutricao.css";
+import {AstraPage,AstraIntro,AstraIcon,astraDate} from "./AstraUI";
+import AstraNutritionSummary from "./AstraNutritionSummary";
+import breakfastImage from "../assets/forge-meal-oats.jpg";
+import chickenImage from "../assets/forge-meal-chicken.jpg";
+import beefImage from "../assets/forge-meal-beef.jpg";
+import dinnerImage from "../assets/forge-meal-dinner.jpg";
+import snackImage from "../assets/forge-meal-snack.jpg";
+
+const mealImages={breakfast:breakfastImage,chicken:chickenImage,beef:beefImage,dinner:dinnerImage,snack:snackImage};
 
 // Humanized display for naturally-countable foods (eggs, whites): the backend computes
 // display_quantity/display_unit from the real grams (e.g. "3 ovos"); grams stay the
@@ -599,39 +608,13 @@ export default function Nutrition({ API, profileId, db }) {
   const t = targets || {};
   const meals = plan?.meals || [];
   const consumed = consumedTotals(meals, diary.meals, diary.extras);
-  const completedCalories = consumed.kcal;
-  const calorieGoal = Number(t.goal_calories || 0);
-  const dayProgress = calorieGoal ? Math.min(100, Math.round(completedCalories / calorieGoal * 100)) : 0;
+  const nextMeal=meals.findIndex((_,i)=>mealStatus[i]!=="completed"&&mealStatus[i]!=="skipped");
   return (
-    <div className="content nutrition-page">
-      <div className="section-intro">
-        <p className="eyebrow">NUTRIÇÃO</p>
-        <h2>Seu plano alimentar</h2>
-      </div>
-
-      <div className="nutrition-tabs" role="tablist" aria-label="Visualização do plano"><button className="active">Dia</button><button>Semana</button><button>Lista</button></div>
-      {/* As duas acoes secundarias dividem uma linha em vez de empilhar em largura cheia:
-          nenhuma delas e a acao principal da tela, e ocupar duas faixas inteiras dava a
-          elas um peso que nao tem. */}
-      <div className="fg-acoes-linha">
-        <button type="button" className="fg-btn fg-btn-2" onClick={()=>setDiaryEditor({mealIndex:null})}>Adicionar um extra</button>
-        <button type="button" className="fg-btn fg-btn-2" data-testid="open-diet-import" onClick={() => setImportOpen(true)}>
-          <ClipboardPaste size={16} /> Colar minha dieta
-        </button>
-      </div>
-      <p className="fg-consumo-hoje" aria-live="polite">Consumido hoje: {Math.round(consumed.kcal)} kcal · Proteínas {Math.round(consumed.protein_g)} g · Carboidratos {Math.round(consumed.carbs_g)} g · Gorduras {Math.round(consumed.fat_g)} g</p>
+    <AstraPage screen={2} testId="astra-nutrition">
+      <AstraIntro eyebrow={astraDate()} title="Nutrição." subtitle="Seu plano, refeição por refeição."/>
+      <AstraNutritionSummary consumed={consumed} targets={t}/>
+      <div className="a6-section-title" style={{marginTop:8,marginBottom:4}}><h2>Suas refeições</h2><button type="button" className="a6-textbutton" onClick={()=>setDiaryEditor({mealIndex:null})}>+ Adicionar</button></div>
       {diaryEditor?.mealIndex===null&&<FoodDiaryEditor API={API} mealIndex={null} onSaved={refreshDiary} onClose={()=>setDiaryEditor(null)}/>}
-      {(diary.extras||[]).map(extra=><div className="food-diary-actual" key={extra.entry_id}><strong>Extra · {Math.round(extra.actual.totals.kcal)} kcal</strong><p>{extra.actual.foods.map(f=>`${f.name} (${f.grams} g)`).join(" · ")}</p><button type="button" className="secondary-button" onClick={async()=>{try{await axios.delete(`${API}/nutrition/consumed-extra/${extra.entry_id}`);await refreshDiary()}catch{setError("Não foi possível remover o extra.")}}}>Remover extra</button></div>)}
-      <section className="nutrition-summary">
-        <div className="macro-strip">
-          <div className="calories"><span>Meta diária</span><b>{Math.round(t.goal_calories || 0)}<small>kcal</small></b></div>
-          <div><span>Proteína</span><b>{Math.round(t.protein_g || 0)}<small>g</small></b></div>
-          <div><span>Carbo</span><b>{Math.round(t.carbs_g || 0)}<small>g</small></b></div>
-          <div><span>Gordura</span><b>{Math.round(t.fat_g || 0)}<small>g</small></b></div>
-        </div>
-        <div className="nutrition-ring" style={{ background: `conic-gradient(var(--success) 0 ${dayProgress}%, #24282b ${dayProgress}% 100%)` }}><span>{dayProgress}<small>%</small></span><em>consumido</em></div>
-      </section>
-
       {importOpen && (
         <NutritionImport
           API={API}
@@ -650,11 +633,19 @@ export default function Nutrition({ API, profileId, db }) {
         </div>
       )}
 
-      <div className="nutrition-meal-grid">
+      <div className="a6-meals">
       {meals.map((meal, i) => {
         const status = mealStatus[i];
+        const mealLog = diary.meals?.filter(row=>Number(row.meal_index)===i) || [];
+        const recordedKcal = consumedTotals(meals,mealLog,[]).kcal;
         return (
-          <section className={`fg-refeicao${status === "completed" ? " concluida" : ""}`} key={i}>
+          <details className="a6-panel a6-meal-details" key={i}>
+            <summary className={`a6-meal ${i===nextMeal?"a6-next":""}`}>
+              {status==="completed"&&<span className="a6-check"><AstraIcon name="check"/></span>}
+              <img src={mealImages[mealVisualKey(meal.name)]} alt={`Imagem ilustrativa de ${meal.name}`}/>
+              <div>{i===nextMeal&&<div className="a6-eyebrow">PRÓXIMA REFEIÇÃO</div>}<h3>{meal.name}</h3><p>{status==="completed"?"Registrado":status==="skipped"?"Pulado":(meal.foods||[]).map(x=>x.food?.name||x.food_id).join(", ")}{status==="completed"?` · ${Math.round(recordedKcal)} kcal`:""}</p></div>
+            </summary>
+            <div className="a6-editor nutrition-page">
             {/* A foto carrega o titulo em vez de dividir a linha com ele: o nome desce
                 para o pe da imagem, sobre a sombra, onde o contraste e garantido. */}
             <div
@@ -749,23 +740,36 @@ export default function Nutrition({ API, profileId, db }) {
             {diary.meals?.find(row=>row.meal_index===i)?.actual&&<div className="food-diary-actual"><strong>Consumo registrado no lugar desta refeição</strong><p>{diary.meals.find(row=>row.meal_index===i).actual.foods.map(f=>`${f.name} (${f.grams} g)`).join(" · ")}</p><p>A lista acima continua sendo seu plano original. Marcar “Concluir” volta a contar o planejado; “Pular” retira esta refeição do consumo.</p></div>}
             {diaryEditor?.mealIndex===i&&<FoodDiaryEditor key={i} API={API} mealIndex={i} mealName={meal.name} onSaved={refreshDiary} onClose={()=>setDiaryEditor(null)}/>}
             </div>
-          </section>
+            </div>
+          </details>
         );
       })}
       </div>
+
+      <NutritionDailyFooter API={API} compact consumed={consumed} goalCalories={targets?.goal_calories||targets?.kcal||0}/>
+      <details className="a6-details"><summary>Gerenciar plano alimentar</summary><div className="a6-editor nutrition-page">
+      <div className="fg-acoes-linha">
+        <button type="button" className="fg-btn fg-btn-2" onClick={()=>setDiaryEditor({mealIndex:null})}>Adicionar um extra</button>
+        <button type="button" className="fg-btn fg-btn-2" data-testid="open-diet-import" onClick={() => setImportOpen(true)}>
+          <ClipboardPaste size={16} /> Colar minha dieta
+        </button>
+      </div>
+      <p className="fg-consumo-hoje" aria-live="polite">Consumido hoje: {Math.round(consumed.kcal)} kcal · Proteínas {Math.round(consumed.protein_g)} g · Carboidratos {Math.round(consumed.carbs_g)} g · Gorduras {Math.round(consumed.fat_g)} g</p>
+      {(diary.extras||[]).map(extra=><div className="food-diary-actual" key={extra.entry_id}><strong>Extra · {Math.round(extra.actual.totals.kcal)} kcal</strong><p>{extra.actual.foods.map(f=>`${f.name} (${f.grams} g)`).join(" · ")}</p><button type="button" className="secondary-button" onClick={async()=>{try{await axios.delete(`${API}/nutrition/consumed-extra/${extra.entry_id}`);await refreshDiary()}catch{setError("Não foi possível remover o extra.")}}}>Remover extra</button></div>)}
 
       <div className="action-row" style={{ marginTop: 24 }}>
         <button className="secondary-button" onClick={refazerPlano} disabled={busy}>
           <RefreshCw size={15} /> {busy ? "Iniciando..." : "Refazer plano"}
         </button>
       </div>
-      <NutritionDailyFooter API={API} consumed={consumed} goalCalories={targets?.goal_calories||targets?.kcal||0}/>
+
       {plan?.coach_guidance && <section className="nutrition-coach-note" data-testid="nutrition-coach-guidance">
         <p className="eyebrow">ACOMPANHAMENTO FORGE</p>
         <p>{plan.coach_guidance.weekly_weigh_in}</p>
         <p>{plan.coach_guidance.progress_photos}</p>
         <small>{plan.coach_guidance.hydration_note}</small>
       </section>}
-    </div>
+      </div></details>
+    </AstraPage>
   );
 }

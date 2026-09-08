@@ -2,8 +2,9 @@ import {useEffect,useState} from "react";
 import axios from "axios";
 import {Droplets,ChartNoAxesCombined} from "lucide-react";
 import {localFoodDate} from "./foodDiary";
+import {AstraIcon} from "./AstraUI";
 
-export default function NutritionDailyFooter({API,consumed,goalCalories}) {
+export default function NutritionDailyFooter({API,consumed,goalCalories,compact=false}) {
   const [water,setWater]=useState(null),[busy,setBusy]=useState(false),[error,setError]=useState("");
   const [attempt,setAttempt]=useState(0);
   useEffect(()=>{
@@ -25,6 +26,7 @@ export default function NutritionDailyFooter({API,consumed,goalCalories}) {
   const total=Number(water?.total_ml||0),goal=Number(water?.goal_ml||0);
   const remaining=Math.round(Number(goalCalories||0)-consumed.kcal);
   const liters=ml=>(ml/1000).toLocaleString("pt-BR",{maximumFractionDigits:2});
+  if(compact)return <section aria-label="Hidratação de hoje"><div className="a6-water-strip"><AstraIcon name="water"/><span>{water?<><b>{liters(total)} L</b> <span className="a6-muted">/ {liters(goal)} L</span></>:<span>Carregando…</span>}</span><button type="button" disabled={busy||!water} onClick={()=>update(250)}>+250 ml</button><button type="button" disabled={busy||!water} onClick={()=>update(500)}>+500 ml</button></div>{error&&<div role="alert"><p>{error}</p><button type="button" className="a6-textbutton" onClick={()=>setAttempt(v=>v+1)}>Atualizar total</button></div>}<details className="a6-details"><summary>Detalhes da hidratação</summary><p>{goal>0?`Meta: ${liters(goal)} L` : "Sua meta ainda não foi definida."}</p><button type="button" className="a6-textbutton" disabled={busy||total===0} onClick={()=>update(null)}>Desfazer último registro</button></details></section>;
   return <section className="nutrition-daily-footer" aria-label="Resumo do dia">
     <article><header><Droplets size={19}/><h3>Hidratação de hoje</h3></header>
       {water?<><strong>{liters(total)} L <small>{goal>0?`/ ${liters(goal)} L`:"registrados"}</small></strong>{goal>0&&<progress aria-label="Meta de hidratação" max={goal} value={Math.min(total,goal)}/>}<p>{goal>0?(total>=goal?"Meta de água atingida.":`Faltam ${liters(goal-total)} L para sua meta.`):"Sua meta ainda não foi definida."}</p><div className="daily-water-actions"><button disabled={busy} onClick={()=>update(250)}>+250 ml</button><button disabled={busy} onClick={()=>update(500)}>+500 ml</button><button disabled={busy||total===0} onClick={()=>update(null)}>Desfazer</button></div></>:!error&&<p role="status">Carregando hidratação…</p>}

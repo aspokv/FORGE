@@ -1,6 +1,7 @@
 import {useEffect,useMemo,useState} from "react";
 import axios from "axios";
-import {ChevronRight,Clock,Droplet,Layers3,RotateCcw,Utensils,X} from "lucide-react";
+import {X} from "lucide-react";
+import {AstraPage,AstraIntro,AstraAction,AstraMeta,AstraIcon} from "./AstraUI";
 import athleteArt from "../assets/forge-home-athlete-reference.jpg";
 import {consumedTotals} from "./foodDiary";
 
@@ -29,7 +30,6 @@ export default function ReferenceHome({db,start,onRecoveryCheckin}){
   const focus=(active.focus||p.focus||[]).slice(0,3);
   const firstName=(db.profile?.name||"").trim().split(" ")[0],displayName=firstName&&firstName.toLowerCase()!=="novo"?firstName:"Atleta";
   const now=new Date(),dateLabel=referenceDateLabel(now),dayIndex=(now.getDay()+6)%7;
-  const targets=nutrition?.targets||{},daily=nutrition?.daily_totals||{},goalKcal=Number(targets.goal_calories||daily.kcal||0);
   const consumed=useMemo(()=>consumedTotals(nutrition?.meals,mealLog,foodExtras),[nutrition,mealLog,foodExtras]);
   const kcal=consumed.kcal,water=Number(hydration?.total_ml||0),waterGoal=Number(hydration?.goal_ml||2500);
 
@@ -38,26 +38,25 @@ export default function ReferenceHome({db,start,onRecoveryCheckin}){
   const submitCheckin=async()=>{if(checkinBusy)return;setCheckinBusy(true);try{const r=await axios.post(`${API}/recovery`,{profile_id:db.profile?.id,local_date:localDateKey(),...checkinForm});setCheckin(r.data?.checkin||r.data);onRecoveryCheckin?.(r.data);setCheckinOpen(false)}finally{setCheckinBusy(false)}};
   const openPlan=()=>checkin?start():setCheckinOpen(true);
 
-  return <div className="reference-home-v3 astra-home" data-testid="reference-home-v3">
-    <section className="astra-home-intro">
-      <p className="eyebrow">{dateLabel}</p><h1>Olá, {displayName}.</h1><p>Seu próximo passo está aqui.</p>
+  const monday=new Date(now);monday.setDate(now.getDate()-dayIndex);
+  const trained=new Set((db.recent_sets||[]).map(row=>{const d=new Date(row.created_at);return Number.isNaN(d.getTime())?"":new Intl.DateTimeFormat("sv-SE").format(d)}));
+  return <AstraPage screen={0} testId="reference-home-v3">
+    <AstraIntro eyebrow={dateLabel} title={`Olá, ${displayName}.`} subtitle="Seu próximo passo está aqui."/>
+    <div className="a6-hero" data-testid="home-top-hero"><img src={athleteArt} alt="Atleta em ambiente de treino" loading="eager" fetchPriority="high"/><div className="a6-hero-copy">DISCIPLINA HOJE.<br/>RESULTADOS SEMPRE.</div></div>
+    <section className="a6-panel a6-workout-card" data-testid="daily-briefing">
+      <div className="a6-split"><div className="a6-eyebrow">SEU TREINO DE HOJE</div><span className="a6-pill">{String(active.label||p.session||"Sessão atual").split(/[—–]/)[0].trim()}</span></div>
+      <h2>{sessionName}</h2><p>{focus.length?focus.join(" · "):"Treino completo"}</p>
+      <AstraMeta duration={duration} sets={plannedSets}/>
+      <AstraAction testId="start-workout-button" onClick={openPlan}>Começar treino</AstraAction>
     </section>
-    <section className="astra-home-hero" data-testid="home-top-hero">
-      <img src={athleteArt} alt="Atleta FORGE" loading="eager" fetchPriority="high"/><div>DISCIPLINA HOJE.<br/>RESULTADOS SEMPRE.</div>
+    <section data-testid="home-training-week">
+      <div className="a6-section-title"><h2>Seu ritmo</h2><small>{p.week||"Ciclo atual"}</small></div>
+      <div className="a6-week">{WEEK.map((label,i)=>{const d=new Date(monday);d.setDate(monday.getDate()+i);const done=trained.has(new Intl.DateTimeFormat("sv-SE").format(d));return <div key={label} className={`a6-day ${done?"a6-done":""} ${i===dayIndex?"a6-selected":""}`}><span>{label.charAt(0)}</span><strong aria-label={`${d.toLocaleDateString("pt-BR")}${done?", treino registrado":""}`}>{done?"✓":d.getDate()}</strong></div>})}</div>
     </section>
-    <section className="astra-today-card" data-testid="daily-briefing">
-      <div className="astra-today-top"><div><p className="eyebrow">SEU TREINO DE HOJE</p><h2>{sessionName}</h2><p>{focus.length?focus.join(" · "):"Treino completo"}</p></div><span className="pill">{String(active.label||"Sessão atual").split(/[—–]/)[0].trim()}</span></div>
-      <div className="astra-meta"><span><Clock size={15}/>{duration}</span><span><Layers3 size={15}/>{plannedSets} séries</span></div>
-      <button type="button" className="astra-primary" data-testid="start-workout-button" onClick={openPlan}>Começar treino <ChevronRight size={17}/></button>
-    </section>
-    <section className="astra-week-block" data-testid="home-training-week">
-      <div className="astra-section-head"><h2>Seu ritmo</h2><small>Semana {Math.max(1,activeIndex+1)} de {Math.max(1,sessions.length)}</small></div>
-      <div className="astra-week-grid">{WEEK.map((label,i)=>{const done=i<dayIndex&&i<activeIndex,current=i===dayIndex;return <div key={label} className={`astra-day ${done?"done ":""}${current?"current":""}`}><span>{label.charAt(0)}</span><strong>{done?"✓":i+1}</strong></div>})}</div>
-    </section>
-    <section className="astra-mini-grid" data-testid="home-acoes-rapidas">
-      <article className="astra-mini" data-testid="home-nutrition-progress"><Utensils size={18}/><div><p>Nutrição</p><strong>{Math.round(kcal).toLocaleString("pt-BR")} <small>/ {Math.round(goalKcal||0).toLocaleString("pt-BR")} kcal</small></strong></div></article>
-      <article className="astra-mini water" data-testid="home-hydration"><Droplet size={18}/><div><p>Água</p><strong>{(water/1000).toLocaleString("pt-BR",{maximumFractionDigits:2})} L <small>/ {(waterGoal/1000).toLocaleString("pt-BR",{maximumFractionDigits:1})} L</small></strong></div><div className="astra-water-actions"><button disabled={waterBusy} onClick={()=>addWater(250)}>+250</button><button aria-label="Desfazer água" disabled={waterBusy||water===0} onClick={undoWater}><RotateCcw size={12}/></button></div></article>
+    <section className="a6-mini-grid" data-testid="home-acoes-rapidas">
+      <article className="a6-panel a6-mini" data-testid="home-nutrition-progress"><AstraIcon name="nutrition"/><div><p>Nutrição</p><strong>{nutrition?`${Math.round(kcal).toLocaleString("pt-BR")} kcal`:"Sem plano"}</strong></div></article>
+      <details className="a6-panel a6-mini-water" data-testid="home-hydration"><summary className="a6-mini a6-water"><AstraIcon name="water"/><div><p>Água</p><strong>{(water/1000).toLocaleString("pt-BR",{maximumFractionDigits:2})} L <span className="a6-muted">/ {(waterGoal/1000).toLocaleString("pt-BR",{maximumFractionDigits:1})} L</span></strong></div></summary><div className="a6-water-controls"><button type="button" data-testid="hydration-add-250" disabled={waterBusy} onClick={()=>addWater(250)}>+250 ml</button><button type="button" data-testid="hydration-add-500" disabled={waterBusy} onClick={()=>addWater(500)}>+500 ml</button><button type="button" data-testid="hydration-undo" aria-label="Desfazer água" disabled={waterBusy||water===0} onClick={undoWater}>Desfazer</button></div></details>
     </section>
     {checkinOpen&&<div className="ref3-sheet" data-testid="today-checkin-modal"><button className="ref3-sheet-close" onClick={()=>setCheckinOpen(false)}><X size={20}/></button><span>CHECK-IN DE HOJE</span><h2>Como você chega para o treino?</h2><div className="ref3-checkin-grid">{[["Sono","sleep"],["Energia","energy"],["Motivação","motivation"],["Dor muscular","soreness"],["Estresse","stress"]].map(([label,key])=><label key={key}><span>{label}</span><input type="range" min="1" max="5" value={checkinForm[key]} onChange={e=>setCheckinForm(f=>({...f,[key]:Number(e.target.value)}))}/><b>{checkinForm[key]}</b></label>)}</div><button className="ref3-primary" data-testid="save-today-checkin" disabled={checkinBusy} onClick={submitCheckin}>{checkinBusy?"Salvando…":"Salvar check-in"}</button><button className="ref3-direct" onClick={start}>Começar direto</button></div>}
-  </div>;
+  </AstraPage>;
 }

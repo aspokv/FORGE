@@ -10,11 +10,11 @@ const casa=(extra={})=>{
 
 test("a abertura segue a referencia Astra: saudacao, foto e treino em sequencia",()=>{
   const home=casa();
-  expect(home.className).toContain("astra-home");
-  expect(home.querySelector(".astra-home-intro h1").textContent).toContain("Nicolas");
+  expect(home.querySelector("h1").textContent).toContain("Nicolas");
   const hero=home.querySelector('[data-testid="home-top-hero"]');
   expect(hero).not.toBeNull();
-  expect(hero.querySelector("img").getAttribute("alt")).toBe("Atleta FORGE");
+  expect(hero.querySelector("img").getAttribute("src")).toBeTruthy();
+  expect(hero.querySelector("img").getAttribute("alt")).toBeTruthy();
   expect(hero.textContent).toContain("DISCIPLINA HOJE");
   expect(home.querySelector('[data-testid="daily-briefing"]')).not.toBeNull();
 });
@@ -28,7 +28,7 @@ test("ritmo, nutricao e hidratacao continuam no Inicio",()=>{
 test("comecar treino continua uma acao visivel",()=>{
   const botao=casa().querySelector('[data-testid="start-workout-button"]');
   expect(botao).not.toBeNull();
-  expect(botao.className).toContain("astra-primary");
+  expect(botao.tagName).toBe("BUTTON");
   expect(botao.textContent).toContain("Começar treino");
 });
 
