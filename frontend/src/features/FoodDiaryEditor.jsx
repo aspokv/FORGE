@@ -1,4 +1,4 @@
-import {useEffect,useState} from "react";
+import {useEffect,useRef,useState} from "react";
 import axios from "axios";
 import {localFoodDate} from "./foodDiary";
 import "./food-diary.css";
@@ -16,6 +16,51 @@ export default function FoodDiaryEditor({API,mealIndex,mealName,onSaved,onClose}
   const [error,setError]=useState(""),[busy,setBusy]=useState(false),[loading,setLoading]=useState(true);
   const [entryId]=useState(()=>crypto.randomUUID());
   const [date]=useState(localFoodDate);
+  const editorRef=useRef(null);
+  useEffect(()=>{
+    const editor=editorRef.current, shell=editor?.closest(".forge-shell"), page=editor?.closest(".a6");
+    const viewport=window.visualViewport;
+    if(!shell||!page||!viewport)return;
+    let fullHeight=Math.max(window.innerHeight,viewport.height), frame;
+    const clear=()=>{
+      shell.removeAttribute("data-food-keyboard");
+      page.style.removeProperty("--food-diary-viewport");
+    };
+    const update=()=>{
+      cancelAnimationFrame(frame);
+      frame=requestAnimationFrame(()=>{
+        const field=document.activeElement;
+        const editing=editor.contains(field)&&field.matches("input,textarea");
+        const keyboard=editing&&window.innerWidth<=800&&viewport.scale===1&&fullHeight-viewport.height>120;
+        if(!keyboard){
+          clear();
+          if(!editing)fullHeight=Math.max(window.innerHeight,viewport.height);
+          return;
+        }
+        shell.setAttribute("data-food-keyboard","open");
+        const top=Math.max(0,page.getBoundingClientRect().top-viewport.offsetTop);
+        page.style.setProperty("--food-diary-viewport",`${Math.max(160,viewport.height-top)}px`);
+        // Put the focused field near the top, leaving room for search results below.
+        const scroller=editor.closest(".a6-scroll");
+        if(scroller){
+          const target=Math.max(scroller.getBoundingClientRect().top,viewport.offsetTop)+12;
+          scroller.scrollTop+=field.getBoundingClientRect().top-target;
+        }
+      });
+    };
+    viewport.addEventListener("resize",update);
+    window.addEventListener("resize",update);
+    editor.addEventListener("focusin",update);
+    editor.addEventListener("focusout",update);
+    return()=>{
+      cancelAnimationFrame(frame);
+      viewport.removeEventListener("resize",update);
+      window.removeEventListener("resize",update);
+      editor.removeEventListener("focusin",update);
+      editor.removeEventListener("focusout",update);
+      clear();
+    };
+  },[]);
   useEffect(()=>{
     const c=new AbortController();
     axios.get(`${API}/nutrition/consumed-foods`,{signal:c.signal}).then(r=>setCatalog(r.data.foods||[])).catch(()=>{if(!c.signal.aborted)setError("Não foi possível carregar o catálogo. Feche e tente novamente.")}).finally(()=>{if(!c.signal.aborted)setLoading(false)});
@@ -46,11 +91,11 @@ export default function FoodDiaryEditor({API,mealIndex,mealName,onSaved,onClose}
     } catch {setError("Não foi possível confirmar o registro. Tente salvar novamente; o mesmo registro não será duplicado.");}
     finally {setBusy(false);}
   };
-  return <section className="food-diary-editor" aria-label="Registrar o que comi">
+  return <section ref={editorRef} className="food-diary-editor" aria-label="Registrar o que comi">
     <h3>{mealIndex==null?"Adicionar um extra":`O que você comeu no ${mealName}?`}</h3>
     <p>{mealIndex==null?"Soma ao consumo de hoje, sem substituir refeições.":"Substitui apenas a contagem desta refeição hoje. Sua dieta original não muda."}</p>
     <p>Informe gramas da parte comestível, sem osso. Confira se o alimento está cru ou preparado e registre óleo/molhos à parte. Valores estimados.</p>
-    <label>Buscar alimento<input autoFocus value={query} onChange={e=>setQuery(e.target.value)} placeholder="Feijão, costela, alface…" disabled={busy}/></label>
+    <label>Buscar alimento<input enterKeyHint="search" value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();e.currentTarget.blur();}}} placeholder="Feijão, costela, alface…" disabled={busy}/></label>
     {loading?<p role="status">Carregando catálogo…</p>:<div className="food-diary-results">{results.map(f=><button key={f.id} type="button" disabled={busy||items.length>=40} onClick={()=>setItems(v=>[...v,{...f,amount:100}])}>{f.name}<small>{f.kcal} kcal / {f.grams||100} g</small></button>)}{searching&&<p role="status">Buscando mais alimentos…</p>}{!results.length&&!searching&&<p>Alimento não encontrado. Tente informar a marca ou buscar os ingredientes separadamente.</p>}</div>}
     {items.map((f,i)=><div className="food-diary-item" key={`${f.id}-${i}`}><div><strong>{f.name}</strong><small>{f.source||"Catálogo FORGE"}</small></div><label>Gramas<input aria-label={`Gramas de ${f.name} ${i+1}`} type="number" min="1" max="5000" step="any" value={f.amount} disabled={busy} onChange={e=>setItems(v=>v.map((x,j)=>i===j?{...x,amount:e.target.value}:x))}/></label><button type="button" disabled={busy} onClick={()=>setItems(v=>v.filter((_,j)=>j!==i))}>Remover</button></div>)}
     <p aria-live="polite">{Math.round(totals.kcal)} kcal · P {Math.round(totals.protein_g)} g · C {Math.round(totals.carbs_g)} g · G {Math.round(totals.fat_g)} g</p>
