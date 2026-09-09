@@ -22,7 +22,7 @@ describe("compact workout preview preserves content", () => {
       expect(row.textContent).toContain("RIR 2");
       expect(row.querySelector('[role="img"]')).not.toBeNull();
     });
-    expect(doc.querySelector('[aria-label="FORGE, marca original com chama"]')).not.toBeNull();
+    expect(doc.querySelector('.a6-logo[aria-label="FORGE"] img')).not.toBeNull();
     ["Treino completo", "70 min", "Quadríceps", "Glúteos", "Posteriores", "Mobilidade e ativação", "8 min", "Iniciar sessão"]
       .forEach(text => expect(doc.body.textContent).toContain(text));
   });
