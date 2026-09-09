@@ -53,3 +53,17 @@ root.render(
     </QueryClientProvider>
   </React.StrictMode>,
 );
+
+// No mobile, o card seleciona o programa no React e a ficha completa fica logo abaixo da grade.
+// O CTA "Ver programa" agora leva o atleta diretamente para essa ficha, sem alterar filtros,
+// perfil, catálogo ou a lógica de aplicação do programa.
+if (typeof document !== "undefined" && typeof window !== "undefined") {
+  document.addEventListener("click", event => {
+    if (!window.matchMedia("(max-width: 1200px)").matches) return;
+    const trigger = event.target.closest?.(".program-card-grid .library-add");
+    if (!trigger) return;
+    requestAnimationFrame(() => {
+      document.querySelector('[data-testid="program-preview"]')?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  });
+}
