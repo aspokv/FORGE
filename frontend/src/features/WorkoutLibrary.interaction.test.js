@@ -126,4 +126,58 @@ describe("WorkoutLibrary mobile apply interaction", () => {
     expect(host.textContent).toContain("3 sessões");
     expect(host.textContent).toContain("Duração a definir");
   });
+
+  test("Ver programa troca a prévia e a mantém visível no mobile", async () => {
+    const makeProgram = (id, name) => ({
+      id,
+      audience_type: "unisex",
+      name,
+      category: "abc",
+      categories: ["abc"],
+      description: "Programa de teste",
+      level: "Avançado",
+      days_per_week: 1,
+      duration_weeks: 4,
+      phase_count: 1,
+      safety: "standard",
+      reference: "Teste",
+      warning: "",
+      phases: [{
+        id: `phase-${id}`,
+        label: "Base",
+        weeks: "1–4",
+        method: "Straight Sets",
+        days_per_week: 1,
+        total_sets: 3,
+        note: "",
+        sessions: [{
+          label: "Upper",
+          exercise_count: 1,
+          total_sets: 3,
+          duration: 60,
+          exercises: [{ exercise_id: "incline-db", sets: 3, reps: "8–12", rir: "2", rest: "2 min", technique_id: "straight", technique: "Straight Sets" }],
+        }],
+      }],
+    });
+    axios.get.mockResolvedValue({ data: {
+      ...catalog,
+      program_categories: [{ id: "abc", label: "ABC", subtitle: "Programas" }],
+      programs: [makeProgram("first", "Primeiro programa"), makeProgram("second", "Segundo programa")],
+    } });
+
+    await act(async () => {
+      root.render(<WorkoutLibrary API="/api" profile={{}} exercises={[{ id: "incline-db", name: "Supino inclinado" }]} program={program}/>);
+      await Promise.resolve();
+    });
+
+    await act(async () => click(host.querySelector('[data-testid="library-programs-tab"]')));
+    const secondCard = host.querySelector('[data-testid="training-program-second"]');
+    expect(secondCard).not.toBeNull();
+
+    await act(async () => click(secondCard.querySelector(".library-add")));
+    expect(host.querySelector('[data-testid="program-preview"]')?.textContent).toContain("Segundo programa");
+
+    const mobileCss = fs.readFileSync(path.join(__dirname, "workout-library-program-mobile.css"), "utf8");
+    expect(mobileCss).toMatch(/\.library-program-layout>\.program-preview\{display:block/);
+  });
 });
