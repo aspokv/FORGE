@@ -5,6 +5,10 @@ on:
     branches: [main]
     paths:
       - 'backend/server.py'
+      - 'backend/runtime_server.py'
+      - 'backend/cardio.py'
+      - 'backend/cardio_routes.py'
+      - 'backend/test_cardio_unit.py'
       - 'backend/workout_templates.py'
       - 'backend/engine.py'
       - 'backend/training_engine_v4.py'
@@ -17,6 +21,9 @@ on:
       - 'frontend/src/index.js'
       - 'frontend/src/index.css'
       - 'frontend/src/home-brand-refine.css'
+      - 'frontend/src/features/CardioFinisher.jsx'
+      - 'frontend/src/features/cardio-finisher.css'
+      - 'frontend/src/features/CardioFinisher.test.js'
       - 'frontend/src/features/WorkoutLibrary.jsx'
       - 'frontend/src/features/workout-library.css'
       - 'frontend/src/features/WorkoutLibrary.interaction.test.js'
@@ -42,6 +49,10 @@ on:
   pull_request:
     paths:
       - 'backend/server.py'
+      - 'backend/runtime_server.py'
+      - 'backend/cardio.py'
+      - 'backend/cardio_routes.py'
+      - 'backend/test_cardio_unit.py'
       - 'backend/workout_templates.py'
       - 'backend/engine.py'
       - 'backend/training_engine_v4.py'
@@ -54,6 +65,9 @@ on:
       - 'frontend/src/index.js'
       - 'frontend/src/index.css'
       - 'frontend/src/home-brand-refine.css'
+      - 'frontend/src/features/CardioFinisher.jsx'
+      - 'frontend/src/features/cardio-finisher.css'
+      - 'frontend/src/features/CardioFinisher.test.js'
       - 'frontend/src/features/WorkoutLibrary.jsx'
       - 'frontend/src/features/workout-library.css'
       - 'frontend/src/features/WorkoutLibrary.interaction.test.js'
@@ -94,8 +108,8 @@ jobs:
           cache-dependency-path: backend/requirements.txt
       - name: Install dependencies
         run: pip install -r requirements.txt
-      - name: Compile training engine
-        run: python -m py_compile engine.py training_engine_v4.py training_engine_v5.py muscles.py
+      - name: Compile training engine and cardio module
+        run: python -m py_compile engine.py training_engine_v4.py training_engine_v5.py muscles.py cardio.py cardio_routes.py runtime_server.py
       - name: Run V5 training regression suite
         run: >-
           pytest -q --noconftest
@@ -104,6 +118,7 @@ jobs:
           tests/test_engine_v2.py
           tests/test_engine_v3.py
           tests/test_exercise_photo_coverage.py
+          test_cardio_unit.py
 
   workout-library-ui:
     runs-on: ubuntu-latest
@@ -119,8 +134,8 @@ jobs:
           cache-dependency-path: frontend/yarn.lock
       - name: Install frontend dependencies
         run: yarn install --frozen-lockfile
-      - name: Test mobile workout, home, progress, and artwork UI
-        run: CI=true yarn test --watchAll=false --runTestsByPath src/features/WorkoutLibrary.interaction.test.js src/features/ReferenceHome.artwork.test.js src/features/progressVisual.test.js src/features/exerciseArtworkLibrary.test.js
+      - name: Test mobile workout, home, progress, artwork, and cardio UI
+        run: CI=true yarn test --watchAll=false --runTestsByPath src/features/WorkoutLibrary.interaction.test.js src/features/ReferenceHome.artwork.test.js src/features/progressVisual.test.js src/features/exerciseArtworkLibrary.test.js src/features/CardioFinisher.test.js
       - name: Build frontend
         env:
           CI: 'false'
