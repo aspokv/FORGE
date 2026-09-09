@@ -38,7 +38,7 @@ test("comecar treino continua uma acao visivel",()=>{
   const botao=casa().querySelector('[data-testid="start-workout-button"]');
   expect(botao).not.toBeNull();
   expect(botao.tagName).toBe("BUTTON");
-  expect(botao.textContent).toContain("Começar treino");
+  expect(botao.textContent).toContain("Iniciar sessão");
 });
 
 test("nenhum valor interno aparece na tela",()=>{

@@ -4,6 +4,7 @@ import {X} from "lucide-react";
 import {AstraPage,AstraIntro,AstraAction,AstraMeta,AstraIcon} from "./AstraUI";
 import heroArt from "../assets/forge-home-duo-hero";
 import {consumedTotals} from "./foodDiary";
+import "../home-signature.css";
 
 const API=`${process.env.REACT_APP_BACKEND_URL || ""}/api`;
 const WEEK=["SEG","TER","QUA","QUI","SEX","SÁB","DOM"];
@@ -15,6 +16,12 @@ export const isPushPlan=(sessionName,focus=[])=>{const key=normalize([sessionNam
 export const planArtworkKindFor=(sessionName,focus=[])=>isPullPlan(sessionName,focus)?"pull":isLegPlan(sessionName,focus)?"legs":isPushPlan(sessionName,focus)?"push":"default";
 export const planArtworkFor=(sessionName,focus=[])=>{const kind=planArtworkKindFor(sessionName,focus);return kind==="pull"?"/images/anatomy/pull-back.webp":kind==="legs"?"/images/anatomy/legs-quads-front.webp":kind==="push"?"/images/anatomy/push-front.webp":"/images/anatomy/push-front.webp"};
 const referenceDateLabel=date=>new Intl.DateTimeFormat("pt-BR",{weekday:"long",day:"2-digit",month:"long"}).format(date).replace("-feira","").toUpperCase();
+
+export function sessionStatus(checkin,recentSets=[],now=new Date()){
+  if(checkin)return "RECUPERAÇÃO REGISTRADA";
+  const cutoff=now.getTime()-7*24*60*60*1000;
+  return recentSets.some(row=>{const time=new Date(row.created_at).getTime();return time>=cutoff&&time<=now.getTime()})?"RITMO ATIVO":"PRONTO PARA INICIAR";
+}
 
 export default function ReferenceHome({db,start,onRecoveryCheckin}){
   const p=db.program||{};
@@ -42,12 +49,15 @@ export default function ReferenceHome({db,start,onRecoveryCheckin}){
   const trained=new Set((db.recent_sets||[]).map(row=>{const d=new Date(row.created_at);return Number.isNaN(d.getTime())?"":new Intl.DateTimeFormat("sv-SE").format(d)}));
   return <AstraPage screen={0} testId="reference-home-v3">
     <AstraIntro eyebrow={dateLabel} title={`Olá, ${displayName}.`} subtitle="Seu próximo passo está aqui."/>
-    <div className="a6-hero" data-testid="home-top-hero"><img src={heroArt} alt="Homem e mulher atletas em ambiente de treino FORGE" loading="eager" fetchPriority="high"/><span style={{position:"absolute",width:1,height:1,padding:0,margin:-1,overflow:"hidden",clip:"rect(0, 0, 0, 0)",whiteSpace:"nowrap",border:0}}>DISCIPLINA HOJE. RESULTADOS SEMPRE.</span></div>
-    <section className="a6-panel a6-workout-card" data-testid="daily-briefing">
-      <div className="a6-split"><div className="a6-eyebrow">SEU TREINO DE HOJE</div><span className="a6-pill">{String(active.label||p.session||"Sessão atual").split(/[—–]/)[0].trim()}</span></div>
-      <h2>{sessionName}</h2><p>{focus.length?focus.join(" · "):"Treino completo"}</p>
+    <section className="a6-signature" aria-labelledby="home-session-title">
+    <div className="a6-hero" data-testid="home-top-hero"><img src={heroArt} alt="Homem e mulher atletas em ambiente de treino FORGE" loading="eager" fetchPriority="high" width="640" height="276"/><span className="a6-signature-motto">DISCIPLINA HOJE.<br/>RESULTADOS SEMPRE.</span></div>
+    <div className="a6-panel a6-workout-card" data-testid="daily-briefing">
+      <div className="a6-eyebrow">SEU TREINO DE HOJE</div>
+      <h2 id="home-session-title">{sessionName}</h2><p>{focus.length?focus.join(" · "):"Treino completo"}</p>
       <AstraMeta duration={duration} sets={plannedSets}/>
-      <AstraAction testId="start-workout-button" onClick={openPlan}>Começar treino</AstraAction>
+      <div className="a6-signature-status" role="status"><span aria-hidden="true"/>{sessionStatus(checkin,db.recent_sets,now)}</div>
+      <AstraAction testId="start-workout-button" onClick={openPlan}>Iniciar sessão</AstraAction>
+    </div>
     </section>
     <section data-testid="home-training-week">
       <div className="a6-section-title"><h2>Seu ritmo</h2><small>{p.week||"Ciclo atual"}</small></div>
