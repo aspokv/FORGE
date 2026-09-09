@@ -1,0 +1,16 @@
+.exercise-media-trigger{position:absolute;inset:0;width:100%;height:100%;padding:0;border:0;background:transparent;color:#fff;cursor:pointer;overflow:hidden}
+.exercise-media-trigger>img{display:block;width:100%;height:100%;object-fit:contain}
+.exercise-media-trigger-label{position:absolute;left:4px;right:4px;bottom:15px;padding:3px 2px;border-radius:4px;background:rgba(0,0,0,.78);font-size:9px;font-weight:800;line-height:1;text-transform:uppercase;letter-spacing:.04em}
+.exercise-media-attribution{position:absolute;left:0;right:0;bottom:0;padding:2px;background:rgba(0,0,0,.88);font-size:7px;line-height:1.2;color:#fff}
+.exercise-media-modal{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:20px;background:rgba(0,0,0,.78);backdrop-filter:blur(5px)}
+.exercise-media-dialog{width:min(360px,100%);padding:18px;border:1px solid rgba(244,151,83,.45);border-radius:18px;background:#111212;color:#f7f2ed;box-shadow:0 22px 60px rgba(0,0,0,.6)}
+.exercise-media-dialog header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px}
+.exercise-media-dialog header div{display:grid;gap:4px;min-width:0}
+.exercise-media-dialog header span{color:#ef985b;font-size:11px;font-weight:900;letter-spacing:.16em}
+.exercise-media-dialog header strong{overflow-wrap:anywhere;font-size:18px}
+.exercise-media-dialog header button{display:grid;place-items:center;width:44px;height:44px;flex:0 0 44px;border:1px solid rgba(255,255,255,.18);border-radius:50%;background:#191a1a;color:#fff;cursor:pointer}
+.exercise-media-animation{display:grid;place-items:center;width:180px;height:180px;max-width:100%;margin:0 auto 10px;border-radius:12px;overflow:hidden;background:#080909;color:#ef985b}
+.exercise-media-animation img{display:block;width:180px;height:180px;max-width:100%;object-fit:contain}
+.exercise-media-dialog>a{display:block;margin:8px auto 14px;color:#c9c3bd;font-size:11px;text-align:center}
+.exercise-media-close{display:block;min-width:120px;min-height:44px;margin:0 auto;padding:10px 20px;border:1px solid #ef985b;border-radius:12px;background:#ef985b;color:#111;font-weight:800;cursor:pointer}
+@media(max-width:390px){.exercise-media-modal{padding:12px}.exercise-media-dialog{padding:14px}}
