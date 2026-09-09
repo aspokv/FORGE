@@ -10,6 +10,8 @@ on:
       - 'backend/cardio_routes.py'
       - 'backend/test_cardio_unit.py'
       - 'backend/workout_templates.py'
+      - 'backend/training_programs.py'
+      - 'backend/custom_training_programs.py'
       - 'backend/engine.py'
       - 'backend/training_engine_v4.py'
       - 'backend/training_engine_v5.py'
@@ -17,6 +19,7 @@ on:
       - 'backend/exercises.json'
       - 'backend/tests/test_training_engine_v5.py'
       - 'backend/tests/test_training_personalization.py'
+      - 'backend/tests/test_custom_training_programs.py'
       - 'frontend/src/App.js'
       - 'frontend/src/index.js'
       - 'frontend/src/index.css'
@@ -54,6 +57,8 @@ on:
       - 'backend/cardio_routes.py'
       - 'backend/test_cardio_unit.py'
       - 'backend/workout_templates.py'
+      - 'backend/training_programs.py'
+      - 'backend/custom_training_programs.py'
       - 'backend/engine.py'
       - 'backend/training_engine_v4.py'
       - 'backend/training_engine_v5.py'
@@ -61,6 +66,7 @@ on:
       - 'backend/exercises.json'
       - 'backend/tests/test_training_engine_v5.py'
       - 'backend/tests/test_training_personalization.py'
+      - 'backend/tests/test_custom_training_programs.py'
       - 'frontend/src/App.js'
       - 'frontend/src/index.js'
       - 'frontend/src/index.css'
@@ -108,8 +114,8 @@ jobs:
           cache-dependency-path: backend/requirements.txt
       - name: Install dependencies
         run: pip install -r requirements.txt
-      - name: Compile training engine and cardio module
-        run: python -m py_compile engine.py training_engine_v4.py training_engine_v5.py muscles.py cardio.py cardio_routes.py runtime_server.py
+      - name: Compile training engine, cardio, and custom library modules
+        run: python -m py_compile engine.py training_engine_v4.py training_engine_v5.py muscles.py cardio.py cardio_routes.py training_programs.py custom_training_programs.py runtime_server.py
       - name: Run V5 training regression suite
         run: >-
           pytest -q --noconftest
@@ -118,6 +124,7 @@ jobs:
           tests/test_engine_v2.py
           tests/test_engine_v3.py
           tests/test_exercise_photo_coverage.py
+          tests/test_custom_training_programs.py
           test_cardio_unit.py
 
   workout-library-ui:
