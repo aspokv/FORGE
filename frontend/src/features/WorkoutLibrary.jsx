@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { BookOpen, Check, ChevronRight, Dumbbell, Layers3, Plus, ShieldAlert, Timer, X } from "lucide-react";
 import "./workout-library.css";
+import "./workout-library-program-mobile.css";
 import ExercisePhoto from "./ExercisePhoto";
 
 export const templateToSession = (template, day) => ({
@@ -136,6 +137,14 @@ export default function WorkoutLibrary({ API, exercises = [], onBuild, onTemplat
     setActiveProgram(item);
     setActivePhaseId(item.phases?.[0]?.id || "");
     setExpertAccepted(false);
+  };
+  const openProgram = item => {
+    chooseProgram(item);
+    if (typeof document !== "undefined") {
+      requestAnimationFrame(() => {
+        document.querySelector('[data-testid="program-preview"]')?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+      });
+    }
   };
   const toggleTemplate = template => {
     setSelected(list => list.some(item => item.id === template.id)
@@ -285,7 +294,7 @@ export default function WorkoutLibrary({ API, exercises = [], onBuild, onTemplat
               <div className="program-metrics"><span><strong>{item.days_per_week}</strong> sessões</span><span>{item.duration_weeks?<><strong>{item.duration_weeks}</strong> semanas</>:"Duração a definir"}</span><span><strong>{item.phase_count}</strong> {item.phase_count === 1 ? "fase" : "fases"}</span></div>
               <div className="program-reference">Base técnica · {item.reference}</div>
               {item.safety !== "standard" && <div className="program-risk"><ShieldAlert size={14}/> {item.safety === "expert" ? "Recuperação excepcional" : "Volume avançado"}</div>}
-              <button className="library-add">Ver programa <ChevronRight size={15}/></button>
+              <button type="button" className="library-add" onClick={event => { event.stopPropagation(); openProgram(item); }}>Ver programa <ChevronRight size={15}/></button>
             </article>)}
             {!visiblePrograms.length && <div className="library-empty">Nenhum programa desta classificação foi importado ainda.</div>}
           </div>
