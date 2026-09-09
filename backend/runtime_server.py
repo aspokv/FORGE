@@ -10,3 +10,6 @@ install_v4(engine)
 install_v5(engine)
 
 from server import app  # noqa: E402,F401
+from cardio_routes import router as cardio_router  # noqa: E402
+
+app.include_router(cardio_router)

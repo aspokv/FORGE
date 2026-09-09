@@ -7,6 +7,7 @@ import "@/forge-tokens.css";
 import "@/forge-primitivos.css";
 import "@/index.css";
 import App from "@/App";
+import { installCardioFinisher } from "@/features/CardioFinisher";
 import "@/typography-premium.css";
 import "@/reference-home.css";
 import "@/reference-platform.css";
@@ -53,6 +54,10 @@ root.render(
     </QueryClientProvider>
   </React.StrictMode>,
 );
+
+// O cardio e uma finalizacao opcional do treino em execucao. O instalador isola a
+// feature da logica de musculacao e desmonta o bloco assim que a sessao deixa a tela.
+installCardioFinisher();
 
 // No mobile, o card seleciona o programa no React e a ficha completa fica logo abaixo da grade.
 // O CTA "Ver programa" agora leva o atleta diretamente para essa ficha, sem alterar filtros,
