@@ -47,7 +47,7 @@ function persistConfirmedCompletion(data, fallbackDay, now) {
   const userId = currentUserIdFromToken();
   if (!userId) return;
   try {
-    const completedAt = new Date(now()).toISOString();
+    const completedAt = data?.completed_at || new Date(now()).toISOString();
     const record = {
       completed_at: completedAt,
       day: data?.completed_day ?? data?.completed_session?.day ?? fallbackDay ?? null,
