@@ -37,10 +37,10 @@ class Profiles:
 
 def test_latest_completion_is_scoped_to_authenticated_owner():
     ns = endpoints()
-    find = AsyncMock(return_value={"day": 1})
+    find = AsyncMock(return_value=None)
     ns.update(db=SimpleNamespace(workout_completions=SimpleNamespace(find_one=find)),
               owned_profile_id=lambda user, requested: user["id"])
-    assert asyncio.run(ns["latest_workout_completion"]({"id":"athlete"}, "someone-else")) == {"completion":{"day":1}}
+    assert asyncio.run(ns["latest_workout_completion"]({"id":"athlete"}, "someone-else")) == {"completion":None}
     assert find.call_args.args[0] == {"profile_id":"athlete"}
 
 def test_retry_does_not_duplicate_even_when_program_has_one_session():
@@ -81,3 +81,31 @@ def test_different_operations_on_the_same_day_do_not_advance_twice():
         assert third["already_completed"] is False
         assert insert.await_count == 2
     asyncio.run(run())
+
+def test_next_session_uses_server_pointer_without_second_rotation():
+    ns=endpoints()
+    sessions=[{"day":1,"label":"Push 1"},{"day":2,"label":"Pull 1"},{"day":3,"label":"Legs"}]
+    ns.update(db=SimpleNamespace(workout_completions=SimpleNamespace(find_one=AsyncMock(return_value={"day":1,"label":"Push 1"}))),
+      owned_profile_id=lambda user, requested:user["id"],load_profile=AsyncMock(return_value={}),
+      build_program=AsyncMock(return_value={"active_day":2,"sessions":sessions}))
+    result=asyncio.run(ns["latest_workout_completion"]({"id":"athlete"}))["completion"]
+    assert result["next_session"] == sessions[1]
+    assert result["next_session_status"] == "confirmed"
+
+def test_old_push_label_with_reused_day_does_not_preview_another_push():
+    ns=endpoints()
+    ns.update(db=SimpleNamespace(workout_completions=SimpleNamespace(find_one=AsyncMock(return_value={"day":3,"label":"Push Ombros"}))),
+      owned_profile_id=lambda user, requested:user["id"],load_profile=AsyncMock(return_value={}),
+      build_program=AsyncMock(return_value={"active_day":1,"sessions":[{"day":1,"label":"Push 1"},{"day":2,"label":"Pull 1"},{"day":3,"label":"Legs"}]}))
+    result=asyncio.run(ns["latest_workout_completion"]({"id":"athlete"}))["completion"]
+    assert result["next_session"] is None
+    assert result["next_session_status"] == "program_changed"
+
+def test_sequence_snapshot_detects_reordering_even_if_completed_label_matches():
+    ns=endpoints()
+    old=[{"day":1,"label":"Push"},{"day":2,"label":"Pull"},{"day":3,"label":"Legs"}]
+    ns.update(db=SimpleNamespace(workout_completions=SimpleNamespace(find_one=AsyncMock(return_value={"day":1,"label":"Push","session_sequence":old}))),
+      owned_profile_id=lambda user, requested:user["id"],load_profile=AsyncMock(return_value={}),
+      build_program=AsyncMock(return_value={"active_day":2,"sessions":[old[0],{"day":2,"label":"Legs"},{"day":3,"label":"Pull"}]}))
+    result=asyncio.run(ns["latest_workout_completion"]({"id":"athlete"}))["completion"]
+    assert result["next_session"] is None

@@ -981,6 +981,22 @@ async def latest_workout_completion(user=Depends(get_current_user), profile_id: 
     target = owned_profile_id(user, profile_id)
     record = await db.workout_completions.find_one(
         {"profile_id": target}, {"_id": 0}, sort=[("completed_at", -1)])
+    if record:
+        profile = await load_profile(target)
+        program = await build_program(profile)
+        sessions = program.get("sessions") or []
+        matched = next((s for s in sessions if s.get("day") == record.get("day")
+                        and str(s.get("label") or "").strip().casefold() ==
+                        str(record.get("label") or "").strip().casefold()), None)
+        active = next((s for s in sessions if s.get("day") == program.get("active_day")), None)
+        # Old day numbers are not identities after a program edit. Never rotate them again.
+        saved_sequence = record.get("session_sequence")
+        current_sequence = [{"day": s.get("day"), "label": s.get("label")} for s in sessions]
+        compatible = bool(matched) and (saved_sequence is None or saved_sequence == current_sequence)
+        record = {**record,
+                  "completed_session": record.get("completed_session") or matched,
+                  "next_session": active if compatible else None,
+                  "next_session_status": "confirmed" if compatible and active else "program_changed"}
     return {"completion": record}
 
 
@@ -1075,6 +1091,8 @@ async def complete_workout(payload: WorkoutCompleteIn, user=Depends(get_current_
         "id": str(uuid.uuid4()), "profile_id": target, "day": completed_day,
         "label": completed_session.get("label"), "completed_at": now,
         "started_at": payload.started_at, "summary": summary,
+        "completed_session": completed_session,
+        "session_sequence": [{"day": s.get("day"), "label": s.get("label")} for s in sessions],
     })
 
     profile = await load_profile(target)
