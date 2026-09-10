@@ -20,7 +20,7 @@ test.each([
   ["Legs Completo","legs-quads"],["Legs Quadríceps","legs-quads"],["Legs Posterior","legs-posterior"],
   ["Upper A","upper"],["Upper B","upper"],["Full Body A","fullbody"],["Full Body B","fullbody"],
   ["Peito","chest"],["Costas","back"],["Ombros","shoulders"],["Braços","arms"],
-  ["Peito e tríceps","push"],["Costas e bíceps","pull"],["Custom híbrido","default"],
+  ["Peito e ombros","push"],["Peito e tríceps","push"],["Costas e bíceps","pull"],["Custom híbrido","default"],
   ["Upper + Full Body","fullbody"],["OMBROS POSTERIORES","shoulders"],
   ["Legs Posterior e Quadríceps","legs-posterior"],["Legs Quadríceps e Posterior","legs-quads"],
   ["FULL_BODY-B","fullbody"],["Dia 2 — Pull Costas","pull"]

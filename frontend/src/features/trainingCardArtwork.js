@@ -46,7 +46,7 @@ function classify(value) {
   if (push) return "push";
   if (pull) return "pull";
   // Posterior deltoid is an upper-body session, not a leg session.
-  if (shoulders && !lower && !quads && !/\bglute\w*|\bhamstrings?\b/.test(key)) return "shoulders";
+  if (shoulders && !chest && !back && !lower && !quads && !/\bglute\w*|\bhamstrings?\b/.test(key)) return "shoulders";
   if (lower || quads || posterior) {
     if (posterior && quads) {
       return key.search(/\bposterior|\bhamstring|\bglute|\bhinge/) < key.search(/\bquad|\banterior/) ? "legs-posterior" : "legs-quads";
