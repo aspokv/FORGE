@@ -8,14 +8,15 @@ const casa=(extra={})=>{
   return new DOMParser().parseFromString(html,"text/html").querySelector('[data-testid="reference-home-v3"]');
 };
 
-test("a abertura segue a referencia Astra: saudacao, foto e treino em sequencia",()=>{
+test("a abertura preserva saudacao e reúne foto, texto e ação no card",()=>{
   const home=casa();
   expect(home.querySelector("h1").textContent).toContain("Nicolas");
   const hero=home.querySelector('[data-testid="home-top-hero"]');
   expect(hero).not.toBeNull();
   expect(hero.querySelector("img").getAttribute("src")).toBeTruthy();
   expect(hero.querySelector("img").getAttribute("alt")).toBeTruthy();
-  expect(hero.textContent).toContain("DISCIPLINA HOJE");
+  expect(hero.closest(".a6-signature")).not.toBeNull();
+  expect(home.querySelector(".a6-signature-footer [data-testid=\"start-workout-button\"]")).not.toBeNull();
   expect(home.querySelector('[data-testid="daily-briefing"]')).not.toBeNull();
 });
 

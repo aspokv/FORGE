@@ -95,11 +95,13 @@ export default function ReferenceHome({db,start,onRecoveryCheckin}){
   return <AstraPage screen={0} testId="reference-home-v3">
     <AstraIntro eyebrow={dateLabel} title={`Olá, ${displayName}.`} subtitle={todayCompletion?"Sessão concluída. Recuperação também faz parte do progresso.":"Seu próximo passo está aqui."}/>
     <section className={`a6-signature${todayCompletion?" a6-signature-completed":""}`} aria-labelledby="home-session-title">
-    <div className="a6-hero" data-testid="home-top-hero"><TrainingCardImage session={{...shown,label:raw}} program={p} profile={db.profile} focus={focus} loading="eager" fetchPriority="high" width="640" height="276"/><span className="a6-signature-motto">DISCIPLINA HOJE.<br/>RESULTADOS SEMPRE.</span></div>
+    <div className="a6-hero" data-testid="home-top-hero"><TrainingCardImage session={{...shown,label:raw}} program={p} profile={db.profile} focus={focus} loading="eager" fetchPriority="high" width="640" height="276"/></div>
     <div className="a6-panel a6-workout-card" data-testid="daily-briefing">
       <div className="a6-eyebrow">{todayCompletion?"SEU TREINO DE HOJE · CONCLUÍDO":"SEU TREINO DE HOJE"}</div>
       <h2 id="home-session-title">{sessionName}</h2><p>{focus.length?focus.join(" · "):"Treino completo"}</p>
       <AstraMeta duration={duration} sets={plannedSets}/>
+    </div>
+    <div className="a6-signature-footer">
       <div className={`a6-signature-status${todayCompletion?" a6-completed":""}`} role="status"><span aria-hidden="true"/>{sessionStatus(checkin,db.recent_sets,now,todayCompletion)}</div>
       {todayCompletion&&<div className="a6-completed-meta" data-testid="home-completed-at">{completedTime?`Concluído hoje às ${completedTime}`:"Concluído hoje"}</div>}
       <AstraAction testId="start-workout-button" disabled={Boolean(todayCompletion)} onClick={openPlan}>{todayCompletion?"Sessão concluída":"Iniciar sessão"}</AstraAction>
