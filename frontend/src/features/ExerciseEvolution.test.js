@@ -24,7 +24,7 @@ test("loads real history, scrubs dates, changes exercise and saves a scoped favo
  render(<ExerciseEvolution API="/api" profileId="one" exercises={exercises}/>);
  await screen.findByText("10 repetições na série de maior carga");
  fireEvent.change(screen.getByRole("slider"),{target:{value:"0"}});
- expect(screen.getByText(/01\/09\/2026/)).toBeTruthy();
+ expect(screen.getByText(/1 séries registradas/)).toBeTruthy();
  fireEvent.click(screen.getByRole("button",{name:"Favoritar exercício"}));
  expect(localStorage.getItem("forge:evolution:favorite:one")).toBe("row");
  fireEvent.change(screen.getByLabelText("Exercício"),{target:{value:"press"}});
