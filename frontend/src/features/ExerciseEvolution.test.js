@@ -1,5 +1,5 @@
-import React from "react";
-import {render,screen,fireEvent,waitFor} from "@testing-library/react";
+import React,{act} from "react";
+import {createRoot} from "react-dom/client";
 import axios from "axios";
 import ExerciseEvolution,{evolutionPoints} from "./ExerciseEvolution";
 import AstraProgress from "./AstraProgress";
@@ -12,46 +12,60 @@ const rows=[
  {created_at:"2026-09-09T10:02:00Z",weight:40,reps:10,session_id:"b"}
 ];
 const exercises=[{id:"row",name:"Remada"},{id:"press",name:"Supino"}];
-beforeEach(()=>{jest.spyOn(Date,"now").mockReturnValue(now);localStorage.clear();axios.get.mockReset();});
-afterEach(()=>jest.restoreAllMocks());
-test("groups sessions chronologically and keeps reps attached to the selected load",()=>{
+let host,root;
+beforeEach(()=>{global.IS_REACT_ACT_ENVIRONMENT=true;jest.spyOn(Date,"now").mockReturnValue(now);localStorage.clear();axios.get.mockReset();host=document.createElement("div");document.body.appendChild(host);root=createRoot(host);});
+afterEach(()=>{act(()=>root.unmount());host.remove();jest.restoreAllMocks();});
+const render=async element=>{await act(async()=>{root.render(element);});};
+const click=async element=>{await act(async()=>{element.click();});};
+const change=async(element,value)=>{await act(async()=>{const proto=element.tagName==="SELECT"?HTMLSelectElement.prototype:HTMLInputElement.prototype;Object.getOwnPropertyDescriptor(proto,"value").set.call(element,value);element.dispatchEvent(new Event(element.tagName==="SELECT"?"change":"input",{bubbles:true}));});};
+const button=text=>[...host.querySelectorAll("button")].find(b=>b.textContent===text);
+test("groups sessions chronologically, filters dates and retains associated reps",()=>{
  expect(evolutionPoints(rows,28,now).map(p=>[p.weight,p.reps,p.sets])).toEqual([[30,10,1],[40,10,2]]);
  expect(evolutionPoints([{created_at:"invalid",weight:40,reps:8},{created_at:"2026-01-01",weight:20,reps:8}],28,now)).toEqual([]);
  expect(evolutionPoints([{created_at:"2026-01-01",weight:0,reps:8}],0,now)).toHaveLength(1);
 });
-test("loads real history, scrubs dates, changes exercise and saves a scoped favorite",async()=>{
+test("loads history, scrubs sessions, changes exercise and saves a scoped favorite",async()=>{
  axios.get.mockResolvedValue({data:{history:rows}});
- render(<ExerciseEvolution API="/api" profileId="one" exercises={exercises}/>);
- await screen.findByText("10 repetições na série de maior carga");
- fireEvent.change(screen.getByRole("slider"),{target:{value:"0"}});
- expect(screen.getByText(/1 séries registradas/)).toBeTruthy();
- fireEvent.click(screen.getByRole("button",{name:"Favoritar exercício"}));
+ await render(<ExerciseEvolution API="/api" profileId="one" exercises={exercises}/>);
+ expect(host.querySelector(".evolution-reading").textContent).toContain("40 kg");
+ await change(host.querySelector('input[type="range"]'),"0");
+ expect(host.querySelector(".evolution-reading").textContent).toContain("30 kg");
+ expect(host.querySelector(".evolution-reading").textContent).toContain("01/09/2026");
+ await click(host.querySelector('[aria-label="Favoritar exercício"]'));
  expect(localStorage.getItem("forge:evolution:favorite:one")).toBe("row");
- fireEvent.change(screen.getByLabelText("Exercício"),{target:{value:"press"}});
- await waitFor(()=>expect(axios.get).toHaveBeenLastCalledWith("/api/exercise-history/press"));
+ await change(host.querySelector("select"),"press");
+ expect(axios.get).toHaveBeenLastCalledWith("/api/exercise-history/press");
 });
-test("displays errors with retry and does not fabricate empty data",async()=>{
+test("retries failed requests and renders empty state without fabricated points",async()=>{
  axios.get.mockRejectedValueOnce(new Error("offline")).mockResolvedValueOnce({data:{history:[]}});
- render(<ExerciseEvolution API="/api" profileId="one" exercises={exercises}/>);
- fireEvent.click(await screen.findByText("Tentar novamente"));
- await screen.findByText(/Sem séries registradas/);
- expect(screen.queryByRole("slider")).toBeNull();
+ await render(<ExerciseEvolution API="/api" profileId="one" exercises={exercises}/>);
+ expect(host.querySelector('[role="alert"]')).not.toBeNull();
+ await click(button("Tentar novamente"));
+ expect(host.textContent).toContain("Sem séries registradas");
+ expect(host.querySelector('input[type="range"]')).toBeNull();
 });
-test("ignores a late response after exercise selection changes",async()=>{
+test("ignores late responses for previously selected exercises",async()=>{
  let resolveFirst;
  axios.get.mockImplementationOnce(()=>new Promise(resolve=>{resolveFirst=resolve;})).mockResolvedValueOnce({data:{history:[]}});
- render(<ExerciseEvolution API="/api" profileId="one" exercises={exercises}/>);
- fireEvent.change(screen.getByLabelText("Exercício"),{target:{value:"press"}});
- await screen.findByText(/Sem séries registradas/);
- resolveFirst({data:{history:rows}});
- await waitFor(()=>expect(screen.queryByRole("slider")).toBeNull());
+ await render(<ExerciseEvolution API="/api" profileId="one" exercises={exercises}/>);
+ await change(host.querySelector("select"),"press");
+ await act(async()=>{resolveFirst({data:{history:rows}});});
+ expect(host.textContent).toContain("Sem séries registradas");
+ expect(host.querySelector(".evolution-reading")).toBeNull();
 });
-test("renames the visible page and navigation while keeping weight, photos and consistency",()=>{
- const change=jest.fn();
- render(<><AstraBottomNav tab="Progresso" onChange={change}/><AstraProgress analytics={{prs:[],adherence_calendar:[]}} exercises={[]} weightPanel={<p>Registro de peso</p>} photosPanel={<p>Fotos pessoais</p>}/></>);
- expect(screen.getByRole("heading",{name:"Evolução."})).toBeTruthy();
- fireEvent.click(screen.getByRole("button",{name:"Evolução"}));expect(change).toHaveBeenCalledWith("Progresso");
- expect(screen.getByText("Consistência")).toBeTruthy();
- fireEvent.click(screen.getByRole("button",{name:"Peso"}));expect(screen.getByText("Registro de peso")).toBeTruthy();
- fireEvent.click(screen.getByRole("button",{name:"Fotos"}));expect(screen.getByText("Fotos pessoais")).toBeTruthy();
+test("period filters include older available records only when selected",async()=>{
+ axios.get.mockResolvedValue({data:{history:[...rows,{created_at:"2026-06-01T10:00:00Z",weight:20,reps:8}]}});
+ await render(<ExerciseEvolution API="/api" profileId="one" exercises={exercises}/>);
+ expect(host.querySelector('input[type="range"]').max).toBe("1");
+ await click(button("Disponível"));
+ expect(host.querySelector('input[type="range"]').max).toBe("2");
+});
+test("renames visible page and navigation and retains weight, photos and consistency",async()=>{
+ const onChange=jest.fn();
+ await render(<><AstraBottomNav tab="Progresso" onChange={onChange}/><AstraProgress analytics={{prs:[],adherence_calendar:[]}} exercises={[]} weightPanel={<p>Registro de peso</p>} photosPanel={<p>Fotos pessoais</p>}/></>);
+ expect(host.querySelector("h1").textContent).toBe("Evolução.");
+ await click(button("Evolução"));expect(onChange).toHaveBeenCalledWith("Progresso");
+ expect(host.textContent).toContain("Consistência");
+ await click(button("Peso"));expect(host.textContent).toContain("Registro de peso");
+ await click(button("Fotos"));expect(host.textContent).toContain("Fotos pessoais");
 });
