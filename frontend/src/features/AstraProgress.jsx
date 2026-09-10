@@ -1,4 +1,5 @@
 import {useId,useState} from "react";
+import ExerciseEvolution from "./ExerciseEvolution";
 import {AstraPage,AstraIntro,numberBR} from "./AstraUI";
 
 export function AstraChart({points,unit="kg"}) {
@@ -15,17 +16,15 @@ export function AstraChart({points,unit="kg"}) {
     {points.map((p,i)=><g key={`${p.label}-${i}`}><circle cx={x(i)} cy={y(p.value)} r="3.8" fill="#FFD6AE"/><text x={x(i)} y={y(p.value)-11} textAnchor="middle" style={{fill:"#f7ddc5",fontSize:10}}>{numberBR(p.value)}</text><text x={x(i)} y="157" textAnchor="middle">{p.label}</text></g>)}
   </svg>;
 }
-export default function AstraProgress({analytics,weightPanel,photosPanel,details}) {
+export default function AstraProgress({analytics,weightPanel,photosPanel,details,API,profileId,exercises}) {
   const [tab,setTab]=useState("load");
-  const points=(analytics?.trend||[]).filter(x=>Number(x.load)>0).map(x=>({label:x.week,value:Number(x.load)}));
-  const delta=points.length>1?(points.at(-1).value-points[0].value)/points[0].value*100:null;
   const records=(analytics?.prs||[]).filter(x=>Number(x.weight)>0);
   const calendar=analytics?.adherence_calendar||[],trained=calendar.filter(x=>x.trained).length;
   return <AstraPage screen={3} testId="astra-progress">
-    <AstraIntro eyebrow="CADA SESSÃO CONTA" title="Progresso." subtitle="Sua evolução nas últimas 4 semanas."/>
-    <div className="a6-tabs" role="group" aria-label="Métrica de progresso">{[["load","Carga média"],["weight","Peso"],["photos","Fotos"]].map(([key,label])=><button type="button" key={key} aria-pressed={key===tab} className={key===tab?"a6-selected":""} onClick={()=>setTab(key)}>{label}</button>)}</div>
+    <AstraIntro eyebrow="CADA SESSÃO CONTA" title="Evolução." subtitle="Seu histórico, sessão por sessão."/>
+    <div className="a6-tabs" role="group" aria-label="Métrica de evolução">{[["load","Desempenho"],["weight","Peso"],["photos","Fotos"]].map(([key,label])=><button type="button" key={key} aria-pressed={key===tab} className={key===tab?"a6-selected":""} onClick={()=>setTab(key)}>{label}</button>)}</div>
     {!analytics?<p role="status">Carregando analytics…</p>:tab==="load"?<>
-      <section className="a6-panel a6-chart-panel" data-testid="progress-hero"><div className="a6-split"><div className="a6-big-number">{delta==null?"—":`${delta>=0?"+":""}${numberBR(delta)}`}<small>{delta==null?"":"%"}</small></div><span className="a6-period">4 semanas</span></div><p>{points.length>1?`De ${numberBR(points[0].value)} kg para ${numberBR(points.at(-1).value)} kg no período.`:"Ainda não há semanas comparáveis com carga registrada."}</p><AstraChart points={points}/></section>
+      <ExerciseEvolution key={profileId} API={API} profileId={profileId} exercises={exercises} records={records}/>
       <div className="a6-section-title"><h2>Suas melhores marcas</h2></div>
       <div className="a6-pr-grid">{records.slice(0,2).map(p=><div className="a6-panel a6-pr" key={p.exercise}><p>{p.exercise}</p><strong>{numberBR(p.weight)} <small>kg</small></strong><div className="a6-delta">{p.delta_weight>0?`+${numberBR(p.delta_weight)} kg desde o início`:"Melhor série registrada"}</div></div>)}</div>
       {!records.length&&<p data-testid="prs-empty-state">Complete séries com carga para ver suas marcas.</p>}

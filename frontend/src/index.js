@@ -34,6 +34,7 @@ import "@/astra6-exact.css";
 // Two surgical home refinements requested after Astra approval: transparent-looking
 // wordmark treatment and the inclusive woman + man hero artwork.
 import "@/home-brand-refine.css";
+import "@/compact-evolution.css";
 
 const queryClient = new QueryClient({
   defaultOptions: {

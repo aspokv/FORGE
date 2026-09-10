@@ -1,0 +1,58 @@
+/* Compact authenticated app; preserve readable type and 44px touch controls. */
+.forge-shell .a6 .a6-app-header{height:52px;flex-basis:52px;padding:4px 16px}
+.forge-shell .a6 .a6-scroll{padding:4px 16px 20px}
+.forge-shell .a6 .a6-intro{margin-bottom:10px}
+.forge-shell .a6 h1{font-size:25px}
+.forge-shell .a6 .a6-section-title{margin:12px 0 8px;flex-wrap:wrap}
+.forge-shell .a6 .a6-tabs{margin:10px 0}
+.forge-shell .a6 .a6-panel{border-radius:13px}
+.forge-shell .a6 .a6-hero{height:140px}
+.forge-shell .a6 .a6-workout-card{padding:12px}
+.forge-shell .a6 .a6-meta{margin:9px 0;gap:10px;flex-wrap:wrap}
+.forge-shell .a6 .a6-mini-grid{margin-top:10px;gap:8px}
+.forge-shell .a6 .a6-mini{padding:9px}
+.forge-shell .a6 .a6-training-summary{min-height:132px;padding:12px}
+.forge-shell .a6 .a6-training-summary h2{font-size:22px}
+.forge-shell .a6 .a6-anatomy{height:110px;width:80px;top:10px}
+.forge-shell .a6 .a6-exercise{min-height:58px;gap:10px}
+.forge-shell .a6 .a6-warmup{min-height:54px;margin-top:4px}
+.forge-shell .a6 .a6-profile-head{padding-bottom:10px}
+.forge-shell .a6 .a6-avatar{width:58px;height:58px;margin-bottom:10px;font-size:21px}
+.forge-shell .a6 .a6-stats{padding:11px 4px;margin-bottom:12px}
+.forge-shell .a6 .a6-profile-row{min-height:58px}
+.forge-shell .a6 .a6-group-label{margin-top:14px}
+.forge-shell .a6 .a6-editor{padding:12px;margin-top:8px}
+.forge-shell .a6 .a6-pr{padding:10px}
+.forge-shell .a6 .a6-pr strong{font-size:24px}
+.forge-shell .a6 .a6-tick{height:24px}
+.forge-shell .a6 .a6-meal{padding:8px;margin-bottom:8px}
+.forge-shell .a6 .a6-meal.a6-next{min-height:82px}
+.forge-shell .a6 .a6-meal.a6-next img{width:62px;height:62px}
+.forge-shell .a6 .a6-gauge-panel{padding:8px 12px 12px}
+.forge-shell .a6 .evolution-card{padding:12px;border-color:#806044;background:radial-gradient(ellipse at top right,#75503124,transparent 70%),#141616}
+.evolution-heading{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.evolution-card button{min-height:44px;min-width:44px;border:1px solid #ffffff20;border-radius:8px;background:#1c1f1e;color:#d1c6b9;cursor:pointer}
+.evolution-heading button{border:0;font-size:24px;color:#ffd1ac;background:transparent}
+.evolution-select{display:grid;gap:4px;font-size:11px;color:#b9bdbe;min-width:0}
+.evolution-select select{width:100%;min-width:0;min-height:44px;padding:8px;font:16px Arial;color:#f7f3ec;background:#1d201f;border:1px solid #51483e;border-radius:8px}
+.evolution-periods{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;margin:8px 0}
+.evolution-periods button{font-size:11px;padding:4px}
+.evolution-periods button[aria-pressed=true]{color:#ffd1ac;border-color:#9a7551;background:#30271f}
+.evolution-reading{display:flex;align-items:center;gap:12px;flex-wrap:wrap;min-height:52px}
+.evolution-reading strong{font-size:32px;letter-spacing:-1px;color:#ffe2bc}
+.evolution-reading strong small{font-size:14px;font-weight:400}
+.evolution-reading span{font-size:11px;color:#b9bdbe;line-height:1.5}
+.evolution-chart{display:block;width:100%;height:145px;margin-top:8px}
+.evolution-chart text{fill:#b9bdbe;font:9px Arial}
+.evolution-chart circle{cursor:pointer}
+.evolution-scrubber{display:flex;align-items:center;gap:10px;font-size:11px;color:#b9bdbe}
+.evolution-scrubber input{min-width:0;flex:1;min-height:44px;accent-color:#ffb77d}
+.forge-shell .a6 .evolution-note{font-size:10px;margin-top:6px}
+.evolution-empty{padding:24px 0}
+.evolution-card :is(select,input,button):focus-visible{outline:2px solid #81cefa;outline-offset:2px}
+@media(max-width:800px){
+ .forge-shell .a6{height:calc(100dvh - 62px - env(safe-area-inset-bottom,0px))}
+ .forge-shell:has(.a6) .a6-bottom-nav{height:calc(62px + env(safe-area-inset-bottom,0px));padding:4px 6px calc(6px + env(safe-area-inset-bottom,0px))}
+ .forge-shell .a6-bottom-nav:after{display:none}
+}
+@media(min-width:801px){.forge-shell .a6 .a6-scroll{padding:8px 28px 28px}.forge-shell .a6 .a6-app-header{padding-left:28px;padding-right:28px}}
