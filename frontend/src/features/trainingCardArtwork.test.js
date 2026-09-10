@@ -1,3 +1,5 @@
+import fs from "fs";
+import path from "path";
 import React, {act} from "react";
 import {createRoot} from "react-dom/client";
 import {renderToStaticMarkup} from "react-dom/server";
@@ -49,6 +51,8 @@ test("fallback order is profile category, neutral category, neutral default", ()
   expect(resolveTrainingArtwork({...options,session:"???"},catalog).src).toBe("neutral-default");
 });
 
+const visualFrames=[];
+
 test.each([["male","Push 1","push"],["male","Pull Costas","pull"],["male","Legs Posterior","legs-posterior"],["female","Upper B","upper"],["neutral","Custom híbrido","default"]])("home and current workout agree for %s %s",(sex,label,category)=>{
   const session={day:1,label,focus:[],exercises:[]};
   const db={profile:{sex,name:"Atleta"},program:{active_day:1,sessions:[session]}};
@@ -59,6 +63,7 @@ test.each([["male","Push 1","push"],["male","Pull Costas","pull"],["male","Legs 
   expect(first.getAttribute("src")).toBe(second.getAttribute("src"));
   expect(first.dataset.trainingCategory).toBe(category);
   expect(first.dataset.trainingProfile).toBe(sex);
+  visualFrames.push({name:sex+"-"+category,home:home.body.innerHTML,preview:preview.body.innerHTML});
 });
 
 test("completed home artwork stays with the completed session instead of the next active day",()=>{
@@ -90,5 +95,24 @@ test("failed images progress through fallbacks, stop safely, and reset when the 
   } finally {
     act(()=>root.unmount());
     delete global.IS_REACT_ACT_ENVIRONMENT;
+  }
+});
+
+afterAll(()=>{
+  if (!process.env.FORGE_ARTWORK_VISUAL) return;
+  const root=path.join(__dirname,"..");
+  const entry=fs.readFileSync(path.join(root,"index.js"),"utf8");
+  const indexCss=Array.from(entry.matchAll(/import "@\/([^"]+\.css)";/g),match=>match[1]);
+  const cssFiles=["App.css","home-signature.css","features/training-card-artwork.css",...indexCss];
+  const css=cssFiles.filter(file=>fs.existsSync(path.join(root,file))).map(file=>fs.readFileSync(path.join(root,file),"utf8")).join("\n");
+  const output=path.join(root,"../training-card-visual");
+  fs.mkdirSync(output,{recursive:true});
+  for (const frame of visualFrames) {
+    for (const mode of ["home","preview"]) {
+      const markup=frame[mode].replace(/\/training-cards\/(male|female|neutral)\/([a-z-]+)\.webp/g,(_,profile,category)=>{
+        return "data:image/webp;base64,"+fs.readFileSync(path.join(root,"assets/training-cards",profile,category+".webp")).toString("base64");
+      }).replace(/src="test-file-stub"/g, 'src="data:image/png;base64,'+fs.readFileSync(path.join(root,"assets/logotipo_forge_em_metal_forjado.png")).toString("base64")+'"');
+      fs.writeFileSync(path.join(output,frame.name+"-"+mode+".html"),'<!doctype html><meta name="viewport" content="width=device-width, initial-scale=1"><style>body{margin:0}'+css+'</style><div class="forge-shell"><main class="main">'+markup+'</main></div>');
+    }
   }
 });

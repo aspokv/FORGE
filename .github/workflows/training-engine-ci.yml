@@ -150,8 +150,14 @@ jobs:
       - name: Install frontend dependencies
         run: yarn install --frozen-lockfile
       - name: Test mobile workout, home, progress, artwork, and cardio UI
-        run: CI=true yarn test --watchAll=false --runTestsByPath src/features/WorkoutLibrary.interaction.test.js src/features/ReferenceHome.artwork.test.js src/features/progressVisual.test.js src/features/exerciseArtworkLibrary.test.js src/features/CardioFinisher.test.js src/features/trainingCardArtwork.test.js src/features/trainingCardAssets.test.js src/features/ReferenceWorkoutPreview.content.test.js
+        run: FORGE_ARTWORK_VISUAL=1 CI=true yarn test --watchAll=false --runTestsByPath src/features/WorkoutLibrary.interaction.test.js src/features/ReferenceHome.artwork.test.js src/features/progressVisual.test.js src/features/exerciseArtworkLibrary.test.js src/features/CardioFinisher.test.js src/features/trainingCardArtwork.test.js src/features/trainingCardAssets.test.js src/features/ReferenceWorkoutPreview.content.test.js
       - name: Build frontend
         env:
           CI: 'false'
         run: yarn build
+      - name: Upload rendered training cards for visual review
+        uses: actions/upload-artifact@v4
+        with:
+          name: training-card-visual
+          path: frontend/training-card-visual
+          retention-days: 7
