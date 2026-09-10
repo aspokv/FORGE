@@ -25,6 +25,40 @@
 
 export const SEM_SERIES = "Complete pelo menos uma série para concluir.";
 export const FALHOU = "Não foi possível concluir o treino. Tente novamente.";
+export const WORKOUT_COMPLETION_STORAGE_PREFIX = "forge_workout_completion:";
+export const completionStorageKey = userId => `${WORKOUT_COMPLETION_STORAGE_PREFIX}${String(userId||"")}`;
+
+function currentUserIdFromToken() {
+  if (typeof window === "undefined") return "";
+  try {
+    const token = window.localStorage.getItem("forge_token") || "";
+    const payload = token.split(".")[1];
+    if (!payload) return "";
+    const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+    return String(JSON.parse(window.atob(padded))?.sub || "");
+  } catch {
+    return "";
+  }
+}
+
+function persistConfirmedCompletion(data, fallbackDay, now) {
+  if (typeof window === "undefined") return;
+  const userId = currentUserIdFromToken();
+  if (!userId) return;
+  try {
+    const completedAt = new Date(now()).toISOString();
+    const record = {
+      completed_at: completedAt,
+      day: data?.completed_day ?? data?.completed_session?.day ?? fallbackDay ?? null,
+      label: data?.completed_session?.label || null,
+      summary: data?.summary || null,
+    };
+    window.localStorage.setItem(completionStorageKey(userId), JSON.stringify(record));
+  } catch {
+    // Cache local e apenas um espelho de UX. A conclusao real ja foi confirmada no backend.
+  }
+}
 
 /**
  * @returns objeto de sucesso {completed,total,minutes}; {error:true,message} em falha;
@@ -49,6 +83,7 @@ export async function completeWorkout({
       partial_reason: partialReason,
       discomfort,
     });
+    persistConfirmedCompletion(r.data, day, now);
     if (onCompleted) onCompleted(r.data);
     if (typeof window !== "undefined") window.dispatchEvent(new Event("forge:workout-complete"));
     // Trava mantida de proposito no sucesso: o botao sai da tela enquanto ela atualiza,
