@@ -1,0 +1,56 @@
+import React,{act} from "react";
+import {createRoot} from "react-dom/client";
+import {renderToStaticMarkup} from "react-dom/server";
+import axios from "axios";
+import {completionForToday,nextSessionAfter,useWorkoutCompletion} from "./workoutCompletionState";
+import CompletedWorkout from "./CompletedWorkout";
+import {completionStorageKey} from "./completeWorkout";
+jest.mock("axios");
+const today=new Date(2026,8,10,12),completed={day:1,label:"Push 1",completed_at:today.toISOString(),summary:{completed_sets:12,total_sets:12,duration_seconds:1800}};
+const program={active_day:2,sessions:[{day:1,label:"Push 1",exercises:[{exercise_id:"bench",sets:3,reps:"8"}]},{day:2,label:"Pull 1",exercises:[{exercise_id:"row",sets:3,reps:"8"}]}]};
+beforeEach(()=>{jest.useFakeTimers().setSystemTime(today);localStorage.clear();axios.get.mockReset();global.IS_REACT_ACT_ENVIRONMENT=true;});
+afterEach(()=>{jest.useRealTimers();});
+test("completion expires on the next local day and next preview follows program sequence",()=>{
+ expect(completionForToday(completed,today)).toEqual(completed);
+ expect(completionForToday(completed,new Date(2026,8,11,0,1))).toBeNull();
+ expect(nextSessionAfter(program,completed).label).toBe("Pull 1");
+ expect(nextSessionAfter(program,{day:2}).label).toBe("Push 1");
+ expect(nextSessionAfter({sessions:[program.sessions[0]]},completed).label).toBe("Push 1");
+ expect(nextSessionAfter({},completed)).toBeNull();
+});
+test("completed screen has collapsed summaries and no start action",()=>{
+ const html=renderToStaticMarkup(<CompletedWorkout db={{program,profile:{id:"u"},exercises:[]}} completion={completed}/>);
+ const doc=new DOMParser().parseFromString(html,"text/html");
+ expect(doc.body.textContent).toContain("CONCLUÍDO HOJE");
+ expect(doc.body.textContent).toContain("Pull 1");
+ expect(doc.body.textContent).toContain("12 séries registradas");
+ expect(doc.querySelectorAll("details")).toHaveLength(2);
+ expect(doc.querySelector("details[open]")).toBeNull();
+ expect(doc.body.textContent).not.toContain("Iniciar");
+});
+test("server completion restores state after fresh login and expires without reload",async()=>{
+ axios.get.mockResolvedValue({data:{completion:completed}});
+ const host=document.createElement("div"),root=createRoot(host);
+ function Probe(){const r=useWorkoutCompletion({userId:"u",program,API:"/api"});return <p>{r.completion?.label||r.status}</p>;}
+ await act(async()=>root.render(<Probe/>));
+ expect(host.textContent).toBe("Push 1");
+ expect(axios.get).toHaveBeenCalledWith("/api/workout/completion",{params:{profile_id:"u"}});
+ await act(async()=>{jest.setSystemTime(new Date(2026,8,11,0,1));jest.advanceTimersByTime(60000);});
+ expect(host.textContent).toBe("ready");
+ act(()=>root.unmount());
+});
+test("completion event updates both mounted consumers and errors remain explicit",async()=>{
+ axios.get.mockResolvedValueOnce({data:{completion:null}}).mockResolvedValueOnce({data:{completion:null}});
+ const host=document.createElement("div"),root=createRoot(host);
+ function Probe(){const r=useWorkoutCompletion({userId:"u",program,API:"/api"});return <p>{r.completion?.label||r.status}</p>;}
+ await act(async()=>root.render(<><Probe/><Probe/></>));
+ localStorage.setItem(completionStorageKey("u"),JSON.stringify(completed));
+ axios.get.mockResolvedValue({data:{completion:completed}});
+ await act(async()=>window.dispatchEvent(new Event("forge:workout-complete")));
+ expect(host.textContent).toBe("Push 1Push 1");
+ act(()=>root.unmount());
+ const root2=createRoot(host);localStorage.clear();axios.get.mockRejectedValue(new Error("offline"));
+ await act(async()=>root2.render(<Probe/>));
+ expect(host.textContent).toBe("error");
+ act(()=>root2.unmount());
+});

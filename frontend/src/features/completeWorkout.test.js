@@ -32,6 +32,7 @@ describe("um toque", () => {
     expect(post.mock.calls[0][0]).toBe("/api/workout/complete");
     expect(post.mock.calls[0][1]).toEqual({
       day: 1,
+      local_date: "1970-01-01",
       completed_sets: 3,
       total_sets: 4,
       duration_seconds: 120,

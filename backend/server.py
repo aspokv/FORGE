@@ -202,6 +202,7 @@ class ExerciseSubstituteIn(BaseModel):
 
 
 class WorkoutCompleteIn(BaseModel):
+    local_date: Optional[str] = Field(default=None, max_length=10)
     day: Optional[int] = None
     profile_id: Optional[str] = None
     completed_sets: Optional[int] = Field(default=None, ge=0, le=200)
@@ -975,6 +976,14 @@ async def log_recovery(item: Recovery, user=Depends(get_current_user)):
     return clean
 
 
+@api.get("/workout/completion")
+async def latest_workout_completion(user=Depends(get_current_user), profile_id: Optional[str] = None):
+    target = owned_profile_id(user, profile_id)
+    record = await db.workout_completions.find_one(
+        {"profile_id": target}, {"_id": 0}, sort=[("completed_at", -1)])
+    return {"completion": record}
+
+
 @api.post("/workout/complete")
 async def complete_workout(payload: WorkoutCompleteIn, user=Depends(get_current_user)):
     """Program sequence progression (Push -> Pull -> Legs): advances the athlete's
@@ -1028,10 +1037,17 @@ async def complete_workout(payload: WorkoutCompleteIn, user=Depends(get_current_
     # day 4 of the old 5-day split is gone) must still be completable. _resolve_active_day
     # already falls back to the first day when that happens, so without this arm the CAS
     # would match nothing and the athlete could never complete a workout again.
+    completion_day = payload.local_date or now[:10]
+    try:
+        if datetime.strptime(completion_day, "%Y-%m-%d").strftime("%Y-%m-%d") != completion_day:
+            raise ValueError("date")
+    except (ValueError, TypeError):
+        raise HTTPException(400, "Data de conclusão inválida")
+    operation_key = payload.started_at or now
     advanced = await db.profiles.update_one(
-        {"id": target, "$or": [{"current_session_day": completed_day},
+        {"id": target, "last_workout_operation": {"$ne": operation_key}, "last_workout_completion_day": {"$ne": completion_day}, "$or": [{"current_session_day": completed_day},
                                {"current_session_day": {"$nin": day_values}}]},
-        {"$set": {"current_session_day": next_day}},
+        {"$set": {"current_session_day": next_day, "last_workout_operation": operation_key, "last_workout_completion_day": completion_day}},
     )
 
     if advanced.matched_count == 0:
@@ -1040,9 +1056,15 @@ async def complete_workout(payload: WorkoutCompleteIn, user=Depends(get_current_
         # this session was already completed.
         if await db.profiles.find_one({"id": target}, {"_id": 1}) is None:
             await db.profiles.update_one(
-                {"id": target}, {"$set": {"current_session_day": next_day}}, upsert=True)
+                {"id": target}, {"$set": {"current_session_day": next_day, "last_workout_operation": operation_key}}, upsert=True)
         else:
             profile = await load_profile(target)
+            previous = await db.workout_completions.find_one({"profile_id": target}, {"_id": 0}, sort=[("completed_at", -1)])
+            if previous:
+                return {"program": await build_program(profile), "completed_day": previous["day"],
+                        "completed_session": {"day": previous["day"], "label": previous.get("label")},
+                        "completed_at": previous["completed_at"], "summary": previous.get("summary"),
+                        "next_day": profile.get("current_session_day"), "already_completed": True}
             return {"program": await build_program(profile), "completed_day": completed_day,
                     "next_day": profile.get("current_session_day", next_day),
                     "next_session": {"day": next_session["day"], "label": next_session.get("label")},
@@ -1060,7 +1082,7 @@ async def complete_workout(payload: WorkoutCompleteIn, user=Depends(get_current_
             "next_day": next_day,
             "next_session": {"day": next_session["day"], "label": next_session.get("label")},
             "completed_session": {"day": completed_day, "label": completed_session.get("label")},
-            "summary": summary, "already_completed": False}
+            "summary": summary, "completed_at": now, "already_completed": False}
 
 
 def _valid_hydration_day(day: str) -> str:

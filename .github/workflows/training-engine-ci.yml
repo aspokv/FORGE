@@ -21,6 +21,11 @@ on:
       - 'backend/tests/test_training_personalization.py'
       - 'backend/tests/test_custom_training_programs.py'
       - 'frontend/src/App.js'
+      - 'frontend/src/features/workoutCompletionState*'
+      - 'frontend/src/features/CompletedWorkout.jsx'
+      - 'frontend/src/features/completed-workout.css'
+      - 'frontend/src/features/completeWorkout*'
+      - 'backend/tests/test_workout_completion_state.py'
       - 'frontend/src/index.js'
       - 'frontend/src/compact-evolution.css'
       - 'frontend/src/features/ExerciseEvolution*'
@@ -76,6 +81,11 @@ on:
       - 'backend/tests/test_training_personalization.py'
       - 'backend/tests/test_custom_training_programs.py'
       - 'frontend/src/App.js'
+      - 'frontend/src/features/workoutCompletionState*'
+      - 'frontend/src/features/CompletedWorkout.jsx'
+      - 'frontend/src/features/completed-workout.css'
+      - 'frontend/src/features/completeWorkout*'
+      - 'backend/tests/test_workout_completion_state.py'
       - 'frontend/src/index.js'
       - 'frontend/src/compact-evolution.css'
       - 'frontend/src/features/ExerciseEvolution*'
@@ -142,6 +152,7 @@ jobs:
           tests/test_exercise_photo_coverage.py
           tests/test_custom_training_programs.py
           test_cardio_unit.py
+          tests/test_workout_completion_state.py
 
   workout-library-ui:
     runs-on: ubuntu-latest
@@ -158,7 +169,7 @@ jobs:
       - name: Install frontend dependencies
         run: yarn install --frozen-lockfile
       - name: Test mobile workout, home, progress, artwork, and cardio UI
-        run: FORGE_ARTWORK_VISUAL=1 CI=true yarn test --watchAll=false --runTestsByPath src/features/WorkoutLibrary.interaction.test.js src/features/ReferenceHome.artwork.test.js src/features/progressVisual.test.js src/features/exerciseArtworkLibrary.test.js src/features/CardioFinisher.test.js src/features/trainingCardArtwork.test.js src/features/trainingCardAssets.test.js src/features/ReferenceWorkoutPreview.content.test.js src/features/ExerciseEvolution.test.js
+        run: FORGE_ARTWORK_VISUAL=1 CI=true yarn test --watchAll=false --runTestsByPath src/features/WorkoutLibrary.interaction.test.js src/features/ReferenceHome.artwork.test.js src/features/progressVisual.test.js src/features/exerciseArtworkLibrary.test.js src/features/CardioFinisher.test.js src/features/trainingCardArtwork.test.js src/features/trainingCardAssets.test.js src/features/ReferenceWorkoutPreview.content.test.js src/features/ExerciseEvolution.test.js src/features/workoutCompletionState.test.js src/features/completeWorkout.test.js
       - name: Build frontend
         env:
           CI: 'false'

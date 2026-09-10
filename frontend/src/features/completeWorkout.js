@@ -47,7 +47,7 @@ function persistConfirmedCompletion(data, fallbackDay, now) {
   const userId = currentUserIdFromToken();
   if (!userId) return;
   try {
-    const completedAt = new Date(now()).toISOString();
+    const completedAt = data?.completed_at || new Date(now()).toISOString();
     const record = {
       completed_at: completedAt,
       day: data?.completed_day ?? data?.completed_session?.day ?? fallbackDay ?? null,
@@ -74,8 +74,12 @@ export async function completeWorkout({
   lock.current = true;
   try {
     const durationSeconds = Math.max(1, Math.round((now() - startedAt) / 1000));
+    const localNow = new Date(now());
+    const pad = value => String(value).padStart(2,"0");
+    const localDate = `${localNow.getFullYear()}-${pad(localNow.getMonth()+1)}-${pad(localNow.getDate())}`;
     const r = await post(`${api}/workout/complete`, {
       day,
+      local_date: localDate,
       completed_sets: completedSets,
       total_sets: totalSets,
       duration_seconds: durationSeconds,

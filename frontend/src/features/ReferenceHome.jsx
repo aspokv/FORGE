@@ -4,7 +4,8 @@ import {X} from "lucide-react";
 import {AstraPage,AstraIntro,AstraAction,AstraMeta,AstraIcon} from "./AstraUI";
 import TrainingCardImage from "./TrainingCardImage";
 import {consumedTotals} from "./foodDiary";
-import {completionStorageKey} from "./completeWorkout";
+import {useWorkoutCompletion,sessionStatus,completionForToday} from "./workoutCompletionState";
+export {completionForToday,inferredCompletionForToday,sessionStatus} from "./workoutCompletionState";
 import "../home-signature.css";
 
 const API=`${process.env.REACT_APP_BACKEND_URL || ""}/api`;
@@ -19,56 +20,13 @@ export const planArtworkKindFor=(sessionName,focus=[])=>isPullPlan(sessionName,f
 export const planArtworkFor=(sessionName,focus=[])=>{const kind=planArtworkKindFor(sessionName,focus);return kind==="pull"?"/images/anatomy/pull-back.webp":kind==="legs"?"/images/anatomy/legs-quads-front.webp":kind==="push"?"/images/anatomy/push-front.webp":"/images/anatomy/push-front.webp"};
 const referenceDateLabel=date=>new Intl.DateTimeFormat("pt-BR",{weekday:"long",day:"2-digit",month:"long"}).format(date).replace("-feira","").toUpperCase();
 
-export function completionForToday(completion,now=new Date()){
-  if(!completion?.completed_at)return null;
-  const when=new Date(completion.completed_at);
-  return dateKeyFor(when)&&dateKeyFor(when)===dateKeyFor(now)?completion:null;
-}
-
-export function inferredCompletionForToday(program={},recentSets=[],now=new Date()){
-  const sessions=program.sessions||[],activeDay=Number(program.active_day);
-  if(!sessions.length||!Number.isFinite(activeDay))return null;
-  const today=dateKeyFor(now);
-  const rows=(recentSets||[]).filter(row=>{
-    if(row?.session_day==null)return false;
-    const when=new Date(row.created_at),day=Number(row.session_day);
-    return Number.isFinite(day)&&dateKeyFor(when)===today;
-  }).sort((a,b)=>new Date(b.created_at).getTime()-new Date(a.created_at).getTime());
-  if(!rows.length)return null;
-  const loggedDay=Number(rows[0].session_day),session=sessions.find(item=>Number(item.day)===loggedDay);
-  if(!session)return null;
-  const plannedSets=(session.exercises||[]).reduce((sum,item)=>sum+Number(item.sets||0),0);
-  const loggedSets=new Set(rows.filter(row=>Number(row.session_day)===loggedDay).map(row=>`${row.exercise_id||""}:${row.set_number??""}`)).size;
-  if(loggedDay===activeDay&&(!plannedSets||loggedSets<plannedSets))return null;
-  return {day:loggedDay,label:session.label||null,completed_at:rows[0].created_at,inferred:true};
-}
-
-export function sessionStatus(checkin,recentSets=[],now=new Date(),completion=null){
-  if(completionForToday(completion,now))return "TREINO CONCLUÍDO HOJE";
-  if(checkin)return "RECUPERAÇÃO REGISTRADA";
-  const cutoff=now.getTime()-7*24*60*60*1000;
-  return recentSets.some(row=>{const time=new Date(row.created_at).getTime();return time>=cutoff&&time<=now.getTime()})?"RITMO ATIVO":"PRONTO PARA INICIAR";
-}
-
-function storedCompletion(userId,now,program,recentSets){
-  if(typeof window!=="undefined"&&userId){
-    try{
-      const raw=window.localStorage.getItem(completionStorageKey(userId));
-      const saved=raw?completionForToday(JSON.parse(raw),now):null;
-      if(saved)return saved;
-    }catch{/* cache local corrompido nao pode quebrar a Home */}
-  }
-  return inferredCompletionForToday(program,recentSets,now);
-}
-
 export default function ReferenceHome({db,start,onRecoveryCheckin}){
   const p=db.program||{},userId=db.current_user?.id||db.profile?.user_id||db.profile?.id;
   const[nutrition,setNutrition]=useState(null),[mealLog,setMealLog]=useState([]),[hydration,setHydration]=useState(null),[checkin,setCheckin]=useState(null),[foodExtras,setFoodExtras]=useState([]);
   const[waterBusy,setWaterBusy]=useState(false),[checkinOpen,setCheckinOpen]=useState(false),[checkinBusy,setCheckinBusy]=useState(false);
   const[checkinForm,setCheckinForm]=useState({sleep:4,energy:4,motivation:4,soreness:2,stress:2});
-  const[completion,setCompletion]=useState(()=>storedCompletion(userId,new Date(),p,db.recent_sets));
+  const {completion}=useWorkoutCompletion({userId,program:p,recentSets:db.recent_sets,API});
   useEffect(()=>{let alive=true;const day=localDateKey();Promise.allSettled([axios.get(`${API}/nutrition/plan`),axios.get(`${API}/nutrition/adherence/${day}`),axios.get(`${API}/hydration/${day}`),axios.get(`${API}/recovery/${day}`)]).then(([n,a,h,r])=>{if(!alive)return;if(n.status==="fulfilled")setNutrition(n.value.data);if(a.status==="fulfilled"){setMealLog(a.value.data.meals||[]);setFoodExtras(a.value.data.extras||[])}if(h.status==="fulfilled")setHydration(h.value.data);if(r.status==="fulfilled")setCheckin(r.value.data?.checkin||null)});return()=>{alive=false}},[]);
-  useEffect(()=>{const sync=()=>setCompletion(storedCompletion(userId,new Date(),p,db.recent_sets));sync();if(typeof window!=="undefined")window.addEventListener("forge:workout-complete",sync);return()=>{if(typeof window!=="undefined")window.removeEventListener("forge:workout-complete",sync)}},[userId,p,db.recent_sets]);
 
   const sessions=p.sessions||[],activeIndex=Math.max(0,sessions.findIndex(s=>s.day===p.active_day));
   const active=sessions[activeIndex]||sessions[0]||{};

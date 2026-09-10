@@ -1,0 +1,10 @@
+.a6 .completed-workout-card,.a6 .completed-next-card{padding:16px;margin-top:12px}
+.a6 .completed-workout-card{border-color:#63856c}
+.forge-shell .a6 .completed-workout-card>.a6-eyebrow{color:#a9c8b2}
+.a6 .completed-workout-card h2,.a6 .completed-next-card h2{margin:7px 0}
+.a6 .completed-next-heading{display:grid;grid-template-columns:minmax(0,1fr) 100px;gap:12px;align-items:center}
+.a6 .completed-next-heading img{width:100%;height:100px;object-fit:contain;border-radius:10px}
+.a6 .completed-workout-card ul,.a6 .completed-next-card ul{padding-left:18px}
+.a6 .completed-workout-card li,.a6 .completed-next-card li{padding:8px 0;overflow-wrap:anywhere}
+.a6 .completed-next-card li small{display:block;color:var(--muted);margin-top:4px}
+.a6 .completed-next-card>p{margin-top:10px}
