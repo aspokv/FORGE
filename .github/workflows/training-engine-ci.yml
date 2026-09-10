@@ -22,6 +22,10 @@ on:
       - 'backend/tests/test_custom_training_programs.py'
       - 'frontend/src/App.js'
       - 'frontend/src/index.js'
+      - 'frontend/src/compact-evolution.css'
+      - 'frontend/src/features/ExerciseEvolution*'
+      - 'frontend/src/features/AstraProgress.jsx'
+      - 'frontend/src/features/AstraUI.jsx'
       - 'frontend/src/index.css'
       - 'frontend/src/home-brand-refine.css'
       - 'frontend/src/features/CardioFinisher.jsx'
@@ -73,6 +77,10 @@ on:
       - 'backend/tests/test_custom_training_programs.py'
       - 'frontend/src/App.js'
       - 'frontend/src/index.js'
+      - 'frontend/src/compact-evolution.css'
+      - 'frontend/src/features/ExerciseEvolution*'
+      - 'frontend/src/features/AstraProgress.jsx'
+      - 'frontend/src/features/AstraUI.jsx'
       - 'frontend/src/index.css'
       - 'frontend/src/home-brand-refine.css'
       - 'frontend/src/features/CardioFinisher.jsx'
@@ -150,7 +158,7 @@ jobs:
       - name: Install frontend dependencies
         run: yarn install --frozen-lockfile
       - name: Test mobile workout, home, progress, artwork, and cardio UI
-        run: FORGE_ARTWORK_VISUAL=1 CI=true yarn test --watchAll=false --runTestsByPath src/features/WorkoutLibrary.interaction.test.js src/features/ReferenceHome.artwork.test.js src/features/progressVisual.test.js src/features/exerciseArtworkLibrary.test.js src/features/CardioFinisher.test.js src/features/trainingCardArtwork.test.js src/features/trainingCardAssets.test.js src/features/ReferenceWorkoutPreview.content.test.js
+        run: FORGE_ARTWORK_VISUAL=1 CI=true yarn test --watchAll=false --runTestsByPath src/features/WorkoutLibrary.interaction.test.js src/features/ReferenceHome.artwork.test.js src/features/progressVisual.test.js src/features/exerciseArtworkLibrary.test.js src/features/CardioFinisher.test.js src/features/trainingCardArtwork.test.js src/features/trainingCardAssets.test.js src/features/ReferenceWorkoutPreview.content.test.js src/features/ExerciseEvolution.test.js
       - name: Build frontend
         env:
           CI: 'false'
