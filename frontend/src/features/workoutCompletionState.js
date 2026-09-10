@@ -59,7 +59,7 @@ export function useWorkoutCompletion({userId,program,recentSets,API}){
  const [tick,setTick]=useState(0);
  useEffect(()=>{
    let live=true;
-   const sync=()=>{if(live)setRecord(previous=>storedCompletion(userId,new Date(),program,recentSets)||completionForToday(previous));};
+   const sync=()=>{if(live)setRecord(previous=>{const cached=storedCompletion(userId,new Date(),context,recentSets),current=completionForToday(previous);return current&&(!cached||new Date(current.completed_at)>=new Date(cached.completed_at))?current:cached;});};
    const read=()=>{
      sync();setStatus("loading");
      axios.get(API+"/workout/completion",{params:{profile_id:userId}}).then(r=>{

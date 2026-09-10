@@ -255,7 +255,7 @@ function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutC
       if(r.data?.saved_at&&Object.keys(saved).length)setDraftState("saved");
     }).catch(()=>{}).finally(()=>{if(alive)draftReady.current=true});
     return()=>{alive=false};
-  },[db.profile?.id,draftDay,items.length,todayCompletion?.completed_at,completionStatus]);
+  },[db.profile?.id,draftDay,items.length,todayCompletion,completionStatus]);
   // Autosave com debounce: salva 1,5 s depois da ultima alteracao, nao a cada tecla.
   useEffect(()=>{
     if(todayCompletion||completionStatus!=="ready"||!draftReady.current||draftDay==null)return;
@@ -269,7 +269,7 @@ function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutC
         .catch(()=>setDraftState("error"));
     },1500);
     return()=>clearTimeout(draftTimer.current);
-  },[setInputs,draftDay,todayCompletion?.completed_at,completionStatus]);
+  },[setInputs,draftDay,todayCompletion,completionStatus]);
   useEffect(()=>{if(!timer||!timerRunning)return;const i=setInterval(()=>setTimer(x=>Math.max(0,x-1)),1000);return()=>clearInterval(i)},[timer,timerRunning]);
   const parseRestSeconds=r=>{if(!r)return 90;const n=parseInt(r);if(!isNaN(n))return n<10?n*60:n;const m=r.match(/(\d+)/);return m?parseInt(m[1])*60:90};
   const mark=(id,n,tech,rest,totalSets)=>{if(todayCompletion||completionStatus!=="ready"||done[id+n])return;const v=setInputs[`${id}-${n}`]||{weight:0,reps:8,rir:2};if(!Number.isFinite(Number(v.reps))||Number(v.reps)<=0){setSetErr(x=>({...x,[id+n]:true}));return}const rir=Math.max(0,Math.min(5,Number(v.rir)));if(!Number.isFinite(rir)){setSetErr(x=>({...x,[id+n]:true}));return}setDone(x=>({...x,[id+n]:true}));if(n+1<totalSets){const secs=parseRestSeconds(rest);setTimer(secs);setTimerTotal(secs);setRestingSet({exerciseId:id,completed:n+1,next:n+2});setTimerRunning(true)}else{setTimer(0);setRestingSet(null)}axios.post(`${API}/sets`,{profile_id:db.profile.id,exercise_id:id,set_number:n+1,weight:Number(v.weight||0),reps:Number(v.reps||8),rir,session_day:activeSession?.day,technique:tech||"Straight Sets"}).catch(()=>{setDone(x=>({...x,[id+n]:false}));setSetErr(x=>({...x,[id+n]:true}))})};
