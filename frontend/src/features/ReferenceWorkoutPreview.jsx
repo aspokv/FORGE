@@ -1,6 +1,7 @@
 import {useState} from "react";
 import ExercisePhoto from "./ExercisePhoto";
-import {planArtworkFor} from "./ReferenceHome";
+import TrainingCardImage from "./TrainingCardImage";
+import "./training-card-artwork.css";
 import {AstraPage,AstraIntro,AstraMeta,AstraAction,AstraIcon} from "./AstraUI";
 
 const asArray=value=>Array.isArray(value)?value:(value==null||value===""?[]:[value]);
@@ -17,7 +18,7 @@ export default function ReferenceWorkoutPreview({db={},activeSession,items=[],on
     <div className="a6-tabs" role="group" aria-label="Visualização do treino"><button type="button" className="a6-selected" aria-pressed="true">Sessão atual</button><button type="button" aria-pressed="false" onClick={onLibrary}>Biblioteca</button></div>
     <section className="a6-panel a6-training-summary">
       <div className="a6-summary-copy"><div className="a6-eyebrow">{String(raw).split(/[—–]/)[0]}{db.program?.week?` · ${db.program.week}`:""}</div><h2>{name}</h2><p>{focus.join(" e ")||"Treino completo"}</p><AstraMeta duration={duration} sets={totalSets}/></div>
-      <img className="a6-anatomy" src={planArtworkFor(name,focus)} alt={`Mapa dos músculos da sessão: ${focus.join(", ")}`}/>
+      <TrainingCardImage className="a6-anatomy a6-session-artwork" session={{...activeSession,label:raw}} program={db.program} profile={db.profile} focus={focus} loading="eager" width="95" height="140"/>
     </section>
     <button className="a6-warmup" type="button" aria-expanded={warmupOpen} onClick={()=>setWarmupOpen(x=>!x)}><span className="a6-iconbox"><AstraIcon name="training"/></span><span><b>Aquecimento</b><p>Mobilidade e ativação</p></span><small>8 min</small><AstraIcon name="chevron"/></button>
     {warmupOpen&&<p className="a6-warmup-detail">Mobilidade + ativação antes da sessão. Respeite a amplitude confortável e a orientação do seu profissional.</p>}

@@ -2,7 +2,7 @@ import {useEffect,useMemo,useState} from "react";
 import axios from "axios";
 import {X} from "lucide-react";
 import {AstraPage,AstraIntro,AstraAction,AstraMeta,AstraIcon} from "./AstraUI";
-import heroArt from "../assets/forge-home-duo-hero";
+import TrainingCardImage from "./TrainingCardImage";
 import {consumedTotals} from "./foodDiary";
 import {completionStorageKey} from "./completeWorkout";
 import "../home-signature.css";
@@ -95,7 +95,7 @@ export default function ReferenceHome({db,start,onRecoveryCheckin}){
   return <AstraPage screen={0} testId="reference-home-v3">
     <AstraIntro eyebrow={dateLabel} title={`Olá, ${displayName}.`} subtitle={todayCompletion?"Sessão concluída. Recuperação também faz parte do progresso.":"Seu próximo passo está aqui."}/>
     <section className={`a6-signature${todayCompletion?" a6-signature-completed":""}`} aria-labelledby="home-session-title">
-    <div className="a6-hero" data-testid="home-top-hero"><img src={heroArt} alt="Homem e mulher atletas em ambiente de treino FORGE" loading="eager" fetchPriority="high" width="640" height="276"/><span className="a6-signature-motto">DISCIPLINA HOJE.<br/>RESULTADOS SEMPRE.</span></div>
+    <div className="a6-hero" data-testid="home-top-hero"><TrainingCardImage session={{...shown,label:raw}} program={p} profile={db.profile} focus={focus} loading="eager" fetchPriority="high" width="640" height="276"/><span className="a6-signature-motto">DISCIPLINA HOJE.<br/>RESULTADOS SEMPRE.</span></div>
     <div className="a6-panel a6-workout-card" data-testid="daily-briefing">
       <div className="a6-eyebrow">{todayCompletion?"SEU TREINO DE HOJE · CONCLUÍDO":"SEU TREINO DE HOJE"}</div>
       <h2 id="home-session-title">{sessionName}</h2><p>{focus.length?focus.join(" · "):"Treino completo"}</p>
