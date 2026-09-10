@@ -3,7 +3,7 @@
  * recovery fabricado, duplo toque virando duas conclusoes, e sucesso falso quando
  * a API falha.
  */
-import {completeWorkout, FALHOU, SEM_SERIES} from "./completeWorkout";
+import {completeWorkout, completionStorageKey, FALHOU, SEM_SERIES} from "./completeWorkout";
 
 const base = (post, over = {}) => ({
   post, api: "/api", day: 1,
@@ -21,6 +21,8 @@ const pendente = () => {
   const post = jest.fn(() => new Promise((res, rej) => { resolve = res; reject = rej; }));
   return {post, resolve: v => resolve(v), reject: e => reject(e)};
 };
+
+afterEach(()=>window.localStorage.clear());
 
 describe("um toque", () => {
   it("dispara exatamente uma requisicao, para /workout/complete", async () => {
@@ -44,6 +46,16 @@ describe("um toque", () => {
     expect(r).toEqual({
       completed: 3, total: 4, minutes: 2, volumeKg: 0, averageRir: null,
       nextSession: null, completedSession: null, adherence: 75,
+    });
+  });
+
+  it("espelha no aparelho apenas uma conclusao confirmada pelo servidor", async () => {
+    const payload = window.btoa(JSON.stringify({sub:"athlete-1"})).replace(/=/g,"").replace(/\+/g,"-").replace(/\//g,"_");
+    window.localStorage.setItem("forge_token",`x.${payload}.y`);
+    const post=jest.fn().mockResolvedValue({data:{completed_day:1,completed_session:{day:1,label:"Push 1"},summary:{total_sets:4,duration_seconds:120}}});
+    await completeWorkout(base(post));
+    expect(JSON.parse(window.localStorage.getItem(completionStorageKey("athlete-1")))).toEqual({
+      completed_at:"1970-01-01T00:02:00.000Z",day:1,label:"Push 1",summary:{total_sets:4,duration_seconds:120},
     });
   });
 });
