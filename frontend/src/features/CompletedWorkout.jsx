@@ -4,7 +4,7 @@ import {nextSessionAfter} from "./workoutCompletionState";
 import "./completed-workout.css";
 export default function CompletedWorkout({db,completion,onLibrary}){
  const program=db.program||{},sessions=program.sessions||[];
- const completed=sessions.find(s=>Number(s.day)===Number(completion.day));
+ const completed=completion.completed_session||sessions.find(s=>Number(s.day)===Number(completion.day)&&s.label===completion.label);
  const next=nextSessionAfter(program,completion),summary=completion.summary||{};
  const time=completion.inferred?"":new Intl.DateTimeFormat("pt-BR",{hour:"2-digit",minute:"2-digit"}).format(new Date(completion.completed_at));
  const exercises=db.exercises||[];
@@ -27,6 +27,6 @@ export default function CompletedWorkout({db,completion,onLibrary}){
     <AstraMeta duration={next.duration||program.duration||"Duração não informada"} sets={(next.exercises||[]).reduce((n,x)=>n+Number(x.sets||0),0)}/>
     <details className="a6-details"><summary>Ver prévia</summary><ul>{(next.exercises||[]).map((x,i)=><li key={i}>{nameOf(x)}<small>{x.sets} séries · {x.reps} repetições</small></li>)}</ul></details>
     <p>Prévia da sequência do seu programa. Considere seus dias de descanso.</p>
-   </section>:<p>A próxima sessão aparecerá quando estiver disponível no programa.</p>}
+   </section>:<p role="status">{completion.next_session_status==="program_changed"?"O programa atual não corresponde ao treino registrado. Confira sua sequência na Biblioteca antes de iniciar a próxima sessão.":"Confirmando a próxima sessão do seu programa…"}</p>}
  </AstraPage>;
 }

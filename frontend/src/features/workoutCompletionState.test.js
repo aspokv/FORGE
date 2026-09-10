@@ -13,13 +13,13 @@ afterEach(()=>{jest.useRealTimers();});
 test("completion expires on the next local day and next preview follows program sequence",()=>{
  expect(completionForToday(completed,today)).toEqual(completed);
  expect(completionForToday(completed,new Date(2026,8,11,0,1))).toBeNull();
- expect(nextSessionAfter(program,completed).label).toBe("Pull 1");
- expect(nextSessionAfter(program,{day:2}).label).toBe("Push 1");
- expect(nextSessionAfter({sessions:[program.sessions[0]]},completed).label).toBe("Push 1");
+ expect(nextSessionAfter(program,{...completed,next_session_status:"confirmed",next_session:program.sessions[1]}).label).toBe("Pull 1");
+ expect(nextSessionAfter(program,{day:2})).toBeNull();
+ expect(nextSessionAfter({sessions:[program.sessions[0]]},completed)).toBeNull();
  expect(nextSessionAfter({},completed)).toBeNull();
 });
 test("completed screen has collapsed summaries and no start action",()=>{
- const html=renderToStaticMarkup(<CompletedWorkout db={{program,profile:{id:"u"},exercises:[]}} completion={completed}/>);
+ const html=renderToStaticMarkup(<CompletedWorkout db={{program,profile:{id:"u"},exercises:[]}} completion={{...completed,next_session_status:"confirmed",next_session:program.sessions[1]}}/>);
  const doc=new DOMParser().parseFromString(html,"text/html");
  expect(doc.body.textContent).toContain("CONCLUÍDO HOJE");
  expect(doc.body.textContent).toContain("Pull 1");
@@ -53,4 +53,17 @@ test("completion event updates both mounted consumers and errors remain explicit
  await act(async()=>root2.render(<Probe/>));
  expect(host.textContent).toBe("error");
  act(()=>root2.unmount());
+});
+
+test("does not rotate stale day numbers or guess a category after a program edit",()=>{
+ const stale={...completed,day:3,label:"Push Ombros",next_session_status:"program_changed"};
+ expect(nextSessionAfter(program,stale)).toBeNull();
+ const doc=new DOMParser().parseFromString(renderToStaticMarkup(<CompletedWorkout db={{program,profile:{},exercises:[]}} completion={stale}/>),"text/html");
+ expect(doc.querySelector(".completed-next-card")).toBeNull();
+ expect(doc.body.textContent).toContain("não corresponde");
+});
+test("server next session overrides a stale browser program",()=>{
+ const serverPull={day:2,label:"Pull 1",exercises:[]};
+ expect(nextSessionAfter({active_day:1,sessions:[{day:1,label:"Push 1"}]},{
+ ...completed,next_session_status:"confirmed",next_session:serverPull})).toBe(serverPull);
 });

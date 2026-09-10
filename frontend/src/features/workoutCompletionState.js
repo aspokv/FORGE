@@ -47,10 +47,8 @@ export function storedCompletion(userId,now,program,recentSets){
 
 
 export function nextSessionAfter(program={},completion){
- const sessions=[...(program.sessions||[])].sort((a,b)=>Number(a.day)-Number(b.day));
- const index=sessions.findIndex(s=>Number(s.day)===Number(completion?.day));
- if(index<0)return sessions.find(s=>Number(s.day)===Number(program.active_day))||null;
- return sessions[(index+1)%sessions.length]||null;
+ // Only the authenticated completion endpoint can confirm the next session.
+ return completion?.next_session_status==="confirmed"?completion.next_session||null:null;
 }
 export function useWorkoutCompletion({userId,program,recentSets,API}){
  const context=useMemo(()=>({active_day:program?.active_day,sessions:program?.sessions}),[program?.active_day,program?.sessions]);
@@ -65,7 +63,7 @@ export function useWorkoutCompletion({userId,program,recentSets,API}){
      axios.get(API+"/workout/completion",{params:{profile_id:userId}}).then(r=>{
        if(!live)return;
        const server=r.data?.completion;
-       if(server){setRecord(previous=>new Date(previous?.completed_at||0)>new Date(server.completed_at)?previous:server);}
+       if(server){setRecord(previous=>previous?.day===server.day||new Date(previous?.completed_at||0)<=new Date(server.completed_at)?server:previous);}
        setStatus("ready");
      }).catch(()=>{if(live)setStatus("error");});
    };
