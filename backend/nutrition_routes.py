@@ -22,6 +22,7 @@ GENERATION_ATTEMPTS = 6
 
 from nutrition_engine import (
     compute_macro_targets, generate_daily_plan, validate_daily_plan, check_plan_hard_limits,
+    normalizar_altura_cm,
     find_substitutes, recalculate_substitution_portion, FOOD_INDEX,
     FORGE_COACH_METHODOLOGY, sum_plan_totals,
     get_meal_archetype_options, redistribute_remaining_targets, aplicar_teto_de_carboidrato,
@@ -32,7 +33,7 @@ from nutrition_engine import (
 
 class NutritionAssessmentIn(BaseModel):
     weight_kg: float = Field(gt=0, le=300)
-    height_cm: float = Field(gt=0, le=280)
+    height_cm: float = Field(gt=0, le=280)  # metros sao normalizados em _normalizar_medidas
     age: int = Field(ge=10, le=120)
     sex: str = "male"
     goal: str = "maintenance"
@@ -151,6 +152,18 @@ def owned_nutrition_target(user: dict, requested: Optional[str] = None) -> str:
 # pode passar por completo, senao a geracao quebraria com KeyError em vez de pedir o
 # questionario.
 CAMPOS_OBRIGATORIOS = ("weight_kg", "height_cm", "age", "training_days")
+
+
+def _normalizar_medidas(dados: dict) -> dict:
+    """
+    Converte altura em metros para centimetros antes de gravar.
+
+    O campo pede cm e a pessoa digita "1,63". Guardar isso como 1,63 cm produz uma TMB de
+    algumas centenas de kcal e um plano inteiro errado — sem nenhum erro aparecer.
+    """
+    if dados.get("height_cm") is not None:
+        dados["height_cm"] = normalizar_altura_cm(dados["height_cm"])
+    return dados
 
 
 def _assessment_completo(na) -> bool:
@@ -273,11 +286,38 @@ async def cutting_intensities(_user=Depends(get_current_user)):
     }
 
 
+async def _atualizar_meta_do_plano(db, target: str, na: dict) -> bool:
+    """
+    Recalcula `targets` do plano ja gravado a partir do questionario recem-salvo.
+
+    Devolve True quando atualizou. Questionario incompleto, plano inexistente ou conta sem
+    dados suficientes nao sao erro: nao ha o que recalcular, e a chamada segue em silencio
+    — salvar a avaliacao nao pode falhar por causa disto.
+    """
+    if not _assessment_completo(na):
+        return False
+    stored = await db.nutrition_plans.find_one({"profile_id": target}, {"_id": 0, "plan": 1})
+    if not stored or not stored.get("plan"):
+        return False
+    try:
+        targets = compute_macro_targets(
+            na["weight_kg"], na["height_cm"], na["age"], na.get("sex") or "male",
+            na["training_days"], na.get("goal") or "maintenance",
+            na.get("activity_level", "moderate"), na.get("intensity"))
+    except Exception:  # noqa: BLE001 — questionario torto nao pode derrubar o salvamento
+        logger.warning("nao foi possivel recalcular a meta do plano de profile_id=%s", target)
+        return False
+    await db.nutrition_plans.update_one({"profile_id": target}, {"$set": {"plan.targets": targets}})
+    return True
+
+
 @router.post("/assessment")
 async def save_assessment(payload: NutritionAssessmentIn, request: Request, user=Depends(get_current_user)):
     db = request.app.state.db
     target = user["id"] if user.get("role") == "ATHLETE" else user["id"]
-    doc = payload.model_dump()
+    # "1,63" no campo que pede centimetros vira 1,63 cm sem isto, e o plano inteiro sai
+    # errado sem nenhum erro aparecer.
+    doc = _normalizar_medidas(payload.model_dump())
     # O modo Agressivo/Atleta e do plano Elite. Checado aqui, onde a escolha e gravada:
     # e o unico ponto por onde ela entra, entao nao ha como contornar chamando outra rota.
     if _intensity_key(doc.get("intensity")) == "agressivo":
@@ -296,7 +336,20 @@ async def save_assessment(payload: NutritionAssessmentIn, request: Request, user
     await db.nutrition_assessments.insert_one(doc)
     doc.pop("_id", None)  # insert_one mutates doc in place, adding a non-JSON-serializable ObjectId
     await db.profiles.update_one({"id": target}, {"$set": {"nutrition_assessment": doc}}, upsert=True)
-    return {"assessment": doc, "assessment_version": 1}
+
+    # A META DO PLANO ACOMPANHA O QUESTIONARIO.
+    #
+    # Sem isto, corrigir peso, altura ou objetivo nao mudava nada na tela: o plano ja
+    # gravado seguia anunciando a meta de quando foi gerado. Foi assim que uma atleta
+    # corrigiu a altura, viu o questionario certo, e continuou olhando uma meta de 427 kcal
+    # — o numero nao vinha do dado novo, vinha de um plano velho que ninguem tocou.
+    #
+    # So a META e recalculada. As refeicoes ficam onde estao: a pessoa escolheu aquilo, e
+    # jogar fora o plano dela porque mudou de peso seria pior que o defeito. O que a tela
+    # passa a mostrar e a verdade — o que ela PRECISA contra o que o plano ENTREGA — e
+    # regerar continua sendo uma decisao dela.
+    atualizados = await _atualizar_meta_do_plano(db, target, doc)
+    return {"assessment": doc, "assessment_version": 1, "plan_targets_updated": atualizados}
 
 
 @router.post("/generate")

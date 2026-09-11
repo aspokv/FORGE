@@ -9,6 +9,8 @@ import { kcalDoItem, macrosDaRefeicao, textoDoMacro } from "./macrosDaRefeicao";
 import "./forge-nutricao.css";
 import {AstraPage,AstraIntro,AstraIcon,astraDate} from "./AstraUI";
 import AstraNutritionSummary from "./AstraNutritionSummary";
+import CampoAltura from "./CampoAltura";
+import { lerAltura } from "./alturaEmCm";
 import breakfastImage from "../assets/forge-meal-oats.jpg";
 import chickenImage from "../assets/forge-meal-chicken.jpg";
 import beefImage from "../assets/forge-meal-beef.jpg";
@@ -147,7 +149,10 @@ export default function Nutrition({ API, profileId, db }) {
     try {
       await axios.post(`${API}/nutrition/assessment`, {
         ...form,
-        weight_kg: Number(form.weight_kg), height_cm: Number(form.height_cm),
+        weight_kg: Number(form.weight_kg),
+        // Envia sempre em centimetros: `Number("1,80")` daria NaN, e `Number("1.80")`
+        // daria 1,8 cm. A leitura e a mesma que o campo ja mostrou confirmada.
+        height_cm: lerAltura(form.height_cm).cm,
         age: Number(form.age), training_days: Number(form.training_days),
         meal_count: Number(form.meal_count),
         // backend expects lists: the restriction select yields a single string, and the
@@ -373,7 +378,9 @@ export default function Nutrition({ API, profileId, db }) {
           {genStep === 1 && <>
             <div className="field-grid">
               <F label="Peso (kg)" k="weight_kg" type="number" />
-              <F label="Altura (cm)" k="height_cm" type="number" />
+              <CampoAltura valor={form.height_cm}
+                aoMudar={v => setForm(st => ({ ...st, height_cm: v }))}
+                id="nutricao-altura" testid="nutrition-height_cm" />
               <F label="Idade" k="age" type="number" />
               <F label="Sexo" k="sex" opts={[{ v: "male", l: "Masculino" }, { v: "female", l: "Feminino" }]} />
             </div>
