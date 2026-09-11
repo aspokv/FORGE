@@ -337,9 +337,23 @@ def apply_resolution(draft: Dict[str, Any], resolved: Dict[str, str],
     return recompute(draft)
 
 
-def draft_to_plan(draft: Dict[str, Any]) -> Dict[str, Any]:
+def draft_to_plan(draft: Dict[str, Any],
+                  targets_do_atleta: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """Rascunho -> o MESMO formato que generate_daily_plan produz, para o plano
-    importado circular pelos endpoints que já existem sem adaptação."""
+    importado circular pelos endpoints que já existem sem adaptação.
+
+    `targets_do_atleta` e a meta calculada a partir do questionario. Quando ela existe, e
+    ELA que vai em `targets` — a dieta colada descreve o que a pessoa COME, e nunca o que
+    ela PRECISA.
+
+    Antes, a meta do dia virava o total lido da dieta. Numa leitura parcial — linha sem
+    gramatura, alimento fora do catalogo, "arroz a vontade" — os itens perdidos valem zero,
+    e o que sobrava virava o objetivo. Foi assim que uma dieta feminina de seis refeicoes
+    apareceu em producao anunciando META de algumas centenas de kcal: o numero era coerente
+    com o que o motor conseguiu ler, e absurdo para quem ia comer.
+
+    Agora os dois numeros convivem e a diferenca fica VISIVEL: `targets` e a necessidade,
+    `daily_totals` e a entrega. Uma dieta curta demais deixa de se disfarcar de meta."""
     meals = []
     for meal in draft.get("meals") or []:
         foods = []
@@ -358,13 +372,18 @@ def draft_to_plan(draft: Dict[str, Any]) -> Dict[str, Any]:
             "coherence_score": None,
         })
     dia = draft.get("daily_totals") or {}
+    # Sem questionario nao ha necessidade calculada para comparar; o comportamento antigo
+    # continua sendo o unico possivel.
+    alvos = dict(targets_do_atleta) if targets_do_atleta else {
+        "goal_calories": round(dia.get("kcal", 0)),
+        "protein_g": round(dia.get("protein_g", 0), 1),
+        "carbs_g": round(dia.get("carbs_g", 0), 1),
+        "fat_g": round(dia.get("fat_g", 0), 1),
+    }
     return {
         "meals": meals,
         "daily_totals": dia,
-        "targets": {"goal_calories": round(dia.get("kcal", 0)),
-                    "protein_g": round(dia.get("protein_g", 0), 1),
-                    "carbs_g": round(dia.get("carbs_g", 0), 1),
-                    "fat_g": round(dia.get("fat_g", 0), 1)},
+        "targets": alvos,
         "source": "manual_import",
         "name": sanitize(draft.get("name") or "Dieta importada", MAX_LABEL_CHARS),
     }
