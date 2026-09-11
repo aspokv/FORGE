@@ -541,6 +541,32 @@ def _goal_key(goal):
     if "muscle" in gl or "ganho" in gl or "massa" in gl: return "muscle_gain"
     return "maintenance"
 
+def normalizar_altura_cm(altura):
+    """
+    Altura em centimetros, venha ela como vier.
+
+    O campo pede centimetros, mas a pessoa digita como fala: "1,63". O modelo aceitava
+    qualquer positivo ate 280, entao 1.63 entrava como 1,63 CENTIMETRO e atravessava o
+    sistema inteiro sem nenhum aviso.
+
+    O estrago nao ficava visivel como erro — ficava como um plano plausivel e errado. Um
+    caso real de producao: mulher de 65 kg com a altura gravada em metros virou uma TMB de
+    348 kcal e uma META DE 427 KCAL POR DIA, com carboidrato zerado porque proteina e
+    gordura sozinhas ja estouravam o total. Com a altura em centimetros, a mesma pessoa da
+    1624 kcal.
+
+    Ninguem tem 1,63 cm nem 250 metros. Abaixo de 3 so pode ser metro, e converter e mais
+    util que recusar: o numero que a pessoa quis dizer e inequivoco.
+    """
+    try:
+        valor = float(altura)
+    except (TypeError, ValueError):
+        return altura
+    if 0 < valor < 3:
+        return valor * 100
+    return valor
+
+
 def calculate_bmr(w, h, age, sex="male"):
     return 10*w + 6.25*h - 5*age + 5 if str(sex).lower() not in ("f","female","feminino") else 10*w + 6.25*h - 5*age - 161
 
@@ -690,6 +716,9 @@ def _targets_for_protocol(bmr, af, tdee, w, protocol):
 
 
 def compute_macro_targets(w, h, age, sex, td, goal, al="moderate", intensity=None):
+    # Normaliza aqui, e nao so na entrada da API: perfis gravados antes desta correcao
+    # continuam com a altura em metros no banco, e refazer o plano nao os consertaria.
+    h = normalizar_altura_cm(h)
     bmr = calculate_bmr(w,h,age,sex)
     af = calculate_activity_factor(td,al)
     tdee = calculate_tdee(bmr,af)

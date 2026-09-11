@@ -1,0 +1,64 @@
+/*
+ * Campo de altura — a unidade dentro do campo, a leitura embaixo.
+ *
+ * A unidade fica DENTRO da caixa, do lado direito, e troca entre "m" e "cm" conforme o que
+ * a pessoa digita. Ela e a primeira confirmação, antes mesmo de ler o eco: digitou 1,80 e
+ * viu "m" acender, já sabe que o campo entendeu.
+ */
+
+.fg-altura {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.fg-altura-caixa {
+  position: relative;
+  display: block;
+}
+
+.fg-altura-caixa input {
+  width: 100%;
+  /* Espaço à direita para a unidade não encostar no texto digitado. */
+  padding-right: 46px;
+  /* 16px evita o zoom automático do iOS ao focar o campo — abaixo disso o Safari
+     aproxima a tela e a pessoa perde o contexto do formulário. */
+  font-size: max(16px, 1em);
+}
+
+.fg-altura-unidade {
+  position: absolute;
+  top: 50%;
+  right: 14px;
+  transform: translateY(-50%);
+  pointer-events: none;
+  font: 600 12px/1 "IBM Plex Mono", ui-monospace, monospace;
+  letter-spacing: .08em;
+  text-transform: none;
+  color: var(--fg-metal, #d8ab80);
+  transition: color 140ms ease;
+}
+
+/*
+ * O eco só aparece quando há o que dizer. Reservar a altura dele evita que o formulário
+ * inteiro pule uma linha quando a mensagem entra — salto de layout dentro de um campo em
+ * foco é o que faz a pessoa perder a linha que estava preenchendo.
+ */
+.fg-altura-eco {
+  display: block;
+  min-height: 16px;
+  /* O formulário em volta aplica caixa alta nas legendas, e isso chegava aqui: o eco
+     saía "1,80 M = 180 CM". Unidade de medida se escreve em minúscula — "M" é outra
+     coisa, e ler a própria altura gritada não inspira confiança no número. */
+  text-transform: none;
+  letter-spacing: 0;
+  font: 500 12px/1.35 "Inter", system-ui, sans-serif;
+  color: var(--fg-texto-2, #a2a7ab);
+}
+
+.fg-altura-eco em { font-style: normal; }
+.fg-altura-eco b { color: var(--fg-texto, #f3f1ec); font-weight: 600; }
+
+/* Atenção, e não erro: o número é legível, só não é de uma pessoa. */
+.fg-altura-alerta { color: var(--fg-atencao, #d7a85c); }
