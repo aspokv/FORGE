@@ -35,6 +35,7 @@ from muscles import (
     get_assessment_internal, FRONTEND_MUSCLES as MUSCLES_FRONTEND_LIST,
     LEGACY_TO_INTERNAL, MUSCLE_IDS,
 )
+from female_program_selector import build_female_library_program, is_female_profile
 from engine import (
     FRONTEND_EXERCISE_LIST, EXERCISE_INDEX, build_program_v2,
     _is_empty_profile as engine_is_empty_profile,
@@ -327,7 +328,7 @@ async def save_assessment(assessment: DeepAssessment, user=Depends(get_current_u
     # refazia a avaliacao de treino. Ele e carregado adiante de proposito.
     anterior = await db.profiles.find_one(
         {"id": target}, {"_id": 0, "nutrition_assessment": 1, "assessment": 1, "sex": 1,
-         "last_workout_operation": 1, "last_workout_completion_day": 1})
+         "custom_program": 1, "last_workout_operation": 1, "last_workout_completion_day": 1})
 
     # O muscle map individual saiu do onboarding, entao o formulario novo manda
     # assessment vazio. Isso nao pode apagar a avaliacao historica de quem ja respondeu
@@ -362,6 +363,24 @@ async def save_assessment(assessment: DeepAssessment, user=Depends(get_current_u
         nutricao["intensity"] = protocolo["intensity"] if protocolo else None
     if nutricao:
         doc["nutrition_assessment"] = nutricao
+
+    # A female assessment must be usable immediately. Select a conservative,
+    # existing library sequence and persist it so refresh/bootstrap see the same
+    # sessions. An explicitly chosen manual program is preserved on same-profile
+    # reassessments; only an earlier automatic snapshot is regenerated.
+    if is_female_profile(doc):
+        previous_custom = (anterior or {}).get("custom_program") or {}
+        keep_manual = (
+            not sex_changed
+            and previous_custom.get("sessions")
+            and previous_custom.get("source") != "female_library_auto"
+        )
+        if keep_manual:
+            doc["custom_program"] = previous_custom
+        else:
+            auto_program = build_female_library_program(doc)
+            if auto_program:
+                doc["custom_program"] = auto_program
 
     await db.profiles.replace_one({"id": target}, doc, upsert=True)
     await db.assessments.insert_one({"profile_id": target, "user_id": target, "captured_at": assessment.created_at, "assessment": doc})
