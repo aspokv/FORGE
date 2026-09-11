@@ -20,9 +20,19 @@
 .forge-shell .a6.a6-screen-0 .a6-scroll > * {
   width: 100%;
   max-width: 100%;
+  flex: 0 0 auto;
 }
 
+/*
+ * `gap` so tem efeito em flex, grid ou multi-coluna. `.a6-scroll` e um bloco comum
+ * (astra6-exact.css), entao o gap declarado aqui nunca valeu nada e TODOS os blocos da
+ * tela ficavam encostados, com 0px entre eles — medido. Declarar a coluna e o que faz a
+ * folga existir. `flex: 0 0 auto` nos filhos impede que o flex os comprima quando a
+ * altura aperta: com `overflow: auto`, apertado deve rolar, nao amassar.
+ */
 .forge-shell .a6.a6-screen-0 .a6-scroll {
+  display: flex;
+  flex-direction: column;
   gap: 22px;
   padding: 10px clamp(16px, 4.8vw, 24px) calc(28px + env(safe-area-inset-bottom));
   overflow-x: clip;
@@ -65,7 +75,7 @@
   isolation: isolate;
   display: flex;
   flex-direction: column;
-  min-height: clamp(320px, 85vw, 390px);
+  min-height: clamp(304px, 80vw, 372px);
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--home-copper) 68%, transparent);
   border-radius: 22px;
@@ -255,13 +265,19 @@
   font-weight: 700;
 }
 
+/*
+ * Grade de duas faixas, e nao coluna flexivel: a segunda faixa fica reservada para o check
+ * mesmo nos dias sem treino. Em coluna, o dia marcado ganhava um segundo filho e empurrava
+ * o numero para cima — a linha dos numeros dancava entre 8, 9, 10 (marcados) e 7, 11, 12,
+ * 13 (nao marcados), lado a lado na mesma faixa.
+ */
 .forge-shell .a6.a6-screen-0 .a6-day > strong {
-  display: flex;
+  display: grid;
   min-width: 0;
   height: clamp(50px, 14.8vw, 66px);
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
+  grid-template-rows: auto 15px;
+  align-content: center;
+  justify-items: center;
   gap: 1px;
   border: 1px solid rgb(255 255 255 / 3%);
   border-radius: 13px;
@@ -291,11 +307,13 @@
 }
 .forge-shell .a6.a6-screen-0 .a6-day.a6-selected strong .a6-ico { color: #173b31; }
 
+/* Os atalhos sao outra categoria de informacao, nao a continuacao da semana: o limite
+   entre os dois blocos recebe mais ar que o ritmo padrao de 22px. */
 .forge-shell .a6.a6-screen-0 .a6-mini-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
-  margin: 0;
+  margin: 8px 0 0;
 }
 
 .forge-shell .a6.a6-screen-0 .forge-progress-card {
@@ -349,7 +367,11 @@
   line-height: 1.25;
 }
 
+/* Em uma linha so, "890 kcal de 1.415 kcal" quebrava onde coubesse e deixava o "de"
+   orfao no fim da linha. Em bloco, a leitura vira valor em cima e meta embaixo — sempre
+   no mesmo lugar, em qualquer largura e com qualquer numero. */
 .forge-shell .a6.a6-screen-0 .forge-progress-copy strong span {
+  display: block;
   color: var(--home-muted);
   font-size: .82em;
   font-weight: 500;
@@ -403,6 +425,19 @@
   color: #aaaead;
   font-family: Inter, Manrope, "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
+
+/*
+ * O rotulo da barra inferior sai em 15px por causa de
+ * `.forge-shell button:not(.icon-button)` (typography-premium.css), que vence os 9px do
+ * astra6 por especificidade. Com "Progresso" no lugar de "Evolucao", cinco rotulos de
+ * 15px nao cabem mais: medido, sobrava 4px entre "Nutricao" e "Progresso" em 360px e 6px
+ * em 375px — encostados. A escala por vw devolve a folga onde a tela e estreita e mantem
+ * os 15px a partir de 417px.
+ *
+ * Sem `:has(.a6-screen-0)` de proposito: a barra e a mesma em todas as telas, e um tamanho
+ * de letra que mudasse ao trocar de aba seria pior que o aperto.
+ */
+.forge-shell .a6-bottom-nav button { font-size: clamp(12px, 3.6vw, 15px); }
 
 .forge-shell:has(.a6-screen-0) .a6-bottom-nav button[aria-current="page"] { color: var(--home-copper, #e7794a); }
 .forge-shell:has(.a6-screen-0) .a6-bottom-nav button[aria-current="page"]::before {
