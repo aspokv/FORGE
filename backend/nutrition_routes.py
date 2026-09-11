@@ -24,7 +24,7 @@ from nutrition_engine import (
     compute_macro_targets, generate_daily_plan, validate_daily_plan, check_plan_hard_limits,
     find_substitutes, recalculate_substitution_portion, FOOD_INDEX,
     FORGE_COACH_METHODOLOGY, sum_plan_totals,
-    get_meal_archetype_options, redistribute_remaining_targets,
+    get_meal_archetype_options, redistribute_remaining_targets, aplicar_teto_de_carboidrato,
     calculate_meal_portions, calculate_meal_coherence_score, _infer_meal_type,
     build_food_item,
 )
@@ -648,6 +648,11 @@ async def draft_choose_remaining(request: Request, user=Depends(get_current_user
     if not draft:
         raise HTTPException(404, "Nenhum rascunho de plano em andamento.")
     goal = draft.get("goal", na.get("goal", "maintenance"))
+    # O MESMO preparo que `/plan/draft/options` ja fazia: `_com_protocolo` injeta o teto de
+    # carboidrato POR ALIMENTO do protocolo. Sem ele, "FORGE escolhe por mim" montava o dia
+    # com alimentos que a tela de opcoes nunca ofereceria, o dia estourava o teto do
+    # protocolo e a confirmacao morria em 422 — depois de seis escolhas.
+    na = _com_protocolo(na, draft.get("targets"))
     preferences = await _load_preferences(db, target)
     chosen_food_ids = []
     for idx in range(len(draft["meals"])):
@@ -685,6 +690,12 @@ async def confirm_plan_draft(request: Request, user=Depends(get_current_user)):
     if not all(draft["locked"]):
         raise HTTPException(400, "Existem refeicoes ainda nao escolhidas. Use /choose ou /choose-remaining antes de confirmar.")
     goal = draft.get("goal", na.get("goal", "maintenance"))
+    # Mesmo passe que `generate_daily_plan` aplica no fim: sob um protocolo com teto de
+    # carboidrato, o pipeline infla alimento de volume por saciedade e estoura o teto. O
+    # fluxo guiado nunca passava por aqui, entao montar o dia a mao no protocolo agressivo
+    # terminava em 422 DEPOIS de a pessoa escolher as seis refeicoes — e sem plano salvo.
+    # Sem teto no protocolo a funcao devolve as refeicoes intactas.
+    draft["meals"] = aplicar_teto_de_carboidrato(draft["meals"], draft["targets"])
     totals = sum_plan_totals(draft["meals"])
     for i, meal in enumerate(draft["meals"]):
         # Cross-meal repetition check (item 10) against every OTHER meal in the final

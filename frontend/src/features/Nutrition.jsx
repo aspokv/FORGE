@@ -5,7 +5,7 @@ import NutritionDailyFooter from "./NutritionDailyFooter";
 import NutritionImport from "./NutritionImport";
 import FoodDiaryEditor from "./FoodDiaryEditor";
 import {localFoodDate, consumedTotals} from "./foodDiary";
-import { macrosDaRefeicao, textoDoMacro } from "./macrosDaRefeicao";
+import { kcalDoItem, macrosDaRefeicao, textoDoMacro } from "./macrosDaRefeicao";
 import "./forge-nutricao.css";
 import {AstraPage,AstraIntro,AstraIcon,astraDate} from "./AstraUI";
 import AstraNutritionSummary from "./AstraNutritionSummary";
@@ -496,7 +496,7 @@ export default function Nutrition({ API, profileId, db }) {
                     <div className="food-row-main">
                       <div className="food-row-info">
                         <b>{it.food?.name || it.food_id}</b>
-                        <span className="muted">{formatQty(it)} · {Math.round(it.food?.kcal || 0)} kcal</span>
+                        <span className="muted">{formatQty(it)} · {textoDoMacro(kcalDoItem(it), "kcal")}</span>
                       </div>
                     </div>
                   </div>
@@ -548,7 +548,7 @@ export default function Nutrition({ API, profileId, db }) {
                         <div className="food-row-main">
                           <div className="food-row-info">
                             <b>{it.food?.name || it.food_id}</b>
-                            <span className="muted">{formatQty(it)} · {Math.round(it.food?.kcal || 0)} kcal</span>
+                            <span className="muted">{formatQty(it)} · {textoDoMacro(kcalDoItem(it), "kcal")}</span>
                           </div>
                           <button className="food-sub-btn" onClick={() => abrirSwapNaOpcao(i, it.food_id)}>
                             <RefreshCw size={13} /> Trocar
@@ -670,7 +670,7 @@ export default function Nutrition({ API, profileId, db }) {
               </div>
               <div className="fg-refeicao-titulo">
                 <p className="fg-etiqueta">{meal.name}</p>
-                <b>{Math.round(meal.target_cal || 0)}<small>kcal</small></b>
+                <b>{textoDoMacro(macrosDaRefeicao(meal).kcal, "")}<small>kcal</small></b>
               </div>
             </div>
 
@@ -688,7 +688,7 @@ export default function Nutrition({ API, profileId, db }) {
                   <div className="fg-alimento" key={j}>
                     <div>
                       <p className="fg-alimento-nome">{f.name || item.food_id}</p>
-                      <p className="fg-alimento-porcao">{formatQty(item)} · {Math.round(f.kcal || 0)} kcal</p>
+                      <p className="fg-alimento-porcao">{formatQty(item)} · {textoDoMacro(kcalDoItem(item), "kcal")}</p>
                     </div>
                     <button
                       className="fg-substituir"
