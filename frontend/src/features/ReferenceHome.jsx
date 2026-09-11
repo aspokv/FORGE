@@ -31,12 +31,12 @@ export default function ReferenceHome({db,start,onRecoveryCheckin}){
   const sessions=p.sessions||[],activeIndex=Math.max(0,sessions.findIndex(s=>s.day===p.active_day));
   const active=sessions[activeIndex]||sessions[0]||{};
   const now=new Date(),todayCompletion=completionForToday(completion,now);
-  const completedSession=todayCompletion?sessions.find(s=>Number(s.day)===Number(todayCompletion.day)):null;
-  const shown=completedSession||active,items=shown.exercises||p.exercises||[];
-  const plannedFromSession=items.reduce((s,x)=>s+Number(x.sets||0),0),plannedSets=Number(todayCompletion?.summary?.total_sets)||plannedFromSession;
-  const completedSeconds=Number(todayCompletion?.summary?.duration_seconds||0),duration=completedSeconds?`${Math.max(1,Math.round(completedSeconds/60))} min`:shown.duration||p.duration||`${Math.max(35,Math.round(plannedSets*3.4))} min`;
+  const completedSession=todayCompletion?.completed_session||null;
+  const shown=todayCompletion?(completedSession||{label:todayCompletion.label}):active,items=shown.exercises||(todayCompletion?[]:p.exercises)||[];
+  const plannedFromSession=items.reduce((s,x)=>s+Number(x.sets||0),0),plannedSets=todayCompletion?(todayCompletion.summary?.completed_sets??todayCompletion.summary?.total_sets??"—"):plannedFromSession;
+  const completedSeconds=Number(todayCompletion?.summary?.duration_seconds||0),duration=completedSeconds?`${Math.max(1,Math.round(completedSeconds/60))} min`:todayCompletion?"Duração não registrada":shown.duration||p.duration||`${Math.max(35,Math.round(plannedSets*3.4))} min`;
   const raw=todayCompletion?.label||shown.label||p.session||"Treino de hoje",sessionName=String(raw).split(/[—–]/).map(x=>x.trim()).filter(Boolean).pop()||raw;
-  const focus=(shown.focus||p.focus||[]).slice(0,3);
+  const focus=(shown.focus||(todayCompletion?[]:p.focus)||[]).slice(0,3);
   const firstName=(db.profile?.name||"").trim().split(" ")[0],displayName=firstName&&firstName.toLowerCase()!=="novo"?firstName:"Atleta";
   const dateLabel=referenceDateLabel(now),dayIndex=(now.getDay()+6)%7;
   const consumed=useMemo(()=>consumedTotals(nutrition?.meals,mealLog,foodExtras),[nutrition,mealLog,foodExtras]);
@@ -53,10 +53,10 @@ export default function ReferenceHome({db,start,onRecoveryCheckin}){
   return <AstraPage screen={0} testId="reference-home-v3">
     <AstraIntro eyebrow={dateLabel} title={`Olá, ${displayName}.`} subtitle={todayCompletion?"Sessão concluída. Recuperação também faz parte do progresso.":"Seu próximo passo está aqui."}/>
     <section className={`a6-signature${todayCompletion?" a6-signature-completed":""}`} aria-labelledby="home-session-title">
-    <div className="a6-hero" data-testid="home-top-hero"><TrainingCardImage session={{...shown,label:raw}} program={p} profile={db.profile} focus={focus} loading="eager" fetchPriority="high" width="640" height="276"/></div>
+    <div className="a6-hero" data-testid="home-top-hero"><TrainingCardImage session={{...shown,label:raw}} program={todayCompletion?{}:p} profile={db.profile} focus={focus} loading="eager" fetchPriority="high" width="640" height="276"/></div>
     <div className="a6-panel a6-workout-card" data-testid="daily-briefing">
       <div className="a6-eyebrow">{todayCompletion?"SEU TREINO DE HOJE · CONCLUÍDO":"SEU TREINO DE HOJE"}</div>
-      <h2 id="home-session-title">{sessionName}</h2><p>{focus.length?focus.join(" · "):"Treino completo"}</p>
+      <h2 id="home-session-title">{sessionName}</h2><p>{focus.length?focus.join(" · "):todayCompletion?"Sessão registrada":"Treino completo"}</p>
       <AstraMeta duration={duration} sets={plannedSets}/>
     </div>
     <div className="a6-signature-footer">

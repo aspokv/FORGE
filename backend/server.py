@@ -994,7 +994,7 @@ async def latest_workout_completion(user=Depends(get_current_user), profile_id: 
         current_sequence = [{"day": s.get("day"), "label": s.get("label")} for s in sessions]
         compatible = bool(matched) and (saved_sequence is None or saved_sequence == current_sequence)
         record = {**record,
-                  "completed_session": record.get("completed_session") or matched,
+                  "completed_session": record.get("completed_session"),
                   "next_session": active if compatible else None,
                   "next_session_status": "confirmed" if compatible and active else "program_changed"}
     return {"completion": record}

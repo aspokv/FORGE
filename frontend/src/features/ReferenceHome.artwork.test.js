@@ -65,3 +65,17 @@ describe("home plan artwork",()=>{
     expect(planArtworkFor("Pull 2",["Costas"])).toBe("/images/anatomy/pull-back.webp");
   });
 });
+
+test("completed home does not borrow focus, duration or sets from a newly saved program",()=>{
+ const key="forge_workout_completion:history-check";
+ localStorage.setItem(key,JSON.stringify({day:1,label:"Push antigo",completed_at:new Date().toISOString(),summary:{completed_sets:4,duration_seconds:600}}));
+ try{
+  const home=casa({profile:{id:"history-check",name:"Atleta"},program:{active_day:1,focus:["Foco novo"],duration:"99 min",sessions:[{day:1,label:"Upper novo",focus:["Foco novo"],exercises:[{sets:99}]}]}});
+  const card=home.querySelector(".a6-signature");
+  expect(card.textContent).toContain("Push antigo");
+  expect(card.textContent).toContain("4 séries");
+  expect(card.textContent).toContain("10 min");
+  expect(card.textContent).not.toContain("Foco novo");
+  expect(card.textContent).not.toContain("99");
+ }finally{localStorage.removeItem(key);}
+});

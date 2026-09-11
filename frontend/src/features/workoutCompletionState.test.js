@@ -24,7 +24,7 @@ test("completed screen has collapsed summaries and no start action",()=>{
  expect(doc.body.textContent).toContain("CONCLUÍDO HOJE");
  expect(doc.body.textContent).toContain("Pull 1");
  expect(doc.body.textContent).toContain("12 séries registradas");
- expect(doc.querySelectorAll("details")).toHaveLength(2);
+ expect(doc.querySelectorAll("details")).toHaveLength(3);
  expect(doc.querySelector("details[open]")).toBeNull();
  expect(doc.body.textContent).not.toContain("Iniciar");
 });
@@ -59,11 +59,27 @@ test("does not rotate stale day numbers or guess a category after a program edit
  const stale={...completed,day:3,label:"Push Ombros",next_session_status:"program_changed"};
  expect(nextSessionAfter(program,stale)).toBeNull();
  const doc=new DOMParser().parseFromString(renderToStaticMarkup(<CompletedWorkout db={{program,profile:{},exercises:[]}} completion={stale}/>),"text/html");
- expect(doc.querySelector(".completed-next-card")).toBeNull();
- expect(doc.body.textContent).toContain("não corresponde");
+ expect(doc.querySelector(".completed-next-card").textContent).toContain("PROGRAMA ATUAL");
+ expect(doc.querySelector(".completed-next-card").textContent).toContain("Pull 1");
+ expect(doc.querySelector(".completed-workout-card").textContent).toContain("Push Ombros");
 });
 test("server next session overrides a stale browser program",()=>{
  const serverPull={day:2,label:"Pull 1",exercises:[]};
  expect(nextSessionAfter({active_day:1,sessions:[{day:1,label:"Push 1"}]},{
  ...completed,next_session_status:"confirmed",next_session:serverPull})).toBe(serverPull);
+});
+
+test("saved program changes immediately without replacing completion or enabling another workout",async()=>{
+ const host=document.createElement("div"),root=createRoot(host),db={program,profile:{},exercises:[]};
+ await act(async()=>root.render(<CompletedWorkout db={db} completion={completed}/>));
+ const updated={name:"Upper + Full Body",active_day:1,sessions:[{day:1,label:"Upper A",exercises:[]},{day:2,label:"Full Body A",exercises:[]},{day:3,label:"Upper B",exercises:[]}]};
+ await act(async()=>root.render(<CompletedWorkout db={{...db,program:updated}} completion={completed}/>));
+ const preview=host.querySelector('[data-testid="saved-program-preview"]');
+ expect(preview.textContent).toContain("Upper + Full Body");
+ expect(preview.textContent).toContain("Full Body A");
+ expect(preview.textContent).toContain("Upper B");
+ expect(preview.textContent).not.toContain("Push 1");
+ expect(host.querySelector(".completed-workout-card").textContent).toContain("Push 1");
+ expect(host.textContent).not.toContain("Iniciar");
+ act(()=>root.unmount());
 });
