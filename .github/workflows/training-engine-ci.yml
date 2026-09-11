@@ -13,6 +13,10 @@ on:
       - 'backend/training_programs.py'
       - 'backend/custom_training_programs.py'
       - 'backend/engine.py'
+      - 'backend/workout_calendar.py'
+      - 'backend/tests/test_workout_calendar.py'
+      - 'frontend/src/features/workoutCalendar*'
+      - 'frontend/src/features/AuthContext.jsx'
       - 'backend/training_engine_v4.py'
       - 'backend/training_engine_v5.py'
       - 'backend/muscles.py'
@@ -73,6 +77,10 @@ on:
       - 'backend/training_programs.py'
       - 'backend/custom_training_programs.py'
       - 'backend/engine.py'
+      - 'backend/workout_calendar.py'
+      - 'backend/tests/test_workout_calendar.py'
+      - 'frontend/src/features/workoutCalendar*'
+      - 'frontend/src/features/AuthContext.jsx'
       - 'backend/training_engine_v4.py'
       - 'backend/training_engine_v5.py'
       - 'backend/muscles.py'
@@ -153,6 +161,7 @@ jobs:
           tests/test_custom_training_programs.py
           test_cardio_unit.py
           tests/test_workout_completion_state.py
+          tests/test_workout_calendar.py
 
   workout-library-ui:
     runs-on: ubuntu-latest
@@ -169,7 +178,7 @@ jobs:
       - name: Install frontend dependencies
         run: yarn install --frozen-lockfile
       - name: Test mobile workout, home, progress, artwork, and cardio UI
-        run: FORGE_ARTWORK_VISUAL=1 CI=true yarn test --watchAll=false --runTestsByPath src/features/WorkoutLibrary.interaction.test.js src/features/ReferenceHome.artwork.test.js src/features/progressVisual.test.js src/features/exerciseArtworkLibrary.test.js src/features/CardioFinisher.test.js src/features/trainingCardArtwork.test.js src/features/trainingCardAssets.test.js src/features/ReferenceWorkoutPreview.content.test.js src/features/ExerciseEvolution.test.js src/features/workoutCompletionState.test.js src/features/completeWorkout.test.js
+        run: FORGE_ARTWORK_VISUAL=1 CI=true yarn test --watchAll=false --runTestsByPath src/features/WorkoutLibrary.interaction.test.js src/features/ReferenceHome.artwork.test.js src/features/progressVisual.test.js src/features/exerciseArtworkLibrary.test.js src/features/CardioFinisher.test.js src/features/trainingCardArtwork.test.js src/features/trainingCardAssets.test.js src/features/ReferenceWorkoutPreview.content.test.js src/features/ExerciseEvolution.test.js src/features/workoutCompletionState.test.js src/features/completeWorkout.test.js src/features/workoutCalendar.test.js
       - name: Build frontend
         env:
           CI: 'false'

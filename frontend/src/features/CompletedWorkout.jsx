@@ -1,10 +1,11 @@
 import {AstraPage,AstraIntro,AstraMeta} from "./AstraUI";
+import {useScheduledProgram} from "./workoutCalendar";
 import TrainingCardImage from "./TrainingCardImage";
 import "./completed-workout.css";
 export default function CompletedWorkout({db,completion,onLibrary}){
- const program=db.program||{},sessions=program.sessions||[];
+ const program=useScheduledProgram(db.program||{},true),sessions=program.sessions||[];
  const completed=completion.completed_session||null;
- const next=sessions.find(s=>Number(s.day)===Number(program.active_day))||null,summary=completion.summary||{};
+ const next=program.calendar?.next||sessions.find(s=>Number(s.day)===Number(program.active_day))||null,summary=completion.summary||{};
  const time=completion.inferred?"":new Intl.DateTimeFormat("pt-BR",{hour:"2-digit",minute:"2-digit"}).format(new Date(completion.completed_at));
  const exercises=db.exercises||[];
  const nameOf=item=>exercises.find(e=>e.id===item.exercise_id)?.name||item.name||item.exercise_id;
@@ -25,7 +26,7 @@ export default function CompletedWorkout({db,completion,onLibrary}){
     <div className="completed-next-heading"><div><p className="a6-eyebrow">PROGRAMA ATUAL</p><p>{program.name||"Programa salvo"}</p><h2>{next.label||"Próxima sessão"}</h2><p>{(next.focus||[]).join(" · ")}</p></div><TrainingCardImage session={next} program={program} profile={db.profile} width="120" height="100"/></div>
     <AstraMeta duration={next.duration||program.duration||"Duração não informada"} sets={(next.exercises||[]).reduce((n,x)=>n+Number(x.sets||0),0)}/>
     <details className="a6-details"><summary>Ver prévia</summary><ul>{(next.exercises||[]).map((x,i)=><li key={i}>{nameOf(x)}<small>{x.sets} séries · {x.reps} repetições</small></li>)}</ul></details>
-    <details className="a6-details"><summary>Ver sequência do programa</summary><ol>{sessions.map((s,i)=><li key={`${s.day}-${i}`}>{s.label||`Sessão ${i+1}`}{Number(s.day)===Number(program.active_day)&&<small>Próxima sessão do programa</small>}</li>)}</ol></details>
+    <details className="a6-details"><summary>Ver sequência do programa</summary><ol>{sessions.map((s,i)=><li key={`${s.day}-${i}`}>{s.label||`Sessão ${i+1}`}{Number(s.day)===Number(next.day)&&<small>Próxima sessão do programa</small>}</li>)}</ol></details>
     <p>Programa salvo disponível para consulta. A sessão concluída hoje permanece no histórico.</p>
    </section>:<p role="status">Nenhuma sessão ativa disponível no programa atual.</p>}
  </AstraPage>;

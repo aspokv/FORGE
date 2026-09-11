@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from typing import Optional
 from unittest.mock import AsyncMock
 import uuid
+from workout_calendar import calendar_selection
 
 def endpoints():
     source = ast.parse((Path(__file__).parents[1] / "server.py").read_text())
@@ -16,7 +17,7 @@ def endpoints():
         node.decorator_list = []
     ns = dict(Depends=lambda f: None, get_current_user=lambda: None,
               Optional=Optional, WorkoutCompleteIn=object,
-              datetime=datetime, timezone=timezone, uuid=uuid,
+              datetime=datetime, timezone=timezone, uuid=uuid, calendar_selection=calendar_selection,
               HTTPException=lambda *a: RuntimeError(a))
     exec(compile(ast.Module(body=nodes, type_ignores=[]), "server.py", "exec"), ns)
     return ns
@@ -109,3 +110,41 @@ def test_sequence_snapshot_detects_reordering_even_if_completed_label_matches():
       build_program=AsyncMock(return_value={"active_day":2,"sessions":[old[0],{"day":2,"label":"Legs"},{"day":3,"label":"Pull"}]}))
     result=asyncio.run(ns["latest_workout_completion"]({"id":"athlete"}))["completion"]
     assert result["next_session"] is None
+
+def test_calendar_friday_completes_even_if_pointer_is_monday_and_retry_is_atomic():
+    ns = endpoints()
+    profiles = Profiles()
+    insert = AsyncMock()
+    sessions = [{"day": 1, "label": "Segunda · Upper A"},
+                {"day": 4, "label": "Sexta · Upper C"},
+                {"day": 5, "label": "Sábado · Full Body B"}]
+    ns.update(db=SimpleNamespace(profiles=profiles, workout_completions=SimpleNamespace(insert_one=insert,find_one=AsyncMock(return_value=None))),
+              owned_profile_id=lambda user, requested: user["id"],
+              load_profile=AsyncMock(side_effect=lambda _: dict(profiles.doc)),
+              build_program=AsyncMock(return_value={"active_day":4,"sessions":sessions}))
+    payload=SimpleNamespace(profile_id=None,day=4,local_date="2026-09-11",completed_sets=3,total_sets=3,
+         duration_seconds=1200,started_at="2026-09-11T10:00:00Z",partial_reason="",discomfort="none")
+    async def run():
+        first=await ns["complete_workout"](payload,{"id":"athlete"})
+        assert first["completed_day"] == 4
+        assert first["next_day"] == 5
+        second=await ns["complete_workout"](payload,{"id":"athlete"})
+        assert second["already_completed"] is True
+    asyncio.run(run())
+    assert insert.await_count == 1
+    assert insert.call_args.args[0]["label"] == "Sexta · Upper C"
+
+def test_calendar_rejects_monday_session_on_friday_and_rest_day():
+    import pytest
+    ns=endpoints()
+    profiles=Profiles()
+    insert=AsyncMock()
+    ns.update(db=SimpleNamespace(profiles=profiles,workout_completions=SimpleNamespace(insert_one=insert)),
+              owned_profile_id=lambda user, requested:user["id"],
+              load_profile=AsyncMock(return_value=profiles.doc),
+              build_program=AsyncMock(return_value={"active_day":1,"sessions":[{"day":1,"label":"Segunda · Upper A"},{"day":4,"label":"Sexta · Upper C"}]}))
+    for date in ("2026-09-11","2026-09-10"):
+        payload=SimpleNamespace(profile_id=None,day=1,local_date=date)
+        with pytest.raises(RuntimeError,match="409"):
+            asyncio.run(ns["complete_workout"](payload,{"id":"athlete"}))
+    assert insert.await_count == 0

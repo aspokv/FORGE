@@ -18,12 +18,17 @@ window.fetch = (input, init = {}) => {
   const isRequest = typeof Request !== "undefined" && input instanceof Request;
   const headers = new Headers(isRequest ? input.headers : undefined);
   new Headers(init.headers || {}).forEach((value, key) => headers.set(key, value));
+  headers.set("X-Forge-Timezone-Offset", String(new Date().getTimezoneOffset()));
   const token = localStorage.getItem("forge_token");
   if (token && !headers.has("Authorization")) headers.set("Authorization", `Bearer ${token}`);
   return originalFetch(input, { ...init, headers });
 };
 
 axios.interceptors.request.use(cfg => {
+  const url = new URL(cfg.url, window.location.origin);
+  if (url.origin === apiBase.origin && url.pathname.startsWith(apiBase.pathname.replace(/\/$/, ""))) {
+    cfg.headers["X-Forge-Timezone-Offset"] = String(new Date().getTimezoneOffset());
+  }
   const t = localStorage.getItem("forge_token");
   if (t) cfg.headers.Authorization = `Bearer ${t}`;
   return cfg;

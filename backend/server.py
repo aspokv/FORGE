@@ -15,6 +15,7 @@ from google import genai as google_genai
 
 from llm_providers import deepseek_model, get_coach_provider, FORGE_COACH_SYSTEM
 import visual_storage
+from workout_calendar import browser_offset, calendar_selection
 
 from auth import router as auth_router, get_current_user, seed_super_admin
 from admin_routes import router as admin_router
@@ -1002,24 +1003,34 @@ async def latest_workout_completion(user=Depends(get_current_user), profile_id: 
 
 @api.post("/workout/complete")
 async def complete_workout(payload: WorkoutCompleteIn, user=Depends(get_current_user)):
-    """Program sequence progression (Push -> Pull -> Legs): advances the athlete's
-    current_session_day pointer to the NEXT day in the program's own sequence — never
-    based on calendar date, never requiring logout/login or midnight. Atomic and
-    persistent: the pointer write and the completion-history write both happen here,
-    before returning the rebuilt program with the new active session already selected."""
+    """Complete once per local day, preserving sequential and weekly programs."""
     target = owned_profile_id(user, payload.profile_id)
     profile = await load_profile(target)
     program = await build_program(profile)
     sessions = program.get("sessions") or []
     if not sessions:
         raise HTTPException(400, "Nenhuma sessão disponível para concluir")
+    now = datetime.now(timezone.utc).isoformat()
+    completion_day = payload.local_date or now[:10]
+    try:
+        if datetime.strptime(completion_day, "%Y-%m-%d").strftime("%Y-%m-%d") != completion_day:
+            raise ValueError("date")
+    except (ValueError, TypeError):
+        raise HTTPException(400, "Data de conclusão inválida")
+    calendar = calendar_selection(sessions, datetime.strptime(completion_day, "%Y-%m-%d").date(), after_today=True)
+    if calendar is not None:
+        scheduled = calendar["today"]
+        if not scheduled or payload.day not in (None, scheduled["day"]):
+            raise HTTPException(409, "A sessão não corresponde ao calendário deste dia. Atualize o treino.")
     day_values = sorted(s["day"] for s in sessions)
-    completed_day = payload.day if payload.day in day_values else program.get("active_day", day_values[0])
+    completed_day = calendar["today"]["day"] if calendar else (payload.day if payload.day in day_values else program.get("active_day", day_values[0]))
     completed_session = next(s for s in sessions if s["day"] == completed_day)
     idx = day_values.index(completed_day)
     next_day = day_values[(idx + 1) % len(day_values)]
     next_session = next(s for s in sessions if s["day"] == next_day)
-    now = datetime.now(timezone.utc).isoformat()
+    if calendar is not None:
+        next_session = calendar["next"]
+        next_day = next_session["day"]
 
     completed_sets = payload.completed_sets
     total_sets = payload.total_sets
@@ -1053,15 +1064,11 @@ async def complete_workout(payload: WorkoutCompleteIn, user=Depends(get_current_
     # day 4 of the old 5-day split is gone) must still be completable. _resolve_active_day
     # already falls back to the first day when that happens, so without this arm the CAS
     # would match nothing and the athlete could never complete a workout again.
-    completion_day = payload.local_date or now[:10]
-    try:
-        if datetime.strptime(completion_day, "%Y-%m-%d").strftime("%Y-%m-%d") != completion_day:
-            raise ValueError("date")
-    except (ValueError, TypeError):
-        raise HTTPException(400, "Data de conclusão inválida")
+    # Weekly sessions compare the observed pointer; daily and operation guards remain.
+    expected_pointer = profile.get("current_session_day") if calendar is not None else completed_day
     operation_key = payload.started_at or now
     advanced = await db.profiles.update_one(
-        {"id": target, "last_workout_operation": {"$ne": operation_key}, "last_workout_completion_day": {"$ne": completion_day}, "$or": [{"current_session_day": completed_day},
+        {"id": target, "last_workout_operation": {"$ne": operation_key}, "last_workout_completion_day": {"$ne": completion_day}, "$or": [{"current_session_day": expected_pointer},
                                {"current_session_day": {"$nin": day_values}}]},
         {"$set": {"current_session_day": next_day, "last_workout_operation": operation_key, "last_workout_completion_day": completion_day}},
     )
@@ -1453,7 +1460,17 @@ async def limitar_tamanho_do_corpo(request: Request, call_next):
             return JSONResponse(
                 {"detail": {"message": "Conteúdo grande demais.", "reason": "payload_too_large"}},
                 status_code=413)
-    return await call_next(request)
+    try:
+        offset = int(request.headers.get("X-Forge-Timezone-Offset", "180"))
+        if not -840 <= offset <= 840:
+            raise ValueError("offset")
+    except ValueError:
+        offset = 180
+    token = browser_offset.set(offset)
+    try:
+        return await call_next(request)
+    finally:
+        browser_offset.reset(token)
 
 
 app.add_middleware(
@@ -1461,7 +1478,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_origins=_origens_permitidas(),
     allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "X-Requested-With"],
+    allow_headers=["Authorization", "Content-Type", "X-Requested-With", "X-Forge-Timezone-Offset"],
 )
 
 
