@@ -13,7 +13,6 @@ FEMALE_AUTO_TEMPLATE_IDS = {
     "full-body-female-athlete",
     "push-female-performance",
     "pull-female-posture",
-    "upper-female-shape",
 }
 
 

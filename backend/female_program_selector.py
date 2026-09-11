@@ -17,7 +17,6 @@ FEMALE_AUTO_TEMPLATE_IDS = (
     "full-body-female-athlete",
     "push-female-performance",
     "pull-female-posture",
-    "upper-female-shape",
 )
 FULL_BODY_TEMPLATE_ID = "full-body-female-athlete"
 
@@ -70,10 +69,6 @@ CATEGORY_TERMS = {
         "ombros",
         "bracos",
     ),
-}
-
-LABEL_OVERRIDES = {
-    "upper-female-shape": "Upper Feminino · Tronco completo",
 }
 
 
@@ -183,7 +178,7 @@ def build_female_library_program(profile: Optional[Dict[str, Any]]) -> Optional[
     for slot in range(days):
         # Full body is the first session and is repeated on alternating slots for
         # resistance requests. For longer schedules the final slot also restores
-        # lower-body coverage instead of turning into an unbalanced PPL default.
+        # whole-body coverage instead of turning into an unbalanced PPL default.
         force_full_body = (
             slot == 0
             or (resistance and slot % 2 == 0)
@@ -205,7 +200,7 @@ def build_female_library_program(profile: Optional[Dict[str, Any]]) -> Optional[
         used[selected["id"]] = used.get(selected["id"], 0) + 1
         sessions.append({
             "day": slot + 1,
-            "label": LABEL_OVERRIDES.get(selected["id"], selected.get("name", f"Sessão {slot + 1}")),
+            "label": selected.get("name", f"Sessão {slot + 1}"),
             "demand": "MODERATE",
             "focus": deepcopy(selected.get("focus") or []),
             "template_id": selected["id"],
