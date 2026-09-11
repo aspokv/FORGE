@@ -9,7 +9,7 @@ import telaProgresso from "../assets/forge-tela-progresso.webp";
  * O storytelling: o painel fica preso na tela e o scroll vertical dirige a passagem
  * horizontal das telas reais do FORGE.
  *
- *   Treino -> Nutricao -> Inicio -> Progresso
+ *   Treino -> Nutricao -> Inicio -> Evolucao
  *
  * O hero mostra as tres juntas; aqui elas se separam e cada area e explicada sozinha.
  *
@@ -84,7 +84,7 @@ export const TELAS = [
   {
     id: "progresso",
     src: telaProgresso,
-    aba: "Progresso",
+    aba: "Evolução",
     indice: "04",
     titulo: "A evolução fica registrada, não na sua memória.",
     texto:
