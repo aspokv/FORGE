@@ -28,6 +28,7 @@ import WorkoutLibrary from "./features/WorkoutLibrary";
 import ReferenceHome from "./features/ReferenceHome";
 import {AstraNavigation,AstraBottomNav,AstraPage,AstraRow} from "./features/AstraUI";
 import AstraProgress from "./features/AstraProgress";
+import {useScheduledProgram} from "./features/workoutCalendar";
 import CompletedWorkout from "./features/CompletedWorkout";
 import {useWorkoutCompletion} from "./features/workoutCompletionState";
 import {dataDoCabecalho,rotuloDoModo,rotuloDoPlano,rotuloDaSituacao} from "./features/rotulos";
@@ -212,9 +213,9 @@ function TrainingViewTabs({view,onChange}){
   </div>
 }
 function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutCompleted,onLibraryBuild,onLibraryTemplateAdd}){
-  const p=db.program||{};
-  const activeSession=p.sessions?.find(s=>s.day===p.active_day)||p.sessions?.[0];
-  const items=activeSession?.exercises||p.exercises||[];
+  const p=useScheduledProgram(db.program||{});
+  const activeSession=p.rest_day?null:(p.sessions?.find(s=>s.day===p.active_day)||p.sessions?.[0]);
+  const items=useMemo(()=>activeSession?.exercises||(p.rest_day?[]:p.exercises)||[],[activeSession,p.rest_day,p.exercises]);
   const {completion:todayCompletion,status:completionStatus,retry:retryCompletion}=useWorkoutCompletion({userId:db.current_user?.id||db.profile?.user_id||db.profile?.id,program:p,recentSets:db.recent_sets,API});
   const hints=db.program?.progression_hints||{};
   const[view,setView]=useState("session");
@@ -289,8 +290,9 @@ function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutC
   </div>;
   if(todayCompletion)return <CompletedWorkout db={db} completion={todayCompletion} onLibrary={()=>setView("library")}/>;
   if(completionStatus!=="ready")return <div className="content workout-page">{viewTabs}<p role="status">{completionStatus==="error"?"Não foi possível confirmar o estado da sessão.":"Conferindo sua sessão…"}</p>{completionStatus==="error"&&<button className="secondary-button" onClick={retryCompletion}>Tentar novamente</button>}</div>;
+  if(p.rest_day)return <ReferenceWorkoutPreview db={{...db,program:p}} onLibrary={()=>setView("library")}/>;
   if(!items.length)return <div className="content workout-page">{viewTabs}<div className="empty-state"data-testid="workout-empty-state"><Dumbbell size={22}/><h3>Nenhuma sessão disponível</h3><p className="muted">Escolha um modelo na Biblioteca ou gere um programa para começar.</p><button className="primary-button"type="button"onClick={()=>setView("library")}>Abrir biblioteca</button></div></div>;
-  if(!sessionStarted)return <ReferenceWorkoutPreview db={db}activeSession={activeSession}items={items}onStart={()=>{if(todayCompletion||completionStatus!=="ready")return;setStartedAt(Date.now());setSessionStarted(true)}}onLibrary={()=>setView("library")}/>;
+  if(!sessionStarted)return <ReferenceWorkoutPreview db={{...db,program:p}}activeSession={activeSession}items={items}onStart={()=>{if(p.rest_day||todayCompletion||completionStatus!=="ready")return;setStartedAt(Date.now());setSessionStarted(true)}}onLibrary={()=>setView("library")}/>;
   return <div className="content workout-page workout-live-reference">
     <div className="workout-head"><div><p className="eyebrow">EM EXECUÇÃO · {p.week}</p><h2>{activeSession?.label||p.session}</h2><p className="muted">Demanda {activeSession?.demand||"MODERATE"} · registre o trabalho real.</p></div>{draftState!=="idle"&&<span className={`autosave-pill ${draftState}`}data-testid="autosave-status">{draftState==="saving"?"salvando...":draftState==="saved"?"salvo automaticamente":"sem conexão — tentando salvar"}</span>}</div>
     <section className="workout-overview">

@@ -2,6 +2,7 @@
 FORGE Training Engine v3.0 — periodization + progression + deload + readiness integration.
 """
 import json
+from workout_calendar import calendar_selection
 import math
 import random
 from pathlib import Path
@@ -955,12 +956,10 @@ def _apply_exercise_substitutions(sessions: List[Dict[str, Any]], profile: dict)
 
 
 def _resolve_active_day(sessions: List[Dict[str, Any]], profile: dict) -> Optional[int]:
-    """Program sequence progression (item: Concluir treino avanca imediatamente para o
-    proximo, nunca por data): the active session is whichever "day" POST /workout/complete
-    last advanced the profile's current_session_day pointer to — never sessions[0] by
-    itself, and never derived from the calendar date. Falls back to the first available
-    day when there's no pointer yet, or when the pointer no longer matches the program's
-    current shape (e.g. the athlete changed days/split after it was set)."""
+    """Weekly labels use the local calendar; unlabelled programs keep their pointer."""
+    calendar = calendar_selection(sessions)
+    if calendar is not None:
+        return calendar["today"]["day"] if calendar["today"] else None
     if not sessions:
         return None
     day_values = sorted(s["day"] for s in sessions)
@@ -1069,10 +1068,12 @@ async def build_program_v2(profile: dict, db=None) -> Dict[str, Any]:
             })
         sessions = _apply_exercise_substitutions(sessions, profile)
         active_day = _resolve_active_day(sessions, profile)
-        active_label = next((s["label"] for s in sessions if s["day"] == active_day), sessions[0]["label"] if sessions else "Sessão")
+        calendar = calendar_selection(sessions)
+        active_label = next((s["label"] for s in sessions if s["day"] == active_day), "Descanso" if calendar else "Sessão")
         return {
             "name": custom.get("name", "Programa personalizado"), "week": custom.get("week", "Microciclo manual"),
             "session": active_label, "active_day": active_day,
+            **({"calendar": calendar, "rest_day": calendar["today"] is None} if calendar else {}),
             "duration": f"{custom.get('session_minutes', profile.get('session_minutes', 60))} min",
             "focus": priorities[:3], "sessions": sessions,
             "logic": {"split": "Programa manual (Program Builder Pro)", "days": len(sessions),

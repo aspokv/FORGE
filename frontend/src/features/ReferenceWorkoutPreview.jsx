@@ -13,6 +13,10 @@ export default function ReferenceWorkoutPreview({db={},activeSession,items=[],on
   const focus=asArray(activeSession?.focus??db.program?.focus).slice(0,3);
   const duration=activeSession?.duration||db.program?.duration||"Duração não informada";
   const totalSets=safeItems.reduce((sum,x)=>sum+Number(x?.sets||0),0);
+  if(db.program?.rest_day)return <AstraPage screen={1} testId="workout-rest-day" onLibrary={onLibrary}>
+    <AstraIntro eyebrow="SEU PROGRAMA" title="Treino." subtitle="Hoje é descanso no seu programa."/>
+    <section className="a6-panel"><h2>Descanso programado</h2><p>A próxima sessão é {db.program.calendar?.next?.label||"a próxima do programa"}.</p><button type="button" onClick={onLibrary}>Ver programa na Biblioteca</button></section>
+  </AstraPage>;
   return <AstraPage screen={1} testId="reference-workout-preview" onLibrary={onLibrary}>
     <AstraIntro eyebrow="SEU PROGRAMA" title="Treino." subtitle="Um passo mais forte, a cada sessão."/>
     <div className="a6-tabs" role="group" aria-label="Visualização do treino"><button type="button" className="a6-selected" aria-pressed="true">Sessão atual</button><button type="button" aria-pressed="false" onClick={onLibrary}>Biblioteca</button></div>
