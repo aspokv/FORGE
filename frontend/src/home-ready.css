@@ -453,10 +453,10 @@
 /*
  * O rotulo da barra inferior sai em 15px por causa de
  * `.forge-shell button:not(.icon-button)` (typography-premium.css), que vence os 9px do
- * astra6 por especificidade. Com "Progresso" no lugar de "Evolucao", cinco rotulos de
- * 15px nao cabem mais: medido, sobrava 4px entre "Nutricao" e "Progresso" em 360px e 6px
- * em 375px — encostados. A escala por vw devolve a folga onde a tela e estreita e mantem
- * os 15px a partir de 417px.
+ * astra6 por especificidade. Cinco rotulos de 15px nao cabem numa tela estreita: medido em
+ * 360px, a folga entre "Nutricao" e o vizinho era de 4px com "Progresso" e de 7px com
+ * "Evolucao" — encostados nos dois casos. A escala por vw leva a folga a 16-18px em toda a
+ * faixa de 360 a 412px, e mantem os 15px a partir de 417px.
  *
  * Sem `:has(.a6-screen-0)` de proposito: a barra e a mesma em todas as telas, e um tamanho
  * de letra que mudasse ao trocar de aba seria pior que o aperto.
