@@ -15,6 +15,7 @@ on:
       - 'backend/preassessment_routes.py'
       - 'backend/admin_routes.py'
       - 'backend/tests/test_seguranca.py'
+      - 'backend/tests/test_analise_visual_resiliente.py'
       - 'backend/tests/conftest.py'
       - 'backend/runtime_server.py'
       - 'backend/cardio.py'
@@ -93,6 +94,7 @@ on:
       - 'backend/preassessment_routes.py'
       - 'backend/admin_routes.py'
       - 'backend/tests/test_seguranca.py'
+      - 'backend/tests/test_analise_visual_resiliente.py'
       - 'backend/tests/conftest.py'
       - 'backend/runtime_server.py'
       - 'backend/cardio.py'
@@ -188,6 +190,7 @@ jobs:
           test_cardio_unit.py
           tests/test_workout_completion_state.py
           tests/test_workout_calendar.py
+          tests/test_analise_visual_resiliente.py
           tests/test_female_program_selector.py
           tests/test_female_program_selection.py
 
