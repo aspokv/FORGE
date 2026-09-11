@@ -19,6 +19,7 @@ FEMALE_AUTO_TEMPLATE_IDS = (
     "pull-female-posture",
 )
 FULL_BODY_TEMPLATE_ID = "full-body-female-athlete"
+MAX_AUTOMATIC_SESSIONS = 4
 
 RESISTANCE_TERMS = (
     "resistencia",
@@ -164,9 +165,13 @@ def build_female_library_program(profile: Optional[Dict[str, Any]]) -> Optional[
         return None
 
     try:
-        days = max(1, min(7, int(profile.get("days", 3) or 3)))
+        requested_days = max(1, min(7, int(profile.get("days", 3) or 3)))
     except (TypeError, ValueError):
-        days = 3
+        requested_days = 3
+    # Automatic onboarding stays within a moderate four-session ceiling. Longer
+    # or higher-volume schedules remain available only through explicit library
+    # selection/review.
+    days = min(requested_days, MAX_AUTOMATIC_SESSIONS)
 
     profile_text = _profile_text(profile)
     resistance = any(_contains(profile_text, term) for term in RESISTANCE_TERMS)
@@ -222,7 +227,7 @@ def build_female_library_program(profile: Optional[Dict[str, Any]]) -> Optional[
 
     reason = (
         "Foco em resistência: sequência moderada da biblioteca feminina, "
-        "com sessões de corpo inteiro intercaladas."
+        "com sessões de corpo inteiro intercaladas e limite conservador."
         if resistance
         else
         "Seleção automática da biblioteca feminina: sessões moderadas "
@@ -234,6 +239,7 @@ def build_female_library_program(profile: Optional[Dict[str, Any]]) -> Optional[
         "profile_id": profile.get("id") or profile.get("user_id"),
         "name": "Programa feminino · Biblioteca FORGE",
         "week": f"{days} sessões · seleção da biblioteca",
+        "requested_days": requested_days,
         "session_minutes": round(sum(minutes) / len(minutes)),
         "source": "female_library_auto",
         "selection_reason": reason,

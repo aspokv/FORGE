@@ -53,8 +53,8 @@ def test_resistance_focus_keeps_lower_body_coverage_and_uses_moderate_sessions()
         "push-female-performance",
         "full-body-female-athlete",
         "pull-female-posture",
-        "full-body-female-athlete",
     ]
+    assert result["week"].startswith("4 sessões")
     assert "Resistência" in result["focus"]
     assert "Corpo inteiro" in result["focus"]
     assert all(item["demand"] == "MODERATE" for item in result["sessions"])
