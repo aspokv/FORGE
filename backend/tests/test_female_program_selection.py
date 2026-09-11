@@ -1,24 +1,25 @@
-"""Female assessments receive a curated library sequence without a generic PPL fallback."""
+"""Female assessments receive a complete program from the female library."""
 import asyncio
 import ast
+from copy import deepcopy
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
 import engine
+from training_programs import TRAINING_PROGRAMS
 
 
-FEMALE_AUTO_TEMPLATE_IDS = {
-    "full-body-female-athlete",
-    "push-female-performance",
-    "pull-female-posture",
+FEMALE_LIBRARY_IDS = {
+    item["id"] for item in TRAINING_PROGRAMS
+    if item.get("audience_type") == "female"
 }
 
 
 @pytest.mark.parametrize("sex", ["Feminino", "female", " F ", "mulher"])
 @pytest.mark.parametrize("level", ["Recreativo", "Intermediário", "Avançado"])
-def test_female_profile_gets_curated_library_program(sex, level):
+def test_female_profile_gets_complete_library_program(sex, level):
     profile = {
         "sex": sex,
         "experience": level,
@@ -29,15 +30,15 @@ def test_female_profile_gets_curated_library_program(sex, level):
     result = asyncio.run(engine.build_program_v2(profile))
 
     assert not result.get("program_selection_required")
-    assert result["program_source"] == "female_library_auto"
+    assert result["program_source"] == "female_library_program"
+    assert result["library_program_id"] in FEMALE_LIBRARY_IDS
+    assert result["library_phase_id"]
     assert result["sessions"]
-    assert result["sessions"][0]["template_id"] == "full-body-female-athlete"
-    assert all(item["template_id"] in FEMALE_AUTO_TEMPLATE_IDS for item in result["sessions"])
-    assert all(item["demand"] == "MODERATE" for item in result["sessions"])
     assert result["logic"]["manual"] is False
+    assert all(item["template_id"] is None for item in result["sessions"])
 
 
-def test_resistance_focus_keeps_lower_body_coverage_and_uses_moderate_sessions():
+def test_resistance_focus_uses_one_existing_female_program():
     profile = {
         "sex": "feminino",
         "days": 5,
@@ -47,17 +48,11 @@ def test_resistance_focus_keeps_lower_body_coverage_and_uses_moderate_sessions()
     }
     result = asyncio.run(engine.build_program_v2(profile))
 
-    ids = [item["template_id"] for item in result["sessions"]]
-    assert ids == [
-        "full-body-female-athlete",
-        "push-female-performance",
-        "full-body-female-athlete",
-        "pull-female-posture",
-    ]
-    assert result["week"].startswith("4 sessões")
-    assert "Resistência" in result["focus"]
-    assert "Corpo inteiro" in result["focus"]
-    assert all(item["demand"] == "MODERATE" for item in result["sessions"])
+    assert result["program_source"] == "female_library_program"
+    assert result["library_program_id"] in FEMALE_LIBRARY_IDS
+    assert result["sessions"]
+    assert result["logic"]["split"] == result["name"]
+    assert "Resistência" not in result["focus"]
 
 
 def test_saved_custom_program_survives_refresh_for_female_profile():
@@ -78,6 +73,20 @@ def test_saved_custom_program_survives_refresh_for_female_profile():
     assert result["program_source"] == "custom"
 
 
+def test_legacy_automatic_snapshot_is_migrated_to_catalog():
+    profile = {
+        "sex": "Feminino",
+        "custom_program": {
+            "source": "female_library_auto",
+            "sessions": [{"day": 1, "label": "Full Body criado", "exercises": []}],
+        },
+    }
+    result = asyncio.run(engine.build_program_v2(profile))
+    assert result["program_source"] == "female_library_program"
+    assert result["library_program_id"] in FEMALE_LIBRARY_IDS
+    assert result["sessions"][0]["label"] != "Full Body criado"
+
+
 def test_male_and_unspecified_profiles_keep_generation():
     for sex in ("Masculino", None):
         result = asyncio.run(engine.build_program_v2({
@@ -90,7 +99,7 @@ def test_male_and_unspecified_profiles_keep_generation():
         assert result["sessions"]
 
 
-def test_reassessment_persists_auto_female_program_and_preserves_guards():
+def test_reassessment_persists_catalog_female_program_and_preserves_guards():
     source = ast.parse((Path(__file__).parents[1] / "server.py").read_text())
     node = next(
         item for item in source.body
@@ -114,9 +123,11 @@ def test_reassessment_persists_auto_female_program_and_preserves_guards():
         find_one=AsyncMock(return_value=previous),
         replace_one=AsyncMock(),
     )
-    auto_program = {
-        "source": "female_library_auto",
-        "sessions": [{"day": 1, "label": "Corpo inteiro", "exercises": []}],
+    library_program = {
+        "source": "female_library_program_auto",
+        "program_id": "abcd-wellness-advanced",
+        "phase_id": "base",
+        "sessions": [{"day": 1, "label": "A · Quadríceps", "exercises": []}],
     }
     ns.update(
         db=SimpleNamespace(
@@ -128,8 +139,11 @@ def test_reassessment_persists_auto_female_program_and_preserves_guards():
         _is_fat_loss_goal=lambda _: False,
         is_female_profile=lambda profile: str(profile.get("sex") or "").strip().casefold()
         in {"feminino", "female", "f", "mulher"},
-        build_female_library_program=lambda _: auto_program,
-        build_program=AsyncMock(return_value={"program_source": "female_library_auto"}),
+        is_female_library_source=lambda source: source in {
+            "female_library_auto", "female_library_program_auto"
+        },
+        build_female_library_program=lambda _: library_program,
+        build_program=AsyncMock(return_value={"program_source": "female_library_program"}),
     )
 
     assessment = SimpleNamespace(
@@ -139,8 +153,9 @@ def test_reassessment_persists_auto_female_program_and_preserves_guards():
     result = asyncio.run(ns["save_assessment"](assessment, {"id": "athlete", "role": "ATHLETE"}))
     saved = profiles.replace_one.call_args.args[1]
 
-    assert saved["custom_program"]["source"] == "female_library_auto"
+    assert saved["custom_program"]["source"] == "female_library_program_auto"
+    assert saved["custom_program"]["program_id"] == "abcd-wellness-advanced"
     assert saved["last_workout_operation"] == "old-op"
     assert saved["last_workout_completion_day"] == "2026-09-11"
     assert saved["assessment"] == {}
-    assert result["program"]["program_source"] == "female_library_auto"
+    assert result["program"]["program_source"] == "female_library_program"

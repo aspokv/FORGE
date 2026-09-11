@@ -35,7 +35,9 @@ from muscles import (
     get_assessment_internal, FRONTEND_MUSCLES as MUSCLES_FRONTEND_LIST,
     LEGACY_TO_INTERNAL, MUSCLE_IDS,
 )
-from female_program_selector import build_female_library_program, is_female_profile
+from female_program_selector import (
+    build_female_library_program, is_female_profile, is_female_library_source,
+)
 from engine import (
     FRONTEND_EXERCISE_LIST, EXERCISE_INDEX, build_program_v2,
     _is_empty_profile as engine_is_empty_profile,
@@ -364,23 +366,24 @@ async def save_assessment(assessment: DeepAssessment, user=Depends(get_current_u
     if nutricao:
         doc["nutrition_assessment"] = nutricao
 
-    # A female assessment must be usable immediately. Select a conservative,
-    # existing library sequence and persist it so refresh/bootstrap see the same
-    # sessions. An explicitly chosen manual program is preserved on same-profile
-    # reassessments; only an earlier automatic snapshot is regenerated.
+    # A female assessment must immediately persist one complete program from the
+    # female library. Manual programs remain untouched; legacy template snapshots are
+    # replaced by the selected catalog program on the next assessment.
     if is_female_profile(doc):
         previous_custom = (anterior or {}).get("custom_program") or {}
         keep_manual = (
             not sex_changed
             and previous_custom.get("sessions")
-            and previous_custom.get("source") != "female_library_auto"
+            and not is_female_library_source(previous_custom.get("source"))
         )
         if keep_manual:
             doc["custom_program"] = previous_custom
         else:
-            auto_program = build_female_library_program(doc)
-            if auto_program:
-                doc["custom_program"] = auto_program
+            library_program = build_female_library_program(doc)
+            if library_program:
+                doc["custom_program"] = library_program
+            elif is_female_library_source(previous_custom.get("source")):
+                doc.pop("custom_program", None)
 
     await db.profiles.replace_one({"id": target}, doc, upsert=True)
     await db.assessments.insert_one({"profile_id": target, "user_id": target, "captured_at": assessment.created_at, "assessment": doc})
