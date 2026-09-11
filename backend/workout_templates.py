@@ -226,8 +226,8 @@ WORKOUT_TEMPLATES = [
     ]),
 ]
 
-# Uma curadoria feminina por arquitetura. Não é uma versão "leve": a seleção
-# redistribui prioridades e fadiga sem reduzir a qualidade da prescrição.
+# Curadoria feminina por arquitetura. A seleção automática usa apenas as sessões
+# MODERATE; referências HIGH/expert continuam disponíveis para escolha explícita.
 WORKOUT_TEMPLATES.extend([
     template("push-female-performance", "push", "Push Feminino Performance", "Ombros + peitoral", "Intermediário", 65, "MODERATE",
              ["Deltoide lateral", "Peitoral superior", "Tríceps"], "Presses e elevações com prioridade estética de ombros, sem perder força de peitoral.", [

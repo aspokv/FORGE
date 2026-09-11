@@ -13,6 +13,8 @@ on:
       - 'backend/training_programs.py'
       - 'backend/custom_training_programs.py'
       - 'backend/engine.py'
+      - 'backend/female_program_selector.py'
+      - 'backend/tests/test_female_program_selector.py'
       - 'backend/tests/test_female_program_selection.py'
       - 'backend/workout_calendar.py'
       - 'backend/tests/test_workout_calendar.py'
@@ -151,7 +153,7 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
       - name: Compile training engine, cardio, and custom library modules
-        run: python -m py_compile engine.py training_engine_v4.py training_engine_v5.py muscles.py cardio.py cardio_routes.py training_programs.py custom_training_programs.py runtime_server.py
+        run: python -m py_compile engine.py female_program_selector.py training_engine_v4.py training_engine_v5.py muscles.py cardio.py cardio_routes.py training_programs.py custom_training_programs.py runtime_server.py
       - name: Run V5 training regression suite
         run: >-
           pytest -q --noconftest
@@ -164,6 +166,7 @@ jobs:
           test_cardio_unit.py
           tests/test_workout_completion_state.py
           tests/test_workout_calendar.py
+          tests/test_female_program_selector.py
           tests/test_female_program_selection.py
 
   workout-library-ui:

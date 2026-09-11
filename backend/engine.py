@@ -3,6 +3,7 @@ FORGE Training Engine v3.0 — periodization + progression + deload + readiness 
 """
 import json
 from workout_calendar import calendar_selection
+from female_program_selector import build_female_library_program, is_female_profile
 import math
 import random
 from pathlib import Path
@@ -1044,6 +1045,10 @@ async def build_program_v2(profile: dict, db=None) -> Dict[str, Any]:
         }
 
     custom = profile.get("custom_program")
+    # Female onboarding receives a deterministic snapshot from the curated library.
+    # A persisted manual/custom program still wins over this fallback.
+    if (not custom or not custom.get("sessions")) and is_female_profile(profile):
+        custom = build_female_library_program(profile)
     if custom and custom.get("sessions"):
         priorities = profile.get("priorities") or []
         sessions = []
@@ -1070,21 +1075,28 @@ async def build_program_v2(profile: dict, db=None) -> Dict[str, Any]:
         active_day = _resolve_active_day(sessions, profile)
         calendar = calendar_selection(sessions)
         active_label = next((s["label"] for s in sessions if s["day"] == active_day), "Descanso" if calendar else "Sessão")
+        auto_library = custom.get("source") == "female_library_auto"
+        raw_focus = custom.get("focus") or priorities[:3]
+        custom_focus = raw_focus if isinstance(raw_focus, list) else [raw_focus]
+        program_source = "female_library_auto" if auto_library else "custom"
+        split_label = "Biblioteca feminina (seleção automática)" if auto_library else "Programa manual (Program Builder Pro)"
+        program_mode = "FORGE_FEMALE_LIBRARY" if auto_library else profile.get("automation_mode", "FORGE_PRO")
         return {
             "name": custom.get("name", "Programa personalizado"), "week": custom.get("week", "Microciclo manual"),
             "session": active_label, "active_day": active_day,
             **({"calendar": calendar, "rest_day": calendar["today"] is None} if calendar else {}),
             "duration": f"{custom.get('session_minutes', profile.get('session_minutes', 60))} min",
-            "focus": priorities[:3], "sessions": sessions,
-            "logic": {"split": "Programa manual (Program Builder Pro)", "days": len(sessions),
+            "focus": custom_focus[:5], "sessions": sessions,
+            "program_source": program_source,
+            **({"selection_reason": custom.get("selection_reason")} if auto_library and custom.get("selection_reason") else {}),
+            "logic": {"split": split_label, "days": len(sessions),
                       "priority_scores": {}, "recovery_modifier": 1,
-                      "mode": profile.get("automation_mode", "FORGE_PRO"), "manual": True},
+                      "mode": program_mode, "manual": not auto_library},
         }
 
-    # Female catalog programs are authored separately. Do not silently substitute
-    # a generic split or automatically prescribe an expert-volume reference.
-    sex = str(profile.get("sex") or profile.get("gender") or "").strip().casefold()
-    if sex in ("female", "feminino", "f", "mulher"):
+    # If the curated catalog is unavailable, keep an explicit fallback instead of
+    # silently substituting a generic split or an expert-volume reference.
+    if is_female_profile(profile):
         return {
             "name": "Selecione seu programa feminino", "week": "", "session": "",
             "active_day": None, "sessions": [], "focus": [], "duration": "",
