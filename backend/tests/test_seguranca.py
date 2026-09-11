@@ -389,6 +389,10 @@ def test_a_allowlist_sem_pagamento_continua_minima():
         "/api/billing/plans",
         "/api/billing/me",
         "/api/billing/checkout",
+        # Rota de PAGAMENTO: quem ainda nao pagou precisa alcanca-la justamente para pagar.
+        # Estava na allowlist do codigo e faltava aqui, entao o canario vivia vermelho — e
+        # canario que fica vermelho para de ser lido.
+        "/api/billing/pix",
         "/api/preassessment",
     })
 
