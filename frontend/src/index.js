@@ -35,6 +35,7 @@ import "@/astra6-exact.css";
 // wordmark treatment and the inclusive woman + man hero artwork.
 import "@/home-brand-refine.css";
 import "@/compact-evolution.css";
+import "@/home-ready.css";
 
 const queryClient = new QueryClient({
   defaultOptions: {

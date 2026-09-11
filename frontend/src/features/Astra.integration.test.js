@@ -34,7 +34,7 @@ const button=text=>Array.from(host.querySelectorAll("button")).find(x=>x.textCon
 test("Home uses the active session, real week and saved recovery check-in",async()=>{
   axios.get.mockImplementation(url=>Promise.resolve({data:url.includes("/recovery/")?{checkin:{energy:3}}:{}}));
   const start=jest.fn();await mount(<ReferenceHome db={db} start={start}/>);
-  expect(host.querySelector("h1").textContent).toBe("Olá, Ana.");
+  expect(host.querySelector("h1").textContent).toBe("Seu treino está pronto.");
   expect(host.querySelector('[data-testid="daily-briefing"]').textContent).toContain("Costas");
   expect(host.querySelector('[data-testid="home-training-week"]').textContent).toContain("Semana 2 de 6");
   await click(host.querySelector('[data-testid="start-workout-button"]'));
@@ -99,16 +99,21 @@ test("compact hydration uses server totals, undo and errors without optimistic f
   expect(host.querySelector(".a6-water-strip").textContent).toContain("0,5 L");
 });
 
-test("progress reflects a declining real trend and opens existing weight and photo controls",async()=>{
-  const analytics={trend:[{week:"S1",load:80},{week:"S2",load:40}],prs:[],adherence_calendar:[],body_trend:[]};
-  await mount(<AstraProgress analytics={analytics} weightPanel={<button>Registrar peso real</button>} photosPanel={<button>Adicionar fotos</button>}/>);
-  expect(host.querySelector('[data-testid="progress-hero"]').textContent).toContain("-50%");
-  expect(host.querySelector('svg[role="img"]').getAttribute("aria-label")).toBe("S1: 80 kg, S2: 40 kg");
+test("progress reflects the real exercise history and opens existing weight and photo controls",async()=>{
+  const recent=new Date(Date.now()-86400000).toISOString(),today=new Date().toISOString();
+  axios.get.mockResolvedValue({data:{history:[
+    {session_id:"s1",created_at:recent,weight:80,reps:8},
+    {session_id:"s2",created_at:today,weight:40,reps:10},
+  ]}});
+  const analytics={prs:[{exercise:"Supino",weight:80}],adherence_calendar:[],body_trend:[]};
+  await mount(<AstraProgress API="/api" profileId="athlete-test" exercises={[{id:"supino",name:"Supino"}]} analytics={analytics} weightPanel={<button>Registrar peso real</button>} photosPanel={<button>Adicionar fotos</button>}/>);
+  expect(host.querySelector('[data-testid="progress-hero"]').textContent).toContain("40 kg");
+  expect(host.querySelector('svg[aria-label="Histórico de cargas por sessão"]')).not.toBeNull();
   await click(button("Peso"));expect(button("Registrar peso real")).toBeDefined();
   await click(button("Fotos"));expect(button("Adicionar fotos")).toBeDefined();
-  await mount(<AstraProgress analytics={{trend:[],prs:[]}}/>);
-  await click(button("Carga média"));
-  expect(host.textContent).toContain("Ainda não há semanas comparáveis");
+  axios.get.mockResolvedValue({data:{history:[]}});
+  await mount(<AstraProgress key="empty" API="/api" profileId="athlete-test" exercises={[{id:"supino",name:"Supino"}]} analytics={{prs:[]}}/>);
+  expect(host.textContent).toContain("Sem séries registradas neste período");
   expect(host.textContent).not.toContain("NaN");
 });
 

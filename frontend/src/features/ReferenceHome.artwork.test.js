@@ -8,9 +8,9 @@ const casa=(extra={})=>{
   return new DOMParser().parseFromString(html,"text/html").querySelector('[data-testid="reference-home-v3"]');
 };
 
-test("a abertura preserva saudacao e reúne foto, texto e ação no card",()=>{
+test("a abertura apresenta a hierarquia premium e reúne foto, texto e ação no card",()=>{
   const home=casa();
-  expect(home.querySelector("h1").textContent).toContain("Nicolas");
+  expect(home.querySelector("h1").textContent).toBe("Seu treino está pronto.");
   const hero=home.querySelector('[data-testid="home-top-hero"]');
   expect(hero).not.toBeNull();
   expect(hero.querySelector("img").getAttribute("src")).toBeTruthy();
@@ -39,7 +39,17 @@ test("comecar treino continua uma acao visivel",()=>{
   const botao=casa().querySelector('[data-testid="start-workout-button"]');
   expect(botao).not.toBeNull();
   expect(botao.tagName).toBe("BUTTON");
-  expect(botao.textContent).toContain("Iniciar sessão");
+  expect(botao.textContent).toContain("Começar treino");
+});
+
+test("nutricao e hidratacao expõem indicadores de progresso acessíveis",()=>{
+  const home=casa();
+  const nutrition=home.querySelector('[role="progressbar"][aria-label="Progresso de nutrição"]');
+  const hydration=home.querySelector('[role="progressbar"][aria-label="Progresso de hidratação"]');
+  expect(nutrition).not.toBeNull();
+  expect(hydration).not.toBeNull();
+  expect(nutrition.getAttribute("aria-valuenow")).toBe("0");
+  expect(hydration.getAttribute("aria-valuenow")).toBe("0");
 });
 
 test("nenhum valor interno aparece na tela",()=>{

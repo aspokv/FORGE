@@ -31,7 +31,7 @@ test("unlabelled programs retain sequential progression",()=>{
 test("Home and workout preview show Friday, not Monday",()=>{
  const db={profile:{id:"calendar-athlete"},program};
  const home=html(<ReferenceHome db={db} start={()=>{}}/>);
- expect(home.querySelector("#home-session-title").textContent).toBe("Sexta · Upper C");
+ expect(home.querySelector("#home-session-title").textContent).toBe("Upper C");
  const p=scheduledProgram(program),session=p.sessions.find(s=>s.day===p.active_day);
  const preview=html(<ReferenceWorkoutPreview db={{...db,program:p}} activeSession={session}/>);
  expect(preview.querySelector("h2").textContent).toBe("Sexta · Upper C");
