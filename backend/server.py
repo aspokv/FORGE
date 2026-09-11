@@ -326,14 +326,19 @@ async def save_assessment(assessment: DeepAssessment, user=Depends(get_current_u
     # questionario, com peso/altura/preferencias) era apagado sempre que o atleta
     # refazia a avaliacao de treino. Ele e carregado adiante de proposito.
     anterior = await db.profiles.find_one(
-        {"id": target}, {"_id": 0, "nutrition_assessment": 1, "assessment": 1})
+        {"id": target}, {"_id": 0, "nutrition_assessment": 1, "assessment": 1, "sex": 1,
+         "last_workout_operation": 1, "last_workout_completion_day": 1})
 
     # O muscle map individual saiu do onboarding, entao o formulario novo manda
     # assessment vazio. Isso nao pode apagar a avaliacao historica de quem ja respondeu
     # os 18 musculos: ela continua valendo para rebaixar ao tier de manutencao o que o
     # proprio atleta marcou como ja forte. Prioridade declarada continua vencendo, porque
     # calculate_weekly_volume checa o ranking antes de olhar o desenvolvimento.
-    if not doc.get("assessment") and (anterior or {}).get("assessment"):
+    sex_changed = str((anterior or {}).get("sex") or "").strip().casefold() != str(doc.get("sex") or "").strip().casefold()
+    for key in ("last_workout_operation", "last_workout_completion_day"):
+        if key in (anterior or {}):
+            doc[key] = anterior[key]
+    if not sex_changed and not doc.get("assessment") and (anterior or {}).get("assessment"):
         doc["assessment"] = anterior["assessment"]
 
     nutricao = dict((anterior or {}).get("nutrition_assessment") or {})

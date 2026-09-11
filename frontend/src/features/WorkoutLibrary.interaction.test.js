@@ -181,3 +181,32 @@ describe("WorkoutLibrary mobile apply interaction", () => {
     expect(mobileCss).toMatch(/\.library-program-layout>\.program-preview\{display:block/);
   });
 });
+describe("female program routing",()=>{
+ let host,root;
+ const curated=(id,category,audience)=>({id,category,audience_type:audience,name:id,level:"Avançado",
+   safety:"standard",description:"Programa cadastrado",days_per_week:4,phase_count:1,
+   phases:[{id:"base",label:"Base",sessions:[],days_per_week:4,total_sets:0}]});
+ beforeEach(()=>{jest.clearAllMocks();host=document.createElement("div");document.body.appendChild(host);root=createRoot(host);});
+ afterEach(async()=>{await act(async()=>root.unmount());host.remove();});
+ test("female defaults to complete programs across all divisions and follows profile changes",async()=>{
+  axios.get.mockResolvedValue({data:{...catalog,program_categories:[{id:"abcd",label:"ABCD"},{id:"abcde",label:"ABCDE"}],
+   programs:[curated("male-program","abcd","male"),curated("female-four","abcd","female"),curated("female-five","abcde","female")]}});
+  await act(async()=>{root.render(<WorkoutLibrary API="/api" profile={{sex:"Feminino"}}/>);await Promise.resolve();});
+  expect(host.querySelector('[data-testid="library-programs-tab"]').getAttribute("aria-selected")).toBe("true");
+  expect(host.querySelector('[data-testid="training-program-female-four"]')).not.toBeNull();
+  expect(host.querySelector('[data-testid="training-program-female-five"]')).not.toBeNull();
+  expect(host.textContent).not.toContain("male-program");
+  await act(async()=>click(host.querySelector('[data-testid="program-category-abcd"]')));
+  await act(async()=>root.render(<WorkoutLibrary API="/api" profile={{sex:"Masculino"}}/>));
+  await act(async()=>root.render(<WorkoutLibrary API="/api" profile={{sex:"Feminino"}}/>));
+  expect(host.querySelector('[data-testid="training-program-female-five"]')).not.toBeNull();
+ });
+ test("an empty female category never shows a male preview",async()=>{
+  axios.get.mockResolvedValue({data:{...catalog,program_categories:[{id:"abcd",label:"ABCD"},{id:"abcde",label:"ABCDE"}],
+   programs:[curated("male-program","abcde","male"),curated("female-program","abcd","female")]}});
+  await act(async()=>{root.render(<WorkoutLibrary API="/api" profile={{sex:"Feminino"}}/>);await Promise.resolve();});
+  await act(async()=>click(host.querySelector('[data-testid="program-category-abcde"]')));
+  expect(host.querySelector('[data-testid="program-preview"]')).toBeNull();
+  expect(host.textContent).not.toContain("male-program");
+ });
+});

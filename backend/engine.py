@@ -1081,6 +1081,18 @@ async def build_program_v2(profile: dict, db=None) -> Dict[str, Any]:
                       "mode": profile.get("automation_mode", "FORGE_PRO"), "manual": True},
         }
 
+    # Female catalog programs are authored separately. Do not silently substitute
+    # a generic split or automatically prescribe an expert-volume reference.
+    sex = str(profile.get("sex") or profile.get("gender") or "").strip().casefold()
+    if sex in ("female", "feminino", "f", "mulher"):
+        return {
+            "name": "Selecione seu programa feminino", "week": "", "session": "",
+            "active_day": None, "sessions": [], "focus": [], "duration": "",
+            "program_selection_required": True, "selection_audience": "female",
+            "logic": {"mode": profile.get("automation_mode", "FORGE_ASSISTED"),
+                      "manual": False, "days": profile.get("days", 3), "split": ""},
+        }
+
     days = max(1, min(7, int(profile.get("days", 3))))
     experience = profile.get("experience", "Intermediário")
     goal = profile.get("goal", "Hipertrofia")
