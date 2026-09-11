@@ -18,5 +18,5 @@ export function AstraRow({icon,title,subtitle,onClick,testId,expanded}) {return 
 export const astraDate=(date=new Date())=>new Intl.DateTimeFormat("pt-BR",{weekday:"long",day:"2-digit",month:"long"}).format(date).replace("-feira","").toUpperCase();
 export const numberBR=n=>Number(n).toLocaleString("pt-BR",{maximumFractionDigits:1});
 export function AstraBottomNav({tab,onChange}) {
-  return <nav className="a6-bottom-nav" aria-label="Navegação principal">{[["Hoje","Início","home"],["Treino","Treino","training"],["Alimentação","Nutrição","nutrition"],["Progresso","Progresso","progress"],["Perfil","Perfil","profile"]].map(([key,label,icon])=><button type="button" key={key} data-testid={`nav-${key.toLowerCase()}`} aria-current={tab===key?"page":undefined} onClick={()=>onChange(key)}><AstraIcon name={icon}/>{label}</button>)}</nav>;
+  return <nav className="a6-bottom-nav" aria-label="Navegação principal">{[["Hoje","Início","home"],["Treino","Treino","training"],["Alimentação","Nutrição","nutrition"],["Progresso","Evolução","progress"],["Perfil","Perfil","profile"]].map(([key,label,icon])=><button type="button" key={key} data-testid={`nav-${key.toLowerCase()}`} aria-current={tab===key?"page":undefined} onClick={()=>onChange(key)}><AstraIcon name={icon}/>{label}</button>)}</nav>;
 }

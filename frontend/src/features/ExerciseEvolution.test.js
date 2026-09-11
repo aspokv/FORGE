@@ -64,7 +64,7 @@ test("renames visible page and navigation and retains weight, photos and consist
  const onChange=jest.fn();
  await render(<><AstraBottomNav tab="Progresso" onChange={onChange}/><AstraProgress analytics={{prs:[],adherence_calendar:[]}} exercises={[]} weightPanel={<p>Registro de peso</p>} photosPanel={<p>Fotos pessoais</p>}/></>);
  expect(host.querySelector("h1").textContent).toBe("Evolução.");
- await click(button("Progresso"));expect(onChange).toHaveBeenCalledWith("Progresso");
+ await click(button("Evolução"));expect(onChange).toHaveBeenCalledWith("Progresso");
  expect(host.textContent).toContain("Consistência");
  await click(button("Peso"));expect(host.textContent).toContain("Registro de peso");
  await click(button("Fotos"));expect(host.textContent).toContain("Fotos pessoais");
