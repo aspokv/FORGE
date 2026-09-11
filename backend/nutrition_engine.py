@@ -1549,6 +1549,18 @@ def _roles_of(item):
     return set(f.get("roles") or [])
 
 
+def aplicar_teto_de_carboidrato(meals, targets):
+    """
+    Nome publico de `_apply_carb_ceiling`, para o fluxo guiado poder aplicar o MESMO passe.
+
+    Ate aqui o teto so rodava dentro de `generate_daily_plan`. O fluxo guiado montava o dia
+    refeicao a refeicao e nunca passava por ele, entao um plano montado a mao no protocolo
+    agressivo estourava o teto que o proprio protocolo define — e `check_plan_hard_limits`
+    recusava a confirmacao no fim, depois de a pessoa escolher as seis refeicoes.
+    """
+    return _apply_carb_ceiling(meals, targets)
+
+
 def _apply_carb_ceiling(meals, targets):
     """Fecha o dia dentro do teto de carboidrato do protocolo low-carb.
 
