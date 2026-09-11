@@ -38,12 +38,23 @@ body.lp-ativa {
 }
 
 .landing-premium {
-  --lp-bg: #0c0d0f;
-  --lp-superficie: #141619;
-  --lp-linha: #34383d;
-  --lp-texto: #f2f0ea;
-  --lp-suave: #a7aaa8;
-  --lp-acento: #e36b4d;
+  /*
+   * Os nomes locais continuam, mas os VALORES vem do sistema (`forge-tokens.css`).
+   *
+   * Eles ja eram os mesmos tons — `--lp-acento` era exatamente o `#e36b4d` do produto, e o
+   * resto ficava a um ou dois pontos de distancia. Duplicados, porem: mudar a cor do FORGE
+   * mudaria o aplicativo e deixaria a landing para tras, e ninguem perceberia ate um
+   * cliente ver as duas telas lado a lado. Referenciando, existe um lugar so.
+   *
+   * O segundo valor de cada `var()` e a reserva: se a folha de tokens nao carregar, a
+   * pagina publica continua com a cor certa em vez de cair no preto do navegador.
+   */
+  --lp-bg: var(--fg-fundo, #0c0d0f);
+  --lp-superficie: var(--fg-superficie, #141619);
+  --lp-linha: var(--fg-linha-forte, #34383d);
+  --lp-texto: var(--fg-texto, #f2f0ea);
+  --lp-suave: var(--fg-texto-2, #a7aaa8);
+  --lp-acento: var(--fg-acao, #e36b4d);
 
   --lp-titulo: 'Archivo', 'Sora', system-ui, sans-serif;
   --lp-corpo: 'Inter', 'IBM Plex Sans', system-ui, sans-serif;
@@ -572,8 +583,10 @@ body.lp-ativa {
   flex-direction: column;
   gap: 22px;
   padding: 40px 28px 34px;
-  border-radius: 16px;
-  border: 1px solid rgba(227, 141, 110, 0.13);
+  /* Mesma gramatica de cartao do aplicativo: 18px de raio e a linha do sistema. Um cliente
+     que ve a landing e depois entra no produto tem de reconhecer a mesma mao. */
+  border-radius: 18px;
+  border: 1px solid var(--fg-linha, #282c31);
   /* Grafite com profundidade: mais claro em cima, fechando para baixo. Sem isto o cartao
      some no fundo da pagina, que e da mesma familia de cor. */
   background:
@@ -619,7 +632,7 @@ body.lp-ativa {
   top: -10px;
   right: 22px;
   background: var(--lp-acento);
-  color: #17110e;
+  color: var(--fg-acao-tinta, #17110e);
   padding: 3px 8px;
   font-family: var(--lp-mono);
   font-size: 9px;
