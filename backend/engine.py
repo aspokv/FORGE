@@ -3,7 +3,10 @@ FORGE Training Engine v3.0 — periodization + progression + deload + readiness 
 """
 import json
 from workout_calendar import calendar_selection
-from female_program_selector import build_female_library_program, is_female_profile
+from female_program_selector import (
+    build_female_library_program, is_female_profile,
+    FEMALE_LIBRARY_AUTO_SOURCES, is_female_library_source,
+)
 import math
 import random
 from pathlib import Path
@@ -1045,10 +1048,18 @@ async def build_program_v2(profile: dict, db=None) -> Dict[str, Any]:
         }
 
     custom = profile.get("custom_program")
-    # Female onboarding receives a deterministic snapshot from the curated library.
-    # A persisted manual/custom program still wins over this fallback.
-    if (not custom or not custom.get("sessions")) and is_female_profile(profile):
-        custom = build_female_library_program(profile)
+    # Female profiles always resolve to one complete program already in the library.
+    # Migrate the previous template-based snapshot as soon as it is encountered.
+    if is_female_profile(profile) and (
+        not custom
+        or not custom.get("sessions")
+        or is_female_library_source(custom.get("source"))
+    ):
+        library_program = build_female_library_program(profile)
+        if library_program:
+            custom = library_program
+        elif is_female_library_source((custom or {}).get("source")):
+            custom = None
     if custom and custom.get("sessions"):
         priorities = profile.get("priorities") or []
         sessions = []
@@ -1075,11 +1086,13 @@ async def build_program_v2(profile: dict, db=None) -> Dict[str, Any]:
         active_day = _resolve_active_day(sessions, profile)
         calendar = calendar_selection(sessions)
         active_label = next((s["label"] for s in sessions if s["day"] == active_day), "Descanso" if calendar else "Sessão")
-        auto_library = custom.get("source") == "female_library_auto"
+        auto_library = is_female_library_source(custom.get("source"))
         raw_focus = custom.get("focus") or priorities[:3]
         custom_focus = raw_focus if isinstance(raw_focus, list) else [raw_focus]
-        program_source = "female_library_auto" if auto_library else "custom"
-        split_label = "Biblioteca feminina (seleção automática)" if auto_library else "Programa manual (Program Builder Pro)"
+        program_source = "female_library_program" if auto_library else "custom"
+        split_label = (
+            custom.get("program_name") or custom.get("name") or "Programa feminino da biblioteca"
+        ) if auto_library else "Programa manual (Program Builder Pro)"
         program_mode = "FORGE_FEMALE_LIBRARY" if auto_library else profile.get("automation_mode", "FORGE_PRO")
         return {
             "name": custom.get("name", "Programa personalizado"), "week": custom.get("week", "Microciclo manual"),
@@ -1089,6 +1102,11 @@ async def build_program_v2(profile: dict, db=None) -> Dict[str, Any]:
             "focus": custom_focus[:5], "sessions": sessions,
             "program_source": program_source,
             **({"selection_reason": custom.get("selection_reason")} if auto_library and custom.get("selection_reason") else {}),
+            **({"library_program_id": custom.get("program_id") or custom.get("source_program_id"),
+                "library_phase_id": custom.get("phase_id") or custom.get("source_phase_id"),
+                "library_reference": custom.get("reference"),
+                "library_warning": custom.get("warning"),
+                } if auto_library else {}),
             "logic": {"split": split_label, "days": len(sessions),
                       "priority_scores": {}, "recovery_modifier": 1,
                       "mode": program_mode, "manual": not auto_library},

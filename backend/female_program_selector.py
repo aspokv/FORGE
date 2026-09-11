@@ -1,27 +1,53 @@
-"""Deterministic, conservative selection of existing female library sessions.
+"""Select complete female programs already present in the FORGE library.
 
-The onboarding path uses only MODERATE session templates already curated in the
-FORGE library. Expert/high-volume references stay opt-in in the library so a new
-assessment never silently assigns a demanding plan.
+This module never creates sessions or exercises. It only chooses one complete program
+from training_programs.TRAINING_PROGRAMS, clones its selected phase, and persists that
+snapshot so the same library program is shown after reloads and reassessments.
 """
 from copy import deepcopy
 import re
 import unicodedata
 from typing import Any, Dict, Iterable, List, Optional
 
-from workout_templates import WORKOUT_TEMPLATES
+from training_programs import TRAINING_PROGRAMS
 
 
 FEMALE_VALUES = {"female", "feminino", "f", "mulher"}
-FEMALE_AUTO_TEMPLATE_IDS = (
-    "full-body-female-athlete",
-    "push-female-performance",
-    "pull-female-posture",
-)
-FULL_BODY_TEMPLATE_ID = "full-body-female-athlete"
-MAX_AUTOMATIC_SESSIONS = 4
+FEMALE_LIBRARY_SOURCE = "female_library_program_auto"
+FEMALE_LIBRARY_AUTO_SOURCES = frozenset({
+    "female_library_auto",  # legacy synthetic snapshot; migrate it
+    FEMALE_LIBRARY_SOURCE,
+})
 
-RESISTANCE_TERMS = (
+# Kept as a compatibility alias for clients/tests that imported the old constant.
+# The values are now complete library program IDs, not template IDs.
+FEMALE_AUTO_TEMPLATE_IDS = (
+    "abcd-wellness-advanced",
+    "female-november-abcd",
+    "female-shape-de-cavala",
+    "female-advanced-7",
+)
+
+FEMALE_LIBRARY_PROGRAM_IDS = FEMALE_AUTO_TEMPLATE_IDS
+
+# Stable tie-break order: a standard library program is preferred when the profile
+# does not explicitly name a reference. Expert/high-volume references remain visible
+# in the catalog and are selected only when the profile clearly asks for that program.
+_PROGRAM_ORDER = {
+    "abcd-wellness-advanced": 0,
+    "female-november-abcd": 1,
+    "female-shape-de-cavala": 2,
+    "female-advanced-7": 3,
+}
+
+_EXPLICIT_PROGRAM_TERMS = {
+    "abcd-wellness-advanced": ("wellness", "abcd wellness"),
+    "female-november-abcd": ("novembro", "november"),
+    "female-shape-de-cavala": ("shape de cavala", "cavala", "legday"),
+    "female-advanced-7": ("avancado 7", "advanced 7", "abcdef"),
+}
+
+_RESISTANCE_TERMS = (
     "resistencia",
     "endurance",
     "conditioning",
@@ -30,51 +56,41 @@ RESISTANCE_TERMS = (
     "resist",
 )
 
-CATEGORY_TERMS = {
-    "full_body": (
-        "full body",
-        "fullbody",
-        "corpo inteiro",
-        "corpo todo",
-        "resistencia",
-        "endurance",
-        "conditioning",
-        "condicionamento",
-        "stamina",
-    ),
-    "push": (
-        "push",
-        "peito",
-        "peitoral",
-        "triceps",
-        "ombro",
-        "ombros",
-        "press",
-    ),
-    "pull": (
-        "pull",
-        "costas",
-        "dorsal",
-        "dorsais",
-        "biceps",
-        "bracos",
-        "braco",
-        "puxada",
-        "remada",
-    ),
-    "upper": (
-        "upper",
-        "tronco",
-        "parte superior",
-        "peito e costas",
-        "ombros",
-        "bracos",
-    ),
-}
+_BUILD_MUSCLE_TERMS = (
+    "hipertrofia",
+    "hipertrofia",
+    "ganhar massa",
+    "massa muscular",
+    "muscle gain",
+    "build muscle",
+    "bulking",
+    "forca",
+    "strength",
+)
 
+_GENERAL_TERMS = (
+    "emagrecimento",
+    "emagrecer",
+    "fat loss",
+    "general fitness",
+    "fitness",
+    "saude",
+    "saude",
+    "manutencao",
+    "maintenance",
+)
+
+_LOWER_FOCUS_TERMS = (
+    "glute",
+    "quadriceps",
+    "posterior",
+    "pernas",
+    "lower",
+    "wellness",
+    "shape",
+)
 
 def _normalize(value: Any) -> str:
-    """Fold accents and punctuation so Portuguese/English variants compare safely."""
     text = unicodedata.normalize("NFKD", str(value or ""))
     text = "".join(char for char in text if not unicodedata.combining(char))
     return re.sub(r"[^a-z0-9]+", " ", text.casefold()).strip()
@@ -96,10 +112,14 @@ def _values(value: Any) -> Iterable[str]:
 
 
 def is_female_profile(profile: Optional[Dict[str, Any]]) -> bool:
-    """Return True for the sex/profile values accepted by the existing assessment UI."""
+    """Match the values accepted by the assessment/profile UI."""
     profile = profile or {}
     raw = profile.get("sex") or profile.get("gender") or profile.get("sexo")
     return _normalize(raw) in FEMALE_VALUES
+
+
+def is_female_library_source(source: Any) -> bool:
+    return str(source or "") in FEMALE_LIBRARY_AUTO_SOURCES
 
 
 def _profile_text(profile: Dict[str, Any]) -> str:
@@ -111,50 +131,152 @@ def _profile_text(profile: Dict[str, Any]) -> str:
         profile.get("body_goal"),
         profile.get("secondary_goal"),
         profile.get("split_preference"),
+        profile.get("split"),
+        profile.get("experience"),
     )
     return " ".join(_normalize(item) for field in fields for item in _values(field))
 
 
-def _contains(text: str, term: str) -> bool:
-    return _normalize(term) in text
+def _requested_days(profile: Dict[str, Any]) -> int:
+    try:
+        return max(1, min(7, int(profile.get("days", 3) or 3)))
+    except (TypeError, ValueError):
+        return 3
 
 
-def _score(template: Dict[str, Any], profile_text: str, resistance: bool) -> int:
-    category = _normalize(template.get("category")).replace(" ", "_")
-    score = 1 if category == "full_body" else 0
-    if resistance and category == "full_body":
-        score += 12
-    for candidate_category, terms in CATEGORY_TERMS.items():
-        if any(_contains(profile_text, term) for term in terms):
-            if category == candidate_category:
-                score += 5
-            elif candidate_category == "full_body" and category in {"push", "pull", "upper"}:
-                score -= 1
-    # Keep automatic assignment conservative even if metadata is edited later.
-    if str(template.get("demand", "")).upper() != "MODERATE":
-        score -= 100
+def _first_phase(program: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    phases = program.get("phases") or []
+    for item in phases:
+        if item.get("sessions"):
+            return item
+    return None
+
+
+def _session_count(program: Dict[str, Any]) -> int:
+    phase = _first_phase(program)
+    return len(phase.get("sessions") or []) if phase else 0
+
+
+def _program_text(program: Dict[str, Any]) -> str:
+    values: List[str] = []
+    for key in ("id", "category", "name", "level", "audience", "description",
+                "reference", "safety", "warning"):
+        values.extend(_values(program.get(key)))
+    for phase in program.get("phases") or []:
+        for key in ("id", "label", "method", "weeks", "note"):
+            values.extend(_values(phase.get(key)))
+        for workout in phase.get("sessions") or []:
+            values.extend(_values(workout.get("label")))
+            values.extend(_values(workout.get("focus")))
+    return _normalize(values)
+
+
+def _goal_key(profile_text: str) -> str:
+    if any(term in profile_text for term in _RESISTANCE_TERMS):
+        return "resistance"
+    if any(term in profile_text for term in _BUILD_MUSCLE_TERMS):
+        return "build_muscle"
+    if any(term in profile_text for term in _GENERAL_TERMS):
+        return "general"
+    return "general"
+
+
+def _score(program: Dict[str, Any], profile: Dict[str, Any], profile_text: str) -> int:
+    program_id = str(program.get("id") or "")
+    program_text = _program_text(program)
+    requested_days = _requested_days(profile)
+    count = _session_count(program)
+    score = 0
+
+    # Exact availability is useful, but never outweighs the safer standard catalog
+    # entry when the user has not explicitly requested a high-volume reference.
+    score += max(0, 14 - (abs(count - requested_days) * 3))
+    if count == requested_days:
+        score += 4
+
+    safety = _normalize(program.get("safety"))
+    score += {"standard": 24, "advanced": 10, "expert": 0}.get(safety, 6)
+
+    experience = _normalize(profile.get("experience"))
+    level = _normalize(program.get("level"))
+    if "avancado" in experience or "bodybuilder" in experience:
+        if "avancado" in level or "especialista" in level:
+            score += 5
+    elif "intermediario" in experience:
+        if "standard" in safety:
+            score += 3
+    elif "iniciante" in experience or "recreativo" in experience:
+        if safety == "standard":
+            score += 5
+
+    goal = _goal_key(profile_text)
+    if goal == "resistance":
+        # The catalog has no record named "resistance"; keep the choice inside the
+        # existing female library and prefer the broad, four-session reference.
+        if program_id == "female-november-abcd":
+            score += 8
+        if count >= 4:
+            score += 2
+    elif goal == "build_muscle":
+        if "hipertrofia" in program_text or "wellness" in program_text:
+            score += 4
+    else:
+        if safety == "standard":
+            score += 4
+
+    # A named reference is an explicit request and is allowed to override the
+    # conservative tie-break. It still selects only that complete catalog program.
+    for term in _EXPLICIT_PROGRAM_TERMS.get(program_id, ()):
+        if _normalize(term) in profile_text:
+            score += 100
+
+    # Lower-body/Wellness priorities select the existing Wellness reference when no
+    # named expert program was requested.
+    if any(term in profile_text for term in _LOWER_FOCUS_TERMS):
+        if program_id == "abcd-wellness-advanced":
+            score += 10
+        elif program_id in {"female-shape-de-cavala", "female-november-abcd"}:
+            score += 3
+
     return score
 
 
 def _catalog_candidates() -> List[Dict[str, Any]]:
-    by_id = {item.get("id"): item for item in WORKOUT_TEMPLATES}
-    candidates = []
-    for template_id in FEMALE_AUTO_TEMPLATE_IDS:
-        item = by_id.get(template_id)
-        if not item or str(item.get("audience", "")).casefold() != "female":
+    return [
+        item for item in TRAINING_PROGRAMS
+        if _normalize(item.get("audience_type")) == "female"
+        and _first_phase(item) is not None
+    ]
+
+
+def _unique_focus(sessions: List[Dict[str, Any]]) -> List[str]:
+    focus: List[str] = []
+    for workout in sessions:
+        values = workout.get("focus") or []
+        if not isinstance(values, (list, tuple)):
+            values = [values]
+        for item in values:
+            if item and item not in focus:
+                focus.append(item)
+    return focus[:8]
+
+
+def _duration_average(sessions: List[Dict[str, Any]], fallback: Any = 60) -> int:
+    durations: List[int] = []
+    for workout in sessions:
+        try:
+            durations.append(int(workout.get("duration", fallback) or fallback))
+        except (TypeError, ValueError):
             continue
-        if str(item.get("demand", "")).upper() != "MODERATE":
-            continue
-        candidates.append(item)
-    return candidates
+    return round(sum(durations) / len(durations)) if durations else int(fallback or 60)
 
 
 def build_female_library_program(profile: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
-    """Build a persisted custom-program snapshot from the curated female catalog.
+    """Return one complete, persisted snapshot from the female program catalog.
 
-    This is intentionally deterministic and contains no AI call. The full-body
-    session is kept in the sequence to avoid a female default that only covers
-    upper-body patterns; resistance aliases bias the sequence toward it.
+    The phase and every session/exercise are copied verbatim from the selected
+    catalog record. The only added field inside a session is its display day index;
+    no new workout content is generated here.
     """
     profile = profile or {}
     if not is_female_profile(profile):
@@ -164,87 +286,54 @@ def build_female_library_program(profile: Optional[Dict[str, Any]]) -> Optional[
     if not candidates:
         return None
 
-    try:
-        requested_days = max(1, min(7, int(profile.get("days", 3) or 3)))
-    except (TypeError, ValueError):
-        requested_days = 3
-    # Automatic onboarding stays within a moderate four-session ceiling. Longer
-    # or higher-volume schedules remain available only through explicit library
-    # selection/review.
-    days = min(requested_days, MAX_AUTOMATIC_SESSIONS)
-
     profile_text = _profile_text(profile)
-    resistance = any(_contains(profile_text, term) for term in RESISTANCE_TERMS)
-    by_id = {item["id"]: item for item in candidates}
-    full_body = by_id.get(FULL_BODY_TEMPLATE_ID) or candidates[0]
-    used: Dict[str, int] = {}
+    selected = max(
+        candidates,
+        key=lambda item: (
+            _score(item, profile, profile_text),
+            -_PROGRAM_ORDER.get(str(item.get("id")), 999),
+        ),
+    )
+    selected = deepcopy(selected)
+    selected_phase = _first_phase(selected)
+    if not selected_phase:
+        return None
+
+    source_sessions = selected_phase.get("sessions") or []
     sessions: List[Dict[str, Any]] = []
+    for day, workout in enumerate(source_sessions, start=1):
+        copied = deepcopy(workout)
+        copied["day"] = day
+        sessions.append(copied)
 
-    for slot in range(days):
-        # Full body is the first session and is repeated on alternating slots for
-        # resistance requests. For longer schedules the final slot also restores
-        # whole-body coverage instead of turning into an unbalanced PPL default.
-        force_full_body = (
-            slot == 0
-            or (resistance and slot % 2 == 0)
-            or (not resistance and days >= 4 and slot == days - 1)
-        )
-        if force_full_body:
-            selected = full_body
-        else:
-            available = [item for item in candidates if used.get(item["id"], 0) == 0]
-            pool = available or candidates
-            selected = max(
-                pool,
-                key=lambda item: (
-                    _score(item, profile_text, resistance) - (used.get(item["id"], 0) * 4),
-                    -FEMALE_AUTO_TEMPLATE_IDS.index(item["id"]),
-                ),
-            )
-
-        used[selected["id"]] = used.get(selected["id"], 0) + 1
-        sessions.append({
-            "day": slot + 1,
-            "label": selected.get("name", f"Sessão {slot + 1}"),
-            "demand": "MODERATE",
-            "focus": deepcopy(selected.get("focus") or []),
-            "template_id": selected["id"],
-            "category": selected.get("category"),
-            "style": selected.get("style"),
-            "description": selected.get("description"),
-            "exercises": deepcopy(selected.get("exercises") or []),
-        })
-
-    focus: List[str] = []
-    if resistance:
-        focus.extend(["Resistência", "Corpo inteiro"])
-    for session in sessions:
-        for item in session["focus"]:
-            if item not in focus:
-                focus.append(item)
-    if not focus:
-        focus = ["Corpo inteiro"]
-
+    program_id = selected.get("id")
+    phase_id = selected_phase.get("id")
+    program_name = selected.get("name") or "Programa feminino FORGE"
+    phase_label = selected_phase.get("label") or "Fase da biblioteca"
     reason = (
-        "Foco em resistência: sequência moderada da biblioteca feminina, "
-        "com sessões de corpo inteiro intercaladas e limite conservador."
-        if resistance
-        else
-        "Seleção automática da biblioteca feminina: sessões moderadas "
-        "priorizadas pelo foco informado, com cobertura global."
+        "Programa completo selecionado da biblioteca feminina FORGE: "
+        + str(program_name)
+        + ". Nenhuma sessão ou exercício novo foi criado."
     )
 
-    minutes = [int(item.get("duration", 60) or 60) for item in sessions]
     return {
         "profile_id": profile.get("id") or profile.get("user_id"),
-        "name": "Programa feminino · Biblioteca FORGE",
-        "week": f"{days} sessões · seleção da biblioteca",
-        "requested_days": requested_days,
-        "session_minutes": round(sum(minutes) / len(minutes)),
-        "source": "female_library_auto",
+        "name": program_name,
+        "program_name": program_name,
+        "program_id": program_id,
+        "source_program_id": program_id,
+        "phase_id": phase_id,
+        "source_phase_id": phase_id,
+        "program_category": selected.get("category"),
+        "reference": selected.get("reference"),
+        "safety": selected.get("safety"),
+        "warning": selected.get("warning"),
+        "week": phase_label,
+        "requested_days": _requested_days(profile),
+        "session_minutes": _duration_average(sessions, profile.get("session_minutes", 60)),
+        "source": FEMALE_LIBRARY_SOURCE,
         "selection_reason": reason,
-        "selection_method": profile.get("training_method") or "library_moderate",
-        "focus": focus[:5],
-        "source_templates": list(dict.fromkeys(item["template_id"] for item in sessions)),
+        "selection_method": "female_library_catalog",
+        "focus": _unique_focus(sessions),
         "sessions": sessions,
     }
