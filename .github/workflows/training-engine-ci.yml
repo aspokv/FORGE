@@ -13,6 +13,7 @@ on:
       - 'backend/training_programs.py'
       - 'backend/custom_training_programs.py'
       - 'backend/engine.py'
+      - 'backend/tests/test_female_program_selection.py'
       - 'backend/workout_calendar.py'
       - 'backend/tests/test_workout_calendar.py'
       - 'frontend/src/features/workoutCalendar*'
@@ -77,6 +78,7 @@ on:
       - 'backend/training_programs.py'
       - 'backend/custom_training_programs.py'
       - 'backend/engine.py'
+      - 'backend/tests/test_female_program_selection.py'
       - 'backend/workout_calendar.py'
       - 'backend/tests/test_workout_calendar.py'
       - 'frontend/src/features/workoutCalendar*'
@@ -162,6 +164,7 @@ jobs:
           test_cardio_unit.py
           tests/test_workout_completion_state.py
           tests/test_workout_calendar.py
+          tests/test_female_program_selection.py
 
   workout-library-ui:
     runs-on: ubuntu-latest

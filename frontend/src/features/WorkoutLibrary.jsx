@@ -57,15 +57,15 @@ export const programPhaseToDraft = (program, phase) => ({
 const emptyCatalog = { categories: [], templates: [], program_categories: [], programs: [] };
 
 export const isFemaleProfile = profile => {
-  const value = String(profile?.sex || profile?.gender || profile?.assessment?.sex || profile?.assessment?.gender || "").toLowerCase();
+  const value = String(profile?.sex || profile?.gender || profile?.assessment?.sex || profile?.assessment?.gender || "").trim().toLowerCase();
   return ["female", "feminino", "f", "mulher"].includes(value);
 };
 
 export default function WorkoutLibrary({ API, exercises = [], onBuild, onTemplateAdd, profile, program, onClose, onApplied, initialCategory="push" }) {
   const [catalog, setCatalog] = useState(emptyCatalog);
-  const [mode, setMode] = useState("sessions");
+  const [mode, setMode] = useState(() => isFemaleProfile(profile) ? "programs" : "sessions");
   const [category, setCategory] = useState(initialCategory);
-  const [programCategory, setProgramCategory] = useState(() => isFemaleProfile(profile) ? "abcd" : "abc");
+  const [programCategory, setProgramCategory] = useState(() => isFemaleProfile(profile) ? "all" : "abc");
   const [active, setActive] = useState(null);
   const [previewId, setPreviewId] = useState("");
   const [activeProgram, setActiveProgram] = useState(null);
@@ -97,18 +97,28 @@ export default function WorkoutLibrary({ API, exercises = [], onBuild, onTemplat
     return () => { alive = false; };
   }, [API]);
 
+  const femaleProfile = isFemaleProfile(profile);
+  useEffect(() => {
+    setAudience(femaleProfile ? "female" : "all");
+    setProgramCategory(femaleProfile ? "all" : "abc");
+    if (femaleProfile) setMode("programs");
+    setActiveProgram(null);
+    setExpertAccepted(false);
+  }, [femaleProfile]);
+
   const exerciseIndex = useMemo(() => Object.fromEntries(exercises.map(item => [item.id, item])), [exercises]);
   useEffect(() => {
     setAppliedIds(new Set((program?.sessions || []).map(item => item.template_id).filter(Boolean)));
   }, [program]);
   const visible = useMemo(() => catalog.templates.filter(item => item.category === category && (audience === "all" || (item.audience || "unisex") === audience)), [catalog.templates, category, audience]);
-  const visiblePrograms = useMemo(() => catalog.programs.filter(item => (item.categories || [item.category]).includes(programCategory) && (audience === "all" || (item.audience_type || "unisex") === audience)), [catalog.programs, programCategory, audience]);
+  const visiblePrograms = useMemo(() => catalog.programs.filter(item => (programCategory === "all" || (item.categories || [item.category]).includes(programCategory)) && (audience === "all" || (item.audience_type || "unisex") === audience)), [catalog.programs, programCategory, audience]);
   const activePhase = useMemo(() => activeProgram?.phases?.find(item => item.id === activePhaseId) || activeProgram?.phases?.[0] || null, [activeProgram, activePhaseId]);
   useEffect(() => {
     if (visible.length && !visible.some(item => item.id === active?.id)) setActive(visible[0]);
   }, [visible, active?.id]);
   useEffect(() => {
-    if (visiblePrograms.length && !visiblePrograms.some(item => item.id === activeProgram?.id)) {
+    if (!visiblePrograms.length) { setActiveProgram(null); setActivePhaseId(""); return; }
+    if (!visiblePrograms.some(item => item.id === activeProgram?.id)) {
       setActiveProgram(visiblePrograms[0]);
       setActivePhaseId(visiblePrograms[0]?.phases?.[0]?.id || "");
     }
@@ -127,7 +137,7 @@ export default function WorkoutLibrary({ API, exercises = [], onBuild, onTemplat
     setActive(catalog.templates.find(item => item.category === id) || null);
   };
   const chooseProgramCategory = id => {
-    const next = catalog.programs.find(item => (item.categories || [item.category]).includes(id)) || null;
+    const next = catalog.programs.find(item => (id === "all" || (item.categories || [item.category]).includes(id)) && (audience === "all" || (item.audience_type || "unisex") === audience)) || null;
     setProgramCategory(id);
     setActiveProgram(next);
     setActivePhaseId(next?.phases?.[0]?.id || "");
@@ -191,7 +201,7 @@ export default function WorkoutLibrary({ API, exercises = [], onBuild, onTemplat
     <section className="library-intro">
       <div>
         <p className="eyebrow">FORGE / ARQUITETURAS DE TREINO</p>
-        <h2>Escolha uma sessão ou um programa completo.</h2>
+        <h2>{femaleProfile ? "Escolha seu programa feminino." : "Escolha uma sessão ou um programa completo."}</h2>
         <p className="muted">Modelos profissionais normalizados para o motor do FORGE. Veja todos os exercícios antes de aplicar uma sessão ao treino atual.</p>
       </div>
       <div className="library-intro-actions">
@@ -277,6 +287,7 @@ export default function WorkoutLibrary({ API, exercises = [], onBuild, onTemplat
         <span>Curadoria</span><button className={audience === "all" ? "active" : ""} onClick={() => setAudience("all")}>Todos</button><button className={audience === "female" ? "active" : ""} onClick={() => setAudience("female")}>Feminino</button><button className={audience === "male" ? "active" : ""} onClick={() => setAudience("male")}>Masculino</button><button className={audience === "unisex" ? "active" : ""} onClick={() => setAudience("unisex")}>Unissex</button>
       </div>
       <nav className="library-categories library-program-categories" aria-label="Divisões de programas">
+        <button className={programCategory === "all" ? "active" : ""} onClick={() => chooseProgramCategory("all")} data-testid="program-category-all"><b>Todos</b><span>Todas as divisões</span></button>
         {catalog.program_categories.map(item => <button key={item.id} className={programCategory === item.id ? "active" : ""} onClick={() => chooseProgramCategory(item.id)} data-testid={`program-category-${item.id}`}>
           <b>{item.label}</b><span>{item.subtitle}</span>
         </button>)}
@@ -284,7 +295,7 @@ export default function WorkoutLibrary({ API, exercises = [], onBuild, onTemplat
 
       <div className="library-layout library-program-layout">
         <section className="library-variants" aria-label="Programas disponíveis">
-          <div className="library-section-head"><div><p className="eyebrow">PROGRAMAS COMPLETOS</p><h3>{catalog.program_categories.find(item => item.id === programCategory)?.label}</h3></div><span>{visiblePrograms.length} {visiblePrograms.length === 1 ? "programa" : "programas"} nesta divisão</span></div>
+          <div className="library-section-head"><div><p className="eyebrow">PROGRAMAS COMPLETOS</p><h3>{programCategory === "all" ? "Todas as divisões" : catalog.program_categories.find(item => item.id === programCategory)?.label}</h3></div><span>{visiblePrograms.length} {visiblePrograms.length === 1 ? "programa" : "programas"} nesta divisão</span></div>
           <div className="program-card-grid">
             {visiblePrograms.map((item, index) => <article key={item.id} className={activeProgram?.id === item.id ? "active" : ""} onClick={() => chooseProgram(item)} data-testid={`training-program-${item.id}`}>
               <div className="library-card-index">{String(index + 1).padStart(2, "0")}</div>
@@ -300,7 +311,7 @@ export default function WorkoutLibrary({ API, exercises = [], onBuild, onTemplat
           </div>
         </section>
 
-        {activeProgram && activePhase && <aside className="library-preview program-preview" data-testid="program-preview">
+        {activeProgram && visiblePrograms.some(item => item.id === activeProgram.id) && activePhase && <aside className="library-preview program-preview" data-testid="program-preview">
           <div className="library-preview-head"><div><p className="eyebrow">PROGRAMA COMPLETO</p><h3>{activeProgram.name}</h3></div><span>{activeProgram.duration_weeks?`${activeProgram.duration_weeks} semanas`:"Duração a definir"}</span></div>
           <p className="program-preview-description">{activeProgram.description}</p>
           {activeProgram.phases.length > 1 && <div className="program-phases">

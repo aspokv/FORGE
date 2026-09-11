@@ -46,7 +46,7 @@ export default function ReferenceHome({db,start,onRecoveryCheckin}){
   const addWater=async amount=>{if(waterBusy)return;setWaterBusy(true);try{const r=await axios.post(`${API}/hydration/${localDateKey()}`,{amount_ml:amount});setHydration(r.data)}finally{setWaterBusy(false)}};
   const undoWater=async()=>{if(waterBusy)return;setWaterBusy(true);try{const r=await axios.delete(`${API}/hydration/${localDateKey()}/last`);setHydration(r.data)}finally{setWaterBusy(false)}};
   const submitCheckin=async()=>{if(checkinBusy)return;setCheckinBusy(true);try{const r=await axios.post(`${API}/recovery`,{profile_id:db.profile?.id,local_date:localDateKey(),...checkinForm});setCheckin(r.data?.checkin||r.data);onRecoveryCheckin?.(r.data);setCheckinOpen(false)}finally{setCheckinBusy(false)}};
-  const openPlan=()=>{if(todayCompletion||restDay)return;checkin?start():setCheckinOpen(true)};
+  const openPlan=()=>{if(p.program_selection_required){start();return;}if(todayCompletion||restDay)return;checkin?start():setCheckinOpen(true)};
   const completedTime=todayCompletion&&!todayCompletion.inferred?new Intl.DateTimeFormat("pt-BR",{hour:"2-digit",minute:"2-digit"}).format(new Date(todayCompletion.completed_at)):"";
 
   const monday=new Date(now);monday.setDate(now.getDate()-dayIndex);
@@ -57,13 +57,13 @@ export default function ReferenceHome({db,start,onRecoveryCheckin}){
     <div className="a6-hero" data-testid="home-top-hero"><TrainingCardImage session={{...shown,label:raw}} program={todayCompletion?{}:p} profile={db.profile} focus={focus} loading="eager" fetchPriority="high" width="640" height="276"/></div>
     <div className="a6-panel a6-workout-card" data-testid="daily-briefing">
       <div className="a6-eyebrow">{todayCompletion?"SEU TREINO DE HOJE · CONCLUÍDO":restDay?"DESCANSO HOJE · PRÓXIMO TREINO":"SEU TREINO DE HOJE"}</div>
-      <h2 id="home-session-title">{sessionName}</h2><p>{focus.length?focus.join(" · "):todayCompletion?"Sessão registrada":"Treino completo"}</p>
-      <AstraMeta duration={duration} sets={plannedSets}/>
+      <h2 id="home-session-title">{p.program_selection_required&&!todayCompletion?"Escolha seu programa":sessionName}</h2><p>{focus.length?focus.join(" · "):todayCompletion?"Sessão registrada":"Treino completo"}</p>
+      {(!p.program_selection_required||todayCompletion)&&<AstraMeta duration={duration} sets={plannedSets}/>}
     </div>
     <div className="a6-signature-footer">
       <div className={`a6-signature-status${todayCompletion?" a6-completed":""}`} role="status"><span aria-hidden="true"/>{restDay?"Descanso programado":sessionStatus(checkin,db.recent_sets,now,todayCompletion)}</div>
       {todayCompletion&&<div className="a6-completed-meta" data-testid="home-completed-at">{completedTime?`Concluído hoje às ${completedTime}`:"Concluído hoje"}</div>}
-      <AstraAction testId="start-workout-button" disabled={Boolean(todayCompletion||restDay)} onClick={openPlan}>{todayCompletion?"Sessão concluída":restDay?"Dia de descanso":"Iniciar sessão"}</AstraAction>
+      <AstraAction testId="start-workout-button" disabled={!p.program_selection_required&&Boolean(todayCompletion||restDay)} onClick={openPlan}>{p.program_selection_required?"Escolher programa feminino":todayCompletion?"Sessão concluída":restDay?"Dia de descanso":"Iniciar sessão"}</AstraAction>
     </div>
     </section>
     <section data-testid="home-training-week">
