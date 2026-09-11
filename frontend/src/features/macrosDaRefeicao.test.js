@@ -76,3 +76,48 @@ test("o texto do macro diz quando nao ha valor", () => {
   expect(textoDoMacro(undefined)).toBe("não informado");
   expect(textoDoMacro(0)).toBe("0 g");
 });
+
+/**
+ * A caloria mostrada na linha do alimento e no cabecalho do cartao.
+ *
+ * Em producao, "50g de peito de frango" aparecia com 165 kcal — o valor de 100g, direto do
+ * catalogo, sem escalar pela porcao. E o cabecalho do cartao mostrava "0 kcal" com comida
+ * dentro, porque lia um alvo interno (`target_cal`) em vez do que a refeicao de fato tem.
+ */
+import { kcalDoItem } from "./macrosDaRefeicao";
+
+const FRANGO = { grams: 100, kcal: 165, protein_g: 31, carbs_g: 0, fat_g: 3.6 };
+
+test("a caloria da linha e a da PORCAO, e nao a da referencia do catalogo", () => {
+  // O caso exato do print: meia porcao tem metade das calorias.
+  expect(kcalDoItem({ grams: 50, food: FRANGO })).toBe(83);
+  expect(kcalDoItem({ grams: 100, food: FRANGO })).toBe(165);
+  expect(kcalDoItem({ grams: 200, food: FRANGO })).toBe(330);
+});
+
+test("porcao maior que a referencia escala para cima", () => {
+  expect(kcalDoItem({ grams: 157, food: { grams: 132, kcal: 68 } })).toBe(81);
+});
+
+test("sem gramagem dos dois lados devolve ausencia, e nao um chute", () => {
+  expect(kcalDoItem({ grams: 50, food: { kcal: 165 } })).toBeNull();
+  expect(kcalDoItem({ food: FRANGO })).toBeNull();
+  expect(kcalDoItem({ grams: 50, food: { grams: 100 } })).toBeNull();
+  expect(kcalDoItem(undefined)).toBeNull();
+});
+
+test("o cabecalho do cartao mostra o que a refeicao TEM", () => {
+  // Era `target_cal`, um alvo interno que vinha zerado em plano importado: o cartao dizia
+  // "0 kcal" com tres alimentos na lista logo abaixo.
+  const refeicao = { foods: [
+    { grams: 50, food: FRANGO },
+    { grams: 50, food: { grams: 100, kcal: 128, protein_g: 2, carbs_g: 30, fat_g: 0.1 } },
+    { grams: 80, food: { grams: 100, kcal: 35, protein_g: 2.8, carbs_g: 7, fat_g: 0.4 } },
+  ] };
+  expect(macrosDaRefeicao(refeicao).kcal).toBe(175);
+  expect(macrosDaRefeicao(refeicao).kcal).toBeGreaterThan(0);
+});
+
+test("refeicao sem alimento nao inventa caloria", () => {
+  expect(macrosDaRefeicao({ foods: [] }).kcal).toBeNull();
+});

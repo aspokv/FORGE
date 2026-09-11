@@ -23,6 +23,26 @@ const numero = (v) => (typeof v === "number" && Number.isFinite(v) ? v : null);
  * Devolve `{ kcal, protein, carbs, fat, completo }`. Cada macro e `null` quando algum
  * alimento nao informou aquele campo.
  */
+/**
+ * Calorias REAIS de um item, ja escaladas pela porcao.
+ *
+ * O catalogo guarda os macros para uma gramagem de referencia (`food.grams`, quase sempre
+ * 100g). A tela mostrava `food.kcal` direto, entao "50g de peito de frango" aparecia com
+ * 165 kcal — que e o valor de 100g. Todo alimento do plano exibia a caloria da REFERENCIA
+ * em vez da caloria do PRATO, e o erro crescia quanto mais a porcao se afastava de 100g.
+ *
+ * Devolve null quando falta gramagem dos dois lados: sem as duas nao da para escalar, e um
+ * numero chutado seria pior que a ausencia.
+ */
+export function kcalDoItem(item) {
+  const base = item?.food || {};
+  const gramasDaBase = numero(base.grams);
+  const gramasUsados = numero(item?.grams);
+  const kcalDaBase = numero(base.kcal);
+  if (!gramasDaBase || !gramasUsados || kcalDaBase === null) return null;
+  return Math.round(kcalDaBase * (gramasUsados / gramasDaBase));
+}
+
 export function macrosDaRefeicao(refeicao) {
   const alimentos = refeicao?.foods || [];
   if (!alimentos.length) {
