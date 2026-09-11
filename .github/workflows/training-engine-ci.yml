@@ -5,6 +5,17 @@ on:
     branches: [main]
     paths:
       - 'backend/server.py'
+      - 'backend/auth.py'
+      - 'backend/entitlements.py'
+      - 'backend/ratelimit.py'
+      - 'backend/billing.py'
+      - 'backend/billing_routes.py'
+      - 'backend/billing_plans.py'
+      - 'backend/password_reset_routes.py'
+      - 'backend/preassessment_routes.py'
+      - 'backend/admin_routes.py'
+      - 'backend/tests/test_seguranca.py'
+      - 'backend/tests/conftest.py'
       - 'backend/runtime_server.py'
       - 'backend/cardio.py'
       - 'backend/cardio_routes.py'
@@ -72,6 +83,17 @@ on:
   pull_request:
     paths:
       - 'backend/server.py'
+      - 'backend/auth.py'
+      - 'backend/entitlements.py'
+      - 'backend/ratelimit.py'
+      - 'backend/billing.py'
+      - 'backend/billing_routes.py'
+      - 'backend/billing_plans.py'
+      - 'backend/password_reset_routes.py'
+      - 'backend/preassessment_routes.py'
+      - 'backend/admin_routes.py'
+      - 'backend/tests/test_seguranca.py'
+      - 'backend/tests/conftest.py'
       - 'backend/runtime_server.py'
       - 'backend/cardio.py'
       - 'backend/cardio_routes.py'
@@ -195,3 +217,42 @@ jobs:
           name: training-card-visual
           path: frontend/training-card-visual
           retention-days: 7
+
+  seguranca:
+    # Os 40 testes de seguranca — IDOR, mass assignment, injecao de operador do Mongo no
+    # login, JWT sem assinatura e com assinatura adulterada, escopo de admin, allowlist de
+    # upload, limite de corpo e a lista de rotas alcancaveis sem pagamento — existiam no
+    # repositorio e NINGUEM os executava: nao estavam em nenhum job. Um deles vivia
+    # vermelho na main sem que isso aparecesse em lugar nenhum.
+    #
+    # A suite precisa de Mongo de verdade porque o conftest semeia contas e os testes de
+    # IDOR dependem de dois atletas existirem. O conftest recusa rodar se DB_NAME nao
+    # parecer banco de teste, o que impede apontar isto para producao por engano.
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      mongo:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.runCommand({ping:1})'"
+          --health-interval 10s --health-timeout 5s --health-retries 10
+    env:
+      PYTHONPATH: .
+      MONGO_URL: mongodb://localhost:27017
+      DB_NAME: test_database
+      FORGE_JWT_SECRET: apenas-para-o-ci-nunca-usar-em-producao
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: backend/requirements.txt
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Run security suite
+        run: pytest -q tests/test_seguranca.py
