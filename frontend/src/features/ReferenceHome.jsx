@@ -21,6 +21,19 @@ export const planArtworkKindFor=(sessionName,focus=[])=>isPullPlan(sessionName,f
 export const planArtworkFor=(sessionName,focus=[])=>{const kind=planArtworkKindFor(sessionName,focus);return kind==="pull"?"/images/anatomy/pull-back.webp":kind==="legs"?"/images/anatomy/legs-quads-front.webp":kind==="push"?"/images/anatomy/push-front.webp":"/images/anatomy/push-front.webp"};
 const referenceDateLabel=date=>new Intl.DateTimeFormat("pt-BR",{weekday:"long",day:"2-digit",month:"long"}).format(date).replace("-feira","").toUpperCase();
 
+/*
+ * O titulo do card nao pode partir palavra. "A · Quadriceps" saia como "A ·/QUADRI/CEPS"
+ * na tela do atleta, porque o tamanho do titulo e fixo e o nome da sessao nao e: ele vem do
+ * programa e varia de "Push 1" a "A · Quadriceps". CSS nao sabe contar caractere, entao o
+ * degrau de tamanho e decidido aqui, onde o texto existe.
+ */
+export function classeDoTitulo(titulo){
+  const n=String(titulo||"").trim().length;
+  if(n>13) return "forge-nome-longo";
+  if(n>8) return "forge-nome-medio";
+  return undefined;
+}
+
 export default function ReferenceHome({db,start,onRecoveryCheckin}){
   const p=useScheduledProgram(db.program||{}),userId=db.current_user?.id||db.profile?.user_id||db.profile?.id;
   const[nutrition,setNutrition]=useState(null),[mealLog,setMealLog]=useState([]),[hydration,setHydration]=useState(null),[checkin,setCheckin]=useState(null),[foodExtras,setFoodExtras]=useState([]);
@@ -57,6 +70,7 @@ export default function ReferenceHome({db,start,onRecoveryCheckin}){
   const introTitle=p.program_selection_required&&!todayCompletion?"Escolha seu programa.":todayCompletion?"Treino concluído.":restDay?"Hoje é recuperação.":"Seu treino está pronto.";
   const introSubtitle=p.program_selection_required&&!todayCompletion?"Monte sua próxima etapa no FORGE.":`${sessionName} · ${duration}`;
   const cycleLabel=String(p.week||"Ciclo atual").split("·")[0].trim();
+  const tituloDoCard=p.program_selection_required&&!todayCompletion?"Escolha seu programa":sessionName;
 
   const monday=new Date(now);monday.setDate(now.getDate()-dayIndex);
   const trained=new Set((db.recent_sets||[]).map(row=>{const d=new Date(row.created_at);return Number.isNaN(d.getTime())?"":new Intl.DateTimeFormat("sv-SE").format(d)}));
@@ -70,7 +84,7 @@ export default function ReferenceHome({db,start,onRecoveryCheckin}){
     <div className="a6-hero" data-testid="home-top-hero"><TrainingCardImage session={{...shown,label:raw}} program={todayCompletion?{}:p} profile={db.profile} focus={focus} loading="eager" fetchPriority="high" width="640" height="276"/></div>
     <div className="a6-panel a6-workout-card" data-testid="daily-briefing">
       <div className="a6-eyebrow">{todayCompletion?"TREINO DE HOJE · CONCLUÍDO":restDay?"DESCANSO HOJE · PRÓXIMO TREINO":"TREINO DE HOJE"}</div>
-      <h2 id="home-session-title">{p.program_selection_required&&!todayCompletion?"Escolha seu programa":sessionName}</h2><p>{focus.length?focus.join(" · "):todayCompletion?"Sessão registrada":"Treino completo"}</p>
+      <h2 id="home-session-title" className={classeDoTitulo(tituloDoCard)}>{tituloDoCard}</h2><p>{focus.length?focus.join(" · "):todayCompletion?"Sessão registrada":"Treino completo"}</p>
       {(!p.program_selection_required||todayCompletion)&&<AstraMeta duration={duration} sets={plannedSets}/>}
     </div>
     <div className="a6-signature-footer">
