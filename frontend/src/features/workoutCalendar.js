@@ -24,5 +24,5 @@ export function useScheduledProgram(program,afterToday=false){
     document.addEventListener("visibilitychange",refresh);
     return()=>{clearInterval(timer);window.removeEventListener("focus",refresh);document.removeEventListener("visibilitychange",refresh);};
   },[]);
-  return useMemo(()=>scheduledProgram(program,new Date(),afterToday),[program,day,afterToday]);
+  return useMemo(()=>scheduledProgram(program,new Date(...day.split("-").map(Number)),afterToday),[program,day,afterToday]);
 }
