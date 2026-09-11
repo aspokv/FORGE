@@ -605,7 +605,20 @@ export default function Nutrition({ API, profileId, db }) {
   }
 
   // Plan view
-  const t = targets || {};
+  /*
+   * A meta vem SEMPRE do plano que esta na tela.
+   *
+   * Havia um estado `targets` separado, e ele ficava para tras: `applySub` (substituir
+   * alimento) e a ativacao de dieta importada trocavam o plano sem atualiza-lo. O
+   * resultado era o medidor do topo anunciando a meta de um plano que nao existia mais,
+   * enquanto os cartoes abaixo ja mostravam as refeicoes novas — exatamente o que o
+   * usuario viu: "nao atualiza junto com as refeicoes".
+   *
+   * Derivar do plano em vez de sincronizar duas copias elimina a classe inteira de
+   * defeito: nao existe mais como divergir. O estado antigo so cobre o instante entre a
+   * geracao e a chegada do plano.
+   */
+  const t = plan?.targets || targets || {};
   const meals = plan?.meals || [];
   const consumed = consumedTotals(meals, diary.meals, diary.extras);
   const nextMeal=meals.findIndex((_,i)=>mealStatus[i]!=="completed"&&mealStatus[i]!=="skipped");
@@ -618,7 +631,7 @@ export default function Nutrition({ API, profileId, db }) {
       {importOpen && (
         <NutritionImport
           API={API}
-          onActivated={res => { if (res?.plan) setPlan(res.plan); }}
+          onActivated={res => { if (res?.plan) { setPlan(res.plan); setTargets(res.plan.targets || null); } }}
           onClose={() => setImportOpen(false)}
         />
       )}
@@ -746,7 +759,7 @@ export default function Nutrition({ API, profileId, db }) {
       })}
       </div>
 
-      <NutritionDailyFooter API={API} compact consumed={consumed} goalCalories={targets?.goal_calories||targets?.kcal||0}/>
+      <NutritionDailyFooter API={API} compact consumed={consumed} goalCalories={t?.goal_calories||t?.kcal||0}/>
       <details className="a6-details"><summary>Gerenciar plano alimentar</summary><div className="a6-editor nutrition-page">
       <div className="fg-acoes-linha">
         <button type="button" className="fg-btn fg-btn-2" onClick={()=>setDiaryEditor({mealIndex:null})}>Adicionar um extra</button>
