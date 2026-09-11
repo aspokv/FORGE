@@ -19,7 +19,7 @@ from catalog_ai_match import (
     ai_matching_available, load_learned_aliases, record_missing_item,
     resolve_names_with_ai, save_learned_alias,
 )
-from nutrition_engine import FOOD_INDEX
+from nutrition_engine import FOOD_INDEX, compute_macro_targets
 from nutrition_import import (
     MAX_IMPORT_CHARS, MAX_ITEMS_PER_MEAL, MAX_LABEL_CHARS, MAX_MEALS, MAX_GRAMS,
     REVIEW_AI_SUGGESTED, apply_resolution, draft_to_plan, parse_diet_text, recompute,
@@ -237,6 +237,26 @@ async def save_diet_draft(payload: DietDraftSaveIn, request: Request, user=Depen
             "blocking_errors": validate_draft(stored)}
 
 
+def _targets_do_questionario(profile: Dict[str, Any]) -> Optional[Dict[str, float]]:
+    """
+    Meta calculada do atleta, ou None quando o questionario nao da para calcular.
+
+    Mesma chamada que a geracao automatica usa, com os mesmos campos obrigatorios — a
+    dieta importada passa a ser medida contra a MESMA necessidade que um plano gerado.
+    """
+    na = (profile or {}).get("nutrition_assessment") or {}
+    if not all(na.get(k) for k in ("weight_kg", "height_cm", "age", "training_days")):
+        return None
+    try:
+        t = compute_macro_targets(
+            na["weight_kg"], na["height_cm"], na["age"], na.get("sex") or "male",
+            na["training_days"], na.get("goal") or "maintenance",
+            na.get("activity_level", "moderate"), na.get("intensity"))
+    except Exception:  # noqa: BLE001 — questionario torto nao pode impedir a ativacao
+        return None
+    return {k: t[k] for k in ("goal_calories", "protein_g", "carbs_g", "fat_g") if k in t}
+
+
 @router.post("/import/activate")
 async def activate_diet(payload: ActivateDietIn, request: Request, user=Depends(get_current_user)):
     """Ativa a dieta importada como plano base. Arquiva o plano anterior (recuperável)
@@ -262,7 +282,11 @@ async def activate_diet(payload: ActivateDietIn, request: Request, user=Depends(
     if erros:
         raise HTTPException(422, {"message": "Revise a dieta antes de ativar.", "errors": erros})
 
-    plan = draft_to_plan(draft)
+    # A dieta colada descreve o que a pessoa COME; a meta continua vindo do questionario.
+    # Sem isto, uma leitura parcial — linha sem gramatura, alimento fora do catalogo —
+    # virava o objetivo do dia, e foi assim que um plano feminino apareceu em producao
+    # anunciando algumas centenas de kcal como meta.
+    plan = draft_to_plan(draft, _targets_do_questionario(profile))
     agora = datetime.now(timezone.utc).isoformat()
 
     archived_version_id = None

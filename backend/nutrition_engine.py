@@ -1037,10 +1037,26 @@ def _meal_totals(meal):
     return k,p,c,f
 
 def _infer_meal_type(meal_name):
+    """
+    Nome da refeicao -> template de composicao.
+
+    O cafe da manha e testado ANTES do pre-treino de proposito. No layout de seis
+    refeicoes a primeira se chama "Cafe da manha / Pre-treino", e a regra anterior
+    perguntava por "pre" + "trein" primeiro: o nome casava, e a refeicao caia no template
+    `pre_workout` — carboidrato obrigatorio, proteina OPCIONAL e da familia pre/pos, que
+    aceita peixe. O resultado em producao foi um cafe da manha de batata-doce, mamao,
+    tilapia e azeite, sem ovo e sem laticinio. Nenhum outro layout tinha o problema,
+    porque so o de seis refeicoes usa um nome com os dois conceitos.
+
+    Quando a pessoa escreve "cafe da manha", isso e um cafe da manha — mesmo que a
+    refeicao tambem sirva de pre-treino. E o template `breakfast` ja atende os dois
+    papeis: ele tem carboidrato, fruta e gordura, e ainda ancora a proteina na familia
+    BREAKFAST_PROTEIN (ovo, clara, laticinio, whey).
+    """
     tn = meal_name.lower()
+    if "cafe" in tn or "manha" in tn: return "breakfast"
     if "pre" in tn and "trein" in tn: return "pre_workout"
     if "pos" in tn and "trein" in tn: return "post_workout"
-    if "cafe" in tn or "manha" in tn: return "breakfast"
     if "lanche" in tn or "tarde" in tn or "snack" in tn or "ceia" in tn: return "snack"
     if "jantar" in tn: return "dinner"
     return "lunch"
