@@ -132,7 +132,7 @@
   width: min(72%, 390px);
   min-width: 0;
   min-height: 0;
-  padding: clamp(22px, 7vw, 40px) 18px 86px;
+  padding: clamp(22px, 7vw, 40px) 18px 14px;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -192,15 +192,25 @@
   stroke-width: 2.25;
 }
 
+/*
+ * O rodape reserva o proprio espaco, em vez de flutuar sobre o conteudo.
+ *
+ * Antes ele era `position: absolute`, e o lugar dele vinha de um `padding-bottom` fixo no
+ * card — um numero adivinhado. O rodape, porem, MUDA de altura: no dia normal e so o botao
+ * (50px), no descanso ganha a linha de status (80px) e no treino concluido ganha tambem o
+ * "Concluido hoje as ..." (113px). Com 86px reservados, medido em 412px de largura, o
+ * descanso invadia o conteudo em 10px e o concluido em 43px — foi assim que "TREINO
+ * CONCLUIDO HOJE" apareceu escrito por cima do foco e das series na tela do atleta.
+ *
+ * Sendo um item normal da coluna flex, a altura dele entra na conta sozinha. Qualquer linha
+ * que apareca ali no futuro passa a caber sem ninguem ter de lembrar de ajustar um padding.
+ */
 .forge-shell .a6.a6-screen-0 .a6-signature .a6-signature-footer {
-  position: absolute;
+  position: relative;
   z-index: 3;
-  right: 16px;
-  bottom: 16px;
-  left: 16px;
   display: grid;
   gap: 6px;
-  padding: 0;
+  padding: 0 16px 16px;
   border: 0;
   background: transparent;
 }
