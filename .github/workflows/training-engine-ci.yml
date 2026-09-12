@@ -6,6 +6,10 @@ on:
     paths:
       - 'backend/server.py'
       - 'backend/auth.py'
+      - 'backend/programa_hibrido_6x.py'
+      - 'backend/male_reference_programs.py'
+      - 'backend/female_reference_programs.py'
+      - 'backend/tests/test_programa_hibrido_6x.py'
       - 'backend/entitlements.py'
       - 'backend/ratelimit.py'
       - 'backend/billing.py'
@@ -85,6 +89,10 @@ on:
     paths:
       - 'backend/server.py'
       - 'backend/auth.py'
+      - 'backend/programa_hibrido_6x.py'
+      - 'backend/male_reference_programs.py'
+      - 'backend/female_reference_programs.py'
+      - 'backend/tests/test_programa_hibrido_6x.py'
       - 'backend/entitlements.py'
       - 'backend/ratelimit.py'
       - 'backend/billing.py'
@@ -262,3 +270,5 @@ jobs:
       # `server`, e `server` exige MONGO_URL no import. Este job ja sobe o Mongo.
       - name: Run vision resilience suite
         run: pytest -q tests/test_analise_visual_resiliente.py
+      - name: Run library program suite
+        run: pytest -q --noconftest tests/test_programa_hibrido_6x.py

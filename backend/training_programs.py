@@ -485,6 +485,8 @@ from female_reference_programs import build_female_reference_programs
 TRAINING_PROGRAMS.extend(build_female_reference_programs(ex, session, phase, program))
 from male_reference_programs import build_male_reference_programs
 TRAINING_PROGRAMS.extend(build_male_reference_programs(ex, session, phase, program))
+from programa_hibrido_6x import build_programa_hibrido_6x
+TRAINING_PROGRAMS.extend(build_programa_hibrido_6x(ex, session, phase, program))
 
 
 def public_program_catalog():
