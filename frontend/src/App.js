@@ -8,6 +8,8 @@ import "./features/builder.css";
 import "./features/auth.css";
 import "./features/acquisition.css";
 import "./features/manual-workout.css";
+import "./features/exercicio-concluido.css";
+import {exercicioConcluido,resumoDoExercicio,textoDoResumo} from "./features/exercicioConcluido";
 import "./features/performance-os.css";
 import "./features/product-layout.css";
 const ProgramBuilder=lazy(()=>import("./features/ProgramBuilder"));
@@ -229,6 +231,10 @@ function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutC
   const[timerRunning,setTimerRunning]=useState(true);
   const[swap,setSwap]=useState(null);
   const[setInputs,setSetInputs]=useState({});
+  // Exercicios que a pessoa REABRIU depois de concluir. Guardar quem foi reaberto, e nao
+  // quem esta recolhido, faz o padrao ser "recolhe ao terminar" sem precisar sincronizar
+  // nada: cada exercicio novo que termina recolhe sozinho.
+  const[reabertos,setReabertos]=useState({});
   const[setErr,setSetErr]=useState({});
   const[finishResult,setFinishResult]=useState(null);
   const[finishing,setFinishing]=useState(false);
@@ -310,6 +316,26 @@ function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutC
       const isAdv=tech.id!=="straight";
       const hint=hints[x.exercise_id];
       const showRest=timer>0&&restingSet?.exerciseId===x.exercise_id;
+
+      // Terminou: o card vira uma linha com o visto, e a tela passa a mostrar o que falta.
+      // O descanso em andamento segura o card aberto — recolher com o cronometro rodando
+      // esconderia justamente o que a pessoa esta olhando naquele instante.
+      const terminado=exercicioConcluido(done,x.exercise_id,x.sets)&&!reabertos[x.exercise_id]&&!showRest;
+      if(terminado){
+        const resumo=textoDoResumo(resumoDoExercicio(setInputs,x.exercise_id,x.sets,x.load));
+        return <section className="exercise exercise-feito"key={x.exercise_id+i}>
+          <button type="button"className="exercise-feito-linha"aria-expanded="false"
+            data-testid={`exercicio-concluido-${x.exercise_id}`}
+            aria-label={`${ex.name} concluído. ${resumo}. Tocar para abrir e revisar.`}
+            onClick={()=>setReabertos(p=>({...p,[x.exercise_id]:true}))}>
+            <span className="exercise-index">0{i+1}</span>
+            <ExercisePhoto exercise={{...ex,exercise_id:x.exercise_id}}/>
+            <span className="exercise-feito-copy"><b>{ex.name}</b><small>{resumo}</small></span>
+            <span className="exercise-feito-visto"aria-hidden="true"><Check size={15}/></span>
+          </button>
+        </section>;
+      }
+
       return <section className={showRest?"exercise rest-active":"exercise"}key={x.exercise_id+i}>
         <div className="exercise-title">
           <div>
@@ -320,6 +346,11 @@ function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutC
           </div>
           <button type="button" className="swap" aria-label={`Substituir ${ex.name}`} data-testid={`swap-${x.exercise_id}`}onClick={()=>setSwap(ex)}><RotateCcw size={15}/><span>Substituir</span></button>
         </div>
+        {exercicioConcluido(done,x.exercise_id,x.sets)&&reabertos[x.exercise_id]&&
+          <button type="button"className="exercise-recolher"data-testid={`recolher-${x.exercise_id}`}
+            onClick={()=>setReabertos(p=>{const q={...p};delete q[x.exercise_id];return q})}>
+            <Check size={13}/> Concluído · recolher
+          </button>}
         {hint&&hint.last_weight>0&&<div className="progression-hint"data-testid={`progression-hint-${x.exercise_id}`}>
           <div><span>Última sessão</span><b>{hint.last_weight}kg × {hint.last_reps}</b></div>
           {hint.suggested_load&&hint.suggested_load!==hint.last_weight?<div className="suggest"><span>Sugestão</span><b>{hint.suggested_load}kg × {hint.last_reps}</b></div>:<div className="suggest"><span>{LOAD_LABEL[hint.action]||hint.action}</span><b className="reason">{hint.reason}</b></div>}
