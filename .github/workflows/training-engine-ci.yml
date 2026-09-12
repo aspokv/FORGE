@@ -15,6 +15,7 @@ on:
       - 'backend/preassessment_routes.py'
       - 'backend/admin_routes.py'
       - 'backend/tests/test_seguranca.py'
+      - 'backend/tests/test_analise_visual_resiliente.py'
       - 'backend/tests/conftest.py'
       - 'backend/runtime_server.py'
       - 'backend/cardio.py'
@@ -93,6 +94,7 @@ on:
       - 'backend/preassessment_routes.py'
       - 'backend/admin_routes.py'
       - 'backend/tests/test_seguranca.py'
+      - 'backend/tests/test_analise_visual_resiliente.py'
       - 'backend/tests/conftest.py'
       - 'backend/runtime_server.py'
       - 'backend/cardio.py'
@@ -256,3 +258,7 @@ jobs:
         run: pip install -r requirements.txt
       - name: Run security suite
         run: pytest -q tests/test_seguranca.py
+      # Mora aqui, e nao no job de unidade, por uma razao mecanica: o teste importa
+      # `server`, e `server` exige MONGO_URL no import. Este job ja sobe o Mongo.
+      - name: Run vision resilience suite
+        run: pytest -q tests/test_analise_visual_resiliente.py

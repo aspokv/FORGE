@@ -656,39 +656,99 @@ REGRAS OBRIGAT\u00d3RIAS:
 - Retorne SOMENTE o JSON, sem markdown, sem texto adicional."""
 
 
+# Cadeia de modelos de visao. O configurado vem primeiro; o resto e rede de seguranca.
+#
+# O padrao anterior era um nome unico e fixo. Quando esse nome deixa de existir — provedor
+# aposenta versao sem aviso, e isso acontece — TODA analise de foto passa a falhar, e a tela
+# mostra "nao foi possivel concluir a analise" sem que ninguem descubra o motivo, porque a
+# mensagem tecnica e escondida do usuario de proposito.
+MODELOS_DE_VISAO_PADRAO = (
+    "gemini-3.7-flash",
+    "gemini-2.5-flash",
+    "gemini-2.0-flash",
+    "gemini-1.5-flash",
+)
+
+
+def _cadeia_de_modelos_de_visao() -> list:
+    escolhido = os.environ.get("GEMINI_VISION_MODEL", "").strip()
+    cadeia = [escolhido] if escolhido else []
+    cadeia += [m for m in MODELOS_DE_VISAO_PADRAO if m != escolhido]
+    return cadeia
+
+
+def _texto_da_resposta(response) -> str:
+    """
+    Extrai o texto sem confiar em `response.text`.
+
+    Foto de corpo e exatamente o tipo de imagem que o filtro de seguranca do provedor pode
+    barrar. Quando isso acontece a resposta volta SEM texto, e `response.text.strip()`
+    estoura em AttributeError — a analise falha com um erro que nao se parece com a causa.
+    """
+    texto = getattr(response, "text", None)
+    if texto:
+        return texto.strip()
+    for cand in (getattr(response, "candidates", None) or []):
+        for parte in (getattr(getattr(cand, "content", None), "parts", None) or []):
+            if getattr(parte, "text", None):
+                return parte.text.strip()
+    motivo = ""
+    fb = getattr(response, "prompt_feedback", None)
+    if fb is not None and getattr(fb, "block_reason", None):
+        motivo = str(fb.block_reason)
+    elif (getattr(response, "candidates", None) or []):
+        motivo = str(getattr(response.candidates[0], "finish_reason", "") or "")
+    raise ValueError("resposta sem texto" + (" (" + motivo + ")" if motivo else ""))
+
+
 async def analyze_physique(image_bytes: bytes, mime_type: str, views: list) -> dict:
     key = os.environ.get("GEMINI_API_KEY", "").strip()
     if not key:
-        return {"status": "unavailable", "message": "GEMINI_API_KEY n\u00e3o configurada."}
-    # Vision model is configurable so a provider retirement does not require another
-    # emergency code change. The default tracks Google's current stable multimodal Flash.
-    model = os.environ.get("GEMINI_VISION_MODEL", "gemini-3.7-flash").strip() or "gemini-3.7-flash"
+        logger.error("analise visual indisponivel: chave do provedor de visao ausente")
+        return {"status": "unavailable", "reason": "sem_chave",
+                "message": "An\u00e1lise visual indispon\u00edvel no momento.",
+                "observations": {}, "suggested_priorities": []}
     client = google_genai.Client(api_key=key)
     parts = [FORGE_MUSCLE_PROMPT]
     parts.append(google_genai.types.Part.from_bytes(data=image_bytes, mime_type=mime_type or "image/jpeg"))
-    try:
-        response = client.models.generate_content(
-            model=model,
-            contents=parts,
-            config=google_genai.types.GenerateContentConfig(
-                temperature=0.2,
-                max_output_tokens=4096,
-                response_mime_type="application/json",
-            ),
-        )
-        raw = response.text.strip()
-        if raw.startswith("```"): raw = raw.split("\n", 1)[1].rsplit("```", 1)[0]
-        result = json.loads(raw)
-        for m in MUSCLES:
-            if m not in result.get("observations", {}):
-                result.setdefault("observations", {})[m] = {"development": "proporcional", "confidence": "baixa"}
-        result["status"] = "completed"
-        result["model"] = model
-        result["views_analyzed"] = views
-        return result
-    except Exception as e:
-        logger.exception("gemini vision failed")
-        return {"status": "error", "message": f"Falha na an\u00e1lise visual: {str(e)[:200]}", "observations": {}, "suggested_priorities": [], "limitations": ["Erro interno do modelo."]}
+    config = google_genai.types.GenerateContentConfig(
+        temperature=0.2,
+        max_output_tokens=4096,
+        response_mime_type="application/json",
+    )
+
+    ultimo_erro = None
+    for modelo in _cadeia_de_modelos_de_visao():
+        try:
+            response = client.models.generate_content(model=modelo, contents=parts, config=config)
+            raw = _texto_da_resposta(response)
+            if raw.startswith("```"):
+                raw = raw.split(chr(10), 1)[1].rsplit("```", 1)[0]
+            result = json.loads(raw)
+            for m in MUSCLES:
+                if m not in result.get("observations", {}):
+                    result.setdefault("observations", {})[m] = {"development": "proporcional", "confidence": "baixa"}
+            result["status"] = "completed"
+            result["model"] = modelo
+            result["views_analyzed"] = views
+            if modelo != _cadeia_de_modelos_de_visao()[0]:
+                logger.warning("analise visual concluida no modelo reserva %s", modelo)
+            return result
+        except Exception as e:
+            ultimo_erro = e
+            # Uma tentativa que falha nao encerra a analise: o proximo modelo da cadeia
+            # ainda pode responder. So depois de esgotar a cadeia e que se desiste.
+            logger.warning("modelo de visao %s falhou: %s", modelo, str(e)[:200])
+
+    # A cadeia inteira falhou. O motivo tecnico vai para o log do servidor, onde o suporte
+    # o alcanca; para o cliente vai um codigo curto e nao sensivel, sem nome de variavel,
+    # sem provedor e sem mensagem do fornecedor — a tela ja mostra um texto unico.
+    logger.error("analise visual falhou em todos os modelos da cadeia: %s",
+                 str(ultimo_erro)[:300])
+    return {"status": "error", "reason": "modelo_indisponivel",
+            "message": "An\u00e1lise visual indispon\u00edvel no momento.",
+            "observations": {}, "suggested_priorities": [],
+            "limitations": ["N\u00e3o foi poss\u00edvel concluir a an\u00e1lise autom\u00e1tica desta foto."]}
 
 
 # Tipos que o modelo de visao aceita. Allowlist, e nao lista de bloqueio: o que nao
