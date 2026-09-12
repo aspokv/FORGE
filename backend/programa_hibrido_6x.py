@@ -125,7 +125,7 @@ def build_programa_hibrido_6x(ex, session, phase, program):
     sessoes[0]["exercises"][0]["note"] = (sessoes[0]["exercises"][0]["note"] + " " + PROGRESSAO).strip()
 
     return program(
-        "hibrido-6x-peitoral-dorsal", "abcdef",
+        "hibrido-6x-peitoral-dorsal", "hibrido",
         "Híbrido 6× · Peitoral e Dorsal", "Avançado", 6, "Geral",
         RESUMO, "Prescrição do proprietário",
         [phase("base", "Rotação de ênfases", "Híbrido 6×", sessoes, "6–8 semanas", RESUMO + " " + PROGRESSAO)],
@@ -219,7 +219,7 @@ def build_programa_hibrido_6x_v2(ex, session, phase, program):
     sessoes[0]["exercises"][0]["note"] = (sessoes[0]["exercises"][0]["note"] + " " + PROGRESSAO).strip()
 
     return program(
-        "hibrido-6x-upper-lower", "abcdef",
+        "hibrido-6x-upper-lower", "hibrido",
         "Híbrido 6× · Upper / Lower", "Avançado", 6, "Geral",
         RESUMO_V2, "Prescrição do proprietário",
         [phase("base", "Upper / Lower híbrido", "Híbrido 6×", sessoes, "6–8 semanas", RESUMO_V2 + " " + PROGRESSAO)],
@@ -323,7 +323,7 @@ def build_programa_hibrido_6x_v3(ex, session, phase, program):
         sessoes[0]["exercises"][0]["note"] + " Progressão de carga apenas nos movimentos principais.").strip()
 
     return program(
-        "hibrido-6x-full-body", "abcdef",
+        "hibrido-6x-full-body", "hibrido",
         "Híbrido 6× · Full Body Rotativo", "Avançado", 6, "Geral",
         RESUMO_V3, "Prescrição do proprietário",
         [phase("base", "Full body rotativo", "Híbrido 6×", sessoes, "6–8 semanas", RESUMO_V3)],
@@ -337,4 +337,105 @@ def build_programas_hibridos_6x(ex, session, phase, program):
         build_programa_hibrido_6x(ex, session, phase, program),
         build_programa_hibrido_6x_v2(ex, session, phase, program),
         build_programa_hibrido_6x_v3(ex, session, phase, program),
+        build_programa_hibrido_6x_v4(ex, session, phase, program),
     ]
+
+
+# ── Versao 4: dominancia rotativa ────────────────────────────────────────────────────
+
+RESUMO_V4 = (
+    "Híbrido de seis sessões em dominância rotativa. Peitoral e dorsal alternam o papel de "
+    "dominante e de estímulo secundário ao longo da semana; pernas entram duas vezes, "
+    "ombros nos dias de perna e braços com duas séries diretas nos dias de tronco. "
+    "Domingo é descanso."
+)
+
+# A v4 e a primeira a separar DOMINANTE de SECUNDARIO dentro do mesmo grupo muscular. O
+# secundario existe para manter a frequencia sem roubar recuperacao do dia dominante: sao
+# duas series, por volta de 2 RIR, e a ficha manda explicitamente nao buscar falha. Tratar
+# isso como "mais um isolador" apagaria a razao de ele estar ali.
+SECUNDARIO_RIR = "2"
+SECUNDARIO_NOTA = "Estímulo secundário: não buscar falha, manter cerca de 2 RIR."
+ISOLADOR_RIR_V4 = "0–2"
+DOMINANTE_NOTA = "Movimento dominante do dia: a última série pode chegar a 0–1 RIR."
+
+
+def build_programa_hibrido_6x_v4(ex, session, phase, program):
+    """Versao 4: peitoral e dorsal trocam de dominante ao longo da semana."""
+
+    def dominante(exercise_id, series, reps, nota=""):
+        return ex(exercise_id, series, reps, COMPOSTO_RIR, COMPOSTO_DESCANSO, "straight",
+                  (nota + " " + DOMINANTE_NOTA).strip())
+
+    def composto(exercise_id, series, reps, nota=""):
+        return ex(exercise_id, series, reps, COMPOSTO_RIR, COMPOSTO_DESCANSO, "straight", nota)
+
+    def secundario(exercise_id, series, reps, nota=""):
+        return ex(exercise_id, series, reps, SECUNDARIO_RIR, ISOLADOR_DESCANSO, "straight",
+                  (nota + " " + SECUNDARIO_NOTA).strip())
+
+    def isolador(exercise_id, series, reps, nota=""):
+        return ex(exercise_id, series, reps, ISOLADOR_RIR_V4, ISOLADOR_DESCANSO, "straight", nota)
+
+    sessoes = [
+        session("Segunda · Peito dominante, costas e braços", ["Peitoral superior", "Braços"], [
+            dominante("incline-smith", 3, "6–8"),
+            isolador("cable-incline-fly", 3, "10–15"),
+            secundario("cable-row", 2, "8–12", "Remada baixa neutra."),
+            isolador("cable-overhead-extension", 2, "10–15", "Tríceps francês no cabo."),
+            isolador("preacher-curl", 2, "8–12", "Rosca Scott."),
+        ], "HIGH", 60),
+
+        session("Terça · Posterior e ombros", ["Posterior de coxa", "Deltoides"], [
+            dominante("rdl", 3, "6–10"),
+            isolador("seated-hamstring-curl", 3, "8–12"),
+            composto("back-extension", 2, "10–15", "Extensão a 45 graus."),
+            isolador("lateral-raise", 3, "12–20"),
+            isolador("machine-rear-fly", 3, "12–20", "Reverse pec deck."),
+            isolador("standing-calf", 3, "8–15"),
+        ], "HIGH", 65),
+
+        session("Quarta · Costas dominante, peito e braços", ["Dorsais / largura", "Braços"], [
+            dominante("neutral-pulldown", 3, "6–10", "Pegada neutra."),
+            dominante("lat-pulldown", 3, "8–12", "Unilateral, cotovelo em direção ao quadril."),
+            isolador("cable-straight-arm-pulldown", 2, "10–15", "Pullover no cabo."),
+            secundario("machine-chest-press", 2, "8–12", "Chest press horizontal."),
+            isolador("incline-db-curl", 2, "8–12", "Rosca inclinada."),
+            isolador("cable-pushdown", 2, "10–15", "Tríceps pulley."),
+        ], "HIGH", 65),
+
+        session("Quinta · Quadríceps e ombros", ["Quadríceps", "Deltoides"], [
+            dominante("hack-squat", 3, "6–10"),
+            dominante("leg-press", 3, "8–12"),
+            isolador("leg-extension", 2, "12–15"),
+            isolador("machine-lateral-raise", 3, "12–20"),
+            composto("machine-ohp", 2, "8–12", "Desenvolvimento máquina."),
+            isolador("seated-calf", 3, "10–15"),
+        ], "HIGH", 65),
+
+        session("Sexta · Peito dominante, costas e braços", ["Peitoral médio", "Braços"], [
+            dominante("machine-chest-press", 3, "6–10", "Chest press reto."),
+            isolador("cable-fly", 3, "10–15", "Crossover de cima para baixo."),
+            secundario("row", 2, "8–12", "Remada articulada apoiada."),
+            isolador("cable-pushdown", 2, "10–15", "Unilateral, com manopla."),
+            isolador("db-hammer-curl", 2, "8–12", "Rosca martelo."),
+        ], "HIGH", 60),
+
+        session("Sábado · Costas dominante, peito e braços", ["Costas / espessura", "Braços"], [
+            dominante("row", 3, "6–10", "Remada apoiada no peito."),
+            dominante("wide-cable-row", 3, "8–12", "Remada aberta no cabo."),
+            composto("cable-pulldown", 2, "8–12", "Puxada pronada média."),
+            secundario("pec-deck", 2, "10–15", "Crucifixo máquina."),
+            isolador("cable-curl", 2, "10–15", "Rosca no cabo."),
+            isolador("cable-overhead-extension", 2, "10–15", "Tríceps acima da cabeça no cabo."),
+        ], "HIGH", 65),
+    ]
+    sessoes[0]["exercises"][0]["note"] = (sessoes[0]["exercises"][0]["note"] + " " + PROGRESSAO).strip()
+
+    return program(
+        "hibrido-6x-dominancia-rotativa", "hibrido",
+        "Híbrido 6× · Dominância Rotativa", "Avançado", 6, "Geral",
+        RESUMO_V4, "Prescrição do proprietário",
+        [phase("base", "Dominância rotativa", "Híbrido 6×", sessoes, "6–8 semanas", RESUMO_V4 + " " + PROGRESSAO)],
+        "advanced", CUIDADO, audience_type="unisex",
+    )
