@@ -15,6 +15,7 @@ PROGRAM_CATEGORIES = [
     {"id": "abcde", "label": "ABCDE", "subtitle": "Cinco sessões de alto volume"},
     {"id": "abcdef", "label": "ABCDEF", "subtitle": "Seis sessões por microciclo"},
     {"id": "upper_lower", "label": "Upper / Lower", "subtitle": "Tronco e inferiores 2x"},
+    {"id": "hibrido", "label": "Híbrido", "subtitle": "Ênfases rotativas em seis dias"},
     {"id": "periodized", "label": "Periodizados", "subtitle": "Fases com estímulos distintos"},
 ]
 

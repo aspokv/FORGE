@@ -118,7 +118,7 @@ def test_a_regra_de_progressao_chega_ao_atleta(sessoes):
 def test_a_ficha_se_apresenta_como_avancada_e_sem_genero(programa):
     assert programa["level"] == "Avançado"
     assert programa["audience_type"] == "unisex"
-    assert programa["category"] == "abcdef"
+    assert programa["category"] == "hibrido"
 
 
 # ── Versao 2: upper / lower ──────────────────────────────────────────────────────────
@@ -213,3 +213,88 @@ def test_as_tres_tem_nomes_distintos_na_biblioteca():
     """Nome repetido na lista deixa o atleta sem saber qual esta escolhendo."""
     nomes = [p["name"] for p in TRAINING_PROGRAMS if p["id"] in (ID, ID_V2, ID_V3)]
     assert len(set(nomes)) == 3, nomes
+
+
+# ── Versao 4: dominancia rotativa ────────────────────────────────────────────────────
+
+ID_V4 = "hibrido-6x-dominancia-rotativa"
+
+
+@pytest.fixture(scope="module")
+def sessoes_v4():
+    achados = [p for p in TRAINING_PROGRAMS if p["id"] == ID_V4]
+    assert len(achados) == 1
+    return achados[0]["phases"][0]["sessions"]
+
+
+def test_v4_alterna_quem_e_dominante_entre_peito_e_costas(sessoes_v4):
+    """
+    E a ideia da ficha: peito domina segunda e sexta, costas dominam quarta e sabado, e nos
+    dias em que nao dominam eles voltam como estimulo secundario. Trocar a ordem desmonta a
+    distribuicao semanal inteira.
+    """
+    dominancia = ["Peito dominante", "Posterior e ombros", "Costas dominante",
+                  "Quadríceps e ombros", "Peito dominante", "Costas dominante"]
+    for s, esperado in zip(sessoes_v4, dominancia):
+        assert esperado in s["label"], f"{s['label']} não é {esperado}"
+
+
+def test_v4_tem_secundario_apenas_nos_dias_de_tronco(sessoes_v4):
+    """Terca e quinta sao dias de perna e ombro: nao existe peito nem costas secundario."""
+    com_secundario = [i for i, s in enumerate(sessoes_v4)
+                      if any(e["rir"] == "2" for e in s["exercises"])]
+    assert com_secundario == [0, 2, 4, 5], com_secundario
+
+
+def test_v4_manda_nao_buscar_falha_no_secundario(sessoes_v4):
+    """
+    O secundario existe para manter a frequencia sem roubar recuperacao do dia dominante.
+    Sem essa ordem escrita, ele vira mais um exercicio pesado e o proposito se perde.
+    """
+    secundarios = [e for s in sessoes_v4 for e in s["exercises"] if e["rir"] == "2"]
+    assert len(secundarios) == 4
+    for e in secundarios:
+        assert "não buscar falha" in e["note"], e["exercise_id"]
+        assert e["sets"] == 2, f"{e['exercise_id']} tem {e['sets']} séries"
+
+
+def test_v4_avisa_do_zero_um_RIR_no_dominante(sessoes_v4):
+    dominantes = [e for s in sessoes_v4 for e in s["exercises"]
+                  if "Movimento dominante" in e["note"]]
+    assert len(dominantes) >= 6, len(dominantes)
+    for e in dominantes:
+        assert "0–1 RIR" in e["note"]
+
+
+def test_v4_usa_a_faixa_de_isolador_da_propria_ficha(sessoes_v4):
+    """A v4 escreve "isoladores: 0-2 RIR" — faixa mais larga que as versoes anteriores."""
+    assert any(e["rir"] == "0–2" for s in sessoes_v4 for e in s["exercises"])
+
+
+def test_v4_tem_trinta_e_quatro_exercicios(sessoes_v4):
+    assert sum(len(s["exercises"]) for s in sessoes_v4) == 34
+
+
+# ── A classe Hibrido na biblioteca ───────────────────────────────────────────────────
+
+def test_existe_a_classe_hibrido_e_ela_tem_rotulo():
+    from training_programs import PROGRAM_CATEGORIES
+    hibrido = [c for c in PROGRAM_CATEGORIES if c["id"] == "hibrido"]
+    assert len(hibrido) == 1, "a classe Híbrido sumiu do catálogo de categorias"
+    assert hibrido[0]["label"] and hibrido[0]["subtitle"], hibrido[0]
+
+
+def test_todas_as_versoes_moram_na_classe_hibrido():
+    """
+    Seis sessoes nao faz delas "mais um ABCDEF": a divisao gira enfases em vez de rodar
+    letras. Misturadas, quem procura um ABCDEF encontra outra coisa.
+    """
+    for pid in (ID, ID_V2, ID_V3, ID_V4):
+        p = next(x for x in TRAINING_PROGRAMS if x["id"] == pid)
+        assert p["category"] == "hibrido", f"{pid} está em {p['category']}"
+
+
+def test_a_classe_hibrido_nao_engoliu_os_abcdef():
+    """Mover os hibridos nao pode esvaziar a gaveta de onde eles sairam."""
+    abcdef = [p for p in TRAINING_PROGRAMS if p["category"] == "abcdef"]
+    assert len(abcdef) >= 2, f"restaram {len(abcdef)} programas em abcdef"

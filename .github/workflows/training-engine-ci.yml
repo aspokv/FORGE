@@ -10,6 +10,7 @@ on:
       - 'backend/male_reference_programs.py'
       - 'backend/female_reference_programs.py'
       - 'backend/tests/test_programa_hibrido_6x.py'
+      - 'backend/tests/test_workout_templates.py'
       - 'backend/entitlements.py'
       - 'backend/ratelimit.py'
       - 'backend/billing.py'
@@ -93,6 +94,7 @@ on:
       - 'backend/male_reference_programs.py'
       - 'backend/female_reference_programs.py'
       - 'backend/tests/test_programa_hibrido_6x.py'
+      - 'backend/tests/test_workout_templates.py'
       - 'backend/entitlements.py'
       - 'backend/ratelimit.py'
       - 'backend/billing.py'
@@ -271,4 +273,7 @@ jobs:
       - name: Run vision resilience suite
         run: pytest -q tests/test_analise_visual_resiliente.py
       - name: Run library program suite
-        run: pytest -q --noconftest tests/test_programa_hibrido_6x.py
+        run: >-
+          pytest -q --noconftest
+          tests/test_programa_hibrido_6x.py
+          tests/test_workout_templates.py

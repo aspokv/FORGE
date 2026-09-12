@@ -47,14 +47,17 @@ def test_public_catalog_calculates_counts_without_mutating_source():
 
 
 def test_complete_program_library_covers_every_supported_split():
+    # "hibrido" entrou porque as fichas de seis dias com enfase rotativa nao sao mais um
+    # ABCDEF: a divisao gira enfases em vez de rodar letras, e misturadas na mesma gaveta
+    # quem procura um ABCDEF encontra outra coisa.
     assert [item["id"] for item in PROGRAM_CATEGORIES] == [
-        "abc", "abcd", "abcde", "abcdef", "upper_lower", "periodized"
+        "abc", "abcd", "abcde", "abcdef", "upper_lower", "hibrido", "periodized"
     ]
-    assert len(TRAINING_PROGRAMS) == 19
+    assert len(TRAINING_PROGRAMS) == 23
     assert {item["category"] for item in TRAINING_PROGRAMS} >= {
-        "abc", "abcd", "abcde", "abcdef", "upper_lower"
+        "abc", "abcd", "abcde", "abcdef", "upper_lower", "hibrido"
     }
-    assert sum(len(item["phases"]) for item in TRAINING_PROGRAMS) == 22
+    assert sum(len(item["phases"]) for item in TRAINING_PROGRAMS) == 26
 
 
 def test_complete_programs_only_use_supported_exercises_and_safe_builder_shapes():
@@ -79,7 +82,7 @@ def test_complete_programs_only_use_supported_exercises_and_safe_builder_shapes(
 
 def test_program_metadata_and_expert_guard_are_exposed_without_source_mutation():
     catalog = public_catalog()
-    assert len(catalog["programs"]) == 19
+    assert len(catalog["programs"]) == 23
     periodized = next(item for item in catalog["programs"] if item["id"] == "abcdef-12-week")
     assert "abcdef" in periodized["categories"]
     assert "periodized" in periodized["categories"]
