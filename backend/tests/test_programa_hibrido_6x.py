@@ -119,3 +119,97 @@ def test_a_ficha_se_apresenta_como_avancada_e_sem_genero(programa):
     assert programa["level"] == "Avançado"
     assert programa["audience_type"] == "unisex"
     assert programa["category"] == "abcdef"
+
+
+# ── Versao 2: upper / lower ──────────────────────────────────────────────────────────
+
+ID_V2 = "hibrido-6x-upper-lower"
+
+
+@pytest.fixture(scope="module")
+def sessoes_v2():
+    achados = [p for p in TRAINING_PROGRAMS if p["id"] == ID_V2]
+    assert len(achados) == 1
+    return achados[0]["phases"][0]["sessions"]
+
+
+def test_v2_alterna_upper_e_lower(sessoes_v2):
+    """A estrutura E a ficha: perder a alternancia vira outro programa."""
+    tipos = ["Upper A", "Lower A", "Upper B", "Lower B", "Upper C", "Lower C"]
+    for s, esperado in zip(sessoes_v2, tipos):
+        assert esperado in s["label"], f"{s['label']} não é {esperado}"
+
+
+def test_v2_usa_a_regra_de_isolador_da_propria_ficha(sessoes_v2):
+    """
+    A V2 escreve "0-1 RIR na ultima serie", e nao "1 RIR podendo chegar a 0" como a V1.
+    O campo segue a ficha que esta sendo transcrita, nao a versao anterior.
+    """
+    vistos = {(e["rir"], e["rest"]) for s in sessoes_v2 for e in s["exercises"]}
+    assert vistos == {("1–2", "150 s"), ("0–1", "90 s")}, vistos
+
+
+def test_v2_tem_quarenta_exercicios(sessoes_v2):
+    assert sum(len(s["exercises"]) for s in sessoes_v2) == 40
+
+
+# ── Versao 3: full body rotativo, com trabalho leve ──────────────────────────────────
+
+ID_V3 = "hibrido-6x-full-body"
+
+
+@pytest.fixture(scope="module")
+def sessoes_v3():
+    achados = [p for p in TRAINING_PROGRAMS if p["id"] == ID_V3]
+    assert len(achados) == 1
+    return achados[0]["phases"][0]["sessions"]
+
+
+def test_v3_tem_exatamente_um_estimulo_leve_por_sessao(sessoes_v3):
+    """
+    O leve e a ideia central da V3: o grupo que nao e da vez entra com duas series so, para
+    somar volume sem somar fadiga. Duas leves num dia, ou nenhuma, descaracteriza a ficha.
+    """
+    for s in sessoes_v3:
+        leves = [e for e in s["exercises"] if e["rir"] == "2–3"]
+        assert len(leves) == 1, f"{s['label']} tem {len(leves)} estímulos leves"
+        assert leves[0]["sets"] == 2, f"{s['label']}: o leve tem {leves[0]['sets']} séries"
+
+
+def test_v3_manda_explicitamente_nao_ir_a_falha_no_leve(sessoes_v3):
+    """Sem essa ordem escrita, o leve vira mais uma serie pesada e a ficha perde a funcao."""
+    for s in sessoes_v3:
+        leve = next(e for e in s["exercises"] if e["rir"] == "2–3")
+        assert "Não levar à falha" in leve["note"], s["label"]
+
+
+def test_v3_alterna_o_leve_entre_peito_e_costas(sessoes_v3):
+    """
+    Segunda, quarta e sexta sao dias de peito pesado, entao o leve e de costas; terca,
+    quinta e sabado invertem. E essa alternancia que mantem a frequencia dos dois grupos.
+    """
+    costas = {"lat-pulldown", "cable-row", "cable-straight-arm-pulldown"}
+    peito = {"pec-deck", "cable-fly", "cable-incline-fly"}
+    esperado = [costas, peito, costas, peito, costas, peito]
+    for s, grupo in zip(sessoes_v3, esperado):
+        leve = next(e for e in s["exercises"] if e["rir"] == "2–3")
+        assert leve["exercise_id"] in grupo, f"{s['label']}: leve é {leve['exercise_id']}"
+
+
+def test_v3_tem_seis_exercicios_por_sessao(sessoes_v3):
+    for s in sessoes_v3:
+        assert len(s["exercises"]) == 6, f"{s['label']} tem {len(s['exercises'])}"
+
+
+# ── As tres convivem ─────────────────────────────────────────────────────────────────
+
+def test_as_tres_versoes_existem_e_nao_colidem():
+    ids = [p["id"] for p in TRAINING_PROGRAMS]
+    for pid in (ID, ID_V2, ID_V3):
+        assert ids.count(pid) == 1, f"{pid} aparece {ids.count(pid)} vezes"
+
+
+def test_as_tres_tem_nomes_distintos_na_biblioteca():
+    """Nome repetido na lista deixa o atleta sem saber qual esta escolhendo."""
+    nomes = [p["name"] for p in TRAINING_PROGRAMS if p["id"] in (ID, ID_V2, ID_V3)]
+    assert len(set(nomes)) == 3, nomes
