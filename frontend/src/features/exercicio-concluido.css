@@ -1,0 +1,113 @@
+/*
+ * Exercicio concluido: de card inteiro para uma linha com o visto.
+ *
+ * Durante a sessao a pessoa olha o telefone entre series, com pressa. O que importa e o que
+ * FALTA — um exercicio ja terminado ocupando a mesma altura de um que nem comecou obriga a
+ * rolar muito para achar a proxima carga. Recolhido, ele continua ali (da para reabrir e
+ * conferir), mas devolve a tela para o que ainda tem de ser feito.
+ */
+
+/*
+ * A moldura do card sai: a linha ja tem a propria. Sem isto ficam duas bordas, uma dentro
+ * da outra, e o recolhido parece um card menor em vez de uma linha.
+ *
+ * O `!important` aqui NAO e preguica. `reference-exact-v3.css` declara
+ * `.workout-live-reference .exercise{border:...!important;background:...!important}`, e
+ * declaracao com `!important` nao se vence por especificidade — so por outra `!important`.
+ * O alcance fica preso a `.exercise-feito`, entao nenhum card aberto e afetado.
+ */
+.workout-live-reference .exercise.exercise-feito,
+.exercise.exercise-feito {
+  padding: 0;
+  margin-top: 8px;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.exercise-feito-linha {
+  display: grid;
+  grid-template-columns: 26px 46px minmax(0, 1fr) 28px;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  /* 64px de alvo: a linha e tocavel, e a pessoa toca com a mao suada, em movimento. */
+  min-height: 64px;
+  padding: 10px 14px;
+  border: 1px solid var(--fg-linha, #282c31);
+  border-radius: 16px;
+  background: linear-gradient(145deg, #141717, #0f1111);
+  color: var(--fg-texto-2, #a2a7ab);
+  text-align: left;
+  transition: border-color 140ms ease, background 140ms ease;
+}
+
+.exercise-feito-linha:hover { border-color: var(--fg-linha-forte, #3a3f46); }
+.exercise-feito-linha:focus-visible { outline: 2px solid var(--fg-acao, #e36b4d); outline-offset: 3px; }
+
+.exercise-feito-linha .exercise-index {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 11px;
+  color: var(--fg-texto-3, #6f7479);
+}
+
+/* A foto continua, menor: e por ela que o olho reconhece o exercicio sem ler. */
+.exercise-feito-linha img,
+.exercise-feito-linha .exercise-photo,
+.exercise-feito-linha .exercise-photo img {
+  width: 46px;
+  height: 46px;
+  border-radius: 11px;
+  object-fit: cover;
+}
+
+.exercise-feito-copy { display: grid; gap: 2px; min-width: 0; }
+
+.exercise-feito-copy b {
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 650;
+  letter-spacing: -.01em;
+  /* Riscado seria exagero: o exercicio foi FEITO, nao cancelado. O tom mais baixo ja
+     separa o que terminou do que falta. */
+  color: var(--fg-texto-2, #a2a7ab);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.exercise-feito-copy small {
+  font-size: 11.5px;
+  color: var(--fg-texto-3, #6f7479);
+}
+
+.exercise-feito-visto {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  border-radius: 50%;
+  background: rgb(127 174 134 / 16%);
+  color: var(--fg-ok, #7fae86);
+}
+
+/* ---- De volta ao card, quando a pessoa reabre ------------------------------ */
+
+.exercise-recolher {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 36px;
+  margin-top: 10px;
+  padding: 0 14px;
+  border: 1px solid var(--fg-linha, #282c31);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--fg-texto-3, #6f7479);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.exercise-recolher:hover { border-color: var(--fg-linha-forte, #3a3f46); color: var(--fg-texto-2, #a2a7ab); }
+.exercise-recolher svg { color: var(--fg-ok, #7fae86); }
