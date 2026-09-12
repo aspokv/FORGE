@@ -286,10 +286,10 @@ function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutC
   const averageRest=Math.round(items.reduce((sum,x)=>sum+parseRestSeconds(x.rest)*(Number(x.sets)||0),0)/Math.max(1,totalSessionSets));
   const activeSet=useMemo(()=>{for(const exercise of items){for(let setIndex=0;setIndex<Number(exercise.sets||0);setIndex+=1){if(!done[exercise.exercise_id+setIndex])return {exerciseId:exercise.exercise_id,setIndex};}}return null;},[items,done]);
   const viewTabs=<TrainingViewTabs view={view}onChange={setView}/>;
-  if(view==="library"||p.program_selection_required)return <div className="training-library-view"data-testid="training-library-view">
-    <div className="content training-tabs-wrap">{viewTabs}</div>
+  if(view==="library"||p.program_selection_required)return <AstraPage screen={1}testId="training-library-view">
+    <div className="training-tabs-wrap">{viewTabs}</div>
     <WorkoutLibrary API={API}exercises={db.exercises||[]}profile={db.profile}program={db.program}initialCategory={sessionCategory(activeSession,p)}onBuild={onLibraryBuild}onTemplateAdd={onLibraryTemplateAdd}onApplied={()=>{setView("session");setSessionStarted(false)}}/>
-  </div>;
+  </AstraPage>;
   if(todayCompletion)return <CompletedWorkout db={db} completion={todayCompletion} onLibrary={()=>setView("library")}/>;
   if(completionStatus!=="ready")return <div className="content workout-page">{viewTabs}<p role="status">{completionStatus==="error"?"Não foi possível confirmar o estado da sessão.":"Conferindo sua sessão…"}</p>{completionStatus==="error"&&<button className="secondary-button" onClick={retryCompletion}>Tentar novamente</button>}</div>;
   if(p.rest_day)return <ReferenceWorkoutPreview db={{...db,program:p}} onLibrary={()=>setView("library")}/>;

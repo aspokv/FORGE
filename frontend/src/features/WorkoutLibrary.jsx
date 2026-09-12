@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { BookOpen, Check, ChevronRight, Dumbbell, Layers3, Plus, ShieldAlert, Timer, X } from "lucide-react";
 import "./workout-library.css";
+import "./biblioteca-visual.css";
 import "./workout-library-program-mobile.css";
 import ExercisePhoto from "./ExercisePhoto";
 
@@ -194,10 +195,10 @@ export default function WorkoutLibrary({ API, exercises = [], onBuild, onTemplat
     }
   };
 
-  if (loading) return <div className="content workout-library"><div className="library-loading">Preparando os modelos FORGE...</div></div>;
-  if (error) return <div className="content workout-library"><div className="library-error">{error}</div></div>;
+  if (loading) return <div className="workout-library"><div className="library-loading">Preparando os modelos FORGE...</div></div>;
+  if (error) return <div className="workout-library"><div className="library-error">{error}</div></div>;
 
-  return <div className="content workout-library" data-testid="workout-library">
+  return <div className="workout-library" data-testid="workout-library">
     <section className="library-intro">
       <div>
         <p className="eyebrow">FORGE / ARQUITETURAS DE TREINO</p>

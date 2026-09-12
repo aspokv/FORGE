@@ -1,0 +1,291 @@
+/*
+ * Biblioteca de treinos — trazendo a tela para o sistema visual do produto.
+ *
+ * Ela ficou para tras: renderizava no layout antigo de desktop (`.content`), com titulo em
+ * serifada, corpo em monoespacada e cartoes de outra geracao. Quem saia do Inicio e entrava
+ * aqui trocava de aplicativo no meio do caminho.
+ *
+ * A casca agora e a mesma das outras telas (AstraPage, no JSX). Esta folha cuida do miolo:
+ * tipografia, cartoes e espacamento passam a falar a lingua dos tokens. Carrega depois de
+ * `workout-library.css`, entao vence por ordem sem precisar de `!important`.
+ */
+
+.a6-screen-1 .workout-library {
+  display: grid;
+  gap: 16px;
+  width: 100%;
+  max-width: 640px;
+  margin-inline: auto;
+  padding: 0;
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+/* ---- Abertura ------------------------------------------------------------- */
+
+.a6-screen-1 .workout-library .library-intro {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.a6-screen-1 .workout-library .library-intro .eyebrow {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--fg-metal, #d8ab80);
+}
+
+/*
+ * O titulo saia em Cormorant Garamond, uma serifada de editorial, com ate 4,8rem. Ao lado
+ * de "Treino." e "Nutricao." do resto do produto, parecia outra marca — e em 390px de
+ * largura ocupava quatro linhas antes de qualquer conteudo aparecer.
+ */
+.a6-screen-1 .workout-library .library-intro h2 {
+  max-width: 100%;
+  margin: 0;
+  font-family: inherit;
+  font-size: clamp(22px, 5.9vw, 27px);
+  font-weight: 700;
+  letter-spacing: -.032em;
+  line-height: 1.12;
+  text-wrap: balance;
+  color: var(--fg-texto, #f3f1ec);
+}
+
+.a6-screen-1 .workout-library .library-intro .muted {
+  margin: 0;
+  max-width: 46ch;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--fg-texto-2, #a2a7ab);
+}
+
+.a6-screen-1 .workout-library .library-intro-actions { display: none; }
+
+/* ---- Seletor de tipo, e a curadoria --------------------------------------- */
+
+.a6-screen-1 .workout-library .library-mode {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+.a6-screen-1 .workout-library .library-mode button {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  align-items: start;
+  gap: 11px;
+  min-height: 44px;
+  padding: 13px 14px;
+  border: 1px solid var(--fg-linha, #282c31);
+  border-radius: 16px;
+  background: linear-gradient(145deg, #151819, #101212);
+  color: var(--fg-texto, #f3f1ec);
+  font-weight: 650;
+  font-size: 12.5px;
+  line-height: 1.25;
+  letter-spacing: -.01em;
+  text-align: left;
+}
+
+/* O icone num quadrado arredondado: e o que separa um botao de um cartao. */
+.a6-screen-1 .workout-library .library-mode button svg {
+  box-sizing: content-box;
+  width: 16px;
+  height: 16px;
+  padding: 8px;
+  border: 1px solid var(--fg-linha, #282c31);
+  border-radius: 10px;
+  background: var(--fg-superficie-alta, #1d2024);
+}
+
+.a6-screen-1 .workout-library .library-mode button small {
+  display: block;
+  margin-top: 3px;
+  font-weight: 400;
+  font-size: 10.5px;
+  line-height: 1.35;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--fg-texto-3, #6f7479);
+}
+
+.a6-screen-1 .workout-library .library-mode button[aria-selected="true"],
+.a6-screen-1 .workout-library .library-mode button.active {
+  border-color: var(--fg-acao, #e36b4d);
+  background: linear-gradient(145deg, #221a17, #141111);
+}
+
+.a6-screen-1 .workout-library .library-mode button svg { color: var(--fg-acao, #e36b4d); }
+
+/* ---- Cartoes de sessao e de programa -------------------------------------- */
+
+.a6-screen-1 .workout-library .library-grid,
+.a6-screen-1 .workout-library .library-programs {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+}
+
+.a6-screen-1 .workout-library [data-testid^="workout-template-"],
+.a6-screen-1 .workout-library [data-testid^="training-program-"] {
+  padding: 16px;
+  border: 1px solid var(--fg-linha, #282c31);
+  border-radius: 18px;
+  background: linear-gradient(145deg, #151819, #101212);
+  box-shadow: inset 0 1px rgb(255 255 255 / 2%);
+}
+
+.a6-screen-1 .workout-library h3 {
+  font-family: inherit;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -.02em;
+  color: var(--fg-texto, #f3f1ec);
+}
+
+/* ---- Acoes ---------------------------------------------------------------- */
+
+.a6-screen-1 .workout-library .library-add,
+.a6-screen-1 .workout-library .library-mobile-apply {
+  min-height: 44px;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 1;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.a6-screen-1 .workout-library .library-mobile-apply {
+  border: 0;
+  background: linear-gradient(105deg, var(--fg-acao-forte, #f07d5e), var(--fg-acao, #e36b4d));
+  color: var(--fg-acao-tinta, #17100d);
+}
+
+/*
+ * A curadoria e uma escolha rapida, nao um formulario: pastilhas, com a selecionada em
+ * cobre. A classe e `library-audience-filter` — eu tinha escrito `library-audience` e a
+ * regra nao pegava em nada; so apareceu ao olhar a tela renderizada.
+ */
+.a6-screen-1 .workout-library .library-audience-filter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+.a6-screen-1 .workout-library .library-audience-filter > span {
+  width: 100%;
+  margin-bottom: 2px;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--fg-texto-3, #6f7479);
+}
+
+.a6-screen-1 .workout-library .library-audience-filter button {
+  min-height: 34px;
+  padding: 0 11px;
+  border: 1px solid var(--fg-linha, #282c31);
+  border-radius: 999px;
+  background: var(--fg-superficie, #15171a);
+  color: var(--fg-texto-2, #a2a7ab);
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 1;
+  letter-spacing: .02em;
+  text-transform: none;
+}
+
+.a6-screen-1 .workout-library .library-audience-filter button.active {
+  border-color: var(--fg-acao, #e36b4d);
+  background: var(--fg-acao-fraca, rgba(227, 107, 77, .14));
+  color: var(--fg-texto, #f3f1ec);
+}
+
+/* O conteudo termina acima da barra fixa, e nao atras dela. */
+.a6-screen-1 .workout-library > :last-child { margin-bottom: 8px; }
+
+/*
+ * Dentro do construtor de programas a Biblioteca abre em modal, fora da casca `.a6`. Ela
+ * perdeu a classe `.content`, que dava o respiro — entao ele volta aqui, so para esse caso.
+ */
+.builder-library-modal .workout-library {
+  display: grid;
+  gap: 20px;
+  width: 100%;
+  max-width: 640px;
+  margin-inline: auto;
+  padding: 24px 18px 40px;
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+/* ---- O seletor do topo -------------------------------------------------------
+ *
+ * "Treino atual / Biblioteca" e navegacao, nao conteudo: ele nao pode ocupar um quinto da
+ * tela antes de a pagina comecar. Vira duas pastilhas largas, com a descricao so na ativa.
+ */
+.a6-screen-1 .training-tabs-wrap { margin: 0; padding: 0; }
+
+.a6-screen-1 .training-view-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+.a6-screen-1 .training-view-tabs button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 46px;
+  padding: 0 12px;
+  border: 1px solid var(--fg-linha, #282c31);
+  border-radius: 14px;
+  background: var(--fg-superficie, #15171a);
+  color: var(--fg-texto-2, #a2a7ab);
+  font: 650 12.5px/1.15 "Inter", system-ui, sans-serif;
+  letter-spacing: -.01em;
+  text-align: left;
+}
+
+/* A descricao longa sai: numa aba de duas opcoes, o rotulo ja diz tudo. */
+.a6-screen-1 .training-view-tabs button small { display: none; }
+
+.a6-screen-1 .training-view-tabs button svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  color: var(--fg-texto-3, #6f7479);
+}
+
+.a6-screen-1 .training-view-tabs button.active,
+.a6-screen-1 .training-view-tabs button[aria-selected="true"] {
+  border-color: var(--fg-acao, #e36b4d);
+  background: var(--fg-acao-fraca, rgba(227, 107, 77, .14));
+  color: var(--fg-texto, #f3f1ec);
+}
+
+.a6-screen-1 .training-view-tabs button.active svg,
+.a6-screen-1 .training-view-tabs button[aria-selected="true"] svg {
+  color: var(--fg-acao, #e36b4d);
+}
