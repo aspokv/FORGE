@@ -10,7 +10,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field
 from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional
-import os, uuid, json, logging, base64
+import asyncio, os, uuid, json, logging, base64
 from google import genai as google_genai
 
 from llm_providers import deepseek_model, get_coach_provider, FORGE_COACH_SYSTEM
@@ -664,10 +664,26 @@ REGRAS OBRIGAT\u00d3RIAS:
 # mensagem tecnica e escondida do usuario de proposito.
 MODELOS_DE_VISAO_PADRAO = (
     "gemini-3.7-flash",
-    "gemini-2.5-flash",
-    "gemini-2.0-flash",
-    "gemini-1.5-flash",
+    # Indicada pelo proprio erro do provedor quando 2.5 e 2.0 foram aposentadas:
+    # "no longer available ... Please update your code to use models/gemini-3.6-flash".
+    "gemini-3.6-flash",
 )
+
+# Tentativas por modelo, e a espera entre elas.
+#
+# 503 UNAVAILABLE nao quer dizer "modelo errado", quer dizer "volte daqui a pouco" — foi
+# exatamente o que derrubou a analise em producao: o modelo certo estava sobrecarregado
+# no instante do envio, e a cadeia seguiu direto para reservas que nem existiam mais.
+# Erro transitorio merece repeticao no MESMO modelo; erro de modelo inexistente nao
+# merece nenhuma, e passar adiante na hora.
+TENTATIVAS_POR_MODELO = 3
+ESPERA_ENTRE_TENTATIVAS = (1.5, 4.0)
+
+
+def _e_transitorio(erro) -> bool:
+    t = str(erro).upper()
+    return any(m in t for m in ("503", "UNAVAILABLE", "429", "RESOURCE_EXHAUSTED",
+                                "INTERNAL", "500", "DEADLINE", "TIMEOUT"))
 
 
 def _cadeia_de_modelos_de_visao() -> list:
@@ -718,27 +734,41 @@ async def analyze_physique(image_bytes: bytes, mime_type: str, views: list) -> d
     )
 
     ultimo_erro = None
-    for modelo in _cadeia_de_modelos_de_visao():
-        try:
-            response = client.models.generate_content(model=modelo, contents=parts, config=config)
-            raw = _texto_da_resposta(response)
-            if raw.startswith("```"):
-                raw = raw.split(chr(10), 1)[1].rsplit("```", 1)[0]
-            result = json.loads(raw)
-            for m in MUSCLES:
-                if m not in result.get("observations", {}):
-                    result.setdefault("observations", {})[m] = {"development": "proporcional", "confidence": "baixa"}
-            result["status"] = "completed"
-            result["model"] = modelo
-            result["views_analyzed"] = views
-            if modelo != _cadeia_de_modelos_de_visao()[0]:
-                logger.warning("analise visual concluida no modelo reserva %s", modelo)
-            return result
-        except Exception as e:
-            ultimo_erro = e
-            # Uma tentativa que falha nao encerra a analise: o proximo modelo da cadeia
-            # ainda pode responder. So depois de esgotar a cadeia e que se desiste.
-            logger.warning("modelo de visao %s falhou: %s", modelo, str(e)[:200])
+    cadeia = _cadeia_de_modelos_de_visao()
+    for modelo in cadeia:
+        for tentativa in range(1, TENTATIVAS_POR_MODELO + 1):
+            try:
+                # A chamada do SDK e sincrona. Dentro de uma rota async ela travaria o laco
+                # de eventos do servidor inteiro enquanto o provedor pensa — e com repeticao
+                # e espera isso passaria de segundos. Em uma thread, o resto do FORGE
+                # continua respondendo.
+                response = await asyncio.to_thread(
+                    client.models.generate_content, model=modelo, contents=parts, config=config)
+                raw = _texto_da_resposta(response)
+                if raw.startswith("```"):
+                    raw = raw.split(chr(10), 1)[1].rsplit("```", 1)[0]
+                result = json.loads(raw)
+                for m in MUSCLES:
+                    if m not in result.get("observations", {}):
+                        result.setdefault("observations", {})[m] = {"development": "proporcional", "confidence": "baixa"}
+                result["status"] = "completed"
+                result["model"] = modelo
+                result["views_analyzed"] = views
+                if modelo != cadeia[0] or tentativa > 1:
+                    logger.warning("analise visual concluida em %s na tentativa %d",
+                                   modelo, tentativa)
+                return result
+            except Exception as e:
+                ultimo_erro = e
+                transitorio = _e_transitorio(e)
+                logger.warning("modelo de visao %s, tentativa %d/%d: %s",
+                               modelo, tentativa, TENTATIVAS_POR_MODELO, str(e)[:200])
+                if not transitorio or tentativa == TENTATIVAS_POR_MODELO:
+                    # Modelo que nao existe nao passa a existir esperando: vai para o
+                    # proximo da cadeia na hora.
+                    break
+                await asyncio.sleep(ESPERA_ENTRE_TENTATIVAS[min(tentativa - 1,
+                                    len(ESPERA_ENTRE_TENTATIVAS) - 1)])
 
     # A cadeia inteira falhou. O motivo tecnico vai para o log do servidor, onde o suporte
     # o alcanca; para o cliente vai um codigo curto e nao sensivel, sem nome de variavel,

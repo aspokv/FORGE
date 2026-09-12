@@ -24,7 +24,9 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from server import (  # noqa: E402
     MODELOS_DE_VISAO_PADRAO,
+    TENTATIVAS_POR_MODELO,
     _cadeia_de_modelos_de_visao,
+    _e_transitorio,
     _texto_da_resposta,
     analyze_physique,
 )
@@ -153,3 +155,50 @@ def test_a_forma_da_resposta_de_falha_nao_quebra_a_tela(monkeypatch):
     r = _rodar(analyze_physique(b"\xff\xd8\xff", "image/jpeg", ["front"]))
     assert r["observations"] == {}
     assert r["suggested_priorities"] == []
+
+
+# ── Erro transitorio contra erro definitivo ──────────────────────────────────────────
+#
+# O log de producao mostrou os dois lado a lado, e a diferenca decide o comportamento:
+#
+#   gemini-3.7-flash -> 503 UNAVAILABLE  "high demand ... temporary. Please try again"
+#   gemini-2.5-flash -> 404 NOT_FOUND    "no longer available to new users"
+#
+# O primeiro pede repeticao no mesmo modelo. O segundo nao passa a existir esperando.
+
+def test_sobrecarga_do_provedor_e_transitoria():
+    """Foi o 503 que derrubou a analise em producao, com o modelo CERTO."""
+    for erro in [
+        "503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently "
+        "experiencing high demand. Spikes in demand are usually temporary.'}}",
+        "429 RESOURCE_EXHAUSTED",
+        "500 INTERNAL",
+        "Deadline exceeded",
+    ]:
+        assert _e_transitorio(erro), erro[:60]
+
+
+def test_modelo_aposentado_nao_e_transitorio():
+    """Esperar nao ressuscita um modelo removido: tem de passar ao proximo na hora."""
+    for erro in [
+        "404 NOT_FOUND. {'error': {'code': 404, 'message': 'This model models/gemini-2.5-flash "
+        "is no longer available to new users.'}}",
+        "400 INVALID_ARGUMENT",
+        "403 PERMISSION_DENIED",
+        "API key not valid",
+    ]:
+        assert not _e_transitorio(erro), erro[:60]
+
+
+def test_ha_mais_de_uma_tentativa_por_modelo():
+    assert TENTATIVAS_POR_MODELO >= 2, "sem repeticao, um 503 passageiro derruba a analise"
+
+
+def test_a_cadeia_nao_carrega_modelo_que_o_provedor_ja_aposentou(monkeypatch):
+    """
+    Nomes que o proprio provedor devolveu como 404 em producao. Mante-los na cadeia gasta
+    tentativa e atrasa a resposta de quem esta esperando a analise.
+    """
+    monkeypatch.delenv("GEMINI_VISION_MODEL", raising=False)
+    aposentados = {"gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"}
+    assert not (set(_cadeia_de_modelos_de_visao()) & aposentados)
