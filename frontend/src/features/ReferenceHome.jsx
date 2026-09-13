@@ -68,22 +68,21 @@ export default function ReferenceHome({db,start,onRecoveryCheckin}){
   const openPlan=()=>{if(p.program_selection_required){start();return;}if(todayCompletion||restDay)return;checkin?start():setCheckinOpen(true)};
   const completedTime=todayCompletion&&!todayCompletion.inferred?new Intl.DateTimeFormat("pt-BR",{hour:"2-digit",minute:"2-digit"}).format(new Date(todayCompletion.completed_at)):"";
   const introTitle=p.program_selection_required&&!todayCompletion?"Escolha seu programa.":todayCompletion?"Treino concluído.":restDay?"Hoje é recuperação.":"Seu treino está pronto.";
-  const introSubtitle=p.program_selection_required&&!todayCompletion?"Monte sua próxima etapa no FORGE.":`${sessionName} · ${duration}`;
   const cycleLabel=String(p.week||"Ciclo atual").split("·")[0].trim();
   const tituloDoCard=p.program_selection_required&&!todayCompletion?"Escolha seu programa":sessionName;
+  const cardContext=p.program_selection_required&&!todayCompletion?"SEU PROGRAMA":todayCompletion?`${cycleLabel} · CONCLUÍDO`:restDay?`DESCANSO HOJE · ${cycleLabel}`:`${cycleLabel} · PRÓXIMA SESSÃO`;
 
   const monday=new Date(now);monday.setDate(now.getDate()-dayIndex);
   const trained=new Set((db.recent_sets||[]).map(row=>{const d=new Date(row.created_at);return Number.isNaN(d.getTime())?"":new Intl.DateTimeFormat("sv-SE").format(d)}));
   return <AstraPage screen={0} testId="reference-home-v3">
-    <section className="forge-home-intro" aria-labelledby="forge-home-title">
+    <section className="forge-home-context" aria-labelledby="forge-home-title">
       <div className="a6-eyebrow">{dateLabel}</div>
-      <h1 id="forge-home-title">{introTitle}</h1>
-      <p>{introSubtitle}</p>
+      <h1 id="forge-home-title" className="forge-home-sr-only">{introTitle}</h1>
     </section>
     <section className={`a6-signature${todayCompletion?" a6-signature-completed":""}`} aria-labelledby="home-session-title">
     <div className="a6-hero" data-testid="home-top-hero"><TrainingCardImage session={{...shown,label:raw}} program={todayCompletion?{}:p} profile={db.profile} focus={focus} loading="eager" fetchPriority="high" width="640" height="276"/></div>
     <div className="a6-panel a6-workout-card" data-testid="daily-briefing">
-      <div className="a6-eyebrow">{todayCompletion?"TREINO DE HOJE · CONCLUÍDO":restDay?"DESCANSO HOJE · PRÓXIMO TREINO":"TREINO DE HOJE"}</div>
+      <div className="a6-eyebrow" data-testid="home-cycle-context">{cardContext}</div>
       <h2 id="home-session-title" className={classeDoTitulo(tituloDoCard)}>{tituloDoCard}</h2><p>{focus.length?focus.join(" · "):todayCompletion?"Sessão registrada":"Treino completo"}</p>
       {(!p.program_selection_required||todayCompletion)&&<AstraMeta duration={duration} sets={plannedSets}/>}
     </div>

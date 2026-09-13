@@ -11,6 +11,8 @@ const casa=(extra={})=>{
 test("a abertura apresenta a hierarquia premium e reúne foto, texto e ação no card",()=>{
   const home=casa();
   expect(home.querySelector("h1").textContent).toBe("Seu treino está pronto.");
+  expect(home.querySelector("h1").classList.contains("forge-home-sr-only")).toBe(true);
+  expect(home.querySelector(".forge-home-context > p")).toBeNull();
   const hero=home.querySelector('[data-testid="home-top-hero"]');
   expect(hero).not.toBeNull();
   expect(hero.querySelector("img").getAttribute("src")).toBeTruthy();
@@ -18,6 +20,7 @@ test("a abertura apresenta a hierarquia premium e reúne foto, texto e ação no
   expect(hero.closest(".a6-signature")).not.toBeNull();
   expect(home.querySelector(".a6-signature-footer [data-testid=\"start-workout-button\"]")).not.toBeNull();
   expect(home.querySelector('[data-testid="daily-briefing"]')).not.toBeNull();
+  expect(home.querySelector('[data-testid="home-cycle-context"]')).not.toBeNull();
 });
 
 test("header usa wordmark FORGE limpo e hero continua inclusivo",()=>{
