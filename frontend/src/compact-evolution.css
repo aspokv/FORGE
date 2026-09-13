@@ -38,15 +38,13 @@
 .evolution-periods{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;margin:8px 0}
 .evolution-periods button{font-size:11px;padding:4px}
 .evolution-periods button[aria-pressed=true]{color:#ffd1ac;border-color:#9a7551;background:#30271f}
-.evolution-reading{display:flex;align-items:center;gap:12px;flex-wrap:wrap;min-height:52px}
+.evolution-reading{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-height:52px;margin-top:4px}
 .evolution-reading strong{font-size:32px;letter-spacing:-1px;color:#ffe2bc}
 .evolution-reading strong small{font-size:14px;font-weight:400}
 .evolution-reading span{font-size:11px;color:#b9bdbe;line-height:1.5}
 .evolution-chart{display:block;width:100%;height:145px;margin-top:8px}
 .evolution-chart text{fill:#b9bdbe;font:9px Arial}
 .evolution-chart circle{cursor:pointer}
-.evolution-scrubber{display:flex;align-items:center;gap:10px;font-size:11px;color:#b9bdbe}
-.evolution-scrubber input{min-width:0;flex:1;min-height:44px;accent-color:#ffb77d}
 .forge-shell .a6 .evolution-note{font-size:10px;margin-top:6px}
 .evolution-empty{padding:24px 0}
 .evolution-card :is(select,input,button):focus-visible{outline:2px solid #81cefa;outline-offset:2px}
@@ -56,3 +54,55 @@
  .forge-shell .a6-bottom-nav:after{display:none}
 }
 @media(min-width:801px){.forge-shell .a6 .a6-scroll{padding:8px 28px 28px}.forge-shell .a6 .a6-app-header{padding-left:28px;padding-right:28px}}
+
+/*
+ * O veredito da Evolucao: a resposta antes de qualquer controle.
+ *
+ * Tres numeros exatos e uma frase. Nada aqui depende de escolher exercicio ou periodo, que
+ * era o pedagio que a tela cobrava para dizer se a pessoa esta evoluindo.
+ */
+.forge-shell .a6 .evolucao-resumo{padding:16px 16px 14px;border-color:#806044;background:radial-gradient(ellipse at top left,#7550312e,transparent 68%),#141616}
+.forge-shell .a6 .evolucao-resumo .a6-eyebrow{display:block;margin:0 0 6px;color:#f0a47e;font-size:10px;font-weight:700;letter-spacing:.15em;text-transform:uppercase}
+.forge-shell .a6 .evolucao-resumo h2{margin:0;color:#f4f0eb;font-size:22px;font-weight:720;letter-spacing:-.035em;line-height:1.18;text-wrap:balance}
+.evolucao-numeros{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:14px}
+.evolucao-numeros>div{display:flex;flex-direction:column;gap:1px;min-width:0}
+.evolucao-numeros strong{color:#f4f0eb;font-size:23px;font-weight:720;letter-spacing:-.04em;line-height:1.05}
+.evolucao-numeros span{color:#929393;font-size:11px;line-height:1.25;overflow-wrap:normal}
+.evolucao-numeros .evolucao-alta{color:#7fd4a2}
+
+/* A variacao e a resposta do card; ela tem cor propria porque subir e cair nao sao iguais. */
+.evolution-reading em{font-style:normal;font-size:12px;font-weight:600;letter-spacing:-.01em}
+.evolution-reading em.evolution-alta{color:#7fd4a2}
+.evolution-reading em.evolution-queda{color:#e08a6a}
+
+/*
+ * O treino de hoje com o que superar.
+ *
+ * Cada linha e nome a esquerda e marca a direita, para o olho descer pela coluna de numeros
+ * sem reler os nomes. A marca usa fonte tabular: numeros de larguras diferentes fazem a
+ * coluna tremer, e uma lista que treme parece improvisada.
+ */
+.forge-shell .a6 .sessao-evolucao{padding:16px 16px 8px;border-color:#806044;background:radial-gradient(ellipse at top right,#7550312e,transparent 68%),#141616}
+.forge-shell .a6 .sessao-evolucao .a6-eyebrow{display:block;margin:0 0 6px;color:#f0a47e;font-size:10px;font-weight:700;letter-spacing:.15em;text-transform:uppercase}
+.forge-shell .a6 .sessao-evolucao h2{margin:0;color:#f4f0eb;font-size:21px;font-weight:720;letter-spacing:-.035em;line-height:1.18;text-wrap:balance}
+.sessao-evolucao-guia{margin:6px 0 2px;color:#929393;font-size:12px;line-height:1.35}
+.sessao-evolucao-lista{list-style:none;margin:6px 0 0;padding:0}
+.sessao-evolucao-lista li{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 0;border-top:1px solid #ffffff10}
+.sessao-evolucao-nome{display:flex;flex-direction:column;gap:1px;min-width:0}
+.sessao-evolucao-nome strong{color:#f4f0eb;font-size:14px;font-weight:600;letter-spacing:-.01em;line-height:1.25;overflow-wrap:normal}
+.sessao-evolucao-nome small{color:#7f8180;font-size:11px}
+.sessao-evolucao-marca{display:flex;flex-direction:column;align-items:flex-end;gap:1px;flex:none;font-variant-numeric:tabular-nums}
+.sessao-evolucao-marca b{color:#ffd1ac;font-size:17px;font-weight:700;letter-spacing:-.02em;line-height:1.1}
+.sessao-evolucao-marca small{color:#7f8180;font-size:11px;white-space:nowrap}
+.sessao-evolucao-estreia{color:#7f8180;font-size:12px}
+
+/*
+ * Marcas alinhadas.
+ *
+ * Um nome de duas linhas ao lado de um de uma linha empurrava o numero para baixo, e a
+ * dupla ficava torta. O nome reserva duas linhas e o rodape e empurrado para o fim do
+ * cartao, entao carga e variacao ficam na mesma altura nos dois.
+ */
+.forge-shell .a6 .a6-pr{display:flex;flex-direction:column}
+.forge-shell .a6 .a6-pr>p{min-height:2.5em;margin:0}
+.forge-shell .a6 .a6-pr .a6-delta{margin-top:auto}
