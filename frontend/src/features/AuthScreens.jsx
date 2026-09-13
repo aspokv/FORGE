@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { motion } from "framer-motion";
-import { ChevronRight, KeyRound, Mail, ShieldCheck, LockKeyhole, LogIn } from "lucide-react";
+import { ChevronRight, Eye, EyeOff, KeyRound, LockKeyhole, Mail } from "lucide-react";
+import forgeWordmark from "../assets/forge-wordmark-transparent.svg";
 import { API, useAuth } from "./AuthContext";
 
 function formatError(detail) {
@@ -15,6 +16,7 @@ export function LoginScreen() {
   const { signIn, navigate } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
@@ -22,7 +24,7 @@ export function LoginScreen() {
     e.preventDefault();
     setBusy(true); setErr("");
     try {
-      const { data } = await axios.post(`${API}/auth/login`, { email: email.trim().toLowerCase(), password });
+      const { data } = await axios.post(API + "/auth/login", { email: email.trim().toLowerCase(), password });
       signIn(data.token, data.user);
       navigate(data.user.role === "SUPER_ADMIN" ? "/admin" : "/app", true);
     } catch (e) {
@@ -31,29 +33,115 @@ export function LoginScreen() {
   };
 
   return (
-    <div className="auth-shell" data-testid="login-screen">
-      <div className="auth-brand"><span className="brand-mark">F</span><span>FORGE</span><small>ADVANCED TRAINING OS</small></div>
-      <motion.form className="auth-card" initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} onSubmit={submit}>
-        <p className="eyebrow">ACESSO</p>
-        <h1>Bem-vindo de volta.</h1>
-        <p className="muted">Entre com seu e-mail e senha do FORGE.</p>
-        <label className="deep-field">
-          <span>E-mail</span>
-          <input data-testid="login-email" type="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} required />
-        </label>
-        <label className="deep-field">
-          <span>Senha</span>
-          <input data-testid="login-password" type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} required />
-        </label>
-        {err && <div className="auth-error" data-testid="login-error">{err}</div>}
-        <button className="primary-button auth-submit" data-testid="login-submit" disabled={busy} type="submit">
-          <LogIn size={16} /> {busy ? "Entrando..." : "Entrar"} <ChevronRight size={16} />
-        </button>
-        <button type="button" className="text-button" data-testid="forgot-password-link" onClick={() => navigate("/recuperar")}>
-          Esqueci minha senha
-        </button>
-        <p className="auth-hint muted"><ShieldCheck size={13} /> Seus dados trafegam por conexão segura.</p>
-      </motion.form>
+    <div className="auth-shell login-shell" data-testid="login-screen">
+      <main className="login-frame">
+        <header className="login-brand" aria-label="FORGE">
+          <img src={forgeWordmark} alt="FORGE" />
+          <span>ADVANCED TRAINING OS</span>
+        </header>
+
+        <section className="login-intro" aria-labelledby="login-title">
+          <p className="login-kicker">ACESSO AO SEU SISTEMA</p>
+          <h1 id="login-title">
+            SEU PROGRAMA.
+            <span>SUA EVOLUÇÃO.</span>
+          </h1>
+          <p>Seu próximo nível começa aqui.</p>
+        </section>
+
+        <motion.form
+          className="auth-card login-card"
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.28, ease: "easeOut" }}
+          onSubmit={submit}
+          aria-busy={busy}
+        >
+          <div className="login-card-heading">
+            <p className="eyebrow">ACESSO FORGE</p>
+            <h2>Entre para continuar seu plano.</h2>
+          </div>
+
+          <div className="deep-field login-field">
+            <label htmlFor="login-email">E-mail</label>
+            <span className="login-input">
+              <Mail size={17} aria-hidden="true" />
+              <input
+                id="login-email"
+                data-testid="login-email"
+                type="email"
+                inputMode="email"
+                autoComplete="email"
+                placeholder="seu@email.com"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                required
+              />
+            </span>
+          </div>
+
+          <div className="deep-field login-field">
+            <label htmlFor="login-password">Senha</label>
+            <span className="login-input">
+              <LockKeyhole size={17} aria-hidden="true" />
+              <input
+                id="login-password"
+                data-testid="login-password"
+                type={showPassword ? "text" : "password"}
+                autoComplete="current-password"
+                placeholder="Sua senha"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                required
+              />
+              <button
+                type="button"
+                className="login-password-toggle"
+                data-testid="login-password-toggle"
+                aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                aria-pressed={showPassword}
+                onClick={() => setShowPassword(current => !current)}
+              >
+                {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+              </button>
+            </span>
+          </div>
+
+          <button
+            type="button"
+            className="login-forgot"
+            data-testid="forgot-password-link"
+            onClick={() => navigate("/recuperar")}
+          >
+            Esqueci minha senha
+          </button>
+
+          {err && <div className="auth-error" role="alert" data-testid="login-error">{err}</div>}
+
+          <button
+            className="primary-button auth-submit login-primary"
+            data-testid="login-submit"
+            disabled={busy}
+            type="submit"
+          >
+            <span>{busy ? "ENTRANDO..." : "ENTRAR"}</span>
+            <ChevronRight size={18} aria-hidden="true" />
+          </button>
+
+          <div className="login-signup">
+            <p>Ainda não tem uma conta?</p>
+            <button
+              type="button"
+              className="login-register"
+              data-testid="login-register-link"
+              onClick={() => navigate("/assinar")}
+            >
+              CRIAR CONTA
+              <ChevronRight size={17} aria-hidden="true" />
+            </button>
+          </div>
+        </motion.form>
+      </main>
     </div>
   );
 }
