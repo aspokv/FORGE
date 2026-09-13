@@ -12,7 +12,7 @@ COPY . .
 # CRA congela isso no bundle em tempo de build: mudar depois exige rebuild.
 ENV REACT_APP_BACKEND_URL="" \
     GENERATE_SOURCEMAP=false \
-    NODE_OPTIONS=--max-old-space-size=1024 \
+    NODE_OPTIONS=--max-old-space-size=768 \
     CI=false
 
 RUN yarn build
