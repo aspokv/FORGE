@@ -1,23 +1,7 @@
-# FORGE frontend — build CRA e serve estatico com nginx (proxy /api -> backend)
-FROM node:20-alpine AS build
-
-WORKDIR /app
-
-COPY package.json yarn.lock ./
-RUN yarn install --frozen-lockfile --network-timeout 600000
-
-COPY . .
-
-# String vazia => a API vira relativa (/api), servida pelo mesmo dominio via nginx.
-# CRA congela isso no bundle em tempo de build: mudar depois exige rebuild.
-ENV REACT_APP_BACKEND_URL="" \
-    GENERATE_SOURCEMAP=false \
-    NODE_OPTIONS=--max-old-space-size=768 \
-    CI=false
-
-RUN yarn build
-
+# FORGE frontend — artefato CRA validado e servido pelo nginx (proxy /api -> backend).
+# O pacote e gerado com REACT_APP_BACKEND_URL="" e sem source maps. Mantemos a
+# compilacao fora da VPS para que o deploy nao dispute memoria com o app em producao.
 FROM nginx:1.27-alpine
-COPY --from=build /app/build /usr/share/nginx/html
+ADD forge-frontend-build.tar.gz /usr/share/nginx/html/
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80
