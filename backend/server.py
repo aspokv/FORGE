@@ -1432,6 +1432,48 @@ async def exercise_history(exercise_id: str, user=Depends(get_current_user), pro
     return {"exercise": ex, "history": rows, "count": len(rows)}
 
 
+@api.get("/session-last-performance")
+async def session_last_performance(ids: str, user=Depends(get_current_user), profile_id: Optional[str] = None):
+    """A ultima vez que o atleta fez cada exercicio da sessao de hoje.
+
+    A tela de Evolucao mostra os exercicios do treino do dia com o que a pessoa levantou da
+    ultima vez, para ela saber o que superar. Pedir isso por `/exercise-history/{id}` custaria
+    uma requisicao por exercicio, cada uma devolvendo ate 200 series, para usar duas linhas.
+
+    "Ultima vez" e a sessao mais recente em que o exercicio aparece, e a carga dela e a MAIOR
+    serie daquele dia — a mesma leitura do grafico de evolucao, para os dois numeros nunca se
+    contradizerem na mesma tela.
+    """
+    target = owned_profile_id(user, profile_id)
+    wanted = [i for i in (ids or "").split(",") if i][:24]
+    if not wanted:
+        return {"performances": {}}
+    rows = await db.set_logs.find(
+        {"profile_id": target, "exercise_id": {"$in": wanted}}, {"_id": 0}
+    ).sort("created_at", -1).to_list(800)
+    out: Dict[str, Any] = {}
+    for row in rows:
+        eid = row.get("exercise_id")
+        day = str(row.get("created_at") or "")[:10]
+        if not eid or not day:
+            continue
+        try:
+            weight = float(row.get("weight") or 0)
+            reps = int(float(row.get("reps") or 0))
+        except (TypeError, ValueError):
+            continue
+        current = out.get(eid)
+        if current is None:
+            out[eid] = {"date": day, "weight": weight, "reps": reps, "sets": 1}
+        elif current["date"] == day:
+            # Mesma sessao: soma a serie e guarda a mais pesada como referencia.
+            current["sets"] += 1
+            if weight > current["weight"] or (weight == current["weight"] and reps > current["reps"]):
+                current["weight"], current["reps"] = weight, reps
+        # Dia anterior ao ja registrado: nao interessa, so a ultima sessao conta.
+    return {"performances": out}
+
+
 @api.post("/program/preview")
 async def preview_program(profile: Dict[str, Any], user=Depends(get_current_user)):
     doc = {**profile}

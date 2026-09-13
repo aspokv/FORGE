@@ -21,6 +21,7 @@ on:
       - 'backend/admin_routes.py'
       - 'backend/tests/test_seguranca.py'
       - 'backend/tests/test_analise_visual_resiliente.py'
+      - 'backend/tests/test_session_last_performance.py'
       - 'backend/tests/conftest.py'
       - 'backend/runtime_server.py'
       - 'backend/cardio.py'
@@ -105,6 +106,7 @@ on:
       - 'backend/admin_routes.py'
       - 'backend/tests/test_seguranca.py'
       - 'backend/tests/test_analise_visual_resiliente.py'
+      - 'backend/tests/test_session_last_performance.py'
       - 'backend/tests/conftest.py'
       - 'backend/runtime_server.py'
       - 'backend/cardio.py'
@@ -272,6 +274,11 @@ jobs:
       # `server`, e `server` exige MONGO_URL no import. Este job ja sobe o Mongo.
       - name: Run vision resilience suite
         run: pytest -q tests/test_analise_visual_resiliente.py
+      # Mesma razao do de cima: usa o app em processo, que exige MONGO_URL no import. Cobre
+      # a rota que alimenta a Evolucao com a ultima carga de cada exercicio, incluindo o
+      # isolamento entre atletas.
+      - name: Run session last performance suite
+        run: pytest -q tests/test_session_last_performance.py
       - name: Run library program suite
         run: >-
           pytest -q --noconftest

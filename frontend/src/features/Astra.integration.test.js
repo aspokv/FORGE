@@ -108,7 +108,7 @@ test("progress reflects the real exercise history and opens existing weight and 
   const analytics={prs:[{exercise:"Supino",weight:80}],adherence_calendar:[],body_trend:[]};
   await mount(<AstraProgress API="/api" profileId="athlete-test" exercises={[{id:"supino",name:"Supino"}]} analytics={analytics} weightPanel={<button>Registrar peso real</button>} photosPanel={<button>Adicionar fotos</button>}/>);
   expect(host.querySelector('[data-testid="progress-hero"]').textContent).toContain("40 kg");
-  expect(host.querySelector('svg[aria-label="Histórico de cargas por sessão"]')).not.toBeNull();
+  expect(host.querySelector("svg.evolution-chart")).not.toBeNull();
   await click(button("Peso"));expect(button("Registrar peso real")).toBeDefined();
   await click(button("Fotos"));expect(button("Adicionar fotos")).toBeDefined();
   axios.get.mockResolvedValue({data:{history:[]}});

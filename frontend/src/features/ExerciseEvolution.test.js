@@ -24,17 +24,31 @@ test("groups sessions chronologically, filters dates and retains associated reps
  expect(evolutionPoints([{created_at:"invalid",weight:40,reps:8},{created_at:"2026-01-01",weight:20,reps:8}],28,now)).toEqual([]);
  expect(evolutionPoints([{created_at:"2026-01-01",weight:0,reps:8}],0,now)).toHaveLength(1);
 });
-test("loads history, scrubs sessions, changes exercise and saves a scoped favorite",async()=>{
+test("le a sessao mais recente, mostra a variacao, troca exercicio e guarda o favorito",async()=>{
  axios.get.mockResolvedValue({data:{history:rows}});
  await render(<ExerciseEvolution API="/api" profileId="one" exercises={exercises}/>);
- expect(host.querySelector(".evolution-reading").textContent).toContain("40 kg");
- await change(host.querySelector('input[type="range"]'),"0");
- expect(host.querySelector(".evolution-reading").textContent).toContain("30 kg");
- expect(host.querySelector(".evolution-reading").textContent).toContain("01/09/2026");
+ const leitura=host.querySelector(".evolution-reading");
+ expect(leitura.textContent).toContain("40 kg");
+ expect(leitura.textContent).toContain("09/09/2026");
+ // A variacao desde o inicio do periodo e a resposta a "estou evoluindo?".
+ expect(host.querySelector('[data-testid="evolution-variacao"]').textContent).toBe("+10 kg desde 01/09");
+ // O cursor de sessoes saiu da tela: era controle sem resposta propria.
+ expect(host.querySelector('input[type="range"]')).toBeNull();
  await click(host.querySelector('[aria-label="Favoritar exercício"]'));
  expect(localStorage.getItem("forge:evolution:favorite:one")).toBe("row");
  await change(host.querySelector("select"),"press");
  expect(axios.get).toHaveBeenLastCalledWith("/api/exercise-history/press");
+});
+
+test("uma queda de carga e mostrada como queda, nao escondida",async()=>{
+ axios.get.mockResolvedValue({data:{history:[
+  {created_at:"2026-09-01T10:00:00Z",weight:60,reps:8,session_id:"a"},
+  {created_at:"2026-09-09T10:00:00Z",weight:50,reps:8,session_id:"b"}
+ ]}});
+ await render(<ExerciseEvolution API="/api" profileId="one" exercises={exercises}/>);
+ const variacao=host.querySelector('[data-testid="evolution-variacao"]');
+ expect(variacao.textContent).toBe("-10 kg desde 01/09");
+ expect(variacao.className).toBe("evolution-queda");
 });
 test("retries failed requests and renders empty state without fabricated points",async()=>{
  axios.get.mockRejectedValueOnce(new Error("offline")).mockResolvedValueOnce({data:{history:[]}});
@@ -56,9 +70,10 @@ test("ignores late responses for previously selected exercises",async()=>{
 test("period filters include older available records only when selected",async()=>{
  axios.get.mockResolvedValue({data:{history:[...rows,{created_at:"2026-06-01T10:00:00Z",weight:20,reps:8}]}});
  await render(<ExerciseEvolution API="/api" profileId="one" exercises={exercises}/>);
- expect(host.querySelector('input[type="range"]').max).toBe("1");
+ const pontos=()=>host.querySelectorAll(".evolution-chart circle").length;
+ expect(pontos()).toBe(2);
  await click(button("Disponível"));
- expect(host.querySelector('input[type="range"]').max).toBe("2");
+ expect(pontos()).toBe(3);
 });
 test("renames visible page and navigation and retains weight, photos and consistency",async()=>{
  const onChange=jest.fn();

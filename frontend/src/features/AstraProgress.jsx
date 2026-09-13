@@ -1,5 +1,8 @@
 import {useId,useState} from "react";
 import ExerciseEvolution from "./ExerciseEvolution";
+import SessaoEvolucao from "./SessaoEvolucao";
+import {useScheduledProgram} from "./workoutCalendar";
+import {resumoDaEvolucao,textoDoSalto} from "./evolucaoResumo";
 import {AstraPage,AstraIntro,numberBR} from "./AstraUI";
 
 export function AstraChart({points,unit="kg"}) {
@@ -16,21 +19,44 @@ export function AstraChart({points,unit="kg"}) {
     {points.map((p,i)=><g key={`${p.label}-${i}`}><circle cx={x(i)} cy={y(p.value)} r="3.8" fill="#FFD6AE"/><text x={x(i)} y={y(p.value)-11} textAnchor="middle" style={{fill:"#f7ddc5",fontSize:10}}>{numberBR(p.value)}</text><text x={x(i)} y="157" textAnchor="middle">{p.label}</text></g>)}
   </svg>;
 }
-export default function AstraProgress({analytics,weightPanel,photosPanel,details,API,profileId,exercises}) {
+export default function AstraProgress({analytics,weightPanel,photosPanel,details,API,profileId,exercises,program}) {
   const [tab,setTab]=useState("load");
   const records=(analytics?.prs||[]).filter(x=>Number(x.weight)>0);
   const calendar=analytics?.adherence_calendar||[],trained=calendar.filter(x=>x.trained).length;
+  const resumo=resumoDaEvolucao(analytics),salto=textoDoSalto(resumo.salto);
+  // A sessao mostrada e a de hoje; no descanso, a proxima — e no descanso que a pessoa
+  // planeja o que vai levantar amanha, entao a pergunta continua valendo.
+  const agenda=useScheduledProgram(program||{});
+  const sessoes=agenda.sessions||[],indice=Math.max(0,sessoes.findIndex(s=>s.day===agenda.active_day));
+  const sessaoDoDia=agenda.rest_day?(agenda.calendar?.next||null):(sessoes[indice]||sessoes[0]||null);
   return <AstraPage screen={3} testId="astra-progress">
     <AstraIntro eyebrow="CADA SESSÃO CONTA" title="Evolução." subtitle="Seu histórico, sessão por sessão."/>
     <div className="a6-tabs" role="group" aria-label="Métrica de evolução">{[["load","Desempenho"],["weight","Peso"],["photos","Fotos"]].map(([key,label])=><button type="button" key={key} aria-pressed={key===tab} className={key===tab?"a6-selected":""} onClick={()=>setTab(key)}>{label}</button>)}</div>
     {!analytics?<p role="status">Carregando analytics…</p>:tab==="load"?<>
-      <ExerciseEvolution key={profileId} API={API} profileId={profileId} exercises={exercises} records={records}/>
+      {/*
+        * A ordem da tela segue a ordem das perguntas. Antes de treinar a pessoa quer saber
+        * quanto pegou da ultima vez NESTES exercicios — por isso a sessao do dia abre. Depois
+        * vem o veredito das quatro semanas, que responde "estou evoluindo?" sem controle
+        * nenhum. O grafico por exercicio, que exige escolher exercicio e periodo, foi para o
+        * fim: e a leitura mais fina, nao a de abertura.
+        */}
+      <SessaoEvolucao API={API} profileId={profileId} sessao={sessaoDoDia} catalogo={exercises} descanso={!!agenda.rest_day}/>
+      <section className="a6-panel evolucao-resumo" data-testid="evolucao-resumo">
+        <span className="a6-eyebrow">Últimas 4 semanas</span>
+        <h2>{resumo.frase}</h2>
+        <div className="evolucao-numeros">
+          <div><strong>{resumo.treinos}</strong><span>{resumo.treinos===1?"treino":"treinos"}</span></div>
+          <div><strong>{resumo.evolucoes}</strong><span>{resumo.evolucoes===1?"carga maior":"cargas maiores"}</span></div>
+          {salto&&<div><strong className="evolucao-alta">{salto}</strong><span>{resumo.salto.exercicio}</span></div>}
+        </div>
+      </section>
       <div className="a6-section-title"><h2>Suas melhores marcas</h2></div>
-      <div className="a6-pr-grid">{records.slice(0,2).map(p=><div className="a6-panel a6-pr" key={p.exercise}><p>{p.exercise}</p><strong>{numberBR(p.weight)} <small>kg</small></strong><div className="a6-delta">{p.delta_weight>0?`+${numberBR(p.delta_weight)} kg desde o início`:"Melhor série registrada"}</div></div>)}</div>
+      <div className="a6-pr-grid">{records.slice(0,4).map(p=><div className="a6-panel a6-pr" key={p.exercise}><p>{p.exercise}</p><strong>{numberBR(p.weight)} <small>kg</small></strong><div className="a6-delta">{p.delta_weight>0?`+${numberBR(p.delta_weight)} kg desde o início`:"Melhor série registrada"}</div></div>)}</div>
       {!records.length&&<p data-testid="prs-empty-state">Complete séries com carga para ver suas marcas.</p>}
       <div className="a6-section-title"><h2>Consistência</h2><small style={{color:"var(--done)"}}>{trained} dias com treino / 28 dias</small></div>
       <div className="a6-adherence" aria-label={`${trained} dias com treino registrado`}>{calendar.map(x=><span key={x.date} title={`${x.date}${x.trained?": treino registrado":""}`} className={`a6-tick ${x.trained?"a6-ok":""}`}/>)}</div>
       <div className="a6-week-labels">{[0,1,2,3].map(i=><span key={i}>S{i+1} · {calendar.slice(i*7,i*7+7).filter(x=>x.trained).length}</span>)}</div>
+      <ExerciseEvolution key={profileId} API={API} profileId={profileId} exercises={exercises} records={records} milestones={analytics?.milestones||[]}/>
       <details className="a6-details"><summary>Mais detalhes da evolução</summary><div className="a6-editor">{details}</div></details>
     </>:tab==="weight"?<div className="a6-editor">{weightPanel}<AstraChart points={(analytics.body_trend||[]).slice(-4).filter(x=>Number(x.weight)>0).map(x=>({label:x.date,value:Number(x.weight)}))}/></div>:<div className="a6-editor">{photosPanel}</div>}
   </AstraPage>;
