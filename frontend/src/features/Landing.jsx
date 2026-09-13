@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { ArrowRight, Check, ShieldCheck } from "lucide-react";
-import CinematicLanding from "./landing-cinematic/CinematicLanding";
+import LandingHeroVideo from "./LandingHeroVideo";
+import LandingStorytelling from "./LandingStorytelling";
 import "./landing-premium.css";
 
 /**
@@ -176,7 +177,18 @@ export default function Landing({ API, onComecar, onEntrar }) {
         </button>
       </header>
 
-      <CinematicLanding onComecar={onComecar} />
+      {/*
+        A capa: so o filme.
+        O bloco de abertura que existia aqui — antetitulo, titulo, linha de apoio, os dois
+        botoes e a linha tecnica — saiu por inteiro. Nada acima do video, nada por cima
+        dele, nem moldura em volta: a primeira dobra e o filme, e o argumento comeca na
+        secao seguinte.
+      */}
+      <section className="lp-capa" aria-label="FORGE">
+        <LandingHeroVideo />
+      </section>
+
+      <LandingStorytelling />
 
       <section className="lp-secao" id="metodo">
         <div className="lp-secao-titulo">
