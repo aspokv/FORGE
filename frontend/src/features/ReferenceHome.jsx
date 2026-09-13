@@ -6,6 +6,7 @@ import {useScheduledProgram} from "./workoutCalendar";
 import TrainingCardImage from "./TrainingCardImage";
 import {consumedTotals} from "./foodDiary";
 import {useWorkoutCompletion,sessionStatus,completionForToday} from "./workoutCompletionState";
+import {sequenciaDeDias,volumeDaSemana,textoDaCarga,textoDeProntidao} from "./ritmoDaSemana";
 export {completionForToday,inferredCompletionForToday,sessionStatus} from "./workoutCompletionState";
 import "../home-signature.css";
 
@@ -70,13 +71,20 @@ export default function ReferenceHome({db,start,onRecoveryCheckin}){
   const introTitle=p.program_selection_required&&!todayCompletion?"Escolha seu programa.":todayCompletion?"Treino concluído.":restDay?"Hoje é recuperação.":"Seu treino está pronto.";
   const cycleLabel=String(p.week||"Ciclo atual").split("·")[0].trim();
   const tituloDoCard=p.program_selection_required&&!todayCompletion?"Escolha seu programa":sessionName;
-  const cardContext=p.program_selection_required&&!todayCompletion?"SEU PROGRAMA":todayCompletion?`${cycleLabel} · CONCLUÍDO`:restDay?`DESCANSO HOJE · ${cycleLabel}`:`${cycleLabel} · PRÓXIMA SESSÃO`;
+  // No descanso os minutos e as series do card sao da PROXIMA sessao, nao de hoje. Dizer
+  // "DESCANSO HOJE · AMANHÃ" resolve a contradicao de anunciar descanso com 63 min ao lado.
+  const cardContext=p.program_selection_required&&!todayCompletion?"SEU PROGRAMA":todayCompletion?`${cycleLabel} · CONCLUÍDO`:restDay?"DESCANSO HOJE · AMANHÃ":`${cycleLabel} · PRÓXIMA SESSÃO`;
 
   const monday=new Date(now);monday.setDate(now.getDate()-dayIndex);
   const trained=new Set((db.recent_sets||[]).map(row=>{const d=new Date(row.created_at);return Number.isNaN(d.getTime())?"":new Intl.DateTimeFormat("sv-SE").format(d)}));
+  const sequencia=useMemo(()=>sequenciaDeDias(db.recent_sets,now),[db.recent_sets]);// eslint-disable-line react-hooks/exhaustive-deps
+  const volume=useMemo(()=>volumeDaSemana(db.recent_sets,monday),[db.recent_sets]);// eslint-disable-line react-hooks/exhaustive-deps
+  // O nivel vem do motor (`program.logic.recovery_level`), que media os tres ultimos
+  // check-ins. Recalcular aqui, com o de hoje so, daria um rotulo diferente do treino real.
+  const prontidao=textoDeProntidao(p.logic?.recovery_level);
   return <AstraPage screen={0} testId="reference-home-v3">
     <section className="forge-home-context" aria-labelledby="forge-home-title">
-      <div className="a6-eyebrow">{dateLabel}</div>
+      <div className="a6-eyebrow">{dateLabel}{sequencia>1&&<em className="forge-sequencia" data-testid="home-sequencia">{sequencia} dias seguidos</em>}</div>
       <h1 id="forge-home-title" className="forge-home-sr-only">{introTitle}</h1>
     </section>
     <section className={`a6-signature${todayCompletion?" a6-signature-completed":""}`} aria-labelledby="home-session-title">
@@ -100,6 +108,26 @@ export default function ReferenceHome({db,start,onRecoveryCheckin}){
       <article className="a6-panel a6-mini forge-progress-card" data-testid="home-nutrition-progress"><AstraIcon name="nutrition"/><div className="forge-progress-copy"><p>Nutrição</p><strong>{nutrition?`${Math.round(kcal).toLocaleString("pt-BR")} kcal`:"Sem plano"}{nutrition&&calorieGoal>0&&<span> de {Math.round(calorieGoal).toLocaleString("pt-BR")} kcal</span>}</strong><div className="forge-progress-track" role="progressbar" aria-label="Progresso de nutrição" aria-valuemin="0" aria-valuemax="100" aria-valuenow={Math.round(nutritionProgress)}><span style={{width:`${nutritionProgress}%`}}/></div></div></article>
       <details className="a6-panel a6-mini-water forge-progress-card" data-testid="home-hydration"><summary className="a6-mini a6-water"><AstraIcon name="water"/><div className="forge-progress-copy"><p>Água</p><strong>{(water/1000).toLocaleString("pt-BR",{minimumFractionDigits:1,maximumFractionDigits:2})} L <span>de {(waterGoal/1000).toLocaleString("pt-BR",{minimumFractionDigits:1,maximumFractionDigits:1})} L</span></strong><div className="forge-progress-track forge-progress-track-water" role="progressbar" aria-label="Progresso de hidratação" aria-valuemin="0" aria-valuemax="100" aria-valuenow={Math.round(waterProgress)}><span style={{width:`${waterProgress}%`}}/></div></div></summary><div className="a6-water-controls"><button type="button" data-testid="hydration-add-250" disabled={waterBusy} onClick={()=>addWater(250)}>+250 ml</button><button type="button" data-testid="hydration-add-500" disabled={waterBusy} onClick={()=>addWater(500)}>+500 ml</button><button type="button" data-testid="hydration-undo" aria-label="Desfazer água" disabled={waterBusy||water===0} onClick={undoWater}>Desfazer</button></div></details>
     </section>
-    {checkinOpen&&<div className="ref3-sheet" data-testid="today-checkin-modal"><button className="ref3-sheet-close" onClick={()=>setCheckinOpen(false)}><X size={20}/></button><span>CHECK-IN DE HOJE</span><h2>Como você chega para o treino?</h2><div className="ref3-checkin-grid">{[["Sono","sleep"],["Energia","energy"],["Motivação","motivation"],["Dor muscular","soreness"],["Estresse","stress"]].map(([label,key])=><label key={key}><span>{label}</span><input type="range" min="1" max="5" value={checkinForm[key]} onChange={e=>setCheckinForm(f=>({...f,[key]:Number(e.target.value)}))}/><b>{checkinForm[key]}</b></label>)}</div><button className="ref3-primary" data-testid="save-today-checkin" disabled={checkinBusy} onClick={submitCheckin}>{checkinBusy?"Salvando…":"Salvar check-in"}</button><button className="ref3-direct" onClick={start}>Começar direto</button></div>}
+    <section className="forge-estado-grid" data-testid="home-estado-do-dia">
+      {checkin
+        ?<article className={`a6-panel forge-estado forge-prontidao forge-prontidao-${prontidao.tom}`} data-testid="home-prontidao">
+          <span className="a6-eyebrow">Prontidão</span>
+          <strong>{prontidao.rotulo}</strong>
+          <p>{prontidao.efeito}</p>
+        </article>
+        /* Sem check-in o cartao inteiro e o botao: um alvo de toque grande custa menos
+           altura que um cartao com um botao dentro, e a altura e o que falta aqui. */
+        :<button type="button" className="a6-panel forge-estado forge-prontidao forge-estado-acao" data-testid="home-prontidao" onClick={()=>setCheckinOpen(true)}>
+          <span className="a6-eyebrow">Prontidão</span>
+          <strong>Fazer check-in</strong>
+          <p>O motor ajusta o treino com isso.</p>
+        </button>}
+      <article className="a6-panel forge-estado forge-semana-resumo" data-testid="home-volume-semana">
+        <span className="a6-eyebrow">Esta semana</span>
+        <strong>{volume.series} {volume.series===1?"série":"séries"}</strong>
+        <p>{volume.kg>0?`${textoDaCarga(volume.kg)} levantados`:"Nenhuma carga registrada"}</p>
+      </article>
+    </section>
+    {checkinOpen&&<div className="ref3-sheet" data-testid="today-checkin-modal"><button className="ref3-sheet-close" onClick={()=>setCheckinOpen(false)}><X size={20}/></button><span>CHECK-IN DE HOJE</span><h2>{restDay||todayCompletion?"Como você está hoje?":"Como você chega para o treino?"}</h2><div className="ref3-checkin-grid">{[["Sono","sleep"],["Energia","energy"],["Motivação","motivation"],["Dor muscular","soreness"],["Estresse","stress"]].map(([label,key])=><label key={key}><span>{label}</span><input type="range" min="1" max="5" value={checkinForm[key]} onChange={e=>setCheckinForm(f=>({...f,[key]:Number(e.target.value)}))}/><b>{checkinForm[key]}</b></label>)}</div><button className="ref3-primary" data-testid="save-today-checkin" disabled={checkinBusy} onClick={submitCheckin}>{checkinBusy?"Salvando…":"Salvar check-in"}</button>{!(restDay||todayCompletion)&&<button className="ref3-direct" onClick={start}>Começar direto</button>}</div>}
   </AstraPage>;
 }
