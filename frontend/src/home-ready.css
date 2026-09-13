@@ -34,7 +34,7 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 4px clamp(14px, 4.4vw, 20px) calc(82px + env(safe-area-inset-bottom));
+  padding: 4px clamp(14px, 4.4vw, 20px) calc(30px + env(safe-area-inset-bottom));
   overflow-x: clip;
 }
 
@@ -483,8 +483,93 @@
   box-shadow: 0 0 10px rgb(231 121 74 / 42%);
 }
 
+/*
+ * Estado do dia: prontidao e volume da semana.
+ *
+ * Ficam no rodape do Inicio, no espaco que sobrou depois que o conteudo passou a caber. Sao
+ * dois cartoes de leitura rapida, com a mesma pele dos atalhos de nutricao e agua para nao
+ * parecerem enxertados: mesma borda, mesmo raio, mesmo degrade.
+ */
+.forge-shell .a6.a6-screen-0 .forge-estado-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.forge-shell .a6.a6-screen-0 .forge-estado {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: 11px 13px 12px;
+  text-align: left;
+  border: 1px solid var(--home-line);
+  border-radius: 18px;
+  background: linear-gradient(145deg, #151819, #101212);
+  box-shadow: inset 0 1px rgb(255 255 255 / 2%);
+}
+
+.forge-shell .a6.a6-screen-0 .forge-estado .a6-eyebrow {
+  margin: 0;
+  color: var(--home-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+
+.forge-shell .a6.a6-screen-0 .forge-estado > strong {
+  color: var(--home-text);
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -.03em;
+  line-height: 1.15;
+}
+
+.forge-shell .a6.a6-screen-0 .forge-estado > p {
+  margin: 0;
+  color: var(--home-muted);
+  font-size: 11.5px;
+  line-height: 1.3;
+  /* O texto explica o ajuste do motor; quebrar palavra ao meio aqui e o mesmo defeito que
+     o titulo do card ja teve. */
+  overflow-wrap: normal;
+}
+
+/* A prontidao e o unico numero da tela que muda de cor conforme o que ele significa. */
+.forge-shell .a6.a6-screen-0 .forge-prontidao-alta > strong { color: #7fd4a2; }
+.forge-shell .a6.a6-screen-0 .forge-prontidao-baixa > strong { color: var(--home-copper); }
+
+.forge-shell .a6.a6-screen-0 .forge-estado-acao {
+  border-color: color-mix(in srgb, var(--home-copper) 52%, transparent);
+  background: linear-gradient(145deg, color-mix(in srgb, var(--home-copper) 12%, #151819), #101212);
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.forge-shell .a6.a6-screen-0 .forge-estado-acao > strong { color: var(--home-copper); }
+
+.forge-shell .a6.a6-screen-0 .forge-estado-acao:focus-visible {
+  outline: 2px solid var(--home-text);
+  outline-offset: 2px;
+}
+
+/* A sequencia anda junto com a data, em vez de gastar uma linha so dela. */
+.forge-shell .a6.a6-screen-0 .forge-sequencia {
+  color: var(--home-muted);
+  font-style: normal;
+}
+
+.forge-shell .a6.a6-screen-0 .forge-sequencia::before {
+  content: " · ";
+  color: var(--home-muted);
+}
+
 @media (max-width: 374px) {
   .forge-shell .a6.a6-screen-0 .a6-scroll { gap: 9px; padding-inline: 12px; }
+  .forge-shell .a6.a6-screen-0 .forge-estado { padding: 10px 11px 11px; }
+  .forge-shell .a6.a6-screen-0 .forge-estado > strong { font-size: 16px; }
   .forge-shell .a6.a6-screen-0 .a6-signature { height: clamp(244px, 36dvh, 280px); min-height: 244px; }
   .forge-shell .a6.a6-screen-0 .a6-signature .a6-workout-card { width: 69%; padding-inline: 17px; }
   .forge-shell .a6.a6-screen-0 .forge-progress-card.a6-mini,
@@ -507,6 +592,9 @@
   .forge-shell .a6.a6-screen-0 .forge-progress-card.a6-mini,
   .forge-shell .a6.a6-screen-0 .forge-progress-card .a6-mini { padding-block: 10px; }
   .forge-shell .a6.a6-screen-0 .forge-progress-track { margin-top: 5px; }
+  .forge-shell .a6.a6-screen-0 .forge-estado { padding: 9px 11px 10px; }
+  .forge-shell .a6.a6-screen-0 .forge-estado > strong { font-size: 16px; }
+  .forge-shell .a6.a6-screen-0 .forge-estado > p { font-size: 11px; }
 }
 
 @media (min-width: 600px) {
