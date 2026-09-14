@@ -22,6 +22,9 @@ on:
       - 'backend/tests/test_seguranca.py'
       - 'backend/tests/test_analise_visual_resiliente.py'
       - 'backend/tests/test_session_last_performance.py'
+      - 'backend/alimentos_do_diario.py'
+      - 'backend/food_diary.py'
+      - 'backend/tests/test_alimentos_do_diario.py'
       - 'backend/tests/conftest.py'
       - 'backend/runtime_server.py'
       - 'backend/cardio.py'
@@ -111,6 +114,9 @@ on:
       - 'backend/tests/test_seguranca.py'
       - 'backend/tests/test_analise_visual_resiliente.py'
       - 'backend/tests/test_session_last_performance.py'
+      - 'backend/alimentos_do_diario.py'
+      - 'backend/food_diary.py'
+      - 'backend/tests/test_alimentos_do_diario.py'
       - 'backend/tests/conftest.py'
       - 'backend/runtime_server.py'
       - 'backend/cardio.py'
@@ -292,3 +298,4 @@ jobs:
           pytest -q --noconftest
           tests/test_programa_hibrido_6x.py
           tests/test_workout_templates.py
+          tests/test_alimentos_do_diario.py
