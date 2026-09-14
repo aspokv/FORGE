@@ -107,3 +107,58 @@ export function textoDosDias(resumo) {
   if (!resumo?.dias) return "nenhum dia registrado";
   return `${resumo.dias} de ${resumo.janela} dias registrados`;
 }
+
+/**
+ * O total da semana, macro a macro, com a fracao ja cumprida.
+ *
+ * A meta da semana e a meta diaria vezes os dias REGISTRADOS, nunca vezes os sete da janela.
+ * Comparar o que foi comido em tres dias contra a meta de sete recriaria exatamente o
+ * deficit falso que este modulo inteiro existe para evitar.
+ *
+ * `fracao` passa de 1 quando a pessoa come acima da meta, e isso e informacao, nao erro: a
+ * barra e que decide parar em 100% para nao vazar da caixa.
+ */
+export function totaisDaSemana(dados) {
+  const dias = (dados?.days || []).filter((dia) => dia && (dia.kcal || dia.protein_g));
+  const alvos = dados?.targets || {};
+  const metaDiaria = {
+    kcal: Number(alvos.goal_calories) || 0,
+    protein_g: Number(alvos.protein_g) || 0,
+    carbs_g: Number(alvos.carbs_g) || 0,
+    fat_g: Number(alvos.fat_g) || 0,
+  };
+  const rotulos = {
+    kcal: { nome: "Calorias", unidade: "kcal" },
+    protein_g: { nome: "Proteína", unidade: "g" },
+    carbs_g: { nome: "Carboidrato", unidade: "g" },
+    fat_g: { nome: "Gordura", unidade: "g" },
+  };
+  return Object.keys(rotulos).map((chave) => {
+    const consumido = dias.reduce((soma, dia) => soma + (Number(dia[chave]) || 0), 0);
+    const meta = metaDiaria[chave] * dias.length;
+    return {
+      chave,
+      ...rotulos[chave],
+      consumido: Math.round(consumido),
+      meta: Math.round(meta),
+      fracao: meta > 0 ? consumido / meta : 0,
+      // O que falta para fechar a meta dos dias registrados; negativo vira "passou".
+      diferenca: Math.round(consumido - meta),
+    };
+  });
+}
+
+/** A largura da barra: nunca passa de 100%, senao vaza da caixa. */
+export function larguraDaBarra(fracao) {
+  const n = Number(fracao) || 0;
+  return `${Math.max(0, Math.min(1, n)) * 100}%`;
+}
+
+/** "faltam 320 g", "passou 180 kcal", ou "na meta" dentro da margem. */
+export function textoDaDiferenca(linha) {
+  if (!linha?.meta) return "";
+  const desvio = linha.consumido / linha.meta - 1;
+  if (Math.abs(desvio) <= MARGEM) return "na meta";
+  const valor = Math.abs(linha.diferenca).toLocaleString("pt-BR");
+  return linha.diferenca < 0 ? `faltam ${valor} ${linha.unidade}` : `passou ${valor} ${linha.unidade}`;
+}

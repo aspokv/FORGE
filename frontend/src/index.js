@@ -57,6 +57,23 @@ root.render(
   </React.StrictMode>,
 );
 
+/*
+ * Registra o service worker que destrava "Instalar aplicativo" no Android.
+ *
+ * Depois do `load` de proposito: registrar durante o carregamento disputa banda com o
+ * primeiro render, e o unico ganho seria alguns milissegundos numa coisa que nao e visivel.
+ *
+ * So em producao. Em desenvolvimento o service worker se interpoe entre o navegador e o
+ * servidor do CRA e atrapalha o recarregamento a quente.
+ */
+if (typeof window !== "undefined" && "serviceWorker" in navigator && process.env.NODE_ENV === "production") {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/service-worker.js").catch(() => {
+      // Falhar aqui nao quebra nada: o aplicativo funciona igual, so nao oferece instalar.
+    });
+  });
+}
+
 // O cardio e uma finalizacao opcional do treino em execucao. O instalador isola a
 // feature da logica de musculacao e desmonta o bloco assim que a sessao deixa a tela.
 installCardioFinisher();

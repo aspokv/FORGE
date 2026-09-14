@@ -3,8 +3,26 @@
     <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <meta name="theme-color" content="#000000" />
+        <!--
+        A cor da barra do sistema acompanha o fundo do aplicativo. Preto puro deixava uma
+        emenda visivel contra o #040504 das telas.
+        -->
+        <meta name="theme-color" content="#040504" />
         <meta name="description" content="FORGE — Advanced Training OS" />
+
+        <!--
+        Sem manifesto, "adicionar a tela inicial" cria um atalho de navegador: icone generico
+        com a inicial do titulo e abertura dentro do Chrome, com barra de endereco. Com ele e
+        `display: standalone`, o Android instala o FORGE como aplicativo e abre em tela cheia.
+        -->
+        <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+        <link rel="icon" href="%PUBLIC_URL%/favicon-64.png" sizes="64x64" type="image/png" />
+        <!-- O iOS ignora o manifesto para icone e para tela cheia; ele le estas tres. -->
+        <link rel="apple-touch-icon" href="%PUBLIC_URL%/apple-touch-icon.png" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="FORGE" />
+        <meta name="mobile-web-app-capable" content="yes" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
         

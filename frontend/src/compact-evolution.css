@@ -120,3 +120,19 @@
 .dieta-numeros span{color:#929393;font-size:12px;line-height:1.25}
 .dieta-numeros small{margin-top:3px;color:#6f7271;font-size:11px}
 .dieta-dias{margin:14px 0 0;color:#929393;font-size:12px;line-height:1.4}
+
+/* Totais da semana, macro a macro. A barra e leitura de relance; o numero e a verdade. */
+.forge-shell .a6 .dieta-totais{margin-top:12px;padding:16px 16px 8px;border-color:var(--home-line,#232726)}
+.forge-shell .a6 .dieta-totais .a6-eyebrow{display:block;margin:0 0 4px;color:#f0a47e;font-size:10px;font-weight:700;letter-spacing:.15em;text-transform:uppercase}
+.dieta-totais ul{list-style:none;margin:0;padding:0}
+.dieta-totais li{padding:12px 0;border-top:1px solid #ffffff10}
+.dieta-totais li:first-of-type{border-top:0}
+.dieta-linha-topo{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.dieta-linha-topo strong{color:#f4f0eb;font-size:14px;font-weight:600;letter-spacing:-.01em}
+.dieta-linha-topo span{color:#f4f0eb;font-size:14px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.dieta-linha-topo small{color:#7f8180;font-size:12px;font-weight:400}
+.dieta-barra{height:6px;margin-top:7px;border-radius:99px;background:#202423;overflow:hidden}
+.dieta-barra>span{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#e7794a,#ffb77d);transition:width .25s ease}
+/* Passou da meta: a barra cheia muda de cor, senao 100% e 180% ficariam iguais. */
+.dieta-barra>span.dieta-barra-cheia{background:linear-gradient(90deg,#c9603a,#e08a6a)}
+.dieta-resto{display:block;margin-top:5px;color:#7f8180;font-size:11px}
