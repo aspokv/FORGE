@@ -109,16 +109,21 @@ export function textoDosDias(resumo) {
 }
 
 /**
- * O total da semana, macro a macro, com a fracao ja cumprida.
+ * O total da semana, macro a macro, contra o ORCAMENTO da semana inteira.
  *
- * A meta da semana e a meta diaria vezes os dias REGISTRADOS, nunca vezes os sete da janela.
- * Comparar o que foi comido em tres dias contra a meta de sete recriaria exatamente o
- * deficit falso que este modulo inteiro existe para evitar.
+ * A meta aqui e a diaria vezes os sete dias, e nao vezes os dias registrados. Este bloco
+ * responde outra pergunta que o de cima: nao e "como foi a media dos dias que anotei", e sim
+ * "quanto do meu orcamento da semana eu ja gastei". Ficar atras na quarta-feira e o esperado,
+ * nao um fracasso — a semana ainda nao acabou.
+ *
+ * A media por dia registrado continua em `semanaDaDieta`, e e la que mora a protecao contra
+ * o dia esquecido. Aqui a legenda de dias registrados segue visivel pelo mesmo motivo: quem
+ * nao anotou a quarta parece ter orcamento sobrando quando nao tem.
  *
  * `fracao` passa de 1 quando a pessoa come acima da meta, e isso e informacao, nao erro: a
  * barra e que decide parar em 100% para nao vazar da caixa.
  */
-export function totaisDaSemana(dados) {
+export function totaisDaSemana(dados, diasDaSemana = 7) {
   const dias = (dados?.days || []).filter((dia) => dia && (dia.kcal || dia.protein_g));
   const alvos = dados?.targets || {};
   const metaDiaria = {
@@ -135,7 +140,7 @@ export function totaisDaSemana(dados) {
   };
   return Object.keys(rotulos).map((chave) => {
     const consumido = dias.reduce((soma, dia) => soma + (Number(dia[chave]) || 0), 0);
-    const meta = metaDiaria[chave] * dias.length;
+    const meta = metaDiaria[chave] * diasDaSemana;
     return {
       chave,
       ...rotulos[chave],
@@ -154,11 +159,58 @@ export function larguraDaBarra(fracao) {
   return `${Math.max(0, Math.min(1, n)) * 100}%`;
 }
 
-/** "faltam 320 g", "passou 180 kcal", ou "na meta" dentro da margem. */
-export function textoDaDiferenca(linha) {
+/**
+ * "restam 320 g", "faltaram 320 g", "passou 180 kcal", ou "na meta".
+ *
+ * A palavra muda conforme a semana ainda corre ou ja fechou, e a diferenca nao e cosmetica:
+ * na quarta-feira "faltam 14.000 kcal" soa como divida, quando na verdade e o que ainda ha
+ * para comer ate domingo. Depois de domingo, ai sim faltou.
+ */
+export function textoDaDiferenca(linha, semanaFechada = false) {
   if (!linha?.meta) return "";
   const desvio = linha.consumido / linha.meta - 1;
   if (Math.abs(desvio) <= MARGEM) return "na meta";
   const valor = Math.abs(linha.diferenca).toLocaleString("pt-BR");
-  return linha.diferenca < 0 ? `faltam ${valor} ${linha.unidade}` : `passou ${valor} ${linha.unidade}`;
+  if (linha.diferenca > 0) return `passou ${valor} ${linha.unidade}`;
+  return semanaFechada ? `faltaram ${valor} ${linha.unidade}` : `restam ${valor} ${linha.unidade}`;
+}
+
+/*
+ * A semana do FORGE e a semana do calendario: segunda a domingo, e zera na segunda.
+ *
+ * Nao e janela deslizante de sete dias. Quem acompanha dieta pensa por semana fechada — "o
+ * que sobrou de caloria ate domingo" —, e uma janela que anda todo dia nunca deixa fechar
+ * conta nenhuma.
+ *
+ * Tudo calculado na hora LOCAL do aparelho, nunca em UTC. O servidor roda em UTC e o atleta
+ * vive em UTC-3: as 21h de sabado no Brasil ja e domingo em UTC, e a semana comecaria e
+ * terminaria no dia errado.
+ */
+
+/** "2026-09-14" na hora local, o mesmo formato que o diario do dia ja grava. */
+export function dataLocal(data) {
+  const d = data instanceof Date && !Number.isNaN(data.getTime()) ? data : new Date();
+  const p = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+/**
+ * Segunda e domingo da semana em que a data cai.
+ *
+ * `getDay()` devolve 0 para domingo, entao domingo precisa recuar SEIS dias e nao zero —
+ * senao a semana de quem abre o aplicativo no domingo comecaria naquele mesmo domingo.
+ */
+export function semanaDoCalendario(hoje = new Date()) {
+  const base = hoje instanceof Date && !Number.isNaN(hoje.getTime()) ? hoje : new Date();
+  const diaDaSemana = base.getDay();
+  const recuo = diaDaSemana === 0 ? 6 : diaDaSemana - 1;
+  const segunda = new Date(base.getFullYear(), base.getMonth(), base.getDate() - recuo);
+  const domingo = new Date(segunda.getFullYear(), segunda.getMonth(), segunda.getDate() + 6);
+  return { inicio: dataLocal(segunda), fim: dataLocal(domingo), hoje: dataLocal(base) };
+}
+
+/** Quantos dias da semana ja passaram, contando hoje. Segunda = 1, domingo = 7. */
+export function diasDecorridos(hoje = new Date()) {
+  const d = (hoje instanceof Date && !Number.isNaN(hoje.getTime()) ? hoje : new Date()).getDay();
+  return d === 0 ? 7 : d;
 }

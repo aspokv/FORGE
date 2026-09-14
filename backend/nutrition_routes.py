@@ -863,22 +863,35 @@ def _totais_do_dia(refeicoes_do_plano, linhas, extras):
 
 @router.get("/adherence-week")
 async def get_adherence_week(request: Request, days: int = Query(7, ge=1, le=31),
+                             start: Optional[CalendarDate] = Query(None),
+                             end: Optional[CalendarDate] = Query(None),
                              user=Depends(get_current_user)):
-    """O consumo dos ultimos dias, num pedido so.
+    """O consumo de um intervalo de dias, num pedido so.
 
     A tela de Evolucao mostra a semana de alimentacao. Montar isso por `/adherence/{date}`
     custaria uma requisicao por dia para preencher um bloco de tres numeros.
 
+    `start` e `end` vem do APARELHO, e nao sao um capricho: o servidor roda em UTC e o
+    atleta vive em UTC-3. As 21h de sabado no Brasil ja e domingo em UTC, e uma semana
+    calculada aqui comecaria e terminaria no dia errado — justamente o erro que o diario do
+    dia ja evita usando a data local. Sem elas, cai na janela dos ultimos `days` dias.
+
     So volta dia que TEM registro. Dia sem registro nao e dia de jejum: e dia em que a
     pessoa esqueceu de anotar, e tratar os dois como iguais faria a tela acusar um deficit
-    que nunca existiu. Quem decide o que dizer sobre os dias que faltam e a tela, que tem o
-    numero de dias registrados na mao.
+    que nunca existiu. Quem decide o que dizer sobre os dias que faltam e a tela.
     """
     db = request.app.state.db
     target = user["id"]
-    hoje = datetime.now(timezone.utc).date()
-    inicio = (hoje - timedelta(days=days - 1)).isoformat()
-    fim = hoje.isoformat()
+    if start and end:
+        if end < start:
+            raise HTTPException(422, "O fim do intervalo nao pode ser antes do inicio.")
+        if (end - start).days > 92:
+            raise HTTPException(422, "Intervalo longo demais.")
+        inicio, fim = start.isoformat(), end.isoformat()
+    else:
+        hoje = datetime.now(timezone.utc).date()
+        inicio = (hoje - timedelta(days=days - 1)).isoformat()
+        fim = hoje.isoformat()
 
     stored = await db.nutrition_plans.find_one({"profile_id": target}, {"_id": 0, "plan": 1})
     plano = (stored or {}).get("plan") or {}
@@ -915,7 +928,9 @@ async def get_adherence_week(request: Request, days: int = Query(7, ge=1, le=31)
     perfil = await db.profiles.find_one({"id": target}, {"_id": 0, "goal": 1, "body_goal": 1})
     objetivo = (perfil or {}).get("goal") or (perfil or {}).get("body_goal")
 
-    return {"days": dias, "registered_days": len(dias), "window_days": days,
+    janela = (CalendarDate.fromisoformat(fim) - CalendarDate.fromisoformat(inicio)).days + 1
+    return {"days": dias, "registered_days": len(dias), "window_days": janela,
+            "start": inicio, "end": fim,
             "targets": {m: alvos.get(m) for m in ("goal_calories", "protein_g", "carbs_g", "fat_g")},
             "goal": plano.get("goal") or alvos.get("goal") or objetivo}
 
