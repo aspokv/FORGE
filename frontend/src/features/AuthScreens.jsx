@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { motion } from "framer-motion";
-import { ArrowRight, ChevronRight, Eye, EyeOff, KeyRound, Mail, ShieldCheck, LockKeyhole } from "lucide-react";
+import { ArrowRight, ChevronRight, Eye, EyeOff, KeyRound, Mail, LockKeyhole } from "lucide-react";
 import "./login-forge.css";
 import { API, useAuth } from "./AuthContext";
 
