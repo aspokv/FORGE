@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { motion } from "framer-motion";
-import { ChevronRight, KeyRound, Mail, ShieldCheck, LockKeyhole, LogIn } from "lucide-react";
+import { ArrowRight, ChevronRight, Eye, EyeOff, KeyRound, Mail, ShieldCheck, LockKeyhole } from "lucide-react";
+import "./login-forge.css";
 import { API, useAuth } from "./AuthContext";
 
 function formatError(detail) {
@@ -15,6 +16,7 @@ export function LoginScreen() {
   const { signIn, navigate } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [verSenha, setVerSenha] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
@@ -31,29 +33,65 @@ export function LoginScreen() {
   };
 
   return (
-    <div className="auth-shell" data-testid="login-screen">
-      <div className="auth-brand"><span className="brand-mark">F</span><span>FORGE</span><small>ADVANCED TRAINING OS</small></div>
-      <motion.form className="auth-card" initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} onSubmit={submit}>
-        <p className="eyebrow">ACESSO</p>
-        <h1>Bem-vindo de volta.</h1>
-        <p className="muted">Entre com seu e-mail e senha do FORGE.</p>
-        <label className="deep-field">
-          <span>E-mail</span>
-          <input data-testid="login-email" type="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} required />
-        </label>
-        <label className="deep-field">
-          <span>Senha</span>
-          <input data-testid="login-password" type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} required />
-        </label>
-        {err && <div className="auth-error" data-testid="login-error">{err}</div>}
-        <button className="primary-button auth-submit" data-testid="login-submit" disabled={busy} type="submit">
-          <LogIn size={16} /> {busy ? "Entrando..." : "Entrar"} <ChevronRight size={16} />
-        </button>
-        <button type="button" className="text-button" data-testid="forgot-password-link" onClick={() => navigate("/recuperar")}>
+    <div className="forge-login" data-testid="login-screen">
+      {/*
+        * O letreiro FORGE e a regua nao sao interface: sao placa iluminada na parede, dentro
+        * da foto. Desenhar um wordmark em HTML por cima duplicaria a marca.
+        */}
+      <header className="forge-login-hero">
+        <h1 className="forge-login-titulo">
+          <span>Seu programa.</span>
+          <em>Sua evolução.</em>
+        </h1>
+        <p className="forge-login-subtitulo">Seu próximo nível começa aqui.</p>
+      </header>
+
+      <motion.form className="forge-login-card" initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} onSubmit={submit}>
+        <p className="forge-login-chamada">Entre para continuar seu plano.</p>
+
+        {/* O rotulo fica sempre encaixado na borda, e nao flutuando ao foco: a moldura da
+            tela precisa ser a mesma com o campo vazio e com o campo preenchido. */}
+        <div className="forge-campo">
+          <input id="forge-login-email" data-testid="login-email" type="email" autoComplete="email"
+                 value={email} onChange={e => setEmail(e.target.value)} required />
+          <label htmlFor="forge-login-email">E-mail</label>
+          <Mail className="forge-campo-icone" size={20} aria-hidden="true" />
+        </div>
+
+        <div className="forge-campo">
+          <input id="forge-login-senha" data-testid="login-password" type={verSenha ? "text" : "password"}
+                 autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} required />
+          <label htmlFor="forge-login-senha">Senha</label>
+          <button type="button" className="forge-campo-olho" data-testid="login-toggle-password"
+                  aria-pressed={verSenha} aria-label={verSenha ? "Ocultar senha" : "Mostrar senha"}
+                  onClick={() => setVerSenha(v => !v)}>
+            {verSenha ? <Eye size={20} aria-hidden="true" /> : <EyeOff size={20} aria-hidden="true" />}
+          </button>
+        </div>
+
+        <button type="button" className="forge-login-esqueci" data-testid="forgot-password-link" onClick={() => navigate("/recuperar")}>
           Esqueci minha senha
         </button>
-        <p className="auth-hint muted"><ShieldCheck size={13} /> Seus dados trafegam por conexão segura.</p>
+
+        {err && <div className="forge-login-erro" data-testid="login-error" role="alert">{err}</div>}
+
+        <button className="forge-login-entrar" data-testid="login-submit" disabled={busy} type="submit">
+          <span>{busy ? "Entrando…" : "Entrar"}</span>
+          <ArrowRight size={20} aria-hidden="true" />
+        </button>
+
+        <hr className="forge-login-divisor" />
+        <p className="forge-login-conta">Ainda não tem uma conta?</p>
+        <button type="button" className="forge-login-criar" data-testid="login-signup-link" onClick={() => navigate("/assinar")}>
+          Criar conta
+        </button>
       </motion.form>
+
+      <footer className="forge-login-rodape">
+        <p>Mais disciplina</p>
+        <p>Mais você</p>
+        <span className="forge-login-regua" aria-hidden="true" />
+      </footer>
     </div>
   );
 }

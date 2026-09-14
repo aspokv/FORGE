@@ -1,0 +1,292 @@
+/*
+ * Tela de entrada do FORGE.
+ *
+ * Cores e ritmo vertical medidos na referencia (941x1672) em vez de estimados: fundo
+ * #040504, cartao #111312 sobre borda #222625, campo #141817, laranja da marca #f1783f.
+ *
+ * Tudo aqui vive sob `.forge-login`. O `.auth-shell` continua intocado porque o cadastro
+ * (`acquisition.css`) e a recuperacao de senha o compartilham, e um restyle global levaria
+ * as duas telas junto sem ninguem pedir.
+ */
+
+.forge-login {
+  --login-fundo: #040504;
+  --login-cartao: #111312;
+  --login-borda: #222625;
+  --login-campo: #141817;
+  --login-campo-borda: #2d2f2e;
+  --login-laranja: #f1783f;
+  --login-laranja-claro: #fc8347;
+  --login-creme: #f6f0e6;
+  --login-texto: #c3c3c4;
+  --login-fraco: #a4a4a5;
+  --login-tenue: #5d5f5f;
+
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--login-fundo);
+  color: var(--login-creme);
+  overflow-x: clip;
+}
+
+/*
+ * A foto da parede entra com largura total e altura natural (razao 941x478), e o titulo
+ * comeca logo onde ela termina — que e exatamente o encaixe da referencia. Por isso
+ * `background-size: 100% auto` e nao `cover`: `cover` recortaria as laterais e comeria os
+ * textos de parede, que sao metade do clima da imagem.
+ */
+.forge-login-hero {
+  position: relative;
+  padding: 52vw clamp(18px, 5.4vw, 26px) 0;
+  background: url("../assets/forge-login-hero.jpg") top center / 100% auto no-repeat, var(--login-fundo);
+}
+
+/* A foto morre no preto antes do titulo, para o texto nunca disputar com o concreto. */
+.forge-login-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 44%, rgba(4, 5, 4, .34) 62%, rgba(4, 5, 4, .72) 78%);
+  pointer-events: none;
+}
+
+.forge-login-titulo {
+  position: relative;
+  margin: -6px 0 0;
+  display: flex;
+  flex-direction: column;
+  font-family: "Archivo", "Inter", system-ui, sans-serif;
+  font-size: clamp(34px, 9.6vw, 46px);
+  font-weight: 800;
+  font-stretch: 84%;
+  letter-spacing: -.012em;
+  line-height: .97;
+  text-transform: uppercase;
+}
+
+.forge-login-titulo span { color: var(--login-creme); }
+.forge-login-titulo em { color: var(--login-laranja); font-style: normal; }
+
+.forge-login-subtitulo {
+  position: relative;
+  margin: 10px 0 0;
+  color: var(--login-fraco);
+  font-size: clamp(15px, 4.2vw, 18px);
+  letter-spacing: -.01em;
+}
+
+.forge-login-card {
+  margin: 18px clamp(14px, 4.4vw, 22px) 0;
+  padding: 18px clamp(17px, 4.8vw, 24px) 18px;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--login-borda);
+  border-radius: 22px;
+  background: var(--login-cartao);
+}
+
+.forge-login-chamada {
+  margin: 0 0 15px;
+  color: var(--login-texto);
+  font-size: 15px;
+  letter-spacing: -.01em;
+}
+
+/* ── Campos ─────────────────────────────────────────────────────────────────────── */
+
+.forge-campo {
+  position: relative;
+  margin-bottom: 12px;
+}
+
+.forge-campo input {
+  width: 100%;
+  min-height: 50px;
+  padding: 0 50px 0 17px;
+  border: 1px solid var(--login-campo-borda);
+  border-radius: 14px;
+  background: var(--login-campo);
+  color: var(--login-creme);
+  /* 16px evita o zoom automatico do Safari no iPhone ao focar o campo. */
+  font: 400 16px/1 "Inter", system-ui, sans-serif;
+  letter-spacing: .01em;
+  transition: border-color .16s ease;
+}
+
+.forge-campo input::placeholder { color: #6f7271; }
+
+.forge-campo input:focus {
+  outline: none;
+  border-color: var(--login-laranja);
+}
+
+/*
+ * O rotulo recorta a borda em vez de flutuar: o fundo dele e o do cartao, entao a linha
+ * some atras do texto. Fica sempre nessa posicao, cheio ou vazio, para a moldura da tela
+ * nao mudar de forma conforme a pessoa digita.
+ */
+.forge-campo label {
+  position: absolute;
+  top: -8px;
+  left: 15px;
+  padding: 0 7px;
+  background: var(--login-cartao);
+  color: var(--login-fraco);
+  font-size: 13px;
+  letter-spacing: .005em;
+  pointer-events: none;
+  transition: color .16s ease;
+}
+
+.forge-campo:focus-within label { color: #fbfbfb; }
+
+.forge-campo-icone,
+.forge-campo-olho {
+  position: absolute;
+  top: 50%;
+  right: 16px;
+  transform: translateY(-50%);
+  color: #8f9291;
+  pointer-events: none;
+}
+
+.forge-campo-olho {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  right: 8px;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.forge-campo-olho:hover { color: var(--login-creme); }
+.forge-campo-olho:focus-visible { outline: 2px solid var(--login-laranja); outline-offset: 2px; }
+
+/* ── Ações ──────────────────────────────────────────────────────────────────────── */
+
+.forge-login-esqueci {
+  align-self: flex-end;
+  margin: -2px 2px 0;
+  padding: 4px 0;
+  border: 0;
+  background: transparent;
+  color: var(--login-laranja-claro);
+  font: 600 14px "Inter", system-ui, sans-serif;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.forge-login-esqueci:focus-visible { outline: 2px solid var(--login-laranja); outline-offset: 3px; }
+
+.forge-login-erro {
+  margin-top: 16px;
+  padding: 11px 13px;
+  border-left: 2px solid var(--login-laranja);
+  border-radius: 6px;
+  background: #2a1a17;
+  color: #f1b2a0;
+  font-size: 13px;
+}
+
+.forge-login-entrar {
+  margin-top: 14px;
+  min-height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 26px;
+  border: 0;
+  border-radius: 15px;
+  background: var(--login-laranja);
+  /* Texto preto sobre laranja: e o contraste mais alto que esta cor permite. */
+  color: #0a0a0a;
+  font-family: "Archivo", "Inter", system-ui, sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background .16s ease, opacity .16s ease;
+}
+
+.forge-login-entrar:hover:not(:disabled) { background: #ff8a52; }
+.forge-login-entrar:disabled { opacity: .62; cursor: progress; }
+.forge-login-entrar:focus-visible { outline: 2px solid var(--login-creme); outline-offset: 3px; }
+
+.forge-login-divisor {
+  margin: 16px 0 12px;
+  border: 0;
+  border-top: 1px solid #232726;
+}
+
+.forge-login-conta {
+  margin: 0 0 10px;
+  color: var(--login-texto);
+  font-size: 15px;
+}
+
+.forge-login-criar {
+  min-height: 50px;
+  border: 1px solid #3c403f;
+  border-radius: 13px;
+  background: transparent;
+  color: #ddddde;
+  font-family: "Archivo", "Inter", system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: border-color .16s ease, color .16s ease;
+}
+
+.forge-login-criar:hover { border-color: #5d6160; color: var(--login-creme); }
+.forge-login-criar:focus-visible { outline: 2px solid var(--login-laranja); outline-offset: 3px; }
+
+/* ── Rodapé ─────────────────────────────────────────────────────────────────────── */
+
+.forge-login-rodape {
+  margin-top: auto;
+  padding: 16px 20px calc(18px + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  color: var(--login-tenue);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: .34em;
+  text-transform: uppercase;
+}
+
+.forge-login-rodape p { margin: 0; }
+
+.forge-login-regua {
+  width: 26px;
+  height: 2px;
+  margin-top: 9px;
+  border-radius: 2px;
+  background: var(--login-laranja);
+}
+
+/* Em tela larga a coluna para de crescer: um formulario de 900px de largura nao existe. */
+@media (min-width: 620px) {
+  .forge-login-hero { padding-top: min(52vw, 320px); }
+  .forge-login-hero,
+  .forge-login-card,
+  .forge-login-rodape { width: min(100%, 520px); margin-inline: auto; }
+  .forge-login-hero { background-size: cover; background-position: center bottom; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .forge-login * { transition: none !important; }
+}
