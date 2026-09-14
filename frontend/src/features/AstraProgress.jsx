@@ -1,6 +1,7 @@
 import {useId,useState} from "react";
 import ExerciseEvolution from "./ExerciseEvolution";
 import SessaoEvolucao from "./SessaoEvolucao";
+import DietaEvolucao from "./DietaEvolucao";
 import {useScheduledProgram} from "./workoutCalendar";
 import {resumoDaEvolucao,textoDoSalto} from "./evolucaoResumo";
 import {AstraPage,AstraIntro,numberBR} from "./AstraUI";
@@ -31,7 +32,7 @@ export default function AstraProgress({analytics,weightPanel,photosPanel,details
   const sessaoDoDia=agenda.rest_day?(agenda.calendar?.next||null):(sessoes[indice]||sessoes[0]||null);
   return <AstraPage screen={3} testId="astra-progress">
     <AstraIntro eyebrow="CADA SESSÃO CONTA" title="Evolução." subtitle="Seu histórico, sessão por sessão."/>
-    <div className="a6-tabs" role="group" aria-label="Métrica de evolução">{[["load","Desempenho"],["weight","Peso"],["photos","Fotos"]].map(([key,label])=><button type="button" key={key} aria-pressed={key===tab} className={key===tab?"a6-selected":""} onClick={()=>setTab(key)}>{label}</button>)}</div>
+    <div className="a6-tabs" role="group" aria-label="Métrica de evolução">{[["load","Desempenho"],["diet","Dieta"],["weight","Peso"],["photos","Fotos"]].map(([key,label])=><button type="button" key={key} aria-pressed={key===tab} className={key===tab?"a6-selected":""} onClick={()=>setTab(key)}>{label}</button>)}</div>
     {!analytics?<p role="status">Carregando analytics…</p>:tab==="load"?<>
       {/*
         * A ordem da tela segue a ordem das perguntas. Antes de treinar a pessoa quer saber
@@ -58,6 +59,6 @@ export default function AstraProgress({analytics,weightPanel,photosPanel,details
       <div className="a6-week-labels">{[0,1,2,3].map(i=><span key={i}>S{i+1} · {calendar.slice(i*7,i*7+7).filter(x=>x.trained).length}</span>)}</div>
       <ExerciseEvolution key={profileId} API={API} profileId={profileId} exercises={exercises} records={records} milestones={analytics?.milestones||[]}/>
       <details className="a6-details"><summary>Mais detalhes da evolução</summary><div className="a6-editor">{details}</div></details>
-    </>:tab==="weight"?<div className="a6-editor">{weightPanel}<AstraChart points={(analytics.body_trend||[]).slice(-4).filter(x=>Number(x.weight)>0).map(x=>({label:x.date,value:Number(x.weight)}))}/></div>:<div className="a6-editor">{photosPanel}</div>}
+    </>:tab==="diet"?<DietaEvolucao API={API} profileId={profileId}/>:tab==="weight"?<div className="a6-editor">{weightPanel}<AstraChart points={(analytics.body_trend||[]).slice(-4).filter(x=>Number(x.weight)>0).map(x=>({label:x.date,value:Number(x.weight)}))}/></div>:<div className="a6-editor">{photosPanel}</div>}
   </AstraPage>;
 }
