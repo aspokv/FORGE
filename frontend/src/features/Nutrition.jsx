@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
 import { ChevronRight, RefreshCw, Check, X, Utensils, ClipboardPaste } from "lucide-react";
 import NutritionDailyFooter from "./NutritionDailyFooter";
+import ListaDeCompras from "./ListaDeCompras";
 import NutritionImport from "./NutritionImport";
 import FoodDiaryEditor from "./FoodDiaryEditor";
 import {localFoodDate, consumedTotals} from "./foodDiary";
@@ -767,6 +768,7 @@ export default function Nutrition({ API, profileId, db }) {
       </div>
 
       <NutritionDailyFooter API={API} compact consumed={consumed} goalCalories={t?.goal_calories||t?.kcal||0}/>
+      <ListaDeCompras API={API}/>
       <details className="a6-details"><summary>Gerenciar plano alimentar</summary><div className="a6-editor nutrition-page">
       <div className="fg-acoes-linha">
         <button type="button" className="fg-btn fg-btn-2" onClick={()=>setDiaryEditor({mealIndex:null})}>Adicionar um extra</button>
