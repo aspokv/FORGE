@@ -1,0 +1,19 @@
+/*
+ * O carboidrato do dia. Mesma pele dos outros blocos de nutricao, com a cor mudando pela
+ * classe do dia: e a unica informacao da tela cujo significado muda conforme o valor.
+ */
+.carbo-dia{margin:14px 0 0;padding:15px 16px 14px;border:1px solid #232726;border-radius:16px;background:#111312}
+.carbo-dia .a6-eyebrow{display:block;margin:0 0 6px;color:#f0a47e;font-size:10px;font-weight:700;letter-spacing:.15em;text-transform:uppercase}
+.carbo-dia-numero{display:flex;align-items:baseline;gap:9px}
+.carbo-dia-numero strong{color:#f4f0eb;font-size:30px;font-weight:720;letter-spacing:-.04em;line-height:1;font-variant-numeric:tabular-nums}
+.carbo-dia-numero span{color:#929393;font-size:13px}
+.carbo-dia-comparacao{margin:9px 0 0;font-size:13px;font-weight:600;letter-spacing:-.01em}
+.carbo-dia-nota{margin:10px 0 0;color:#7f8180;font-size:11.5px;line-height:1.45}
+
+/* Dia do ponto fraco em verde, descanso em cobre: o olho le antes do texto. */
+.carbo-dia-alta{border-color:#3c5a45}
+.carbo-dia-alta .carbo-dia-comparacao{color:#7fd4a2}
+.carbo-dia-baixa .carbo-dia-comparacao{color:#e08a6a}
+.carbo-dia-normal .carbo-dia-comparacao{color:#929393}
+
+.carbo-dia-inativo p{margin:0;color:#929393;font-size:13px;line-height:1.45}
