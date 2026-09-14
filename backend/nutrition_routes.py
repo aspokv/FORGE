@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 from typing import List, Optional, Literal
 from datetime import datetime, timezone, timedelta, date as CalendarDate
 from food_diary import DIARY_FOODS, food_snapshot
-from lista_de_compras import montar_lista
+from lista_de_compras import montar_lista, anotar_peso_cru
 from external_food_catalog import search_external_foods, resolve_external_food
 import uuid, random
 
@@ -402,7 +402,8 @@ async def get_plan(request: Request, user=Depends(get_current_user)):
     stored = await db.nutrition_plans.find_one({"profile_id": target}, {"_id": 0})
     if not stored:
         raise HTTPException(404, "Plano nÃ£o encontrado. Gere primeiro via POST /api/nutrition/generate.")
-    return stored["plan"]
+    # O peso cru e etiqueta, nao dado do plano: entra na resposta e nao no que esta gravado.
+    return anotar_peso_cru(stored["plan"])
 
 
 @router.post("/substitute")

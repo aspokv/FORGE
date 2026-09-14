@@ -79,8 +79,13 @@ export default function ListaDeCompras({API}){
                 <input type="checkbox" checked={!!item.comprado} disabled={salvando===item.food_id}
                        onChange={e=>marcar(item,e.target.checked)}/>
                 <span className="lista-compras-nome">{item.nome}</span>
+                {/*
+                  * "crus" vai COLADO no numero, e nao no rodape. Quem conhece a propria
+                  * dieta tem 1,75 kg de arroz na cabeca; ver 583 g solto parece erro do
+                  * aplicativo, e rodape ninguem le.
+                  */}
                 <span className="lista-compras-qtd">
-                  {item.compra.texto}
+                  {item.compra.texto}{item.convertido&&<i>{" "}{item.estado}</i>}
                   {item.compra.unidade&&<small>~{item.compra.unidade}</small>}
                 </span>
               </label>

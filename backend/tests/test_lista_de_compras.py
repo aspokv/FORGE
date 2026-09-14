@@ -23,7 +23,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from lista_de_compras import (  # noqa: E402
-    RENDIMENTO, montar_lista, nome_de_compra,
+    RENDIMENTO, anotar_peso_cru, estado_de_compra, montar_lista, nome_de_compra, peso_cru,
 )
 
 
@@ -152,3 +152,65 @@ def test_a_lista_nao_fala_de_dinheiro():
     texto = repr(lista).lower()
     for proibido in ("preco", "preço", "valor", "r$", "custo"):
         assert proibido not in texto
+
+
+class TestPesoNaPanela:
+    """O problema que acontece TODO DIA, enquanto a compra acontece uma vez por semana.
+
+    O plano manda "250 g de arroz cozido" e a pessoa esta na cozinha com o pacote na mao,
+    sem saber quanto medir. Errar aqui e errar a dieta inteira de um dia, nao so a compra.
+    """
+
+    def test_arroz_cozido_vira_um_terco_na_panela(self):
+        assert peso_cru("rice-white", 250) == 83
+
+    def test_carne_precisa_de_mais_cru_do_que_o_prato_pede(self):
+        assert peso_cru("chicken-breast", 150) == 200
+
+    # Repetir "120 g de banana = 120 g de banana crua" em toda linha seria poluicao.
+    def test_alimento_que_nao_muda_de_peso_nao_ganha_etiqueta(self):
+        assert peso_cru("banana", 120) is None
+        assert peso_cru("oats", 100) is None
+
+    def test_grama_zero_ou_ausente_nao_vira_etiqueta(self):
+        assert peso_cru("rice-white", 0) is None
+        assert peso_cru("rice-white", None) is None
+
+    def test_o_plano_servido_ganha_o_peso_cru_so_onde_faz_sentido(self):
+        plano = {"meals": [{"name": "Almoço", "foods": [
+            {"food_id": "rice-white", "grams": 250, "food": {"name": "Arroz branco cozido"}},
+            {"food_id": "banana", "grams": 120, "food": {"name": "Banana"}},
+        ]}]}
+        itens = anotar_peso_cru(plano)["meals"][0]["foods"]
+        assert itens[0]["raw_grams"] == 83
+        assert "raw_grams" not in itens[1]
+
+    def test_anotar_plano_vazio_nao_quebra(self):
+        assert anotar_peso_cru({}) == {}
+        assert anotar_peso_cru(None) is None
+
+
+class TestPalavraDoEstado:
+    """A palavra fica colada no numero porque rodape ninguem le.
+
+    Quem conhece a propria dieta tem 1,75 kg de arroz na cabeca; ver "583 g" solto parece
+    erro do aplicativo, e nao conversao.
+    """
+
+    def test_concorda_com_o_genero_do_alimento(self):
+        assert estado_de_compra("Arroz branco") == "cru"
+        assert estado_de_compra("Batata inglesa") == "crua"
+        assert estado_de_compra("Peito de frango") == "cru"
+        assert estado_de_compra("Abobrinha") == "crua"
+
+    def test_nome_vazio_nao_quebra(self):
+        assert estado_de_compra("") == "cru"
+        assert estado_de_compra(None) == "cru"
+
+    def test_so_alimento_convertido_recebe_a_palavra(self):
+        lista = montar_lista(_plano(
+            _item("rice-white", "Arroz branco cozido", 250),
+            _item("banana", "Banana", 120),
+        ), dias=7)
+        assert _achar(lista, "rice-white")["estado"] == "cru"
+        assert _achar(lista, "banana")["estado"] is None

@@ -251,3 +251,6 @@
 .nutrition-page .nutrition-tabs button {
   min-height: var(--fg-toque);
 }
+
+/* O peso da panela e etiqueta secundaria: informa sem competir com a quantidade do plano. */
+.fg-peso-cru{font-style:normal;color:#f0a47e}
