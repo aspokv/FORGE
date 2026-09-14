@@ -106,3 +106,17 @@
 .forge-shell .a6 .a6-pr{display:flex;flex-direction:column}
 .forge-shell .a6 .a6-pr>p{min-height:2.5em;margin:0}
 .forge-shell .a6 .a6-pr .a6-delta{margin-top:auto}
+
+/*
+ * A semana de alimentacao. Mesma pele do veredito de treino, de proposito: as duas leituras
+ * respondem a mesma pergunta em dominios diferentes e nao deviam parecer telas distintas.
+ */
+.forge-shell .a6 .dieta-semana{padding:16px 16px 14px;border-color:#806044;background:radial-gradient(ellipse at top left,#7550312e,transparent 68%),#141616}
+.forge-shell .a6 .dieta-semana .a6-eyebrow{display:block;margin:0 0 6px;color:#f0a47e;font-size:10px;font-weight:700;letter-spacing:.15em;text-transform:uppercase}
+.forge-shell .a6 .dieta-semana h2{margin:0;color:#f4f0eb;font-size:21px;font-weight:720;letter-spacing:-.035em;line-height:1.18;text-wrap:balance}
+.dieta-numeros{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:15px}
+.dieta-numeros>div{display:flex;flex-direction:column;gap:1px;min-width:0}
+.dieta-numeros strong{color:#f4f0eb;font-size:26px;font-weight:720;letter-spacing:-.04em;line-height:1.05;font-variant-numeric:tabular-nums}
+.dieta-numeros span{color:#929393;font-size:12px;line-height:1.25}
+.dieta-numeros small{margin-top:3px;color:#6f7271;font-size:11px}
+.dieta-dias{margin:14px 0 0;color:#929393;font-size:12px;line-height:1.4}

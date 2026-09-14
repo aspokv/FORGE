@@ -3,7 +3,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Request, Query
 from pydantic import BaseModel, Field
 from typing import List, Optional, Literal
-from datetime import datetime, timezone, date as CalendarDate
+from datetime import datetime, timezone, timedelta, date as CalendarDate
 from food_diary import DIARY_FOODS, food_snapshot
 from external_food_catalog import search_external_foods, resolve_external_food
 import uuid, random
@@ -817,6 +817,107 @@ async def get_adherence(date: CalendarDate, request: Request, user=Depends(get_c
     latest = {row["meal_index"]: row for row in rows}
     extras = await db.nutrition_consumed_extras.find({"profile_id": target, "date": str(date)}, {"_id": 0}).to_list(None)
     return {"date": str(date), "meals": list(latest.values()), "extras": extras}
+
+
+MACROS_DA_SEMANA = ("kcal", "protein_g", "carbs_g", "fat_g")
+
+
+def _somar(destino, origem):
+    for macro in MACROS_DA_SEMANA:
+        destino[macro] += float((origem or {}).get(macro) or 0)
+
+
+def _totais_do_dia(refeicoes_do_plano, linhas, extras):
+    """Soma o consumo de um dia com as MESMAS regras da tela de Nutricao.
+
+    A sutileza que precisa ser repetida aqui: refeicao marcada como feita sem pesagem nao
+    tem `actual`, e nesse caso vale o que o plano previa. Se a semana somasse so o que foi
+    pesado, ela contradiria o numero que a pessoa ve no dia — dois totais diferentes para a
+    mesma comida destroem a confianca nos dois.
+    """
+    total = {macro: 0.0 for macro in MACROS_DA_SEMANA}
+    for linha in linhas:
+        if linha.get("status") != "completed":
+            continue
+        atual = linha.get("actual")
+        if atual:
+            _somar(total, atual.get("totals"))
+            continue
+        indice = linha.get("meal_index")
+        refeicao = refeicoes_do_plano[indice] if isinstance(indice, int) and 0 <= indice < len(refeicoes_do_plano) else None
+        if not refeicao:
+            continue
+        itens = refeicao.get("foods") or []
+        if not itens:
+            _somar(total, {"kcal": refeicao.get("target_cal")})
+            continue
+        for item in itens:
+            alimento = item.get("food") or {}
+            base = float(alimento.get("grams") or 100) or 100
+            proporcao = float(item.get("grams") or 0) / base
+            _somar(total, {m: float(alimento.get(m) or 0) * proporcao for m in MACROS_DA_SEMANA})
+    for extra in extras:
+        _somar(total, (extra.get("actual") or {}).get("totals"))
+    return {macro: round(valor, 2) for macro, valor in total.items()}
+
+
+@router.get("/adherence-week")
+async def get_adherence_week(request: Request, days: int = Query(7, ge=1, le=31),
+                             user=Depends(get_current_user)):
+    """O consumo dos ultimos dias, num pedido so.
+
+    A tela de Evolucao mostra a semana de alimentacao. Montar isso por `/adherence/{date}`
+    custaria uma requisicao por dia para preencher um bloco de tres numeros.
+
+    So volta dia que TEM registro. Dia sem registro nao e dia de jejum: e dia em que a
+    pessoa esqueceu de anotar, e tratar os dois como iguais faria a tela acusar um deficit
+    que nunca existiu. Quem decide o que dizer sobre os dias que faltam e a tela, que tem o
+    numero de dias registrados na mao.
+    """
+    db = request.app.state.db
+    target = user["id"]
+    hoje = datetime.now(timezone.utc).date()
+    inicio = (hoje - timedelta(days=days - 1)).isoformat()
+    fim = hoje.isoformat()
+
+    stored = await db.nutrition_plans.find_one({"profile_id": target}, {"_id": 0, "plan": 1})
+    plano = (stored or {}).get("plan") or {}
+    refeicoes = plano.get("meals") or []
+    alvos = plano.get("targets") or {}
+
+    filtro = {"profile_id": target, "date": {"$gte": inicio, "$lte": fim}}
+    linhas = await db.nutrition_adherence.find(filtro, {"_id": 0}).sort("created_at", 1).to_list(None)
+    extras = await db.nutrition_consumed_extras.find(filtro, {"_id": 0}).to_list(None)
+
+    por_dia = {}
+    for linha in linhas:
+        dia = str(linha.get("date") or "")
+        if not dia:
+            continue
+        # `created_at` crescente: o ultimo registro da mesma refeicao vence, como no dia.
+        por_dia.setdefault(dia, {"linhas": {}, "extras": []})["linhas"][linha.get("meal_index")] = linha
+    for extra in extras:
+        dia = str(extra.get("date") or "")
+        if dia:
+            por_dia.setdefault(dia, {"linhas": {}, "extras": []})["extras"].append(extra)
+
+    dias = []
+    for dia in sorted(por_dia):
+        conteudo = por_dia[dia]
+        totais = _totais_do_dia(refeicoes, list(conteudo["linhas"].values()), conteudo["extras"])
+        if not any(totais[m] for m in MACROS_DA_SEMANA):
+            continue
+        dias.append({"date": dia, **totais})
+
+    # O objetivo mora no PERFIL, nao no plano. Sem ele a tela descreve sem julgar direcao, o
+    # que e correto mas pobre: comer abaixo em corte e comer abaixo em ganho sao coisas
+    # opostas, e so o objetivo separa as duas.
+    perfil = await db.profiles.find_one({"id": target}, {"_id": 0, "goal": 1, "body_goal": 1})
+    objetivo = (perfil or {}).get("goal") or (perfil or {}).get("body_goal")
+
+    return {"days": dias, "registered_days": len(dias), "window_days": days,
+            "targets": {m: alvos.get(m) for m in ("goal_calories", "protein_g", "carbs_g", "fat_g")},
+            "goal": plano.get("goal") or alvos.get("goal") or objetivo}
 
 
 @router.get("/consumed-foods")
