@@ -24,7 +24,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from ciclagem_de_carboidrato import (  # noqa: E402
     MAXIMO_DO_DIA, MINIMO_DO_DIA, ciclar_por_sessao, ciclar_semana, classe_da_sessao,
-    classificar_semana, dia_prioritario,
+    classificar_semana, dia_prioritario, onde_colocar,
 )
 
 ALVOS = {"carbs_g": 400.0, "protein_g": 180.0, "fat_g": 70.0, "goal_calories": 2950}
@@ -231,3 +231,52 @@ class TestAClasseDeHoje:
 
     def test_sem_sessao_e_descanso(self):
         assert classe_da_sessao(None, ["Peitoral superior"]) == "descanso"
+
+
+REFEICOES = [
+    {"name": "Café da manhã", "foods": [
+        {"food_id": "oats", "grams": 60, "food": {"name": "Aveia em flocos"}}]},
+    {"name": "Almoço", "foods": [
+        {"food_id": "rice-white", "grams": 250, "food": {"name": "Arroz branco cozido"}},
+        {"food_id": "potato", "grams": 200, "food": {"name": "Batata inglesa cozida"}}]},
+]
+
+
+class TestOndeColocarOCarboidrato:
+    """Dizer o alvo sem dizer o movimento deixa a pessoa parada.
+
+    Ela sabe que hoje sao 582 g e nao sabe o que fazer com isso. A traducao para gramas de
+    comida e o que transforma numero em acao.
+    """
+
+    def test_aponta_a_refeicao_com_mais_carboidrato(self):
+        r = onde_colocar(140, REFEICOES)
+        assert r["refeicao"] == "Almoço"
+        assert "Arroz" in r["alimento"]
+
+    def test_traduz_a_diferenca_em_gramas_de_comida(self):
+        # 140 g de carboidrato em arroz cozido, que tem 28,1 g por 100 g -> cerca de 498 g.
+        assert onde_colocar(140, REFEICOES)["gramas"] == pytest.approx(498, abs=5)
+
+    def test_diferenca_negativa_manda_tirar(self):
+        assert onde_colocar(-140, REFEICOES)["acao"] == "tire"
+        assert onde_colocar(140, REFEICOES)["acao"] == "some"
+
+    # Mandar comer arroz para quem montou o plano com tapioca seria conselho de outro app.
+    def test_a_fonte_sai_do_plano_da_pessoa(self):
+        so_tapioca = [{"name": "Lanche", "foods": [
+            {"food_id": "tapioca", "grams": 100, "food": {"name": "Tapioca"}}]}]
+        assert "Tapioca" in onde_colocar(60, so_tapioca)["alimento"]
+
+    def test_plano_sem_fonte_conhecida_nao_inventa_conselho(self):
+        sem_carbo = [{"name": "Jantar", "foods": [
+            {"food_id": "chicken-breast", "grams": 200, "food": {"name": "Peito de frango"}}]}]
+        assert onde_colocar(140, sem_carbo) is None
+
+    def test_diferenca_irrelevante_nao_vira_conselho(self):
+        assert onde_colocar(1, REFEICOES) is None
+        assert onde_colocar(0, REFEICOES) is None
+
+    def test_sem_refeicao_nao_quebra(self):
+        assert onde_colocar(140, []) is None
+        assert onde_colocar(140, None) is None

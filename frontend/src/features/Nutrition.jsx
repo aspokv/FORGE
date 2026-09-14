@@ -117,6 +117,18 @@ export default function Nutrition({ API, profileId, db }) {
   const [guidedLoadingOptions, setGuidedLoadingOptions] = useState(false);
   const [guidedSwap, setGuidedSwap] = useState(null);
   const [guidedPhase, setGuidedPhase] = useState("choosing");
+  // Uma busca so do ciclo de carboidrato, compartilhada pelo card de cima e pelo bloco de
+  // baixo. Duas buscas dariam dois resultados possiveis para a mesma pergunta.
+  const [cicloCarbo, setCicloCarbo] = useState(null);
+  useEffect(() => {
+    let vivo = true;
+    axios.get(`${API}/nutrition/carb-cycle`)
+      .then(r => { if (vivo) setCicloCarbo(r.data || {ativo: false}); })
+      // Falhar aqui nao pode quebrar a tela: sem ciclo, a meta plana do plano continua
+      // valendo, que e exatamente o comportamento de quem nao tem ponto fraco marcado.
+      .catch(() => { if (vivo) setCicloCarbo({ativo: false}); });
+    return () => { vivo = false; };
+  }, [API]);
 
   // O questionario salvo reabre preenchido — inclusive com o objetivo e a intensidade
   // escolhidos no onboarding, que gravam no MESMO nutrition_assessment. Sem isto a tela
@@ -645,7 +657,23 @@ export default function Nutrition({ API, profileId, db }) {
    * defeito: nao existe mais como divergir. O estado antigo so cobre o instante entre a
    * geracao e a chegada do plano.
    */
-  const t = plan?.targets || targets || {};
+  /*
+   * A meta de HOJE, e nao a meta media.
+   *
+   * Com a ciclagem ligada, o carboidrato do dia difere da media semanal. Se o card de cima
+   * continuasse mostrando a media enquanto o bloco de carboidrato mostra o dia, a tela teria
+   * dois alvos diferentes para a mesma pergunta — e a pessoa nao teria como saber qual
+   * seguir. O ciclo e buscado UMA vez aqui e desce para os dois, entao nao existe como
+   * divergirem.
+   */
+  const tPlano = plan?.targets || targets || {};
+  // Sem useMemo de proposito: este ponto do render fica DEPOIS de retornos antecipados, e
+  // hook depois de retorno quebra a regra dos hooks. Montar o objeto custa nada.
+  const hojeCiclado = cicloCarbo?.ativo ? cicloCarbo.hoje : null;
+  const t = hojeCiclado
+    ? {...tPlano, carbs_g: hojeCiclado.carbs_g, protein_g: hojeCiclado.protein_g,
+       fat_g: hojeCiclado.fat_g, goal_calories: hojeCiclado.goal_calories}
+    : tPlano;
   const meals = plan?.meals || [];
   const consumed = consumedTotals(meals, diary.meals, diary.extras);
   const nextMeal=meals.findIndex((_,i)=>mealStatus[i]!=="completed"&&mealStatus[i]!=="skipped");
@@ -787,7 +815,7 @@ export default function Nutrition({ API, profileId, db }) {
       </div>
 
       <NutritionDailyFooter API={API} compact consumed={consumed} goalCalories={t?.goal_calories||t?.kcal||0}/>
-      <CarboidratoDoDia API={API}/>
+      <CarboidratoDoDia ciclo={cicloCarbo} alvoDoPlano={tPlano}/>
       <ListaDeCompras API={API}/>
       <details className="a6-details"><summary>Gerenciar plano alimentar</summary><div className="a6-editor nutrition-page">
       <div className="fg-acoes-linha">

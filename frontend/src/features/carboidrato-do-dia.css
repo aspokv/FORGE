@@ -17,3 +17,6 @@
 .carbo-dia-normal .carbo-dia-comparacao{color:#929393}
 
 .carbo-dia-inativo p{margin:0;color:#929393;font-size:13px;line-height:1.45}
+/* O conselho pratico fica em caixa propria: e o unico texto da tela que pede acao. */
+.carbo-dia-acao{margin:11px 0 0;padding:10px 12px;border-radius:10px;background:#1a1d1c;color:#dcd8d1;font-size:13px;line-height:1.45}
+.carbo-dia-acao b{color:#f4f0eb}
