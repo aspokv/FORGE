@@ -26,6 +26,8 @@ on:
       - 'backend/food_diary.py'
       - 'backend/tests/test_alimentos_do_diario.py'
       - 'backend/lista_de_compras.py'
+      - 'backend/ciclagem_de_carboidrato.py'
+      - 'backend/tests/test_ciclagem_de_carboidrato.py'
       - 'backend/tests/test_lista_de_compras.py'
       - 'frontend/src/features/buscaDeAlimentos.js'
       - 'frontend/src/features/semanaDaDieta.js'
@@ -124,6 +126,8 @@ on:
       - 'backend/food_diary.py'
       - 'backend/tests/test_alimentos_do_diario.py'
       - 'backend/lista_de_compras.py'
+      - 'backend/ciclagem_de_carboidrato.py'
+      - 'backend/tests/test_ciclagem_de_carboidrato.py'
       - 'backend/tests/test_lista_de_compras.py'
       - 'frontend/src/features/buscaDeAlimentos.js'
       - 'frontend/src/features/semanaDaDieta.js'
@@ -312,3 +316,4 @@ jobs:
           tests/test_workout_templates.py
           tests/test_alimentos_do_diario.py
           tests/test_lista_de_compras.py
+          tests/test_ciclagem_de_carboidrato.py

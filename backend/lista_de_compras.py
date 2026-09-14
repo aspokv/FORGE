@@ -138,14 +138,21 @@ def _secao(food_id: str, nome: str) -> str:
 
 
 def _quantidade_legivel(gramas: float, food_id: str) -> Dict[str, Any]:
-    """Como a quantidade aparece na etiqueta: peso, e unidade quando ela existir."""
-    texto = f"{gramas / 1000:.2f} kg".replace(".", ",") if gramas >= 1000 else f"{round(gramas)} g"
-    unidade = None
+    """Como a quantidade aparece na etiqueta.
+
+    Quando o alimento e vendido e contado por unidade, a UNIDADE vem na frente e o peso fica
+    de apoio: ninguem pesa ovo na feira, conta. "16 ovos" e uma instrucao; "805 g de ovo" e
+    uma conta que a pessoa tem de fazer no corredor, com o celular numa mao.
+
+    Nos demais, o peso manda — nao existe "unidade" de arroz.
+    """
+    peso_texto = f"{gramas / 1000:.2f} kg".replace(".", ",") if gramas >= 1000 else f"{round(gramas)} g"
     if food_id in PESO_DA_UNIDADE:
         peso, rotulo = PESO_DA_UNIDADE[food_id]
         quantas = max(1, round(gramas / peso))
-        unidade = f"{quantas} {rotulo}"
-    return {"gramas": round(gramas), "texto": texto, "unidade": unidade}
+        return {"gramas": round(gramas), "texto": f"{quantas} {rotulo}",
+                "apoio": peso_texto, "por_unidade": True}
+    return {"gramas": round(gramas), "texto": peso_texto, "apoio": None, "por_unidade": False}
 
 
 def montar_lista(plano: Dict[str, Any], dias: int = 7) -> Dict[str, Any]:

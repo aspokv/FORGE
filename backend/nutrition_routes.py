@@ -6,6 +6,8 @@ from typing import List, Optional, Literal
 from datetime import datetime, timezone, timedelta, date as CalendarDate
 from food_diary import DIARY_FOODS, food_snapshot
 from lista_de_compras import montar_lista, anotar_peso_cru
+from ciclagem_de_carboidrato import ciclar_por_sessao, classe_da_sessao
+from engine import build_program_v2
 from external_food_catalog import search_external_foods, resolve_external_food
 import uuid, random
 
@@ -995,6 +997,54 @@ async def check_shopping_item(payload: ItemComprado, request: Request,
     else:
         await db.nutrition_shopping_checks.delete_one({"_id": chave, "profile_id": target})
     return {"food_id": payload.food_id, "comprado": payload.comprado}
+
+
+@router.get("/carb-cycle")
+async def get_carb_cycle(request: Request, user=Depends(get_current_user)):
+    """As metas de cada dia da semana, com o carboidrato concentrado no ponto fraco.
+
+    INFORMATIVO por enquanto: devolve as metas do dia, e nao um cardapio diferente por dia.
+    Regerar as refeicoes de sete dias mexe no gerador de plano, que ja esta servindo gente —
+    e a meta ja e util sozinha, porque a pessoa ajusta a porcao de arroz sabendo que hoje o
+    alvo e 530 g de carboidrato e nao 400.
+
+    Quando nao ha o que ciclar, devolve `motivo` em vez de dado: dizer "nao da" sem dizer por
+    que deixa a pessoa sem acao, e cada motivo aqui tem conserto que ela mesma faz.
+    """
+    db = request.app.state.db
+    target = user["id"]
+    await exigir_capacidade(db, user, ALIMENTACAO)
+
+    perfil = await db.profiles.find_one({"id": target}, {"_id": 0}) or {}
+    prioridades = perfil.get("priorities") or []
+    na = perfil.get("nutrition_assessment")
+    if not na:
+        return {"ativo": False, "motivo": "Responda a avaliação de nutrição para o FORGE calcular suas metas."}
+    if not prioridades:
+        return {"ativo": False, "prioridades": [],
+                "motivo": "Escolha um ponto fraco no seu perfil para o carboidrato se concentrar nele."}
+
+    # `build_program_v2` e a mesma funcao que o bootstrap usa; o `db` vem do request para
+    # nao depender do modulo global do server.
+    programa = await build_program_v2(perfil, db)
+    sessoes = programa.get("sessions") or []
+    alvos = compute_macro_targets(
+        na["weight_kg"], na["height_cm"], na["age"], na["sex"],
+        na["training_days"], na["goal"], na.get("activity_level", "moderate"),
+        na.get("intensity"))
+    ciclo = ciclar_por_sessao(alvos, sessoes, na.get("training_days"), prioridades)
+    if not ciclo:
+        return {"ativo": False, "prioridades": list(prioridades),
+                "motivo": "Nenhum treino da sua semana trabalha o ponto fraco que você escolheu."}
+
+    # A sessao de hoje decide a meta de hoje. Quem nao tem agenda por dia da semana — que e
+    # a maioria, porque o motor nomeia as sessoes "Upper 1" e avanca por conclusao — recebe
+    # a classe da PROXIMA sessao, que e a que ela vai treinar.
+    calendario = programa.get("calendar") or {}
+    sessao_de_hoje = calendario.get("today")
+    hoje = classe_da_sessao(sessao_de_hoje, prioridades)
+    return {"ativo": True, "hoje": {"classe": hoje, "sessao": (sessao_de_hoje or {}).get("label"),
+                                    **ciclo["por_classe"][hoje]}, **ciclo}
 
 
 @router.get("/consumed-foods")

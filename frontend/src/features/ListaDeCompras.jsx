@@ -84,9 +84,14 @@ export default function ListaDeCompras({API}){
                   * dieta tem 1,75 kg de arroz na cabeca; ver 583 g solto parece erro do
                   * aplicativo, e rodape ninguem le.
                   */}
+                {/*
+                  * Alimento contado por unidade mostra a unidade grande e o peso pequeno:
+                  * ninguem pesa ovo na feira. Nos demais o peso manda, com "cru"/"crua"
+                  * colado no numero — rodape ninguem le, e "583 g" solto parece erro.
+                  */}
                 <span className="lista-compras-qtd">
                   {item.compra.texto}{item.convertido&&<i>{" "}{item.estado}</i>}
-                  {item.compra.unidade&&<small>~{item.compra.unidade}</small>}
+                  {item.compra.apoio&&<small>{item.compra.apoio}</small>}
                 </span>
               </label>
             </li>)}

@@ -3,6 +3,7 @@ import axios from "axios";
 import { ChevronRight, RefreshCw, Check, X, Utensils, ClipboardPaste } from "lucide-react";
 import NutritionDailyFooter from "./NutritionDailyFooter";
 import ListaDeCompras from "./ListaDeCompras";
+import CarboidratoDoDia from "./CarboidratoDoDia";
 import NutritionImport from "./NutritionImport";
 import FoodDiaryEditor from "./FoodDiaryEditor";
 import {localFoodDate, consumedTotals} from "./foodDiary";
@@ -786,6 +787,7 @@ export default function Nutrition({ API, profileId, db }) {
       </div>
 
       <NutritionDailyFooter API={API} compact consumed={consumed} goalCalories={t?.goal_calories||t?.kcal||0}/>
+      <CarboidratoDoDia API={API}/>
       <ListaDeCompras API={API}/>
       <details className="a6-details"><summary>Gerenciar plano alimentar</summary><div className="a6-editor nutrition-page">
       <div className="fg-acoes-linha">

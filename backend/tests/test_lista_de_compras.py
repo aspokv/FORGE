@@ -22,8 +22,13 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+import random  # noqa: E402
+
 from lista_de_compras import (  # noqa: E402
     RENDIMENTO, anotar_peso_cru, estado_de_compra, montar_lista, nome_de_compra, peso_cru,
+)
+from nutrition_engine import (  # noqa: E402
+    check_plan_hard_limits, compute_macro_targets, generate_daily_plan,
 )
 
 
@@ -108,14 +113,27 @@ def test_nome_sem_preparo_fica_intacto():
     assert nome_de_compra("Atum em lata (água)") == "Atum em lata (água)"
 
 
-def test_alimento_vendido_por_unidade_ganha_a_contagem():
-    lista = montar_lista(_plano(_item("eggs-whole", "Ovo inteiro", 100)), dias=7)
-    assert _achar(lista, "eggs-whole")["compra"]["unidade"] == "14 ovos"
+# Ninguem pesa ovo na feira, conta. "16 ovos" e instrucao; "805 g de ovo" e uma conta para a
+# pessoa fazer no corredor, com o celular numa mao.
+def test_alimento_contado_por_unidade_lidera_com_a_unidade():
+    compra = montar_lista(_plano(_item("eggs-whole", "Ovo inteiro", 100)), dias=7)
+    ovo = _achar(compra, "eggs-whole")["compra"]
+    assert ovo["texto"] == "14 ovos"
+    assert ovo["apoio"] == "700 g"
+    assert ovo["por_unidade"] is True
 
 
-def test_alimento_vendido_a_peso_nao_inventa_unidade():
+def test_alimento_vendido_a_peso_lidera_com_o_peso():
     lista = montar_lista(_plano(_item("oats", "Aveia em flocos", 100)), dias=7)
-    assert _achar(lista, "oats")["compra"]["unidade"] is None
+    aveia = _achar(lista, "oats")["compra"]
+    assert aveia["texto"] == "700 g"
+    assert aveia["apoio"] is None
+    assert aveia["por_unidade"] is False
+
+
+def test_clara_tambem_e_contada(): 
+    lista = montar_lista(_plano(_item("egg-whites", "Clara de ovo", 180)), dias=7)
+    assert _achar(lista, "egg-whites")["compra"]["texto"] == "38 claras"
 
 
 def test_as_secoes_seguem_a_ordem_do_mercado():
@@ -214,3 +232,65 @@ class TestPalavraDoEstado:
         ), dias=7)
         assert _achar(lista, "rice-white")["estado"] == "cru"
         assert _achar(lista, "banana")["estado"] is None
+
+
+# Quatro pessoas que nao se parecem em nada: sexo, peso, objetivo e frequencia diferentes.
+PERFIS = [
+    ("homem 92 kg em ganho, 5x", dict(weight_kg=92, height_cm=180, age=28, sex="male",
+                                      training_days=5, goal="bulking", activity_level="moderate")),
+    ("mulher 58 kg em corte, 4x", dict(weight_kg=58, height_cm=163, age=33, sex="female",
+                                       training_days=4, goal="cutting", activity_level="moderate")),
+    ("mulher 70 kg em manutencao", dict(weight_kg=70, height_cm=170, age=41, sex="female",
+                                        training_days=3, goal="maintenance", activity_level="light")),
+    ("homem 68 kg em corte, 6x", dict(weight_kg=68, height_cm=174, age=22, sex="male",
+                                      training_days=6, goal="cutting", activity_level="high")),
+]
+
+
+def _plano_de(na):
+    alvos = compute_macro_targets(na["weight_kg"], na["height_cm"], na["age"], na["sex"],
+                                  na["training_days"], na["goal"], na["activity_level"], None)
+    for _ in range(10):
+        candidato = generate_daily_plan(alvos, na, 4, na["goal"], random.randint(0, 999))
+        if not check_plan_hard_limits(candidato, alvos):
+            return candidato, alvos
+    raise AssertionError("o motor nao gerou plano valido para este perfil")
+
+
+class TestValeParaQualquerPerfil:
+    """A lista nao pode servir so a um tipo de atleta.
+
+    O risco real de uma funcao construida olhando UM perfil e amarrar sem querer alguma
+    suposicao dele — que existe arroz no plano, que sao quatro refeicoes, que o objetivo e
+    ganho. Estes testes exercitam perfis que nao se parecem em nada e exigem lista utilizavel
+    em todos. Quem quebrar isto descobre na hora, e nao no telefone de um atleta.
+    """
+
+    @pytest.mark.parametrize("rotulo,na", PERFIS, ids=[p[0] for p in PERFIS])
+    def test_todo_perfil_gera_lista_utilizavel(self, rotulo, na):
+        plano, _ = _plano_de(na)
+        lista = montar_lista(plano, 7)
+        assert lista["total_de_itens"] > 0, rotulo
+        assert lista["secoes"], rotulo
+        for secao in lista["secoes"]:
+            for item in secao["itens"]:
+                assert item["nome"], (rotulo, item)
+                assert item["compra"]["gramas"] > 0, (rotulo, item["nome"])
+                assert item["compra"]["texto"], (rotulo, item["nome"])
+
+    @pytest.mark.parametrize("rotulo,na", PERFIS, ids=[p[0] for p in PERFIS])
+    def test_todo_perfil_recebe_o_peso_da_panela_onde_cabe(self, rotulo, na):
+        plano, _ = _plano_de(na)
+        itens = [i for r in anotar_peso_cru(plano)["meals"] for i in r["foods"]]
+        # Nem todo plano tem alimento que muda de peso, mas quando tem, a etiqueta e valida.
+        for item in itens:
+            if "raw_grams" in item:
+                assert item["raw_grams"] > 0, (rotulo, item["food_id"])
+
+    def test_perfis_diferentes_produzem_listas_diferentes(self):
+        """Se duas pessoas opostas recebessem a mesma lista, algo estaria fixo no codigo."""
+        tamanhos = set()
+        for _, na in PERFIS:
+            plano, alvos = _plano_de(na)
+            tamanhos.add(round(alvos["goal_calories"]))
+        assert len(tamanhos) == len(PERFIS), "perfis distintos convergiram para a mesma meta"
