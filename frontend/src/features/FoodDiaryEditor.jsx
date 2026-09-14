@@ -1,6 +1,7 @@
 import {useEffect,useRef,useState} from "react";
 import axios from "axios";
 import {localFoodDate} from "./foodDiary";
+import {buscarNoCatalogo} from "./buscaDeAlimentos";
 import "./food-diary.css";
 
 const clean=s=>String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim();
@@ -77,7 +78,7 @@ export default function FoodDiaryEditor({API,mealIndex,mealName,onSaved,onClose}
     },450);
     return()=>{clearTimeout(timer);c.abort()};
   },[API,query]);
-  const localResults=catalog.filter(f=>matchesFoodQuery(f,query));
+  const {itens:localResults,aproximado}=buscarNoCatalogo(catalog,query);
   const seen=new Set(localResults.map(f=>f.id));
   const results=[...localResults,...external.filter(f=>!seen.has(f.id))].slice(0,12);
   const totals=items.reduce((sum,item)=>{["kcal","protein_g","carbs_g","fat_g"].forEach(k=>sum[k]+=Number(item[k]||0)*Number(item.amount||0)/Number(item.grams||100));return sum},{kcal:0,protein_g:0,carbs_g:0,fat_g:0});
@@ -96,7 +97,7 @@ export default function FoodDiaryEditor({API,mealIndex,mealName,onSaved,onClose}
     <p>{mealIndex==null?"Soma ao consumo de hoje, sem substituir refeições.":"Substitui apenas a contagem desta refeição hoje. Sua dieta original não muda."}</p>
     <p>Informe gramas da parte comestível, sem osso. Confira se o alimento está cru ou preparado e registre óleo/molhos à parte. Valores estimados.</p>
     <label>Buscar alimento<input enterKeyHint="search" value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();e.currentTarget.blur();}}} placeholder="Feijão, costela, alface…" disabled={busy}/></label>
-    {loading?<p role="status">Carregando catálogo…</p>:<div className="food-diary-results">{results.map(f=><button key={f.id} type="button" disabled={busy||items.length>=40} onClick={()=>setItems(v=>[...v,{...f,amount:100}])}>{f.name}<small>{f.kcal} kcal / {f.grams||100} g</small></button>)}{searching&&<p role="status">Buscando mais alimentos…</p>}{!results.length&&!searching&&<p>Alimento não encontrado. Tente informar a marca ou buscar os ingredientes separadamente.</p>}</div>}
+    {loading?<p role="status">Carregando catálogo…</p>:<div className="food-diary-results">{results.map(f=><button key={f.id} type="button" disabled={busy||items.length>=40} onClick={()=>setItems(v=>[...v,{...f,amount:100}])}>{f.name}<small>{f.kcal} kcal / {f.grams||100} g</small></button>)}{aproximado&&<p className="food-diary-aproximado" role="status" data-testid="food-search-aproximado">Nada exato para “{query.trim()}”. Estes são os mais parecidos — confira o nome antes de registrar.</p>}{searching&&<p role="status">Buscando mais alimentos…</p>}{!results.length&&!searching&&<p>Alimento não encontrado. Confira a grafia, tente informar a marca ou busque os ingredientes separadamente.</p>}</div>}
     {items.map((f,i)=><div className="food-diary-item" key={`${f.id}-${i}`}><div><strong>{f.name}</strong><small>{f.source||"Catálogo FORGE"}</small></div><label>Gramas<input aria-label={`Gramas de ${f.name} ${i+1}`} type="number" min="1" max="5000" step="any" value={f.amount} disabled={busy} onChange={e=>setItems(v=>v.map((x,j)=>i===j?{...x,amount:e.target.value}:x))}/></label><button type="button" disabled={busy} onClick={()=>setItems(v=>v.filter((_,j)=>j!==i))}>Remover</button></div>)}
     <p aria-live="polite">{Math.round(totals.kcal)} kcal · P {Math.round(totals.protein_g)} g · C {Math.round(totals.carbs_g)} g · G {Math.round(totals.fat_g)} g</p>
     {error&&<p role="alert">{error}</p>}
