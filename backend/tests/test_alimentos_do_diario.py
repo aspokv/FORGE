@@ -83,7 +83,10 @@ nao e toda metabolizada, e por isso limao e champignon declaram menos caloria do
 Isentar e honesto; afrouxar a tolerancia para todos esconderia erro de digitacao de verdade.
 """
 _COM_ALCOOL = {"diary-drink-wine-red", "diary-drink-cachaca"}
-_RICOS_EM_FIBRA = {"diary-fruit-lemon", "diary-veg-mushroom", "diary-supp-pretreino"}
+# Canela e o extremo da fibra: 80 g de carboidrato por 100 g, dos quais uns 53 g nao sao
+# metabolizados. A conta 4/4/9 nunca fecharia, e fecha-la seria mentir sobre a caloria.
+_RICOS_EM_FIBRA = {"diary-fruit-lemon", "diary-veg-mushroom", "diary-supp-pretreino",
+                   "diary-cond-cinnamon"}
 
 
 @pytest.mark.parametrize("food", sorted(ALIMENTOS_EXTRA.values(), key=lambda f: f["id"]), ids=lambda f: f["id"])

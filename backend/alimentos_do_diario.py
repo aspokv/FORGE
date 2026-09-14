@@ -212,6 +212,9 @@ CONDIMENTOS_E_ACUCARES = [
     ("diary-cond-sweetener", "Adoçante", 0, 0.0, 0.0, 0.0, ["adocante", "adoçante"]),
     ("diary-cond-chocolate-70", "Chocolate 70% cacau", 540, 8.0, 34.0, 40.0, ["chocolate amargo", "chocolate 70"]),
     ("diary-cond-cocoa-powder", "Cacau em pó 100%", 355, 20.0, 35.0, 14.0, ["cacau", "cacau em po"]),
+    # Nao entra em caloria na pratica, mas entra no metodo: o treinador usa pela sensibilidade
+    # a insulina, e alimento que o plano manda usar precisa existir na busca.
+    ("diary-cond-cinnamon", "Canela em pó", 247, 4.0, 80.6, 1.2, ["canela"]),
 ]
 
 # ── Suplementos ──────────────────────────────────────────────────────────────────────
@@ -235,6 +238,9 @@ SUPLEMENTOS = [
     ("diary-supp-albumina-growth", "Albumina — Growth Supplements", 100, 375, 81.5, 6.6, 0.3,
      ["albumina growth", "growth albumina"],
      "Valor típico de rótulo por 100 g — confirme a embalagem e o sabor"),
+    ("diary-supp-whey", "Whey Protein — valor médio de mercado", 30, 118, 22.0, 4.0, 1.8,
+     ["whey", "whey protein", "whey concentrado"],
+     "Valor típico por porção de 30 g — confirme o rótulo da sua marca"),
     ("diary-supp-whey-isolate", "Whey Protein Isolado", 30, 110, 27.0, 0.5, 0.3,
      ["whey isolado", "isolate", "wpi"],
      "Valor típico por porção de 30 g — confirme o rótulo"),
