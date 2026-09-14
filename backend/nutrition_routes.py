@@ -6,7 +6,7 @@ from typing import List, Optional, Literal
 from datetime import datetime, timezone, timedelta, date as CalendarDate
 from food_diary import DIARY_FOODS, food_snapshot
 from lista_de_compras import montar_lista, anotar_peso_cru
-from ciclagem_de_carboidrato import ciclar_por_sessao, classe_da_sessao
+from ciclagem_de_carboidrato import ciclar_por_sessao, classe_da_sessao, onde_colocar
 from engine import build_program_v2
 from external_food_catalog import search_external_foods, resolve_external_food
 import uuid, random
@@ -1043,8 +1043,17 @@ async def get_carb_cycle(request: Request, user=Depends(get_current_user)):
     calendario = programa.get("calendar") or {}
     sessao_de_hoje = calendario.get("today")
     hoje = classe_da_sessao(sessao_de_hoje, prioridades)
-    return {"ativo": True, "hoje": {"classe": hoje, "sessao": (sessao_de_hoje or {}).get("label"),
-                                    **ciclo["por_classe"][hoje]}, **ciclo}
+    do_dia = ciclo["por_classe"][hoje]
+    # Dizer o alvo sem dizer o movimento deixa a pessoa parada. A sugestao sai do PROPRIO
+    # plano dela: mandar comer arroz para quem montou o plano com tapioca seria conselho de
+    # outro aplicativo.
+    plano_salvo = await db.nutrition_plans.find_one({"profile_id": target}, {"_id": 0, "plan": 1})
+    refeicoes = ((plano_salvo or {}).get("plan") or {}).get("meals") or []
+    ajuste = onde_colocar(do_dia["carbs_g"] - ciclo["base"]["carbs_g"], refeicoes)
+    return {"ativo": True,
+            "hoje": {"classe": hoje, "sessao": (sessao_de_hoje or {}).get("label"),
+                     "ajuste": ajuste, **do_dia},
+            **ciclo}
 
 
 @router.get("/consumed-foods")

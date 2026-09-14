@@ -274,3 +274,51 @@ def classe_da_sessao(sessao, prioridades) -> str:
     if not sessao:
         return "descanso"
     return "prioritario" if dia_prioritario(sessao.get("focus"), prioridades) else "treino"
+
+
+# Quantos gramas de carboidrato cada 100 g do alimento carrega, ja PRONTO. Serve para
+# traduzir "some 143 g de carboidrato" em "cerca de 2 conchas de arroz", que e a unica forma
+# de a pessoa agir sem calculadora.
+CARBO_POR_100G = {
+    "rice-white": 28.1, "rice-brown": 25.8, "potato": 11.9, "sweet-potato": 18.4,
+    "pasta": 30.9, "pasta-whole": 28.0, "oats": 66.6, "tapioca": 58.5, "cassava": 30.1,
+    "bread-white": 58.6, "bread-whole": 49.9, "couscous": 25.3, "banana": 26.0,
+}
+
+
+def onde_colocar(diferenca_g: float, refeicoes) -> Optional[Dict[str, Any]]:
+    """Traduz a diferenca de carboidrato em comida, e diz em que refeicao ela cabe.
+
+    Dizer "hoje sao 582 g de carboidrato" sem dizer ONDE deixa a pessoa parada: ela sabe o
+    alvo e nao sabe o movimento. O conselho aqui e deliberadamente simples — acrescente na
+    refeicao que ja tem mais carboidrato, que costuma ser a que cerca o treino.
+
+    Escolhe o alimento fonte a partir do PROPRIO plano da pessoa, e nao de uma lista fixa:
+    mandar comer arroz para quem montou o plano com tapioca seria conselho de outro app.
+    """
+    if not diferenca_g or not refeicoes:
+        return None
+
+    melhor_refeicao, melhor_item, melhor_carbo = None, None, 0.0
+    for refeicao in refeicoes:
+        for item in refeicao.get("foods") or []:
+            fid = item.get("food_id")
+            por_100 = CARBO_POR_100G.get(fid)
+            if not por_100:
+                continue
+            carbo_no_prato = por_100 * float(item.get("grams") or 0) / 100.0
+            if carbo_no_prato > melhor_carbo:
+                melhor_refeicao, melhor_item, melhor_carbo = refeicao, item, carbo_no_prato
+    if not melhor_item:
+        return None
+
+    por_100 = CARBO_POR_100G[melhor_item["food_id"]]
+    gramas = round(abs(diferenca_g) / por_100 * 100)
+    if gramas < 10:
+        return None
+    return {
+        "refeicao": melhor_refeicao.get("name"),
+        "alimento": (melhor_item.get("food") or {}).get("name") or melhor_item.get("food_id"),
+        "gramas": gramas,
+        "acao": "some" if diferenca_g > 0 else "tire",
+    }
