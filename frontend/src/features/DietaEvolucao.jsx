@@ -1,6 +1,6 @@
 import {useEffect,useMemo,useState} from "react";
 import axios from "axios";
-import {semanaDaDieta,numero,textoDosDias} from "./semanaDaDieta";
+import {semanaDaDieta,numero,textoDosDias,totaisDaSemana,larguraDaBarra,textoDaDiferenca} from "./semanaDaDieta";
 
 /**
  * A semana de alimentacao dentro da Evolucao.
@@ -22,11 +22,13 @@ export default function DietaEvolucao({API,profileId}){
     return()=>{vivo=false};
   },[API,profileId]);
   const resumo=useMemo(()=>semanaDaDieta(dados),[dados]);
+  const totais=useMemo(()=>totaisDaSemana(dados),[dados]);
 
   if(dados===null)return <p role="status">Carregando sua semana…</p>;
   if(erro)return <p role="alert">Não foi possível carregar sua semana de alimentação.</p>;
 
-  return <section className="a6-panel dieta-semana" data-testid="dieta-semana">
+  return <>
+  <section className="a6-panel dieta-semana" data-testid="dieta-semana">
     <span className="a6-eyebrow">Alimentação · últimos {resumo.janela} dias</span>
     <h2>{resumo.frase}</h2>
 
@@ -56,5 +58,26 @@ export default function DietaEvolucao({API,profileId}){
     {!resumo.dias&&<p className="dieta-dias">
       Registre o que você comeu na aba Nutrição e esta semana começa a contar.
     </p>}
-  </section>;
+  </section>
+
+  {resumo.dias>0&&<section className="a6-panel dieta-totais" data-testid="dieta-totais" aria-label="Totais da semana">
+    <span className="a6-eyebrow">Total dos {resumo.dias} {resumo.dias===1?"dia registrado":"dias registrados"}</span>
+    <ul>
+      {totais.map(linha=><li key={linha.chave}>
+        <div className="dieta-linha-topo">
+          <strong>{linha.nome}</strong>
+          <span>{numero(linha.consumido)} <small>de {numero(linha.meta)} {linha.unidade}</small></span>
+        </div>
+        {/*
+          * A barra para em 100% para nao vazar da caixa; quem conta que a pessoa passou da
+          * meta e o texto ao lado, que nao tem teto.
+          */}
+        <div className="dieta-barra" role="progressbar" aria-label={linha.nome}
+             aria-valuemin="0" aria-valuemax="100" aria-valuenow={Math.round(Math.min(1,linha.fracao)*100)}>
+          <span className={linha.fracao>1.05?"dieta-barra-cheia":undefined} style={{width:larguraDaBarra(linha.fracao)}}/>
+        </div>
+        <small className="dieta-resto">{textoDaDiferenca(linha)}</small>
+      </li>)}
+    </ul>
+  </section>}</>;
 }
