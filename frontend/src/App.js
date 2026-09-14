@@ -7,6 +7,8 @@ import "./App.css";
 import "./features/builder.css";
 import "./features/auth.css";
 import "./features/acquisition.css";
+// Depois de acquisition.css de proposito: o tema novo do cadastro sobrescreve o antigo.
+import "./features/signup-forge.css";
 import "./features/manual-workout.css";
 import "./features/exercicio-concluido.css";
 import {exercicioConcluido,resumoDoExercicio,textoDoResumo} from "./features/exercicioConcluido";

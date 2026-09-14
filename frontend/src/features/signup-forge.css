@@ -1,0 +1,351 @@
+/*
+ * O tema da tela de entrada, aplicado ao funil de cadastro.
+ *
+ * Quem chega pela landing ve o cadastro ANTES do login, entao as duas telas precisam
+ * parecer o mesmo produto. Aqui vale a mesma paleta medida na referencia: fundo #040504,
+ * cartao #111312 sobre borda #222625, campo #141817, laranja #f1783f.
+ *
+ * Tudo escopado em `.auth-shell.signup`. O `.auth-shell` puro continua servindo a
+ * recuperacao de senha e o convite sem ser tocado, e `acquisition.css` fica intacto porque
+ * `acquisition.responsive.test.js` le aquele arquivo e trava regras dele.
+ */
+
+.auth-shell.signup {
+  --su-fundo: #040504;
+  --su-cartao: #111312;
+  --su-borda: #222625;
+  --su-campo: #141817;
+  --su-campo-borda: #2d2f2e;
+  --su-laranja: #f1783f;
+  --su-creme: #f6f0e6;
+  --su-texto: #c3c3c4;
+  --su-fraco: #a4a4a5;
+
+  /*
+   * `.auth-shell` centraliza na vertical. Num funil que cresce e encolhe a cada passo isso
+   * faz o cartao subir e descer sozinho, e aqui ele subia por cima dos textos de parede,
+   * cortando "LIBERDADE" ao meio. Ancorado no topo, a foto respira sempre igual.
+   */
+  justify-content: flex-start;
+  padding: clamp(112px, 39vw, 168px) 16px 56px;
+  background: var(--su-fundo);
+}
+
+/*
+ * A mesma parede do login entra como atmosfera, nao como heroi: o letreiro FORGE fica ao
+ * fundo e o formulario continua comecando no alto. Um heroi de 200px aqui empurraria os
+ * campos para fora da primeira dobra num funil de sete passos.
+ */
+.auth-shell.signup::before {
+  background:
+    linear-gradient(180deg, rgba(4, 5, 4, .35), rgba(4, 5, 4, .92) 62%, var(--su-fundo) 88%),
+    url("../assets/forge-login-hero.jpg") top center / 100% auto no-repeat;
+  opacity: 1;
+  filter: none;
+}
+
+/* A etiqueta vertical "PUBLIC ONBOARDING / FORGE" nao existe no tema novo. */
+.auth-shell.signup::after { display: none; }
+
+.auth-shell.signup .signup-card {
+  max-width: 520px;
+  padding: 22px clamp(17px, 4.8vw, 24px) 26px;
+  border: 1px solid var(--su-borda);
+  border-radius: 22px;
+  background: var(--su-cartao);
+  box-shadow: 0 26px 70px rgba(0, 0, 0, .5);
+}
+
+.auth-shell.signup .signup-card.wide { max-width: 720px; }
+
+/* O tracinho de cobre no topo do cartao era do tema anterior. */
+.auth-shell.signup .signup-card::before { display: none; }
+
+/* ── Cabeçalho ──────────────────────────────────────────────────────────────────── */
+
+.auth-shell.signup .signup-head {
+  align-items: center;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--su-borda);
+}
+
+.auth-shell.signup .signup-head .brand {
+  gap: 0;
+  color: var(--su-creme);
+  font-family: "Archivo", "Inter", system-ui, sans-serif;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: .28em;
+}
+
+/* No login a marca vem do letreiro na parede, sem caixinha. Aqui ela segue o mesmo desenho. */
+.auth-shell.signup .signup-head .brand-mark { display: none; }
+
+.auth-shell.signup .signup-head .btn.ghost {
+  min-height: 40px;
+  padding: 0 15px;
+  border: 1px solid #3c403f;
+  border-radius: 11px;
+  background: transparent;
+  color: #ddddde;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: .01em;
+}
+
+.auth-shell.signup .signup-head .btn.ghost:hover:not(:disabled) {
+  border-color: #5d6160;
+  color: var(--su-creme);
+}
+
+/* ── Trilha de passos ───────────────────────────────────────────────────────────── */
+
+.auth-shell.signup .signup-steps {
+  gap: 8px 14px;
+  color: #6f7271;
+  font-size: 10px;
+  letter-spacing: .13em;
+}
+
+.auth-shell.signup .signup-steps li span {
+  width: 21px;
+  height: 21px;
+  border: 1px solid #353938;
+  border-radius: 50%;
+  color: #6f7271;
+  font-size: 10px;
+}
+
+.auth-shell.signup .signup-steps li.current { color: var(--su-creme); }
+.auth-shell.signup .signup-steps li.current span {
+  border-color: var(--su-laranja);
+  color: var(--su-laranja);
+}
+
+.auth-shell.signup .signup-steps li.done { color: var(--su-fraco); }
+.auth-shell.signup .signup-steps li.done span {
+  border-color: #4d5f3a;
+  color: #a9c98a;
+}
+
+/* ── Títulos ────────────────────────────────────────────────────────────────────── */
+
+/* Mesmo tratamento de "SEU PROGRAMA." — Archivo condensada, caixa alta, bem apertada. */
+.auth-shell.signup .signup-card h2 {
+  margin: 18px 0 0;
+  color: var(--su-creme);
+  font-family: "Archivo", "Inter", system-ui, sans-serif;
+  font-size: clamp(28px, 7.6vw, 38px);
+  font-weight: 800;
+  font-stretch: 84%;
+  letter-spacing: -.012em;
+  line-height: .98;
+  text-transform: uppercase;
+}
+
+.auth-shell.signup .signup-card h2 + p,
+.auth-shell.signup .quiet,
+.auth-shell.signup .muted {
+  color: var(--su-fraco);
+  font-size: 15px;
+  letter-spacing: -.01em;
+}
+
+.auth-shell.signup .eyebrow {
+  color: #f0a47e;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .15em;
+}
+
+/* ── Planos ─────────────────────────────────────────────────────────────────────── */
+
+.auth-shell.signup .signup-plans { gap: 12px; }
+
+.auth-shell.signup .signup-plan {
+  padding: 17px 16px;
+  border: 1px solid var(--su-campo-borda);
+  border-radius: 16px;
+  background: var(--su-campo);
+  box-shadow: none;
+  transition: border-color .16s ease, background .16s ease;
+}
+
+.auth-shell.signup .signup-plan:hover {
+  border-color: #4a4e4d;
+  background: #171b1a;
+}
+
+.auth-shell.signup .signup-plan.selected {
+  border-color: var(--su-laranja);
+  background: #1b1613;
+  box-shadow: none;
+}
+
+.auth-shell.signup .signup-plan-head {
+  color: var(--su-creme);
+  font-family: "Archivo", "Inter", system-ui, sans-serif;
+  font-weight: 700;
+  letter-spacing: .01em;
+  text-transform: uppercase;
+}
+
+.auth-shell.signup .signup-plan-price { color: var(--su-fraco); }
+
+.auth-shell.signup .signup-plan-price b {
+  color: var(--su-creme);
+  font-family: "Archivo", "Inter", system-ui, sans-serif;
+  font-size: 27px;
+  font-weight: 800;
+  font-stretch: 88%;
+  letter-spacing: -.03em;
+}
+
+.auth-shell.signup .plan-flag,
+.auth-shell.signup .recommended {
+  padding: 4px 9px;
+  border-radius: 7px;
+  background: var(--su-laranja);
+  color: #0a0a0a;
+  font-family: "Archivo", "Inter", system-ui, sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+}
+
+/* ── Campos ─────────────────────────────────────────────────────────────────────── */
+
+/*
+ * A marcacao aqui e `<label>Nome<input/></label>`, sem elemento proprio para o texto, entao
+ * nao da para encaixar o rotulo na borda como no login sem mexer no JSX. O rotulo fica
+ * acima, com a mesma pele de campo: fundo, borda, raio e o laranja no foco.
+ */
+.auth-shell.signup .signup-card label:not(.checkbox) {
+  display: grid;
+  gap: 7px;
+  margin-bottom: 14px;
+  color: var(--su-fraco);
+  font-size: 13px;
+  letter-spacing: .005em;
+}
+
+.auth-shell.signup .signup-card :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea) {
+  width: 100%;
+  min-height: 50px;
+  padding: 0 16px;
+  border: 1px solid var(--su-campo-borda);
+  border-radius: 14px;
+  background: var(--su-campo);
+  color: var(--su-creme);
+  /* 16px evita o zoom automatico do Safari no iPhone ao focar o campo. */
+  font: 400 16px/1 "Inter", system-ui, sans-serif;
+  transition: border-color .16s ease;
+}
+
+.auth-shell.signup .signup-card textarea {
+  min-height: 96px;
+  padding: 14px 16px;
+  line-height: 1.5;
+}
+
+.auth-shell.signup .signup-card :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea):focus {
+  outline: none;
+  border-color: var(--su-laranja);
+}
+
+.auth-shell.signup .form-error {
+  border-left: 2px solid var(--su-laranja);
+  border-radius: 6px;
+  background: #2a1a17;
+  color: #f1b2a0;
+}
+
+/* A caixa de selecao dos termos: alvo de toque de verdade, alinhada com a primeira linha. */
+.auth-shell.signup .signup-card label.checkbox {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  margin: 4px 0 18px;
+  color: var(--su-texto);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.auth-shell.signup .signup-card label.checkbox input[type="checkbox"] {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin: 1px 0 0;
+  accent-color: var(--su-laranja);
+  cursor: pointer;
+}
+
+.auth-shell.signup .signup-card label.checkbox a {
+  color: #fc8347;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ── Botões ─────────────────────────────────────────────────────────────────────── */
+
+.auth-shell.signup .btn {
+  min-height: 52px;
+  border-radius: 14px;
+  font-family: "Archivo", "Inter", system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.auth-shell.signup .btn.primary {
+  border: 0;
+  background: var(--su-laranja);
+  /* Preto sobre laranja e o contraste mais alto que esta cor permite. */
+  color: #0a0a0a;
+}
+
+.auth-shell.signup .btn.primary:hover:not(:disabled) {
+  background: #ff8a52;
+  color: #0a0a0a;
+}
+
+.auth-shell.signup .btn:not(.primary) {
+  border: 1px solid #3c403f;
+  background: transparent;
+  color: #ddddde;
+}
+
+.auth-shell.signup .btn:not(.primary):hover:not(:disabled) {
+  border-color: #5d6160;
+  color: var(--su-creme);
+}
+
+.auth-shell.signup .btn.small {
+  min-height: 40px;
+  font-size: 12px;
+  letter-spacing: .1em;
+}
+
+.auth-shell.signup .btn:focus-visible {
+  outline: 2px solid var(--su-laranja);
+  outline-offset: 3px;
+}
+
+.auth-shell.signup .signup-nav { gap: 10px; }
+
+.auth-shell.signup .link {
+  color: #fc8347;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+@media (max-width: 560px) {
+  .auth-shell.signup { padding: clamp(92px, 33vw, 136px) 12px 44px; }
+  .auth-shell.signup .signup-card { padding: 18px 16px 22px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-shell.signup * { transition: none !important; }
+}
