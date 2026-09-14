@@ -19,3 +19,6 @@
  .forge-shell[data-food-keyboard="open"] .a6-scroll{padding-bottom:20px}
  .forge-shell[data-food-keyboard="open"] .food-diary-results{max-height:min(230px,35dvh);overflow-y:auto}
 }
+
+/* Resultado aproximado e palpite, nao acerto: a linha avisa antes de a pessoa registrar. */
+.food-diary-aproximado{margin:2px 0 8px;color:#e0c994;font-size:12px;line-height:1.4}
