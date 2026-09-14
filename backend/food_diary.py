@@ -1,5 +1,6 @@
 """Consumed food snapshots. Does not modify the plan generator's food catalog."""
 from nutrition_engine import FOOD_INDEX
+from alimentos_do_diario import ALIMENTOS_EXTRA, APELIDOS_EXTRA
 
 MACROS = ("kcal", "protein_g", "carbs_g", "fat_g")
 _COMMON_DIARY_ROWS = [
@@ -79,12 +80,22 @@ _REQUESTED_WHEY_FOODS = {
         "source": "Rótulo FTW — Chocolate Supreme, porção de 30 g", "source_url": "https://www.ftw.com.br/"},
 }
 
-DIARY_FOODS = {**FOOD_INDEX, **_COMMON_DIARY_FOODS, **_BRANDED_WHEY_FOODS, **_REQUESTED_WHEY_FOODS, "diary-beef-ribs-roasted": {
+# `ALIMENTOS_EXTRA` entra PRIMEIRO de proposito: se algum id dele coincidir com um ja
+# existente, o antigo vence e o historico de quem registrou aquele alimento continua
+# resolvendo. Ha teste travando essa precedencia.
+DIARY_FOODS = {**ALIMENTOS_EXTRA, **FOOD_INDEX, **_COMMON_DIARY_FOODS, **_BRANDED_WHEY_FOODS, **_REQUESTED_WHEY_FOODS, "diary-beef-ribs-roasted": {
     "id": "diary-beef-ribs-roasted", "name": "Costela bovina assada, sem óleo, com sal (sem osso)",
     "grams": 100, "kcal": 360, "protein_g": 28.5, "carbs_g": 0, "fat_g": 27.4,
     "source": "TBCA BRC0352F — 100 g da parte comestível",
     "source_url": "https://www.tbca.net.br/base-dados-en/int_statistical_composition.php?cod_produto=BRC0352F",
 }}
+
+# Apelido nao muda macro nenhum: so faz a busca encontrar o alimento que ja estava la.
+for _fid, _apelidos in APELIDOS_EXTRA.items():
+    _alvo = DIARY_FOODS.get(_fid)
+    if _alvo:
+        DIARY_FOODS[_fid] = {**_alvo, "aliases": [*(_alvo.get("aliases") or []), *_apelidos]}
+
 
 def food_snapshot(items, extra_foods=None):
     catalog = {**DIARY_FOODS, **(extra_foods or {})}
