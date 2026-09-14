@@ -1,4 +1,4 @@
-import {semanaDaDieta,objetivoDaDieta,numero,textoDosDias,totaisDaSemana,larguraDaBarra,textoDaDiferenca} from "./semanaDaDieta";
+import {semanaDaDieta,objetivoDaDieta,numero,textoDosDias,totaisDaSemana,larguraDaBarra,textoDaDiferenca,semanaDoCalendario,diasDecorridos,dataLocal} from "./semanaDaDieta";
 
 const dia=(date,kcal,protein_g)=>({date,kcal,protein_g,carbs_g:0,fat_g:0});
 const semana=(dias,extra={})=>({days:dias,window_days:7,registered_days:dias.length,
@@ -136,12 +136,17 @@ describe("totaisDaSemana",()=>{
    * A meta da semana e a meta diaria vezes os dias REGISTRADOS. Multiplicar pelos sete da
    * janela recriaria o deficit falso que este modulo existe para evitar.
    */
-  test("a meta acompanha os dias registrados, nao a janela",()=>{
+  /*
+   * A meta e o ORCAMENTO da semana inteira: sete dias. Ficar atras na quarta e o esperado,
+   * porque a semana ainda nao acabou. A protecao contra o dia esquecido mora na media, em
+   * `semanaDaDieta`, que e outra pergunta.
+   */
+  test("a meta e a semana inteira, nao os dias registrados",()=>{
     const linhas=totaisDaSemana(semana([diaCheio("a",2871,180,400,70),diaCheio("b",2871,180,400,70)]));
     const kcal=linhas.find(l=>l.chave==="kcal");
-    expect(kcal.meta).toBe(2871*2);
+    expect(kcal.meta).toBe(2871*7);
     expect(kcal.consumido).toBe(2871*2);
-    expect(kcal.fracao).toBeCloseTo(1,5);
+    expect(kcal.fracao).toBeCloseTo(2/7,3);
   });
 
   test("devolve os quatro macros, na ordem de leitura",()=>{
@@ -150,20 +155,22 @@ describe("totaisDaSemana",()=>{
     expect(linhas.map(l=>l.nome)).toEqual(["Calorias","Proteína","Carboidrato","Gordura"]);
   });
 
-  test("metade da meta da metade da barra",()=>{
-    const linhas=totaisDaSemana(semana([diaCheio("a",1435,90,200,35)]));
-    expect(linhas.find(l=>l.chave==="protein_g").fracao).toBeCloseTo(.5,2);
+  test("metade da meta da semana da metade da barra",()=>{
+    const dias=Array.from({length:7},(_,i)=>diaCheio(String(i),1435,90,200,35));
+    expect(totaisDaSemana(semana(dias)).find(l=>l.chave==="protein_g").fracao).toBeCloseTo(.5,2);
   });
 
   test("comer acima passa de 1, e isso e informacao",()=>{
-    const linhas=totaisDaSemana(semana([diaCheio("a",4000,260,400,70)]));
+    const dias=Array.from({length:7},(_,i)=>diaCheio(String(i),4000,260,400,70));
+    const linhas=totaisDaSemana(semana(dias));
     expect(linhas.find(l=>l.chave==="protein_g").fracao).toBeGreaterThan(1);
     expect(linhas.find(l=>l.chave==="protein_g").diferenca).toBeGreaterThan(0);
   });
 
-  test("sem dia registrado, nao ha meta para comparar",()=>{
+  test("sem dia registrado a meta continua existindo, so o consumo e zero",()=>{
     const linhas=totaisDaSemana(semana([]));
-    expect(linhas.every(l=>l.meta===0&&l.consumido===0&&l.fracao===0)).toBe(true);
+    expect(linhas.find(l=>l.chave==="kcal").meta).toBe(2871*7);
+    expect(linhas.every(l=>l.consumido===0&&l.fracao===0)).toBe(true);
   });
 
   test("sem nada devolve as quatro linhas zeradas em vez de quebrar",()=>{
@@ -188,12 +195,21 @@ describe("larguraDaBarra",()=>{
 });
 
 describe("textoDaDiferenca",()=>{
-  test("diz quanto falta",()=>{
-    expect(textoDaDiferenca({consumido:1000,meta:2000,diferenca:-1000,unidade:"kcal"})).toBe("faltam 1.000 kcal");
+  /*
+   * Na quarta-feira "faltam 14.000 kcal" soa como divida; e o que ainda ha para comer ate
+   * domingo. Depois de domingo, ai sim faltou.
+   */
+  test("com a semana correndo, o que falta ainda e seu para comer",()=>{
+    expect(textoDaDiferenca({consumido:1000,meta:2000,diferenca:-1000,unidade:"kcal"},false)).toBe("restam 1.000 kcal");
+  });
+
+  test("com a semana fechada, o que falta virou falta",()=>{
+    expect(textoDaDiferenca({consumido:1000,meta:2000,diferenca:-1000,unidade:"kcal"},true)).toBe("faltaram 1.000 kcal");
   });
 
   test("diz quanto passou",()=>{
-    expect(textoDaDiferenca({consumido:3000,meta:2000,diferenca:1000,unidade:"kcal"})).toBe("passou 1.000 kcal");
+    expect(textoDaDiferenca({consumido:3000,meta:2000,diferenca:1000,unidade:"kcal"},false)).toBe("passou 1.000 kcal");
+    expect(textoDaDiferenca({consumido:3000,meta:2000,diferenca:1000,unidade:"kcal"},true)).toBe("passou 1.000 kcal");
   });
 
   test("dentro da margem de 5% nao vira cobranca",()=>{
@@ -202,5 +218,58 @@ describe("textoDaDiferenca",()=>{
 
   test("sem meta nao inventa texto",()=>{
     expect(textoDaDiferenca({consumido:0,meta:0,diferenca:0,unidade:"g"})).toBe("");
+  });
+});
+
+describe("semanaDoCalendario",()=>{
+  test("quarta-feira aponta para a segunda daquela semana",()=>{
+    const r=semanaDoCalendario(new Date(2026,8,16));           // 16/09/2026, quarta
+    expect(r.inicio).toBe("2026-09-14");
+    expect(r.fim).toBe("2026-09-20");
+  });
+
+  test("a propria segunda e o inicio",()=>{
+    expect(semanaDoCalendario(new Date(2026,8,14)).inicio).toBe("2026-09-14");
+  });
+
+  /*
+   * `getDay()` devolve 0 para domingo. Sem tratar, domingo recuaria zero dia e a semana
+   * comecaria no proprio domingo — quebrando a unica regra que o atleta pediu.
+   */
+  test("domingo fecha a semana que comecou na segunda anterior",()=>{
+    const r=semanaDoCalendario(new Date(2026,8,20));           // 20/09/2026, domingo
+    expect(r.inicio).toBe("2026-09-14");
+    expect(r.fim).toBe("2026-09-20");
+  });
+
+  test("a semana atravessa a virada do mes sem se perder",()=>{
+    const r=semanaDoCalendario(new Date(2026,9,1));            // 01/10/2026, quinta
+    expect(r.inicio).toBe("2026-09-28");
+    expect(r.fim).toBe("2026-10-04");
+  });
+
+  test("a virada do ano tambem",()=>{
+    const r=semanaDoCalendario(new Date(2027,0,1));            // 01/01/2027, sexta
+    expect(r.inicio).toBe("2026-12-28");
+    expect(r.fim).toBe("2027-01-03");
+  });
+
+  // Se usasse UTC, as 21h no Brasil ja seria o dia seguinte e a semana viraria antes.
+  test("usa a data local, e nao UTC",()=>{
+    const tardeDeDomingo=new Date(2026,8,20,21,30);
+    expect(semanaDoCalendario(tardeDeDomingo).hoje).toBe("2026-09-20");
+  });
+});
+
+describe("diasDecorridos",()=>{
+  test("segunda e o primeiro dia, domingo o setimo",()=>{
+    expect(diasDecorridos(new Date(2026,8,14))).toBe(1);
+    expect(diasDecorridos(new Date(2026,8,20))).toBe(7);
+  });
+});
+
+describe("dataLocal",()=>{
+  test("formata no mesmo padrao que o diario do dia grava",()=>{
+    expect(dataLocal(new Date(2026,8,4))).toBe("2026-09-04");
   });
 });

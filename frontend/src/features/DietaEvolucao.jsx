@@ -1,6 +1,9 @@
 import {useEffect,useMemo,useState} from "react";
 import axios from "axios";
-import {semanaDaDieta,numero,textoDosDias,totaisDaSemana,larguraDaBarra,textoDaDiferenca} from "./semanaDaDieta";
+import {semanaDaDieta,numero,textoDosDias,totaisDaSemana,larguraDaBarra,textoDaDiferenca,semanaDoCalendario} from "./semanaDaDieta";
+
+/** "14/09" a partir de "2026-09-14": situa a semana sem poluir o cabecalho. */
+const diaCurto=iso=>String(iso||"").slice(5).split("-").reverse().join("/");
 
 /**
  * A semana de alimentacao dentro da Evolucao.
@@ -14,22 +17,26 @@ import {semanaDaDieta,numero,textoDosDias,totaisDaSemana,larguraDaBarra,textoDaD
  */
 export default function DietaEvolucao({API,profileId}){
   const [dados,setDados]=useState(null),[erro,setErro]=useState(false);
+  // A semana e calculada no APARELHO. O servidor roda em UTC e o atleta vive em UTC-3: as
+  // 21h de sabado no Brasil ja e domingo em UTC, e a semana viraria um dia antes.
+  const semana=useMemo(()=>semanaDoCalendario(new Date()),[]);
   useEffect(()=>{
     let vivo=true;setDados(null);setErro(false);
-    axios.get(`${API}/nutrition/adherence-week`,{params:{days:7}})
+    axios.get(`${API}/nutrition/adherence-week`,{params:{start:semana.inicio,end:semana.fim}})
       .then(r=>{if(vivo)setDados(r.data||{})})
       .catch(()=>{if(vivo){setDados({});setErro(true)}});
     return()=>{vivo=false};
-  },[API,profileId]);
+  },[API,profileId,semana.inicio,semana.fim]);
   const resumo=useMemo(()=>semanaDaDieta(dados),[dados]);
-  const totais=useMemo(()=>totaisDaSemana(dados),[dados]);
+  const totais=useMemo(()=>totaisDaSemana(dados,7),[dados]);
+  const semanaFechada=semana.hoje>=semana.fim;
 
   if(dados===null)return <p role="status">Carregando sua semana…</p>;
   if(erro)return <p role="alert">Não foi possível carregar sua semana de alimentação.</p>;
 
   return <>
   <section className="a6-panel dieta-semana" data-testid="dieta-semana">
-    <span className="a6-eyebrow">Alimentação · últimos {resumo.janela} dias</span>
+    <span className="a6-eyebrow">Alimentação · esta semana</span>
     <h2>{resumo.frase}</h2>
 
     {resumo.dias>0&&<>
@@ -50,7 +57,7 @@ export default function DietaEvolucao({API,profileId}){
         * como se fossem os sete dias da semana.
         */}
       <p className="dieta-dias" data-testid="dieta-dias">
-        Média dos dias que você registrou — {textoDosDias(resumo)}.
+        Média dos dias que você registrou — {textoDosDias(resumo)} nesta semana.
         {resumo.dias<resumo.janela&&" Os dias sem registro ficam de fora da conta."}
       </p>
     </>}
@@ -61,7 +68,7 @@ export default function DietaEvolucao({API,profileId}){
   </section>
 
   {resumo.dias>0&&<section className="a6-panel dieta-totais" data-testid="dieta-totais" aria-label="Totais da semana">
-    <span className="a6-eyebrow">Total dos {resumo.dias} {resumo.dias===1?"dia registrado":"dias registrados"}</span>
+    <span className="a6-eyebrow">Semana de {diaCurto(semana.inicio)} a {diaCurto(semana.fim)}</span>
     <ul>
       {totais.map(linha=><li key={linha.chave}>
         <div className="dieta-linha-topo">
@@ -76,7 +83,7 @@ export default function DietaEvolucao({API,profileId}){
              aria-valuemin="0" aria-valuemax="100" aria-valuenow={Math.round(Math.min(1,linha.fracao)*100)}>
           <span className={linha.fracao>1.05?"dieta-barra-cheia":undefined} style={{width:larguraDaBarra(linha.fracao)}}/>
         </div>
-        <small className="dieta-resto">{textoDaDiferenca(linha)}</small>
+        <small className="dieta-resto">{textoDaDiferenca(linha,semanaFechada)}</small>
       </li>)}
     </ul>
   </section>}</>;
