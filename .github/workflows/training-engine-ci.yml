@@ -29,6 +29,10 @@ on:
       - 'backend/ciclagem_de_carboidrato.py'
       - 'backend/metodo_do_treinador.py'
       - 'backend/tests/test_metodo_do_treinador.py'
+      - 'frontend/src/features/MetodoDoTreinador.jsx'
+      - 'frontend/src/features/MetodoDoTreinador.test.js'
+      - 'frontend/src/features/metodo-do-treinador.css'
+      - 'frontend/src/features/Nutrition.jsx'
       - 'backend/tests/test_ciclagem_de_carboidrato.py'
       - 'backend/tests/test_lista_de_compras.py'
       - 'frontend/src/features/buscaDeAlimentos.js'
@@ -131,6 +135,10 @@ on:
       - 'backend/ciclagem_de_carboidrato.py'
       - 'backend/metodo_do_treinador.py'
       - 'backend/tests/test_metodo_do_treinador.py'
+      - 'frontend/src/features/MetodoDoTreinador.jsx'
+      - 'frontend/src/features/MetodoDoTreinador.test.js'
+      - 'frontend/src/features/metodo-do-treinador.css'
+      - 'frontend/src/features/Nutrition.jsx'
       - 'backend/tests/test_ciclagem_de_carboidrato.py'
       - 'backend/tests/test_lista_de_compras.py'
       - 'frontend/src/features/buscaDeAlimentos.js'
@@ -254,7 +262,7 @@ jobs:
       - name: Install frontend dependencies
         run: yarn install --frozen-lockfile
       - name: Test mobile workout, home, progress, artwork, and cardio UI
-        run: FORGE_ARTWORK_VISUAL=1 CI=true yarn test --watchAll=false --runTestsByPath src/features/WorkoutLibrary.interaction.test.js src/features/ReferenceHome.artwork.test.js src/features/progressVisual.test.js src/features/exerciseArtworkLibrary.test.js src/features/CardioFinisher.test.js src/features/trainingCardArtwork.test.js src/features/trainingCardAssets.test.js src/features/ReferenceWorkoutPreview.content.test.js src/features/ExerciseEvolution.test.js src/features/workoutCompletionState.test.js src/features/completeWorkout.test.js src/features/workoutCalendar.test.js
+        run: TZ=UTC FORGE_ARTWORK_VISUAL=1 CI=true yarn test --watchAll=false
       - name: Build frontend
         env:
           CI: 'false'
