@@ -24,7 +24,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from food_diary import DIARY_FOODS  # noqa: E402
 from metodo_do_treinador import (  # noqa: E402
     DISTRIBUICAO, ORDEM_DO_DIA, PAPEIS, PROTOCOLOS, REGRAS,
-    carbo_por_refeicao, ciclo_do_protocolo, protocolo, regra,
+    carbo_por_refeicao, ciclo_do_protocolo, metodo_do_dia, protocolo, regra,
+    refeicoes_do_formato, tipo_do_dia,
 )
 
 
@@ -157,3 +158,87 @@ def test_nenhum_dado_de_aluno_entrou_no_codigo():
     proibidos = ["Debora", "Tamy", "Joice", "Nicolau", "Gabriel", "Andrea", "Mariana", "Erika"]
     encontrados = [p for p in proibidos if p.lower() in fonte.lower()]
     assert not encontrados, f"nome de aluno no codigo: {encontrados}"
+
+
+class TestOMetodoNosNumerosDaPessoa:
+    """A camada que transforma fracao em grama, que e o que chega na tela."""
+
+    def test_toda_refeicao_do_dia_aparece_mesmo_sem_carboidrato(self):
+        """No dia low o almoco vai sem amido — mas ele NAO some da lista.
+
+        Sumir daria a entender que a pessoa pula o almoco. O que ela precisa ler e
+        'almoco: sem amido hoje', que e uma instrucao, e nao uma ausencia.
+        """
+        refeicoes = refeicoes_do_formato(300, "low")
+        assert [r["papel"] for r in refeicoes] == ORDEM_DO_DIA
+        almoco = next(r for r in refeicoes if r["papel"] == "almoco")
+        assert almoco["carbo_g"] == 0
+        assert almoco["sem_carbo"] is True
+
+    def test_a_ceia_nao_e_marcada_como_sem_amido(self):
+        """A ceia nunca teve carboidrato no metodo; isso e a natureza dela, nao uma restricao."""
+        ceia = next(r for r in refeicoes_do_formato(300, "low") if r["papel"] == "ceia")
+        assert ceia["sem_carbo"] is False
+
+    def test_as_gramas_somam_o_carboidrato_do_dia(self):
+        total = sum(r["carbo_g"] for r in refeicoes_do_formato(440, "high"))
+        assert total == pytest.approx(440, abs=4)  # folga do arredondamento por refeicao
+
+    def test_toda_refeicao_chega_com_nome_de_alimento_e_nao_com_id(self):
+        for r in refeicoes_do_formato(300, "high"):
+            for campo in ("carbo", "proteina", "gordura", "acompanha"):
+                for nome in r[campo]:
+                    assert "-" not in nome or " " in nome, f"{r['papel']}: {nome} parece um id"
+
+    def test_o_rodape_tecnico_do_catalogo_nao_vaza_para_a_tela(self):
+        """"Whey Protein - valor medio de mercado" existe para a tabela, nao para a refeicao."""
+        pre = next(r for r in refeicoes_do_formato(300, "high") if r["papel"] == "pre_treino")
+        assert "Whey Protein" in pre["proteina"]
+        assert not any("mercado" in n.lower() for n in pre["proteina"])
+
+
+class TestQualFormatoEHoje:
+    """O dia do ponto fraco e o high. O descanso fica sem formato, de proposito."""
+
+    def test_o_dia_do_ponto_fraco_e_o_dia_high(self):
+        assert tipo_do_dia("prioritario") == "high"
+
+    def test_os_outros_dias_de_treino_seguem_o_low(self):
+        assert tipo_do_dia("treino") == "low"
+
+    # O treinador nao escreveu um formato de dia de descanso. Inventar uma redistribuicao
+    # seria por na boca dele uma regra que nao e dele — entao o dia de descanso nao aponta
+    # formato nenhum como "o de hoje".
+    def test_o_dia_de_descanso_nao_recebe_formato_inventado(self):
+        assert tipo_do_dia("descanso") is None
+
+    def test_classe_desconhecida_nao_quebra(self):
+        assert tipo_do_dia(None) is None
+        assert tipo_do_dia("xpto") is None
+
+
+class TestOMetodoInteiroParaATela:
+    def test_os_dois_formatos_vem_sempre_juntos(self):
+        d = metodo_do_dia(300, 440, "prioritario")
+        assert set(d["formatos"]) == {"low", "high"}
+        assert d["formatos"]["low"]["carbo_g"] == 300
+        assert d["formatos"]["high"]["carbo_g"] == 440
+
+    def test_sem_ciclagem_os_dois_formatos_usam_a_mesma_meta(self):
+        """Sem ponto fraco escolhido o metodo ainda vale: muda ONDE o carboidrato cai."""
+        d = metodo_do_dia(400, 400, None)
+        assert d["hoje"] is None
+        assert d["formatos"]["low"]["carbo_g"] == d["formatos"]["high"]["carbo_g"] == 400
+        assert d["formatos"]["low"]["refeicoes"] != d["formatos"]["high"]["refeicoes"]
+
+    def test_as_regras_viajam_junto_com_a_razao(self):
+        for r in metodo_do_dia(400, 400, None)["regras"]:
+            assert r["regra"] and r["porque"]
+
+    def test_os_protocolos_chegam_com_a_chave_para_a_tela_referenciar(self):
+        chaves = {p["chave"] for p in metodo_do_dia(400, 400, None)["protocolos"]}
+        assert "3low1high" in chaves
+
+    def test_meta_zerada_nao_quebra(self):
+        d = metodo_do_dia(0, 0, "treino")
+        assert all(r["carbo_g"] == 0 for r in d["formatos"]["low"]["refeicoes"])

@@ -7,6 +7,7 @@ from datetime import datetime, timezone, timedelta, date as CalendarDate
 from food_diary import DIARY_FOODS, food_snapshot
 from lista_de_compras import montar_lista, anotar_peso_cru
 from ciclagem_de_carboidrato import ciclar_por_sessao, classe_da_sessao, onde_colocar
+from metodo_do_treinador import metodo_do_dia
 from engine import build_program_v2
 from external_food_catalog import search_external_foods, resolve_external_food
 import uuid, random
@@ -1018,23 +1019,36 @@ async def get_carb_cycle(request: Request, user=Depends(get_current_user)):
     perfil = await db.profiles.find_one({"id": target}, {"_id": 0}) or {}
     prioridades = perfil.get("priorities") or []
     na = perfil.get("nutrition_assessment")
-    if not na:
+    if not _assessment_completo(na):
         return {"ativo": False, "motivo": "Responda a avaliação de nutrição para o FORGE calcular suas metas."}
+
+    alvos = compute_macro_targets(
+        na["weight_kg"], na["height_cm"], na["age"], na["sex"],
+        na["training_days"], na["goal"], na.get("activity_level", "moderate"),
+        na.get("intensity"))
+
+    # O metodo do treinador NAO depende da ciclagem: ele e a arquitetura do dia — que
+    # refeicao serve para que, e o que muda entre um dia low e um dia high. Por isso ele e
+    # montado aqui, antes de qualquer "nao da para ciclar", e viaja junto em todos os
+    # retornos. Se ficasse la embaixo, quem ainda nao escolheu ponto fraco nunca veria o
+    # metodo — e e exatamente essa pessoa que mais precisa ver.
+    #
+    # Sem ciclagem os dois formatos usam a mesma meta diaria: o que o metodo muda nesse caso
+    # nao e quanto, e sim ONDE o carboidrato cai no dia.
+    base_carbo = float(alvos.get("carbs_g") or 0)
+    metodo = metodo_do_dia(base_carbo, base_carbo, None)
+
     if not prioridades:
-        return {"ativo": False, "prioridades": [],
+        return {"ativo": False, "prioridades": [], "metodo": metodo,
                 "motivo": "Escolha um ponto fraco no seu perfil para o carboidrato se concentrar nele."}
 
     # `build_program_v2` e a mesma funcao que o bootstrap usa; o `db` vem do request para
     # nao depender do modulo global do server.
     programa = await build_program_v2(perfil, db)
     sessoes = programa.get("sessions") or []
-    alvos = compute_macro_targets(
-        na["weight_kg"], na["height_cm"], na["age"], na["sex"],
-        na["training_days"], na["goal"], na.get("activity_level", "moderate"),
-        na.get("intensity"))
     ciclo = ciclar_por_sessao(alvos, sessoes, na.get("training_days"), prioridades)
     if not ciclo:
-        return {"ativo": False, "prioridades": list(prioridades),
+        return {"ativo": False, "prioridades": list(prioridades), "metodo": metodo,
                 "motivo": "Nenhum treino da sua semana trabalha o ponto fraco que você escolheu."}
 
     # A sessao de hoje decide a meta de hoje. Quem nao tem agenda por dia da semana — que e
@@ -1050,9 +1064,15 @@ async def get_carb_cycle(request: Request, user=Depends(get_current_user)):
     plano_salvo = await db.nutrition_plans.find_one({"profile_id": target}, {"_id": 0, "plan": 1})
     refeicoes = ((plano_salvo or {}).get("plan") or {}).get("meals") or []
     ajuste = onde_colocar(do_dia["carbs_g"] - ciclo["base"]["carbs_g"], refeicoes)
+    # Com a ciclagem ativa cada formato ganha o numero certo: o dia do ponto fraco e o high,
+    # os outros dias de treino seguem o low. `hoje` marca qual dos dois esta valendo agora —
+    # e fica sem marcar em dia de descanso, que e um formato que o treinador nao escreveu.
+    metodo = metodo_do_dia(ciclo["por_classe"]["treino"]["carbs_g"],
+                           ciclo["por_classe"]["prioritario"]["carbs_g"], hoje)
     return {"ativo": True,
             "hoje": {"classe": hoje, "sessao": (sessao_de_hoje or {}).get("label"),
                      "ajuste": ajuste, **do_dia},
+            "metodo": metodo,
             **ciclo}
 
 
