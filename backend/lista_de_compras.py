@@ -184,6 +184,7 @@ def montar_lista(plano: Dict[str, Any], dias: int = 7) -> Dict[str, Any]:
             "convertido": bool(rendimento),
             "rendimento": rendimento,
             "secao": _secao(food_id, registro["nome"]),
+            "estado": estado_de_compra(registro["nome"]) if rendimento else None,
             "compra": _quantidade_legivel(compra, food_id),
         })
 
@@ -197,3 +198,51 @@ def montar_lista(plano: Dict[str, Any], dias: int = 7) -> Dict[str, Any]:
 
     return {"secoes": secoes, "total_de_itens": len(itens), "dias": dias,
             "convertidos": sum(1 for i in itens if i["convertido"])}
+
+
+def peso_cru(food_id: str, gramas_prontas: float) -> Optional[int]:
+    """Quantos gramas crus rendem `gramas_prontas` daquele alimento.
+
+    O plano manda "250 g de arroz cozido" e a pessoa esta na cozinha com o pacote na mao,
+    sem saber quanto medir. Sao 83 g. Esse calculo acontece TODO DIA, enquanto a compra
+    acontece uma vez por semana — e por isso ele importa mais que a lista.
+
+    Devolve None para alimento que nao muda de peso: dizer "120 g de banana = 120 g de
+    banana crua" e ruido, e ruido repetido em toda linha vira poluicao.
+    """
+    rendimento = RENDIMENTO.get(food_id)
+    if not rendimento:
+        return None
+    gramas = float(gramas_prontas or 0)
+    if gramas <= 0:
+        return None
+    return round(gramas / rendimento)
+
+
+def anotar_peso_cru(plano: Dict[str, Any]) -> Dict[str, Any]:
+    """Acrescenta `raw_grams` em cada item do plano que muda de peso ao cozinhar.
+
+    Feito na hora de servir, e nao dentro do motor, de proposito: isto e informacao de
+    apresentacao. O motor continua calculando caloria e macro pelo peso pronto, que e como a
+    tabela nutricional mede — mexer nele para uma etiqueta seria trocar a base do calculo.
+    """
+    if not plano:
+        return plano
+    for refeicao in plano.get("meals") or []:
+        for item in refeicao.get("foods") or []:
+            cru = peso_cru(item.get("food_id"), item.get("grams"))
+            if cru:
+                item["raw_grams"] = cru
+    return plano
+
+
+def estado_de_compra(nome: str) -> str:
+    """"crus" ou "crua", conforme o nome do alimento.
+
+    A palavra fica colada no numero na tela, e nao no rodape: quem conhece a propria dieta
+    tem 1,75 kg de arroz na cabeca, e ver "583 g" solto parece erro do aplicativo. Rodape
+    ninguem le; a palavra ao lado do numero nao tem como ser ignorada.
+    """
+    limpo = str(nome or "").strip().lower()
+    primeira = limpo.split()[0] if limpo.split() else ""
+    return "crua" if primeira.endswith("a") else "cru"

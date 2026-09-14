@@ -32,6 +32,24 @@ function formatQty(item) {
   return `${item?.grams ?? 0}g`;
 }
 
+/*
+ * O peso que vai na panela.
+ *
+ * O plano pesa o alimento PRONTO, porque e assim que a tabela nutricional mede. Mas a pessoa
+ * esta na cozinha com o pacote na mao: "250 g de arroz cozido" nao diz quanto medir de arroz
+ * cru. Sao 83 g. Isso acontece TODO DIA, enquanto a compra acontece uma vez por semana.
+ *
+ * `raw_grams` vem do servidor. A tabela de rendimento mora la, e duplicar aqui criaria duas
+ * fontes de verdade que divergem na primeira correcao. Alimento que nao muda de peso nao
+ * recebe o campo, entao a etiqueta simplesmente nao aparece — repetir "120 g de banana =
+ * 120 g de banana crua" em toda linha seria poluicao.
+ */
+function pesoCru(item) {
+  const cru = Number(item?.raw_grams);
+  if (!Number.isFinite(cru) || cru <= 0) return null;
+  return cru >= 1000 ? `${(cru / 1000).toFixed(2).replace(".", ",")} kg crus` : `${cru} g crus`;
+}
+
 /**
  * Os tres macros da refeicao, em linha.
  *
@@ -504,7 +522,7 @@ export default function Nutrition({ API, profileId, db }) {
                     <div className="food-row-main">
                       <div className="food-row-info">
                         <b>{it.food?.name || it.food_id}</b>
-                        <span className="muted">{formatQty(it)} · {textoDoMacro(kcalDoItem(it), "kcal")}</span>
+                        <span className="muted">{formatQty(it)} · {textoDoMacro(kcalDoItem(it), "kcal")}{pesoCru(it)&&<em className="fg-peso-cru"> · {pesoCru(it)} na panela</em>}</span>
                       </div>
                     </div>
                   </div>
@@ -556,7 +574,7 @@ export default function Nutrition({ API, profileId, db }) {
                         <div className="food-row-main">
                           <div className="food-row-info">
                             <b>{it.food?.name || it.food_id}</b>
-                            <span className="muted">{formatQty(it)} · {textoDoMacro(kcalDoItem(it), "kcal")}</span>
+                            <span className="muted">{formatQty(it)} · {textoDoMacro(kcalDoItem(it), "kcal")}{pesoCru(it)&&<em className="fg-peso-cru"> · {pesoCru(it)} na panela</em>}</span>
                           </div>
                           <button className="food-sub-btn" onClick={() => abrirSwapNaOpcao(i, it.food_id)}>
                             <RefreshCw size={13} /> Trocar
@@ -709,7 +727,7 @@ export default function Nutrition({ API, profileId, db }) {
                   <div className="fg-alimento" key={j}>
                     <div>
                       <p className="fg-alimento-nome">{f.name || item.food_id}</p>
-                      <p className="fg-alimento-porcao">{formatQty(item)} · {textoDoMacro(kcalDoItem(item), "kcal")}</p>
+                      <p className="fg-alimento-porcao">{formatQty(item)} · {textoDoMacro(kcalDoItem(item), "kcal")}{pesoCru(item)&&<em className="fg-peso-cru"> · {pesoCru(item)} na panela</em>}</p>
                     </div>
                     <button
                       className="fg-substituir"
