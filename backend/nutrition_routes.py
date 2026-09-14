@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 from typing import List, Optional, Literal
 from datetime import datetime, timezone, timedelta, date as CalendarDate
 from food_diary import DIARY_FOODS, food_snapshot
+from lista_de_compras import montar_lista
 from external_food_catalog import search_external_foods, resolve_external_food
 import uuid, random
 
@@ -933,6 +934,66 @@ async def get_adherence_week(request: Request, days: int = Query(7, ge=1, le=31)
             "start": inicio, "end": fim,
             "targets": {m: alvos.get(m) for m in ("goal_calories", "protein_g", "carbs_g", "fat_g")},
             "goal": plano.get("goal") or alvos.get("goal") or objetivo}
+
+
+class ItemComprado(BaseModel):
+    food_id: str = Field(min_length=1, max_length=120)
+    comprado: bool
+    week_start: CalendarDate
+
+
+@router.get("/shopping-list")
+async def get_shopping_list(request: Request, week_start: CalendarDate = Query(...),
+                            days: int = Query(7, ge=1, le=31),
+                            user=Depends(get_current_user)):
+    """A lista de compras da semana, com os itens ja marcados.
+
+    `week_start` vem do aparelho pelo mesmo motivo da semana da dieta: o servidor roda em UTC
+    e o atleta vive em UTC-3, entao calcular a segunda-feira aqui erraria o dia no fim da
+    noite. Ela tambem e a chave do que foi marcado, e por isso a lista zera sozinha na
+    virada da semana, sem ninguem precisar limpar nada.
+    """
+    db = request.app.state.db
+    target = user["id"]
+    await exigir_capacidade(db, user, ALIMENTACAO)
+    stored = await db.nutrition_plans.find_one({"profile_id": target}, {"_id": 0, "plan": 1})
+    lista = montar_lista((stored or {}).get("plan") or {}, days)
+
+    marcados = await db.nutrition_shopping_checks.find(
+        {"profile_id": target, "week_start": str(week_start)}, {"_id": 0, "food_id": 1}
+    ).to_list(400)
+    comprados = {linha["food_id"] for linha in marcados}
+    for secao in lista["secoes"]:
+        for item in secao["itens"]:
+            item["comprado"] = item["food_id"] in comprados
+
+    lista["week_start"] = str(week_start)
+    lista["comprados"] = sum(1 for s in lista["secoes"] for i in s["itens"] if i["comprado"])
+    return lista
+
+
+@router.post("/shopping-list/check")
+async def check_shopping_item(payload: ItemComprado, request: Request,
+                              user=Depends(get_current_user)):
+    """Marca ou desmarca um item da semana.
+
+    O `_id` carrega atleta, semana e alimento: marcar duas vezes o mesmo item nao cria duas
+    linhas, e a semana seguinte comeca limpa porque a chave muda sozinha.
+    """
+    db = request.app.state.db
+    target = user["id"]
+    await exigir_capacidade(db, user, ALIMENTACAO)
+    chave = f"compra:{target}:{payload.week_start}:{payload.food_id}"
+    if payload.comprado:
+        await db.nutrition_shopping_checks.update_one(
+            {"_id": chave},
+            {"$set": {"profile_id": target, "week_start": str(payload.week_start),
+                      "food_id": payload.food_id,
+                      "created_at": datetime.now(timezone.utc).isoformat()}},
+            upsert=True)
+    else:
+        await db.nutrition_shopping_checks.delete_one({"_id": chave, "profile_id": target})
+    return {"food_id": payload.food_id, "comprado": payload.comprado}
 
 
 @router.get("/consumed-foods")
