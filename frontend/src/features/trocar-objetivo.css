@@ -1,0 +1,115 @@
+/*
+ * Trocar o objetivo alimentar, dentro da Nutrição.
+ *
+ * Mesma casca da lista de compras e do bloco de montar: borda, fundo e alvo de toque
+ * iguais, porque são todos blocos de ação dentro da mesma tela e alternar entre eles não
+ * pode parecer trocar de aplicativo.
+ */
+
+.objetivo {
+  margin: var(--e-4) 0 0;
+  border: 1px solid var(--fg-linha);
+  border-radius: var(--r-folha);
+  background: var(--fg-superficie);
+  overflow: hidden;
+}
+
+.objetivo-topo {
+  width: 100%;
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  gap: var(--e-3);
+  padding: var(--e-3) var(--e-4);
+  border: 0;
+  background: transparent;
+  color: var(--fg-texto);
+  text-align: left;
+  cursor: pointer;
+}
+
+.objetivo-topo > svg { flex: none; color: var(--fg-acao); }
+.objetivo-topo > span { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.objetivo-topo strong { font: 600 var(--t-corpo) / 1.2 var(--fg-corpo); }
+.objetivo-topo small { color: var(--fg-texto-3); font-size: var(--t-apoio); }
+.objetivo-seta { flex: none; color: var(--fg-texto-3); font-size: var(--t-apoio); }
+.objetivo-topo:focus-visible { outline: 2px solid var(--fg-acao); outline-offset: -3px; }
+
+.objetivo-corpo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-2);
+  padding: 0 var(--e-4) var(--e-4);
+}
+
+/* ── As opções ─────────────────────────────────────────────────────────────
+ * Cartão e não chip: cada objetivo tem uma explicação que a pessoa precisa ler antes de
+ * escolher, e explicação não cabe em chip.
+ */
+.objetivo-opcao,
+.objetivo-ritmo {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  min-height: var(--fg-toque);
+  padding: var(--e-3);
+  border: 1px solid var(--fg-linha);
+  border-radius: var(--r-cartao);
+  background: var(--fg-superficie-alta);
+  color: var(--fg-texto);
+  text-align: left;
+  cursor: pointer;
+}
+
+.objetivo-opcao.marcada,
+.objetivo-ritmo.marcada { border-color: var(--fg-acao); }
+
+.objetivo-opcao b,
+.objetivo-ritmo-nome { font: 600 var(--t-corpo) / 1.3 var(--fg-corpo); }
+
+.objetivo-opcao small,
+.objetivo-ritmo small {
+  color: var(--fg-texto-3);
+  font: 400 var(--t-apoio) / 1.45 var(--fg-corpo);
+}
+
+.objetivo-ritmos { display: flex; flex-direction: column; gap: var(--e-2); margin-top: var(--e-2); }
+
+.objetivo-ritmo-nome { display: flex; align-items: center; gap: var(--e-2); flex-wrap: wrap; }
+
+.objetivo-tag {
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--fg-ok-fundo);
+  color: var(--fg-ok);
+  font: 700 10px / 1.4 var(--fg-mono);
+  font-style: normal;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.objetivo-tag.avancado { background: var(--fg-atencao-fundo); color: var(--fg-atencao); }
+
+/* O aviso do protocolo extremo é o que separa escolha informada de surpresa. */
+.objetivo-aviso {
+  margin-top: var(--e-2);
+  padding: var(--e-2);
+  border-left: 3px solid var(--fg-atencao);
+  border-radius: var(--r-campo);
+  background: var(--fg-atencao-fundo);
+  color: var(--fg-texto-2);
+  font: 400 var(--t-apoio) / 1.45 var(--fg-corpo);
+}
+
+.objetivo-resultado {
+  padding: var(--e-3);
+  border-left: 3px solid var(--fg-ok);
+  border-radius: var(--r-campo);
+  background: var(--fg-ok-fundo);
+}
+
+.objetivo-resultado p { margin: 0; color: var(--fg-texto-2); font: 400 var(--t-apoio) / 1.5 var(--fg-corpo); }
+.objetivo-resultado b { color: var(--fg-texto); font-variant-numeric: tabular-nums; }
+.objetivo-resultado small { display: block; margin-top: var(--e-2); color: var(--fg-texto-3); font-size: var(--t-apoio); line-height: 1.45; }

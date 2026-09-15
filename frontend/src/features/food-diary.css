@@ -1,16 +1,179 @@
-.nutrition-page .food-diary-editor{background:#101111;border:1px solid #786047;border-radius:14px;padding:20px;margin:18px 0;min-width:0}
-.nutrition-page .food-diary-editor p{font-size:14px;line-height:1.5;color:#bdbbb6;margin:12px 0}
-.nutrition-page .food-diary-editor label{display:flex;flex-direction:column;gap:7px;font-size:13px}
-.nutrition-page .food-diary-editor input{width:100%;min-width:0;min-height:44px;background:#080909;border:1px solid #444;color:#eee;border-radius:8px;padding:10px;box-sizing:border-box;font-size:16px}
-.nutrition-page .food-diary-results{max-height:230px;overflow-y:auto;margin:12px 0;border-bottom:1px solid #333}
-.nutrition-page .food-diary-results button{display:block;text-align:left;width:100%;padding:12px;background:transparent;color:#eee;border:0;border-bottom:1px solid #282828;min-height:44px}
-.nutrition-page .food-diary-results small,.nutrition-page .food-diary-item small{display:block;color:#aaa;margin-top:5px}
-.nutrition-page .food-diary-item{display:grid;grid-template-columns:minmax(0,1fr) 90px;gap:10px;border-bottom:1px solid #333;padding:12px 0}
-.nutrition-page .food-diary-item button{grid-column:1/-1;background:transparent;color:#e2b785;border:1px solid #514434;min-height:44px;border-radius:8px}
-.nutrition-page .food-diary-actual{border-left:2px solid #e2b785;padding:10px 12px;margin:12px 0;grid-column:1/-1;font-size:14px}
-.nutrition-page .food-diary-actual p{margin:6px 0;color:#bbb}
-.nutrition-page .food-diary-trigger{grid-column:1/-1;margin:10px 0;min-height:44px}
-.nutrition-page .food-diary-editor button:focus-visible{outline:2px solid #e2b785;outline-offset:2px}
+/*
+ * Registrar o que a pessoa comeu.
+ *
+ * Duas coisas estavam erradas aqui, e a segunda escondia a primeira.
+ *
+ * 1. Todas as regras eram escopadas em `.nutrition-page`. O editor aberto pelo
+ *    "+ Adicionar" do topo da Nutrição renderiza direto sob a casca do app, fora desse
+ *    ancestral — e saía SEM ESTILO NENHUM: texto corrido, rótulo por cima do campo,
+ *    resultados grudados um no outro. Estilo de componente não pode depender de onde ele
+ *    foi pendurado; agora a folha se basta.
+ *
+ * 2. A paleta era a antiga do FORGE, de antes da repaginação da Nutrição. Por isso o
+ *    "Salvar consumo" saía marrom no meio de uma tela laranja.
+ */
+
+.food-diary-editor {
+  margin: var(--e-4) 0;
+  padding: var(--e-4);
+  border: 1px solid var(--fg-linha);
+  border-radius: var(--r-folha);
+  background: var(--fg-superficie);
+  min-width: 0;
+}
+
+.food-diary-editor h3 {
+  margin: 0;
+  font-family: var(--fg-display);
+  font-size: var(--t-cartao);
+  font-weight: 700;
+  color: var(--fg-texto);
+}
+
+.food-diary-editor p {
+  margin: var(--e-2) 0 0;
+  color: var(--fg-texto-3);
+  font: 400 var(--t-apoio) / 1.5 var(--fg-corpo);
+}
+
+.food-diary-editor label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-1);
+  margin-top: var(--e-3);
+  font: 500 var(--t-etiqueta) / 1.3 var(--fg-mono);
+  letter-spacing: var(--ls-etiqueta);
+  text-transform: uppercase;
+  color: var(--fg-texto-3);
+}
+
+.food-diary-editor input {
+  width: 100%;
+  min-width: 0;
+  min-height: var(--fg-toque);
+  padding: 0 var(--e-3);
+  border: 1px solid var(--fg-linha-forte);
+  border-radius: var(--r-campo);
+  background: var(--fg-superficie-alta);
+  color: var(--fg-texto);
+  box-sizing: border-box;
+  font-family: var(--fg-corpo);
+  /* 16px mínimos: abaixo disso o iOS dá zoom sozinho ao focar e a tela salta. */
+  font-size: max(16px, var(--t-corpo));
+}
+
+.food-diary-editor input:focus-visible {
+  outline: 2px solid var(--fg-acao);
+  outline-offset: -1px;
+}
+
+/* ── Resultados da busca ───────────────────────────────────────────────────
+ * Um por linha, com separador. Antes saíam em texto corrido — "Banana prata98 kcal / 100
+ * gBanana nanica92 kcal" — porque nenhuma regra alcançava eles.
+ */
+.food-diary-results {
+  max-height: 260px;
+  overflow-y: auto;
+  margin-top: var(--e-3);
+  border-top: 1px solid var(--fg-linha);
+}
+
+.food-diary-results button {
+  display: block;
+  width: 100%;
+  min-height: var(--fg-toque);
+  padding: var(--e-3) 0;
+  border: 0;
+  border-bottom: 1px solid var(--fg-linha);
+  background: transparent;
+  color: var(--fg-texto);
+  font: 500 var(--t-corpo) / 1.3 var(--fg-corpo);
+  text-align: left;
+  cursor: pointer;
+}
+
+.food-diary-results button:last-child { border-bottom: 0; }
+
+.food-diary-results small,
+.food-diary-item small {
+  display: block;
+  margin-top: 3px;
+  font: 500 var(--t-dado) / 1.3 var(--fg-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-texto-3);
+}
+
+.food-diary-results p,
+.food-diary-editor > p[role="status"] {
+  margin: var(--e-3) 0;
+}
+
+/* ── O que já foi adicionado ───────────────────────────────────────────────── */
+
+.food-diary-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 96px;
+  align-items: center;
+  gap: var(--e-3);
+  padding: var(--e-3) 0;
+  border-bottom: 1px solid var(--fg-linha);
+}
+
+.food-diary-item strong {
+  font: 600 var(--t-corpo) / 1.3 var(--fg-corpo);
+  color: var(--fg-texto);
+}
+
+.food-diary-item label { margin-top: 0; }
+
+.food-diary-item input { text-align: right; font-family: var(--fg-mono); }
+
+.food-diary-item button {
+  grid-column: 1 / -1;
+  min-height: var(--fg-toque);
+  border: 1px solid var(--fg-linha-forte);
+  border-radius: var(--r-pilula);
+  background: transparent;
+  color: var(--fg-texto-2);
+  font: 600 var(--t-apoio) / 1 var(--fg-corpo);
+  cursor: pointer;
+}
+
+.food-diary-actual {
+  margin: var(--e-3) 0;
+  padding: var(--e-3);
+  border-left: 3px solid var(--fg-metal);
+  border-radius: var(--r-campo);
+  background: var(--fg-superficie-alta);
+  font-size: var(--t-apoio);
+}
+
+.food-diary-actual strong { color: var(--fg-texto); }
+.food-diary-actual p { margin: var(--e-1) 0 0; color: var(--fg-texto-3); line-height: 1.5; }
+
+.food-diary-trigger { margin: var(--e-2) 0; min-height: var(--fg-toque); }
+
+.food-diary-editor button:focus-visible {
+  outline: 2px solid var(--fg-acao);
+  outline-offset: 2px;
+}
+
+/* O total do que está sendo registrado: é o número que a pessoa confere antes de salvar. */
+.food-diary-total {
+  margin-top: var(--e-3);
+  padding-top: var(--e-3);
+  border-top: 1px solid var(--fg-linha);
+  font: 500 var(--t-dado) / 1.4 var(--fg-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-texto-2);
+}
+
+.food-diary-acoes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-2);
+  margin-top: var(--e-4);
+}
 
 /* Only the food editor changes the Astra shell while the mobile keyboard is open. */
 @media(max-width:800px){
@@ -20,5 +183,9 @@
  .forge-shell[data-food-keyboard="open"] .food-diary-results{max-height:min(230px,35dvh);overflow-y:auto}
 }
 
-/* Resultado aproximado e palpite, nao acerto: a linha avisa antes de a pessoa registrar. */
-.food-diary-aproximado{margin:2px 0 8px;color:#e0c994;font-size:12px;line-height:1.4}
+/* Resultado aproximado é palpite, não acerto: a linha avisa antes de a pessoa registrar. */
+.food-diary-aproximado {
+  margin: var(--e-2) 0;
+  color: var(--fg-atencao);
+  font: 400 var(--t-apoio) / 1.45 var(--fg-corpo);
+}

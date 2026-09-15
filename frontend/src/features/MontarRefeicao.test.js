@@ -500,3 +500,68 @@ test("combina e do metodo podem aparecer juntos sem um apagar o outro",async()=>
   expect(linha.querySelector(".montar-combina")).not.toBeNull();
   expect(linha.querySelector(".fg-selo-metodo")).not.toBeNull();
 });
+
+// ─── As barras de macro ───────────────────────────────────────────────────────────────
+
+const comAlvos = (tem, alvos) => {
+  const base = compor(["chicken-breast","rice-white"], 500, []);
+  base.data.alvos = alvos;
+  base.data.totais = {kcal: 500, ...tem};
+  base.data.dia = {alvo:2000, ja_escolhido:500, restante:1500, tolerancia:100,
+                   refeicoes_faltando:3, fechado:false, dentro_da_tolerancia:false};
+  return base;
+};
+
+test("as tres barras mostram o que ja tem e o que a refeicao precisa",async()=>{
+  axios.get.mockResolvedValue(comSugestao());
+  axios.post.mockResolvedValue(comAlvos({protein_g:28,carbs_g:40,fat_g:9},
+                                        {protein_g:40,carbs_g:62,fat_g:15}));
+  await montar();
+  const macros=host.querySelector('[data-testid="montar-macros"]').textContent;
+  expect(macros).toContain("28");
+  expect(macros).toContain("40 g");
+  expect(macros).toContain("62 g");
+  expect(macros).toContain("15 g");
+});
+
+// O carboidrato nao tem meta gravada: e o macro residual, derivado no servidor.
+test("as barras enchem na proporcao do que falta",async()=>{
+  axios.get.mockResolvedValue(comSugestao());
+  axios.post.mockResolvedValue(comAlvos({protein_g:20,carbs_g:62,fat_g:0},
+                                        {protein_g:40,carbs_g:62,fat_g:15}));
+  await montar();
+  const barras=[...host.querySelectorAll(".montar-macro-barra > b")].map(b=>b.style.width);
+  expect(barras[0]).toBe("50%");
+  expect(barras[1]).toBe("100%");
+  expect(barras[2]).toBe("0%");
+});
+
+test("passar do macro nao estoura a barra alem de cheia",async()=>{
+  axios.get.mockResolvedValue(comSugestao());
+  axios.post.mockResolvedValue(comAlvos({protein_g:80,carbs_g:62,fat_g:15},
+                                        {protein_g:40,carbs_g:62,fat_g:15}));
+  await montar();
+  expect(host.querySelector(".montar-macro-barra > b").style.width).toBe("100%");
+});
+
+// ─── A busca nao pode dizer que nao existe quando existe ──────────────────────────────
+
+test("alimento barrado pelo protocolo explica o motivo em vez de dizer que nao existe",async()=>{
+  axios.get.mockResolvedValue(slots());
+  axios.post.mockResolvedValue(compor([],0,["Proteína","Carboidrato"]));
+  await montar();
+  axios.get.mockResolvedValue({data:{foods:[],
+    motivo:"Encontrei Farinha de arroz, mas fora do seu protocolo atual."}});
+  await digitar("farinha arroz");
+  expect(texto()).toContain("fora do seu protocolo atual");
+  expect(texto()).not.toContain("Nenhum alimento com esse nome");
+});
+
+test("texto que realmente nao existe continua dizendo que nao existe",async()=>{
+  axios.get.mockResolvedValue(slots());
+  axios.post.mockResolvedValue(compor([],0,["Proteína","Carboidrato"]));
+  await montar();
+  axios.get.mockResolvedValue({data:{foods:[],motivo:null}});
+  await digitar("xyzabc");
+  expect(texto()).toContain("Nenhum alimento com esse nome");
+});

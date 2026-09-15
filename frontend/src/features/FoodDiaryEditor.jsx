@@ -99,8 +99,13 @@ export default function FoodDiaryEditor({API,mealIndex,mealName,onSaved,onClose}
     <label>Buscar alimento<input enterKeyHint="search" value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();e.currentTarget.blur();}}} placeholder="Feijão, costela, alface…" disabled={busy}/></label>
     {loading?<p role="status">Carregando catálogo…</p>:<div className="food-diary-results">{results.map(f=><button key={f.id} type="button" disabled={busy||items.length>=40} onClick={()=>setItems(v=>[...v,{...f,amount:100}])}>{f.name}<small>{f.kcal} kcal / {f.grams||100} g</small></button>)}{aproximado&&<p className="food-diary-aproximado" role="status" data-testid="food-search-aproximado">Nada exato para “{query.trim()}”. Estes são os mais parecidos — confira o nome antes de registrar.</p>}{searching&&<p role="status">Buscando mais alimentos…</p>}{!results.length&&!searching&&<p>Alimento não encontrado. Confira a grafia, tente informar a marca ou busque os ingredientes separadamente.</p>}</div>}
     {items.map((f,i)=><div className="food-diary-item" key={`${f.id}-${i}`}><div><strong>{f.name}</strong><small>{f.source||"Catálogo FORGE"}</small></div><label>Gramas<input aria-label={`Gramas de ${f.name} ${i+1}`} type="number" min="1" max="5000" step="any" value={f.amount} disabled={busy} onChange={e=>setItems(v=>v.map((x,j)=>i===j?{...x,amount:e.target.value}:x))}/></label><button type="button" disabled={busy} onClick={()=>setItems(v=>v.filter((_,j)=>j!==i))}>Remover</button></div>)}
-    <p aria-live="polite">{Math.round(totals.kcal)} kcal · P {Math.round(totals.protein_g)} g · C {Math.round(totals.carbs_g)} g · G {Math.round(totals.fat_g)} g</p>
-    {error&&<p role="alert">{error}</p>}
-    <div className="action-row"><button type="button" className="primary-button" onClick={save} disabled={busy||!items.length||items.some(f=>!Number.isFinite(Number(f.amount))||Number(f.amount)<=0||Number(f.amount)>5000)}>{busy?"Salvando…":"Salvar consumo"}</button><button type="button" className="secondary-button" disabled={busy} onClick={onClose}>Cancelar</button></div>
+    <p className="food-diary-total" aria-live="polite">{Math.round(totals.kcal)} kcal · P {Math.round(totals.protein_g)} g · C {Math.round(totals.carbs_g)} g · G {Math.round(totals.fat_g)} g</p>
+    {error&&<p className="fg-erro" role="alert">{error}</p>}
+    {/* Tema novo: os botoes eram `primary-button` e `secondary-button` da paleta antiga, e
+        o "Salvar consumo" saia marrom no meio de uma tela laranja. */}
+    <div className="food-diary-acoes">
+      <button type="button" className="fg-btn fg-btn-cheio" onClick={save} disabled={busy||!items.length||items.some(f=>!Number.isFinite(Number(f.amount))||Number(f.amount)<=0||Number(f.amount)>5000)}>{busy?"Salvando…":"Salvar consumo"}</button>
+      <button type="button" className="fg-btn fg-btn-2" disabled={busy} onClick={onClose}>Cancelar</button>
+    </div>
   </section>;
 }

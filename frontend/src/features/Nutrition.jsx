@@ -4,8 +4,9 @@ import { ChevronRight, RefreshCw, Check, X, Utensils, ClipboardPaste } from "luc
 import NutritionDailyFooter from "./NutritionDailyFooter";
 import ListaDeCompras from "./ListaDeCompras";
 import CarboidratoDoDia from "./CarboidratoDoDia";
-import MetodoDoTreinador from "./MetodoDoTreinador";
 import MontarRefeicao from "./MontarRefeicao";
+import TrocarObjetivo from "./TrocarObjetivo";
+import AcrescentarRefeicao from "./AcrescentarRefeicao";
 import NutritionImport from "./NutritionImport";
 import FoodDiaryEditor from "./FoodDiaryEditor";
 import {localFoodDate, consumedTotals} from "./foodDiary";
@@ -900,8 +901,21 @@ export default function Nutrition({ API, profileId, db }) {
       </div>
 
       <NutritionDailyFooter API={API} compact consumed={consumed} goalCalories={t?.goal_calories||t?.kcal||0}/>
+      {/* Acrescentar um pre-treino antes do cafe da manha exigia refazer o questionario
+          inteiro, o que jogava fora o cardapio. */}
+      <AcrescentarRefeicao API={API} refeicoes={plan?.meals||[]}
+                           onAcrescentada={res=>{setPlan(res.plan);refreshDiary()}}/>
       <CarboidratoDoDia ciclo={cicloCarbo} alvoDoPlano={tPlano}/>
-      <MetodoDoTreinador metodo={cicloCarbo?.metodo}/>
+      {/* Trocar de emagrecimento para ganho exigia refazer o questionario inteiro, para
+          mudar dois campos. E objetivo e o que mais muda ao longo do ano. */}
+      <TrocarObjetivo API={API} objetivoAtual={form.goal} intensidadeAtual={form.intensity}
+                      onTrocado={res=>{
+                        // A rota ja devolve os alvos novos: aplicar direto evita uma
+                        // segunda busca e o intervalo em que a tela mostraria a meta velha.
+                        setTargets(res.targets);
+                        setPlan(p=>p?{...p,targets:res.targets}:p);
+                        setForm(f=>({...f,goal:res.goal,intensity:res.intensity||""}));
+                      }}/>
       {/*
         * Montar o plano refeicao por refeicao estava atras de duas portas: dentro de
         * "Gerenciar plano alimentar", que nasce fechado, e com o rotulo "Refazer plano",
