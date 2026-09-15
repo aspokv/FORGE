@@ -314,7 +314,6 @@ export default function WorkoutLibrary({ API, exercises = [], onBuild, onTemplat
 
         {activeProgram && visiblePrograms.some(item => item.id === activeProgram.id) && activePhase && <aside className="library-preview program-preview" data-testid="program-preview">
           <div className="library-preview-head"><div><p className="eyebrow">PROGRAMA COMPLETO</p><h3>{activeProgram.name}</h3></div><span>{activeProgram.duration_weeks?`${activeProgram.duration_weeks} semanas`:"Duração a definir"}</span></div>
-          <p className="program-preview-description">{activeProgram.description}</p>
           {activeProgram.phases.length > 1 && <div className="program-phases">
             <label>Escolha a fase</label>
             {activeProgram.phases.map(item => <button key={item.id} className={activePhase.id === item.id ? "active" : ""} onClick={() => setActivePhaseId(item.id)}>{item.label}<small>{item.weeks}</small></button>)}

@@ -383,3 +383,56 @@ class TestOQueCombinaVemPrimeiro:
     # Sem nada escolhido nao existe com o que combinar, e marcar tudo seria ruido.
     def test_sem_escolha_nada_e_marcado_como_combina(self):
         assert not any(a["combina"] for a in self._carbos([]))
+
+
+class TestOProtocoloAgressivoTambemTemEscolha:
+    """O atleta no teto de carboidrato via SEMPRE o mesmo prato.
+
+    O protocolo agressivo poe um teto de densidade (12 g de carboidrato por 100 g) que
+    reprova praticamente todo carboidrato do catalogo — sobra a beterraba. Como quase toda
+    combinacao exige um carboidrato, ele ficava com UMA opcao no almoco, uma no jantar, uma
+    no pre e uma no pos. Ele reclamou que "continua tudo igual", e estava certo.
+
+    Estes testes prendem o piso: ninguem, em nenhum protocolo, recebe uma unica opcao.
+    """
+
+    TETO = {"avoid_foods": [], "allergies": [], "dietary_restrictions": [],
+            "preferred_foods": [], "disliked_foods": [], "weight_kg": 70,
+            "_max_food_carb_g_per_100g": 12.0}
+
+    def _opcoes(self, refeicao, semente=1):
+        from nutrition_engine import get_meal_archetype_options
+        return get_meal_archetype_options(refeicao, 542, 40, 15, self.TETO, set(),
+                                          "fat_loss", None, 0, None, 5, semente)
+
+    @pytest.mark.parametrize("refeicao", REFEICOES)
+    def test_toda_refeicao_oferece_pelo_menos_duas_opcoes(self, refeicao):
+        opcoes = self._opcoes(refeicao)
+        assert len(opcoes) >= 2, f"{refeicao}: {[o['label'] for o in opcoes]}"
+
+    # "Padrao" e o template de emergencia. Ele existe para ninguem ficar sem nada, e ver ele
+    # significa que combinacao nenhuma sobreviveu — era o caso do pre e do pos-treino.
+    @pytest.mark.parametrize("refeicao", REFEICOES)
+    def test_nenhuma_refeicao_cai_no_template_de_emergencia(self, refeicao):
+        rotulos = [o["label"] for o in self._opcoes(refeicao)]
+        assert "Padrão" not in rotulos, f"{refeicao} caiu no fallback: {rotulos}"
+
+    def test_o_teto_continua_valendo_nas_opcoes_oferecidas(self):
+        """Dar mais escolha nao pode furar o protocolo: nenhum alimento denso passa."""
+        from nutrition_engine import FOOD_INDEX, food_carb_density
+        for refeicao in REFEICOES:
+            for opcao in self._opcoes(refeicao):
+                for item in opcao["meal"]["foods"]:
+                    densidade = food_carb_density(FOOD_INDEX[item["food_id"]])
+                    assert densidade <= 12.0, (
+                        f"{refeicao}/{opcao['label']}: {item['food']['name']} tem "
+                        f"{densidade:.1f} g de carbo por 100 g")
+
+    def test_mostrar_outras_opcoes_muda_de_verdade_tambem_no_teto(self):
+        vistos = set()
+        for semente in range(1, 6):
+            assinatura = tuple(sorted(
+                tuple(sorted(i["food_id"] for i in o["meal"]["foods"]))
+                for o in self._opcoes("Almoço", semente)))
+            vistos.add(assinatura)
+        assert len(vistos) >= 3, f"so {len(vistos)} resultados distintos em 5 toques"
