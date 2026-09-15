@@ -8,7 +8,8 @@ from food_diary import DIARY_FOODS, food_snapshot
 from lista_de_compras import montar_lista, anotar_peso_cru
 from ciclagem_de_carboidrato import ciclar_por_sessao, classe_da_sessao, onde_colocar
 from metodo_do_treinador import metodo_do_dia
-from montagem_por_alimento import espacos_da_refeicao, falta_escolher
+from montagem_por_alimento import (buscar_para_montagem, espacos_da_refeicao,
+                                   falta_escolher)
 from engine import build_program_v2
 from external_food_catalog import search_external_foods, resolve_external_food
 import uuid, random
@@ -100,8 +101,20 @@ class SwapFoodIn(BaseModel):
     substitute_food_id: Optional[str] = None
 
 
+class ItemManualIn(BaseModel):
+    """Alimento que o motor nao sabe dimensionar, com a grama dita pela pessoa.
+
+    Existe porque 234 dos 296 alimentos do catalogo vivem so no diario: tem macro, e nao
+    tem papel nem limite de porcao. Chutar uma porcao confortavel para eles seria o motor
+    afirmando com confianca algo que ele nao sabe.
+    """
+    food_id: str = Field(min_length=1, max_length=120)
+    grams: float = Field(gt=0, le=2000)
+
+
 class ComporRefeicaoIn(BaseModel):
     meal_index: int = Field(ge=0)
+    manuais: List[ItemManualIn] = Field(default_factory=list, max_length=8)
     # Ate 8: o marcador de coerencia do motor ja pune prato com 6 ou mais itens, entao
     # aceitar uma lista longa seria convidar a pessoa a montar algo que o proprio motor
     # considera ruim.
@@ -112,6 +125,9 @@ class ChooseMealIn(BaseModel):
     meal_index: int = Field(ge=0)
     archetype_id: str = "default"
     food_ids: List[str]
+    # Opcional e com valor padrao: todo chamador que ja existia continua funcionando sem
+    # mudar uma linha.
+    manuais: List[ItemManualIn] = Field(default_factory=list, max_length=8)
 
 
 class PreferenceIn(BaseModel):
@@ -673,6 +689,84 @@ async def draft_swap_food(payload: SwapFoodIn, request: Request, user=Depends(ge
     return {"meal_index": idx, "foods": foods, "applied": True}
 
 
+def _item_manual(fid: str, gramas: float) -> dict:
+    """Entrada de refeicao para um alimento que so existe no diario.
+
+    `build_food_item` busca em FOOD_INDEX e devolveria `food: {}` para estes — a tela
+    mostraria uma linha sem nome. Aqui o alimento vem do catalogo do diario, que e onde
+    ele vive.
+    """
+    from food_diary import DIARY_FOODS
+    alimento = DIARY_FOODS.get(fid)
+    if not alimento:
+        raise HTTPException(422, "Alimento nao encontrado no catalogo.")
+    return {"food_id": fid, "grams": round(float(gramas), 1), "food": alimento,
+            "manual": True}
+
+
+def _somar_macros(itens) -> dict:
+    """Soma o que os itens entregam de verdade, pela grama de cada um.
+
+    Serve aos dois tipos: o dimensionado pelo motor e o que a pessoa pesou. O catalogo do
+    diario contem o do motor, entao um lookup so resolve os dois.
+    """
+    from food_diary import DIARY_FOODS
+    totais = {"kcal": 0.0, "protein_g": 0.0, "carbs_g": 0.0, "fat_g": 0.0}
+    for item in itens:
+        base = DIARY_FOODS.get(item["food_id"]) or {}
+        fator = item["grams"] / max(1, base.get("grams", 100))
+        totais["kcal"] += (base.get("kcal", 0) or 0) * fator
+        totais["protein_g"] += (base.get("protein_g", 0) or 0) * fator
+        totais["carbs_g"] += (base.get("carbs_g", 0) or 0) * fator
+        totais["fat_g"] += (base.get("fat_g", 0) or 0) * fator
+    return {k: round(v, 1) for k, v in totais.items()}
+
+
+@router.get("/plan/draft/search-food")
+async def draft_search_food(request: Request, q: str = Query(min_length=2, max_length=80),
+                            user=Depends(get_current_user)):
+    """Busca livre no catalogo, para quem ja sabe o que quer comer.
+
+    `dimensionavel` diz como o alimento entra: `true` e o motor calcula a grama junto com o
+    resto da refeicao; `false` e a pessoa informa, porque o alimento nao tem papel nem
+    limite de porcao definidos e chutar isso seria inventar.
+    """
+    db = request.app.state.db
+    await exigir_capacidade(db, user, ALIMENTACAO)
+    perfil = await db.profiles.find_one({"id": user["id"]}, {"_id": 0})
+    na = (perfil or {}).get("nutrition_assessment", {})
+    draft = await db.nutrition_plan_drafts.find_one({"profile_id": user["id"]}, {"_id": 0})
+    if draft:
+        na = _com_protocolo(na, draft.get("targets"))
+    return {"foods": buscar_para_montagem(q, na)}
+
+
+async def _sugestao_do_plano_anterior(db, profile_id: str, nome_da_refeicao: str):
+    """O que a pessoa escolheu nesta mesma refeicao no plano que esta valendo hoje.
+
+    Casa pelo NOME da refeicao, e nao pelo indice: quem trocou de quatro para cinco
+    refeicoes tem os indices deslocados, e o almoco do plano velho viraria o lanche do novo.
+
+    Devolve tambem os itens manuais com a grama que a pessoa tinha informado — ela pesou
+    aquilo uma vez, e nao ha por que pedir de novo.
+    """
+    salvo = await db.nutrition_plans.find_one({"profile_id": profile_id}, {"_id": 0, "plan": 1})
+    refeicoes = ((salvo or {}).get("plan") or {}).get("meals") or []
+    anterior = next((r for r in refeicoes if r.get("name") == nome_da_refeicao), None)
+    if not anterior:
+        return None
+    automaticos, manuais = [], []
+    for item in (anterior.get("foods") or []):
+        if item.get("manual"):
+            manuais.append({"food_id": item["food_id"], "grams": item["grams"]})
+        else:
+            automaticos.append(item["food_id"])
+    if not automaticos and not manuais:
+        return None
+    return {"food_ids": automaticos, "manuais": manuais,
+            "texto": "Deixamos marcado o que você escolheu da última vez."}
+
+
 @router.get("/plan/draft/slots")
 async def draft_meal_slots(request: Request, meal_index: int = Query(0, ge=0),
                            user=Depends(get_current_user)):
@@ -695,11 +789,31 @@ async def draft_meal_slots(request: Request, meal_index: int = Query(0, ge=0),
     refeicao = draft["meals"][meal_index]
     na = _com_protocolo(na, draft.get("targets"))
     escolhidos = [i["food_id"] for i in (refeicao.get("foods") or [])]
+
+    # Sugestao do plano anterior: montar cinco refeicoes do zero toda semana cansa. Quem ja
+    # escolheu uma vez costuma repetir, e recomecar do vazio transforma uma escolha feita em
+    # trabalho refeito. So vale quando a refeicao AINDA esta vazia — nunca por cima do que a
+    # pessoa acabou de escolher.
+    sugestao = None
+    if not escolhidos:
+        sugestao = await _sugestao_do_plano_anterior(db, target, refeicao["name"])
+        if sugestao:
+            escolhidos = list(sugestao["food_ids"])
+
     espacos = espacos_da_refeicao(refeicao["name"], na, escolhidos)
+    # O que a sugestao trouxe e o motor nao reconhece em nenhum espaco nao pode ficar
+    # pendurado: seria um alimento marcado que a tela nao tem onde mostrar.
+    if sugestao:
+        nos_espacos = {e["escolhido"] for e in espacos if e.get("escolhido")}
+        sugestao["food_ids"] = [f for f in sugestao["food_ids"] if f in nos_espacos]
+        if not sugestao["food_ids"] and not sugestao["manuais"]:
+            sugestao = None
+
     return {"meal_index": meal_index, "name": refeicao["name"],
             "target_cal": refeicao["target_cal"], "target_protein": refeicao["target_protein"],
             "target_fat": refeicao.get("target_fat", 0),
-            "espacos": espacos, "falta": falta_escolher(espacos)}
+            "espacos": espacos, "falta": falta_escolher(espacos),
+            "sugestao": sugestao}
 
 
 @router.post("/plan/draft/compose")
@@ -730,27 +844,26 @@ async def draft_compose_meal(payload: ComporRefeicaoIn, request: Request,
     na = _com_protocolo(na, draft.get("targets"))
 
     espacos = espacos_da_refeicao(refeicao["name"], na, payload.food_ids)
-    if not payload.food_ids:
+    manuais = [_item_manual(m.food_id, m.grams) for m in payload.manuais]
+    if not payload.food_ids and not manuais:
         return {"meal_index": idx, "foods": [], "totais": {"kcal": 0, "protein_g": 0,
                 "carbs_g": 0, "fat_g": 0}, "alvo": refeicao["target_cal"],
                 "proporcao": 0.0, "coerencia": 0, "espacos": espacos,
                 "falta": falta_escolher(espacos)}
 
-    porcoes = calculate_meal_portions(
-        payload.food_ids, refeicao["target_cal"], refeicao["target_protein"],
-        refeicao.get("target_fat", 0), goal)
+    # A caloria que os manuais ja entregam SAI do alvo antes de dimensionar o resto: sem
+    # isso, escolher 200 g de um alimento manual e depois deixar o motor preencher daria
+    # uma refeicao muito acima da meta, porque cada lado estaria mirando o total cheio.
+    ja_entregue = _somar_macros(manuais)
+    alvo_cal = max(0.0, float(refeicao["target_cal"]) - ja_entregue["kcal"])
+    alvo_prot = max(0.0, float(refeicao["target_protein"]) - ja_entregue["protein_g"])
+    alvo_gord = max(0.0, float(refeicao.get("target_fat", 0)) - ja_entregue["fat_g"])
+
+    porcoes = calculate_meal_portions(payload.food_ids, alvo_cal, alvo_prot, alvo_gord, goal)
     alimentos = [build_food_item(fid, porcoes.get(fid, 100)) for fid in payload.food_ids]
+    alimentos += manuais
 
-    totais = {"kcal": 0.0, "protein_g": 0.0, "carbs_g": 0.0, "fat_g": 0.0}
-    for item in alimentos:
-        base = FOOD_INDEX.get(item["food_id"], {})
-        fator = item["grams"] / max(1, base.get("grams", 100))
-        totais["kcal"] += (base.get("kcal", 0) or 0) * fator
-        totais["protein_g"] += (base.get("protein_g", 0) or 0) * fator
-        totais["carbs_g"] += (base.get("carbs_g", 0) or 0) * fator
-        totais["fat_g"] += (base.get("fat_g", 0) or 0) * fator
-    totais = {k: round(v, 1) for k, v in totais.items()}
-
+    totais = _somar_macros(alimentos)
     coerencia = calculate_meal_coherence_score(
         {"foods": alimentos}, _infer_meal_type(refeicao["name"]), goal)
     alvo = float(refeicao["target_cal"] or 0)
@@ -772,17 +885,26 @@ async def draft_choose_meal(payload: ChooseMealIn, request: Request, user=Depend
     idx = payload.meal_index
     if idx >= len(draft["meals"]):
         raise HTTPException(400, "Indice de refeicao invalido")
-    if not payload.food_ids:
+    if not payload.food_ids and not payload.manuais:
         raise HTTPException(400, "Selecione ao menos um alimento")
     goal = draft.get("goal", na.get("goal", "maintenance"))
     meal_target = draft["meals"][idx]
 
     # Backend remains the source of truth for grams: the client selects WHICH foods,
     # the engine — never the client — decides HOW MUCH, exactly like /substitute.
+    #
+    # A excecao sao os itens MANUAIS, e ela e declarada: alimento que so existe no diario
+    # nao tem papel nem limite de porcao, entao quem diz a grama e a pessoa. A caloria deles
+    # sai do alvo antes de dimensionar o resto, senao os dois lados mirariam o total cheio.
+    manuais = [_item_manual(m.food_id, m.grams) for m in payload.manuais]
+    entregue = _somar_macros(manuais)
     portions = calculate_meal_portions(
-        payload.food_ids, meal_target["target_cal"], meal_target["target_protein"],
-        meal_target.get("target_fat", 0), goal)
+        payload.food_ids,
+        max(0.0, float(meal_target["target_cal"]) - entregue["kcal"]),
+        max(0.0, float(meal_target["target_protein"]) - entregue["protein_g"]),
+        max(0.0, float(meal_target.get("target_fat", 0)) - entregue["fat_g"]), goal)
     foods = [build_food_item(fid, portions.get(fid, 100)) for fid in payload.food_ids]
+    foods += manuais
     draft["meals"][idx]["foods"] = foods
     draft["meals"][idx]["archetype_id"] = payload.archetype_id
     draft["locked"][idx] = True

@@ -160,3 +160,141 @@ def falta_escolher(espacos: List[Dict[str, Any]]) -> List[str]:
     confirmar e deixar a pessoa procurando o que ela esqueceu.
     """
     return [e["rotulo"] for e in espacos if e.get("obrigatorio") and not e.get("escolhido")]
+
+
+# ── Busca livre, para quem ja sabe o que quer ───────────────────────────────────────────
+#
+# A lista por funcao resolve para a maioria. Quem treina ha anos sabe o que vai comer e nao
+# quer rolar cinco espacos para achar. Para essa pessoa existe a busca.
+#
+# Uma diferenca importante entre os dois catalogos, e ela decide como o alimento entra:
+#
+#   - os 62 alimentos do motor de plano tem papel e limite de porcao. O motor DIMENSIONA
+#     eles: a pessoa escolhe, e a grama sai da conta da refeicao;
+#   - os outros 234 existem so no diario. Tem macro, e nao tem papel nem limite. O motor
+#     nao tem como saber se aquilo e a proteina que ancora o prato ou um acompanhamento, e
+#     muito menos qual porcao e razoavel. Entao a PESSOA diz a grama.
+#
+# Nao inventamos papel nem limite para os 234. Chutar "porcao confortavel" de um alimento
+# que ninguem classificou seria o motor afirmando com confianca algo que ele nao sabe.
+
+from text_match import normalize, token_score, token_set  # noqa: E402
+
+
+def _macros_por_100(alimento: Dict[str, Any]) -> Dict[str, Any]:
+    base = max(1, alimento.get("grams", 100))
+    fator = 100.0 / base
+    return {
+        "kcal_por_100g": round((alimento.get("kcal", 0) or 0) * fator),
+        "protein_por_100g": round((alimento.get("protein_g", 0) or 0) * fator, 1),
+        "carb_por_100g": round((alimento.get("carbs_g", 0) or 0) * fator, 1),
+        "fat_por_100g": round((alimento.get("fat_g", 0) or 0) * fator, 1),
+    }
+
+
+def _distancia(a: str, b: str, teto: int) -> int:
+    """Damerau-Levenshtein com corte: troca de letras VIZINHAS custa 1, e nao 2.
+
+    A diferenca importa para o caso real: "abulmina" e "albumina" diferem por uma
+    transposicao. Em Levenshtein puro isso custa 2 e cai fora do teto; aqui custa 1 e a
+    busca acha. O corte existe para nao gastar tempo comparando palavras obviamente
+    diferentes num catalogo de quase trezentos itens.
+    """
+    if abs(len(a) - len(b)) > teto:
+        return teto + 1
+    anterior_anterior: List[int] = []
+    anterior = list(range(len(b) + 1))
+    for i, ca in enumerate(a, 1):
+        atual = [i] + [0] * len(b)
+        for j, cb in enumerate(b, 1):
+            atual[j] = min(anterior[j] + 1, atual[j - 1] + 1,
+                           anterior[j - 1] + (ca != cb))
+            if (i > 1 and j > 1 and ca == b[j - 2] and a[i - 2] == cb):
+                atual[j] = min(atual[j], anterior_anterior[j - 2] + 1)
+        if min(atual) > teto:
+            return teto + 1
+        anterior_anterior, anterior = anterior, atual
+    return anterior[-1]
+
+
+def _casa_palavra(palavra: str, palavras_do_texto: List[str]) -> bool:
+    """Uma palavra digitada casa alguma palavra do texto, a menos de um ou dois erros.
+
+    Palavra a palavra, e nao a frase inteira: "abulmina" contra "Albumina (clara de ovo
+    desidratada)" daria uma distancia enorme comparando as frases completas.
+    """
+    if len(palavra) < 4:
+        # Palavra curta demais: um erro de digitacao nela e metade da palavra, e a busca
+        # comecaria a casar qualquer coisa. Prefixo ainda vale.
+        return any(p.startswith(palavra) for p in palavras_do_texto)
+    teto = 1 if len(palavra) <= 5 else 2
+    return any(_distancia(palavra, p, teto) <= teto
+               for p in palavras_do_texto if abs(len(p) - len(palavra)) <= teto)
+
+
+def _quase_igual(termo: str, texto: str) -> bool:
+    """TODAS as palavras digitadas casam alguma palavra do texto.
+
+    Todas, e nao alguma: "batata doce" tem de achar batata doce, e nao trazer junto toda
+    batata do catalogo so porque a primeira palavra bateu.
+    """
+    palavras = termo.split()
+    if not palavras:
+        return False
+    do_texto = texto.split()
+    return all(_casa_palavra(p, do_texto) for p in palavras)
+
+
+def buscar_para_montagem(consulta: str, perfil: Dict[str, Any],
+                         limite: int = 20) -> List[Dict[str, Any]]:
+    """Alimentos dos dois catalogos que casam com o texto digitado.
+
+    Tolera erro de digitacao de verdade, e nao so por palavra inteira: "abulmina" acha
+    albumina. Quem digita de pe na cozinha troca letra de lugar, e esse caso exato foi o que
+    o atleta reclamou quando a busca do diario nao achava a albumina dele.
+
+    A restricao alimentar vale aqui tambem: nao adianta esconder o leite da lista por funcao
+    e entregar ele na busca.
+    """
+    from food_diary import DIARY_FOODS
+
+    termo = normalize(consulta or "")
+    if len(termo) < 2:
+        return []
+    alvo = token_set(consulta)
+    do_metodo = _ids_do_metodo()
+
+    achados = []
+    for fid, alimento in DIARY_FOODS.items():
+        nome = alimento.get("name") or fid
+        texto = " ".join([nome] + list(alimento.get("aliases") or []))
+        normalizado = normalize(texto)
+        if termo in normalizado:
+            pontos = 2.0
+        elif _quase_igual(termo, normalizado):
+            pontos = 1.0
+        else:
+            pontos = token_score(token_set(texto), alvo)
+            if pontos < 0.5:
+                continue
+
+        dimensionavel = fid in FOOD_INDEX
+        if dimensionavel and not _food_compatible(FOOD_INDEX[fid], perfil, set()):
+            continue
+        # O alimento so do diario nao passa pelo filtro do motor porque nao tem categoria
+        # nem id conhecido pelas listas de alergia. O que da para checar, checa-se.
+        if not dimensionavel and fid in set(perfil.get("avoid_foods") or []):
+            continue
+
+        achados.append({
+            "food_id": fid, "name": nome,
+            "dimensionavel": dimensionavel,
+            "metodo": fid in do_metodo,
+            "_pontos": pontos,
+            **_macros_por_100(alimento),
+        })
+
+    achados.sort(key=lambda a: (-a["_pontos"], not a["dimensionavel"], a["name"]))
+    for a in achados:
+        a.pop("_pontos", None)
+    return achados[:limite]

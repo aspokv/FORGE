@@ -52,6 +52,12 @@
  * pessoa precisa de um sinal diferente para saber que pode confirmar. */
 .montar-barra > b.cheia { background: var(--fg-ok); }
 
+/* Acima da meta tem cor propria. Verde de "pronto" num prato que passou 110 kcal seria a
+ * tela mentindo com confiança. */
+.montar-barra > b.passou { background: var(--fg-atencao); }
+
+.montar-passou b { color: var(--fg-metal); }
+
 .montar-falta {
   margin: var(--e-2) 0 0;
   font: 400 var(--t-apoio) / 1.45 var(--fg-corpo);
@@ -107,7 +113,18 @@
   white-space: nowrap;
 }
 
+/* O nome cede largura, a grama nunca: o número é o dado da linha. */
+.montar-espaco-valor {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.montar-espaco-alimento { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 .montar-espaco-valor i {
+  flex: none;
   font-style: normal;
   font-family: var(--fg-mono);
   font-variant-numeric: tabular-nums;
@@ -162,4 +179,152 @@
 @media (max-width: 380px) {
   .montar-opcao { flex-wrap: wrap; }
   .montar-opcao-dado { width: 100%; }
+}
+
+/* ── A sugestão da última vez ──────────────────────────────────────────────
+ * Aparece como aviso, e não em silêncio. Ver a refeição já preenchida sem explicação
+ * faria a pessoa achar que o aplicativo escolheu por ela.
+ */
+.montar-sugestao {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--e-2);
+  margin: 0 0 var(--e-2);
+  padding: var(--e-3);
+  border-left: 3px solid var(--fg-ok);
+  border-radius: var(--r-campo);
+  background: var(--fg-ok-fundo);
+  color: var(--fg-texto-2);
+  font: 400 var(--t-apoio) / 1.45 var(--fg-corpo);
+}
+
+.montar-sugestao > button {
+  margin-left: auto;
+  min-height: 36px;
+  padding: 0 var(--e-3);
+  border: 1px solid var(--fg-linha-forte);
+  border-radius: var(--r-pilula);
+  background: transparent;
+  color: var(--fg-texto);
+  font: 600 var(--t-apoio) / 1 var(--fg-corpo);
+  cursor: pointer;
+}
+
+/* ── Adicionados pela busca ────────────────────────────────────────────────
+ * Ficam fora dos espaços porque não pertencem a nenhum: vieram de uma escolha direta.
+ * Dar a eles um espaço falso seria mentir sobre a função deles no prato.
+ */
+.montar-avulsos { margin-top: var(--e-4); }
+.montar-avulsos > .fg-etiqueta { margin-bottom: var(--e-2); }
+
+.montar-avulso {
+  display: flex;
+  align-items: center;
+  gap: var(--e-3);
+  min-height: var(--fg-toque);
+  padding: var(--e-2) 0;
+  border-top: 1px solid var(--fg-linha);
+}
+
+.montar-avulso:first-of-type { border-top: 0; }
+
+.montar-avulso-nome {
+  flex: 1;
+  min-width: 0;
+  font: 500 var(--t-corpo) / 1.3 var(--fg-corpo);
+  color: var(--fg-texto);
+}
+
+/* O campo de grama existe só para o que o motor não dimensiona. Editável em tudo daria a
+ * entender que a pessoa pode sobrescrever a conta da refeição, e não pode. */
+.montar-avulso-grama { display: flex; align-items: center; gap: 4px; flex: none; }
+
+.montar-avulso-grama input {
+  width: 74px;
+  min-height: var(--fg-toque);
+  padding: 0 var(--e-2);
+  border: 1px solid var(--fg-linha-forte);
+  border-radius: var(--r-campo);
+  background: var(--fg-superficie-alta);
+  color: var(--fg-texto);
+  font-family: var(--fg-mono);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  /* 16px mínimos: abaixo disso o iOS dá zoom sozinho ao focar e a tela salta. */
+  font-size: max(16px, var(--t-corpo));
+}
+
+.montar-avulso-grama > span { color: var(--fg-texto-3); font: 500 var(--t-apoio) / 1 var(--fg-mono); }
+
+.montar-avulso-calculado {
+  flex: none;
+  font: 500 var(--t-dado) / 1 var(--fg-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-metal);
+}
+
+.montar-avulso-tirar {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--fg-toque);
+  height: var(--fg-toque);
+  border: 0;
+  background: transparent;
+  color: var(--fg-texto-3);
+  cursor: pointer;
+}
+
+.montar-avulso-tirar:hover { color: var(--fg-texto); }
+
+/* ── A busca ───────────────────────────────────────────────────────────────
+ * No fim da tela de propósito: a lista por função resolve para a maioria, e um campo de
+ * busca no topo convidaria todo mundo a montar um prato de qualquer jeito.
+ */
+.montar-busca { margin-top: var(--e-5); }
+
+.montar-busca-campo {
+  display: flex;
+  align-items: center;
+  gap: var(--e-2);
+  min-height: var(--fg-toque);
+  padding: 0 var(--e-3);
+  border: 1px solid var(--fg-linha);
+  border-radius: var(--r-pilula);
+  background: var(--fg-superficie);
+}
+
+.montar-busca-campo > svg { flex: none; color: var(--fg-texto-3); }
+
+.montar-busca-campo input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--fg-texto);
+  font: 500 var(--t-corpo) / 1 var(--fg-corpo);
+  font-size: max(16px, var(--t-corpo));
+}
+
+.montar-busca-campo input:focus { outline: none; }
+.montar-busca-campo:focus-within { border-color: var(--fg-acao); }
+
+.montar-busca .montar-opcoes { margin-top: var(--e-2); }
+
+/* "Você pesa" é aviso, e não selo de qualidade: cinza, não laranja. */
+.montar-pesar {
+  margin-left: 7px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--fg-superficie-alta);
+  border: 1px solid var(--fg-linha-forte);
+  color: var(--fg-texto-3);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  white-space: nowrap;
 }

@@ -153,3 +153,75 @@ class TestOCartaoDoAlimento:
             for espaco in espacos_da_refeicao(refeicao, SEM_RESTRICAO):
                 for alimento in espaco["alimentos"]:
                     assert alimento["food_id"] in FOOD_INDEX, alimento["food_id"]
+
+
+class TestABuscaLivre:
+    """Para quem ja sabe o que vai comer e nao quer rolar cinco espacos.
+
+    O que estes testes defendem: a busca acha o que a pessoa DIGITOU, e nao o que ela
+    deveria ter digitado. Erro de digitacao na cozinha e a regra, nao a excecao — foi
+    exatamente isso que o atleta reclamou quando "abulmina" nao achava a albumina dele.
+    """
+
+    def _buscar(self, q, perfil=None, limite=20):
+        from montagem_por_alimento import buscar_para_montagem
+        return buscar_para_montagem(q, perfil or SEM_RESTRICAO, limite)
+
+    def test_acha_pelo_nome_exato(self):
+        nomes = [a["name"] for a in self._buscar("arroz")]
+        assert any("Arroz" in n for n in nomes), nomes
+
+    # O caso real: letras trocadas de lugar.
+    @pytest.mark.parametrize("digitado", ["abulmina", "abumina", "albumia"])
+    def test_acha_albumina_mesmo_com_erro_de_digitacao(self, digitado):
+        nomes = [a["name"].lower() for a in self._buscar(digitado)]
+        assert any("albumina" in n for n in nomes), f"{digitado} -> {nomes}"
+
+    def test_acha_com_duas_palavras_e_erro_numa_delas(self):
+        nomes = [a["name"].lower() for a in self._buscar("batatta doce")]
+        assert any("batata" in n and "doce" in n for n in nomes), nomes
+
+    # "batata doce" nao pode trazer toda batata do catalogo so porque a primeira palavra
+    # bateu: quem digita duas palavras esta estreitando a busca, e nao alargando.
+    def test_as_duas_palavras_precisam_casar(self):
+        nomes = [a["name"].lower() for a in self._buscar("batata doce")]
+        assert nomes and all("doce" in n for n in nomes), nomes
+
+    def test_texto_sem_sentido_nao_devolve_nada(self):
+        assert self._buscar("xyzabc") == []
+
+    def test_uma_letra_nao_devolve_nada(self):
+        assert self._buscar("a") == []
+
+    def test_diz_quais_o_motor_sabe_dimensionar(self):
+        from nutrition_engine import FOOD_INDEX
+        for achado in self._buscar("arroz"):
+            assert achado["dimensionavel"] == (achado["food_id"] in FOOD_INDEX)
+
+    # O alimento que o motor dimensiona vem primeiro: ele entra na refeicao sem a pessoa ter
+    # de pesar nada, entao e o caminho mais curto quando existe.
+    def test_o_que_o_motor_dimensiona_vem_antes(self):
+        achados = self._buscar("whey")
+        dimensionaveis = [a["dimensionavel"] for a in achados]
+        assert True in dimensionaveis
+        primeiro_manual = dimensionaveis.index(False) if False in dimensionaveis else len(dimensionaveis)
+        assert all(dimensionaveis[:primeiro_manual]), achados
+
+    # Nao adianta esconder o leite na lista por funcao e entregar ele na busca.
+    def test_a_restricao_vale_na_busca_tambem(self):
+        perfil = {**SEM_RESTRICAO, "dietary_restrictions": ["vegetarian"]}
+        ids = {a["food_id"] for a in self._buscar("frango", perfil)}
+        assert "chicken-breast" not in ids
+
+    def test_alimento_evitado_nao_aparece_na_busca(self):
+        perfil = {**SEM_RESTRICAO, "avoid_foods": ["rice-white"]}
+        ids = {a["food_id"] for a in self._buscar("arroz", perfil)}
+        assert "rice-white" not in ids
+
+    def test_todo_achado_traz_o_macro_por_100g(self):
+        for achado in self._buscar("frango"):
+            for campo in ("kcal_por_100g", "protein_por_100g", "carb_por_100g", "fat_por_100g"):
+                assert campo in achado, achado["name"]
+
+    def test_o_limite_e_respeitado(self):
+        assert len(self._buscar("a" * 2 + "rroz", limite=2)) <= 2

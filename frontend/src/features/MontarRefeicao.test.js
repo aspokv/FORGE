@@ -105,7 +105,7 @@ test("escolher um alimento pede a previa ao servidor com o que foi escolhido",as
   axios.post.mockResolvedValue(compor(["chicken-breast"],420,["Carboidrato"]));
   await tocar('[data-testid="opcao-chicken-breast"]');
   expect(axios.post).toHaveBeenLastCalledWith("/api/nutrition/plan/draft/compose",
-    {meal_index:1,food_ids:["chicken-breast"]});
+    {meal_index:1,food_ids:["chicken-breast"],manuais:[]});
 });
 
 // A grama vem do servidor. Calcular aqui criaria um segundo numero para a mesma pergunta.
@@ -197,4 +197,167 @@ test("falha ao gravar mantem a pessoa na tela com o que ela montou",async()=>{
   await tocar('[data-testid="confirmar-montagem"]');
   expect(texto()).toContain("Não foi possível salvar esta refeição");
   expect(host.querySelector('[data-testid="montar-refeicao"]')).not.toBeNull();
+});
+
+// ─── Repetir a escolha da semana passada ──────────────────────────────────────────────
+
+// O servidor ja devolve os espacos MARCADOS quando ha sugestao: ele monta a lista com os
+// alimentos sugeridos. O mock tem de refletir isso, senao testaria uma resposta que a rota
+// nunca produz.
+const comSugestao=()=>{
+  const base=slots({primary_protein:"chicken-breast",primary_carb:"rice-white"});
+  base.data.sugestao={food_ids:["chicken-breast","rice-white"],manuais:[],
+    texto:"Deixamos marcado o que você escolheu da última vez."};
+  return base;
+};
+
+test("a sugestao da ultima vez ja vem marcada e avisa de onde veio",async()=>{
+  axios.get.mockResolvedValue(comSugestao());
+  axios.post.mockResolvedValue(compor(["chicken-breast","rice-white"],800,[]));
+  await montar();
+  expect(host.querySelector('[data-testid="montar-sugestao"]')).not.toBeNull();
+  expect(texto()).toContain("escolheu da última vez");
+  const primeira=axios.post.mock.calls[0][1];
+  expect(primeira.food_ids).toEqual(["chicken-breast","rice-white"]);
+});
+
+// Ver a refeicao preenchida sem explicacao faria a pessoa achar que o app escolheu por ela.
+test("comecar do zero limpa a sugestao",async()=>{
+  axios.get.mockResolvedValue(comSugestao());
+  axios.post.mockResolvedValue(compor(["chicken-breast","rice-white"],800,[]));
+  await montar();
+  axios.post.mockResolvedValue(compor([],0,["Proteína","Carboidrato"]));
+  await act(async()=>{host.querySelector('[data-testid="montar-sugestao"] button').click()});
+  expect(host.querySelector('[data-testid="montar-sugestao"]')).toBeNull();
+  const ultima=axios.post.mock.calls[axios.post.mock.calls.length-1][1];
+  expect(ultima.food_ids).toEqual([]);
+  expect(ultima.manuais).toEqual([]);
+});
+
+// ─── Busca livre, para quem ja sabe o que quer ────────────────────────────────────────
+
+const buscar=(...itens)=>({data:{foods:itens}});
+const achado=(id,nome,kcal,dimensionavel)=>({food_id:id,name:nome,kcal_por_100g:kcal,
+  protein_por_100g:0,carb_por_100g:0,fat_por_100g:0,metodo:false,dimensionavel});
+
+const digitar=async texto=>{
+  const campo=host.querySelector('[data-testid="montar-busca"]');
+  const setter=Object.getOwnPropertyDescriptor(Object.getPrototypeOf(campo),"value").set;
+  await act(async()=>{
+    setter.call(campo,texto);
+    campo.dispatchEvent(new Event("input",{bubbles:true}));
+  });
+};
+
+test("buscar consulta o catalogo e lista o que achou",async()=>{
+  axios.get.mockResolvedValue(slots());
+  axios.post.mockResolvedValue(compor([],0,["Proteína","Carboidrato"]));
+  await montar();
+  axios.get.mockResolvedValue(buscar(achado("albumina","Albumina",375,false)));
+  await digitar("abulmina");
+  expect(axios.get).toHaveBeenLastCalledWith("/api/nutrition/plan/draft/search-food",
+    {params:{q:"abulmina"}});
+  expect(texto()).toContain("Albumina");
+});
+
+test("uma letra so nao dispara busca",async()=>{
+  axios.get.mockResolvedValue(slots());
+  axios.post.mockResolvedValue(compor([],0,["Proteína","Carboidrato"]));
+  await montar();
+  const antes=axios.get.mock.calls.length;
+  await digitar("a");
+  expect(axios.get.mock.calls.length).toBe(antes);
+});
+
+// O motor nao sabe dimensionar alimento sem papel nem limite de porcao: quem diz a grama
+// e a pessoa, e a tela precisa deixar isso explicito antes dela escolher.
+test("o alimento que o motor nao dimensiona avisa que voce pesa",async()=>{
+  axios.get.mockResolvedValue(slots());
+  axios.post.mockResolvedValue(compor([],0,["Proteína","Carboidrato"]));
+  await montar();
+  axios.get.mockResolvedValue(buscar(achado("albumina","Albumina",375,false),
+                                     achado("oats","Aveia em flocos",389,true)));
+  await digitar("teste");
+  expect(host.querySelector('[data-testid="achado-albumina"]').textContent).toContain("você pesa");
+  expect(host.querySelector('[data-testid="achado-oats"]').textContent).not.toContain("você pesa");
+});
+
+test("adicionar um alimento pesado abre campo de grama e entra na conta",async()=>{
+  axios.get.mockResolvedValue(slots());
+  axios.post.mockResolvedValue(compor([],0,["Proteína","Carboidrato"]));
+  await montar();
+  axios.get.mockResolvedValue(buscar(achado("albumina","Albumina",375,false)));
+  await digitar("albumina");
+  axios.post.mockResolvedValue(compor([],112,["Proteína","Carboidrato"]));
+  await tocar('[data-testid="achado-albumina"]');
+  expect(host.querySelector('[data-testid="grama-albumina"]')).not.toBeNull();
+  const ultima=axios.post.mock.calls[axios.post.mock.calls.length-1][1];
+  expect(ultima.manuais).toEqual([{food_id:"albumina",name:"Albumina",grams:100}]);
+});
+
+test("mudar a grama do alimento pesado recalcula",async()=>{
+  axios.get.mockResolvedValue(slots());
+  axios.post.mockResolvedValue(compor([],0,["Proteína","Carboidrato"]));
+  await montar();
+  axios.get.mockResolvedValue(buscar(achado("albumina","Albumina",375,false)));
+  await digitar("albumina");
+  axios.post.mockResolvedValue(compor([],112,["Proteína","Carboidrato"]));
+  await tocar('[data-testid="achado-albumina"]');
+  const campo=host.querySelector('[data-testid="grama-albumina"]');
+  const setter=Object.getOwnPropertyDescriptor(Object.getPrototypeOf(campo),"value").set;
+  await act(async()=>{
+    setter.call(campo,"40");
+    campo.dispatchEvent(new Event("input",{bubbles:true}));
+  });
+  const ultima=axios.post.mock.calls[axios.post.mock.calls.length-1][1];
+  expect(ultima.manuais[0].grams).toBe(40);
+});
+
+test("remover tira o alimento adicionado da conta",async()=>{
+  axios.get.mockResolvedValue(slots());
+  axios.post.mockResolvedValue(compor([],0,["Proteína","Carboidrato"]));
+  await montar();
+  axios.get.mockResolvedValue(buscar(achado("albumina","Albumina",375,false)));
+  await digitar("albumina");
+  axios.post.mockResolvedValue(compor([],112,["Proteína","Carboidrato"]));
+  await tocar('[data-testid="achado-albumina"]');
+  await tocar('[data-testid="tirar-albumina"]');
+  const ultima=axios.post.mock.calls[axios.post.mock.calls.length-1][1];
+  expect(ultima.manuais).toEqual([]);
+});
+
+// ─── A barra tem de dizer a verdade ───────────────────────────────────────────────────
+
+// O defeito que a foto pegou: 870 de 760 kcal aparecia em verde, com "Pronto para
+// confirmar". Um item pesado pela pessoa entra por cima do que o motor dimensionou.
+test("passar da meta avisa, e nao mostra barra cheia",async()=>{
+  axios.get.mockResolvedValue(comSugestao());
+  axios.post.mockResolvedValue(compor(["chicken-breast","rice-white"],870,[]));
+  await montar();
+  expect(texto()).toContain("acima da meta");
+  expect(texto()).not.toContain("Pronto para confirmar");
+  expect(host.querySelector(".montar-barra > b").className).toBe("passou");
+});
+
+test("mesmo acima da meta a pessoa ainda pode confirmar",async()=>{
+  axios.get.mockResolvedValue(comSugestao());
+  axios.post.mockResolvedValue(compor(["chicken-breast","rice-white"],870,[]));
+  await montar();
+  expect(host.querySelector('[data-testid="confirmar-montagem"]').disabled).toBe(false);
+});
+
+test("ficar abaixo da meta tambem avisa",async()=>{
+  axios.get.mockResolvedValue(comSugestao());
+  axios.post.mockResolvedValue(compor(["chicken-breast","rice-white"],400,[]));
+  await montar();
+  expect(texto()).toContain("abaixo da meta");
+  expect(host.querySelector(".montar-barra > b").className).toBe("");
+});
+
+test("dentro da meta continua dizendo que esta pronto",async()=>{
+  axios.get.mockResolvedValue(comSugestao());
+  axios.post.mockResolvedValue(compor(["chicken-breast","rice-white"],790,[]));
+  await montar();
+  expect(texto()).toContain("Pronto para confirmar");
+  expect(host.querySelector(".montar-barra > b").className).toBe("cheia");
 });
