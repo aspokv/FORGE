@@ -225,3 +225,27 @@ class TestABuscaLivre:
 
     def test_o_limite_e_respeitado(self):
         assert len(self._buscar("a" * 2 + "rroz", limite=2)) <= 2
+
+    # O catalogo tem o mesmo alimento duas vezes em dois casos conhecidos: batata-doce e
+    # castanha-do-para, uma vez no motor e outra so no diario. Na busca isso aparecia como
+    # duas linhas iguais e a pessoa nao tinha como saber qual escolher.
+    @pytest.mark.parametrize("consulta,palavra", [
+        ("batata doce", "batata"),
+        ("castanha do para", "castanha"),
+    ])
+    def test_o_mesmo_alimento_nao_aparece_duas_vezes(self, consulta, palavra):
+        nomes = [a["name"].lower() for a in self._buscar(consulta)]
+        repetidos = [n for n in nomes if palavra in n]
+        assert len(repetidos) <= 1, repetidos
+
+    # Desduplicar nao pode juntar alimentos que sao de fato diferentes.
+    def test_alimentos_parecidos_e_diferentes_continuam_separados(self):
+        nomes = {a["name"] for a in self._buscar("arroz")}
+        assert "Arroz branco cozido" in nomes
+        assert "Arroz integral cozido" in nomes
+
+    # Entre os dois registros, fica o que o motor sabe dimensionar: o outro obrigaria a
+    # pessoa a pesar um alimento que o FORGE ja sabe calcular.
+    def test_entre_os_duplicados_fica_o_que_o_motor_dimensiona(self):
+        achados = self._buscar("batata doce")
+        assert achados and achados[0]["dimensionavel"] is True
