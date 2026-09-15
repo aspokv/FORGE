@@ -16,6 +16,7 @@ import uuid, random
 from auth import get_current_user
 from billing_plans import ALIMENTACAO, PROTOCOLOS_AGRESSIVOS, plano, plano_minimo_com
 from entitlements import acesso_de, exigir_capacidade
+from escolha_humana import escolhas_da_refeicao
 from nutrition_engine import _intensity_key
 
 logger = logging.getLogger(__name__)
@@ -1053,6 +1054,50 @@ async def draft_meal_slots(request: Request, meal_index: int = Query(0, ge=0),
             "alvos": _alvos_de_macro(refeicao),
             "espacos": espacos, "falta": falta_escolher(espacos),
             "sugestao": sugestao}
+
+
+@router.get("/plan/draft/escolhas")
+async def draft_meal_escolhas(request: Request, meal_index: int = Query(0, ge=0),
+                              combinacao: Optional[str] = Query(None),
+                              user=Depends(get_current_user)):
+    """As duas perguntas daquela refeicao, no lugar de uma tela de macros.
+
+    A montagem por espaco (`/plan/draft/slots`) pede que a pessoa preencha um formulario:
+    escolha a proteina, escolha o carboidrato, escolha a gordura. Funciona, e nao e como
+    um treinador conversa.
+
+    Esta rota faz as duas perguntas que ele faz de verdade — qual montagem, e qual
+    alimento dentro dela — e devolve as duas com a porcao ja calculada. O que muda nao e a
+    capacidade (ela ja existia toda), e o tom.
+    """
+    db = request.app.state.db
+    target = user["id"]
+    await exigir_capacidade(db, user, ALIMENTACAO)
+    perfil = await db.profiles.find_one({"id": target}, {"_id": 0})
+    na = (perfil or {}).get("nutrition_assessment", {})
+    draft = await db.nutrition_plan_drafts.find_one({"profile_id": target}, {"_id": 0})
+    if not draft:
+        raise HTTPException(404, "Nenhum rascunho de plano em andamento. Chame /plan/reset primeiro.")
+    if meal_index >= len(draft["meals"]):
+        raise HTTPException(400, "Indice de refeicao invalido")
+
+    refeicao = draft["meals"][meal_index]
+    na = _com_protocolo(na, draft.get("targets"))
+    # O que ja foi travado em OUTRAS refeicoes do dia. Serve para nao oferecer, de novo,
+    # o mesmo prato que a pessoa acabou de escolher no almoco.
+    usados = [i["food_id"]
+              for j, m in enumerate(draft.get("meals") or [])
+              if j != meal_index and (draft.get("locked") or [])[j]
+              for i in (m.get("foods") or [])]
+
+    resposta = escolhas_da_refeicao(
+        refeicao["name"], na,
+        {"kcal": refeicao["target_cal"], "protein_g": refeicao["target_protein"],
+         "fat_g": refeicao.get("target_fat", 0)},
+        goal=draft.get("goal", na.get("goal", "maintenance")),
+        combinacao_escolhida=combinacao, usados=usados,
+    )
+    return {"meal_index": meal_index, **resposta}
 
 
 @router.post("/plan/draft/compose")
