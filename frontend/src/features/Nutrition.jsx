@@ -5,6 +5,7 @@ import NutritionDailyFooter from "./NutritionDailyFooter";
 import ListaDeCompras from "./ListaDeCompras";
 import CarboidratoDoDia from "./CarboidratoDoDia";
 import MetodoDoTreinador from "./MetodoDoTreinador";
+import MontarRefeicao from "./MontarRefeicao";
 import NutritionImport from "./NutritionImport";
 import FoodDiaryEditor from "./FoodDiaryEditor";
 import {localFoodDate, consumedTotals} from "./foodDiary";
@@ -118,6 +119,10 @@ export default function Nutrition({ API, profileId, db }) {
   const [guidedLoadingOptions, setGuidedLoadingOptions] = useState(false);
   const [guidedSwap, setGuidedSwap] = useState(null);
   const [guidedPhase, setGuidedPhase] = useState("choosing");
+  // "combos" = escolher uma combinacao pronta; "montar" = escolher alimento por
+  // alimento. Volta para "combos" a cada refeicao nova de proposito: a pessoa que
+  // montou o cafe da manha a mao nao necessariamente quer montar as outras quatro.
+  const [modoDaRefeicao, setModoDaRefeicao] = useState("combos");
   // Uma busca so do ciclo de carboidrato, compartilhada pelo card de cima e pelo bloco de
   // baixo. Duas buscas dariam dois resultados possiveis para a mesma pergunta.
   const [cicloCarbo, setCicloCarbo] = useState(null);
@@ -293,6 +298,17 @@ export default function Nutrition({ API, profileId, db }) {
     finally { setBusy(false); }
   };
 
+  /* Montar a mao e escolher uma combinacao terminam igual: o rascunho volta do servidor e
+     o fluxo decide qual e a proxima refeicao. Dois caminhos para "o que vem depois" seria
+     a porta aberta para um deles esquecer de ir para a revisao no fim. */
+  const refeicaoMontada = async (draft) => {
+    setGuidedDraft(draft);
+    setModoDaRefeicao("combos");
+    const next = nextUnlockedIndex(draft);
+    if (next === -1) { setGuidedPhase("review"); }
+    else { setGuidedIdx(next); await loadMealOptions(next); }
+  };
+
   // FORGE_CHOOSES_FOR_ME — for this one meal, or for every meal still unlocked.
   const forgeEscolheEsta = () => { if (guidedOptions.length) escolherOpcao(guidedOptions[0]); };
 
@@ -401,12 +417,17 @@ export default function Nutrition({ API, profileId, db }) {
 
   if (step === "assessment") {
     return (
-      <div className="content">
-        <div className="onboarding deep-scene" style={{ maxWidth: 760 }}>
-          <p className="eyebrow">NUTRIÇÃO / AVALIAÇÃO</p>
-          <h2>Conhecer sua alimentação</h2>
-          <p className="muted">Etapa {genStep} de 5</p>
-          <div className="onboard-progress" style={{ margin: "10px 0 20px" }}><b style={{ width: `${genStep / 5 * 100}%` }} /></div>
+      <AstraPage screen={2} testId="astra-nutricao-avaliacao">
+      <div className="fg-tela fg-guiado">
+        <header className="fg-guiado-topo">
+          <p className="fg-etiqueta">Nutrição · etapa {genStep} de 5</p>
+          <h1>Conhecer sua alimentação.</h1>
+          <div className="fg-guiado-barra" role="progressbar"
+               aria-valuenow={genStep} aria-valuemin={1} aria-valuemax={5}
+               aria-label={`Etapa ${genStep} de 5`}>
+            <b style={{ width: `${genStep / 5 * 100}%` }} />
+          </div>
+        </header>
 
           {genStep === 1 && <>
             <div className="field-grid">
@@ -481,79 +502,90 @@ export default function Nutrition({ API, profileId, db }) {
               { v: "lactose_free", l: "Sem lactose" }, { v: "gluten_free", l: "Sem glúten" }
             ]} />
           </>}
-          {genStep === 5 && <div className="review-summary">
-            <div><b>{form.weight_kg || "?"}</b><span>kg</span></div>
-            <div><b>{form.goal === "fat_loss" ? "Déficit" : form.goal === "muscle_gain" ? "Superávit" : "Manutenção"}</b><span>objetivo</span></div>
-            <div><b>{form.meal_count}</b><span>refeições</span></div>
+          {genStep === 5 && <div className="fg-numeros">
+            <div className="fg-numero"><b>{form.weight_kg || "?"}</b><span>kg</span></div>
+            <div className="fg-numero"><b>{form.goal === "fat_loss" ? "Déficit" : form.goal === "muscle_gain" ? "Superávit" : "Manutenção"}</b><span>objetivo</span></div>
+            <div className="fg-numero"><b>{form.meal_count}</b><span>refeições</span></div>
           </div>}
 
-          {error && <div className="auth-error">{error}</div>}
-          <div className="deep-actions" style={{ marginTop: 24 }}>
-            {genStep > 1 && <button className="secondary-button" onClick={() => setGenStep(s => s - 1)}>Voltar</button>}
-            {genStep < 5 ? <button className="primary-button" onClick={() => setGenStep(s => s + 1)}>Continuar <ChevronRight size={18} /></button>
-              : <button className="primary-button" onClick={submitAssessment} disabled={busy}>
-                {busy ? "Gerando..." : "Gerar plano"} <ChevronRight size={18} />
-              </button>}
+          {error && <p className="fg-erro" role="alert">{error}</p>}
+
+          <div className="fg-guiado-acoes">
+            {genStep < 5
+              ? <button type="button" className="fg-btn fg-btn-cheio" onClick={() => setGenStep(s => s + 1)}>
+                  Continuar <ChevronRight size={18} />
+                </button>
+              : <button type="button" className="fg-btn fg-btn-cheio" onClick={submitAssessment} disabled={busy}>
+                  {busy ? "Gerando..." : "Gerar plano"} <ChevronRight size={18} />
+                </button>}
+            {genStep > 1 && <button type="button" className="fg-btn fg-btn-2" onClick={() => setGenStep(s => s - 1)}>
+              Voltar
+            </button>}
           </div>
         </div>
-      </div>
+      </AstraPage>
     );
   }
 
   if (step === "guided" && guidedPhase === "review") {
     const sums = sumDraftMacros(guidedDraft);
     return (
-      <div className="content">
-        <div className="onboarding deep-scene" style={{ maxWidth: 760 }}>
-          <p className="eyebrow">REFAZER PLANO / REVISÃO</p>
-          <h2>Confira sua estratégia de hoje</h2>
-          <div className="review-summary">
-            <div><b>{Math.round(sums.kcal)}</b><span>kcal</span></div>
-            <div><b>{Math.round(sums.protein_g)}g</b><span>proteína</span></div>
-            <div><b>{guidedDraft.meals.length}</b><span>refeições</span></div>
-          </div>
-          <div className="notice" style={{ marginTop: 16 }}>
-            <b>✓ Porções dentro dos limites confortáveis do coach</b>
-            <p className="muted" style={{ marginTop: 4, fontSize: 12 }}>
-              Cada combinação veio pré-validada pelo motor nutricional: nenhuma porção passa do limite
-              seguro, e alergias/restrições já foram respeitadas antes de qualquer opção chegar até você.
-            </p>
-          </div>
-          {guidedDraft.meals.map((m, i) => {
-            const mealKcal = (m.foods || []).reduce((s, f) => s + (f.food?.kcal || 0) * f.grams / (f.food?.grams || 100), 0);
-            return (
-            <section className="meal-card" key={i} style={{ marginTop: 12 }}>
-              <div className="meal-head">
-                <div><p className="eyebrow">{m.name}</p><h3>{Math.round(mealKcal)} kcal</h3></div>
-              </div>
+      <AstraPage screen={2} testId="astra-nutricao-revisao">
+      <div className="fg-tela fg-guiado">
+        <header className="fg-guiado-topo">
+          <p className="fg-etiqueta">Montar plano · revisão</p>
+          <h1>Confira o seu dia.</h1>
+          <p className="fg-guiado-apoio">
+            Cada combinação passou pela validação do motor antes de chegar até você: nenhuma
+            porção acima do limite seguro, e as suas restrições já respeitadas.
+          </p>
+        </header>
+
+        <div className="fg-numeros">
+          <div className="fg-numero"><b>{Math.round(sums.kcal)}</b><span>kcal</span></div>
+          <div className="fg-numero"><b>{Math.round(sums.protein_g)}</b><span>g de proteína</span></div>
+          <div className="fg-numero"><b>{guidedDraft.meals.length}</b><span>refeições</span></div>
+        </div>
+
+        {guidedDraft.meals.map((m, i) => {
+          const mealKcal = (m.foods || []).reduce((s, f) => s + (f.food?.kcal || 0) * f.grams / (f.food?.grams || 100), 0);
+          return (
+            <article className="fg-opcao" key={i}>
+              <header className="fg-opcao-topo">
+                <p className="fg-etiqueta">{m.name}</p>
+                <b className="fg-opcao-kcal">{Math.round(mealKcal)}<small>kcal</small></b>
+              </header>
               {/* Macros somados dos alimentos: o que a pessoa vai comer, e nao a meta que
                   o plano calculou. O carboidrato nem vem na refeicao — so existe somando
-                  os alimentos. Em largura cheia, cabem numa linha so. */}
+                  os alimentos. */}
               <MacrosDaRefeicao refeicao={m} />
-              <div className="food-list">
+              <div className="fg-alimentos">
                 {(m.foods || []).map((it, j) => (
-                  <div className="food-row" key={j}>
-                    <div className="food-row-main">
-                      <div className="food-row-info">
-                        <b>{it.food?.name || it.food_id}</b>
-                        <span className="muted">{formatQty(it)} · {textoDoMacro(kcalDoItem(it), "kcal")}{pesoCru(it)&&<em className="fg-peso-cru"> · {pesoCru(it)} na panela</em>}</span>
-                      </div>
+                  <div className="fg-alimento" key={j}>
+                    <div>
+                      <p className="fg-alimento-nome">{it.food?.name || it.food_id}</p>
+                      <p className="fg-alimento-porcao">{formatQty(it)} · {textoDoMacro(kcalDoItem(it), "kcal")}{pesoCru(it)&&<em className="fg-peso-cru"> · {pesoCru(it)} na panela</em>}</p>
                     </div>
                   </div>
                 ))}
               </div>
-            </section>
-            );
-          })}
-          {error && <div className="auth-error" style={{ marginTop: 14 }}>{error}</div>}
-          <div className="deep-actions" style={{ marginTop: 24 }}>
-            <button className="secondary-button" onClick={() => setStep("plan")} disabled={busy}>Cancelar</button>
-            <button className="primary-button" onClick={confirmarPlanoGuiado} disabled={busy}>
-              {busy ? "Confirmando..." : "Confirmar plano"} <Check size={18} />
-            </button>
-          </div>
+            </article>
+          );
+        })}
+
+        {error && <p className="fg-erro" role="alert">{error}</p>}
+
+        <div className="fg-guiado-acoes">
+          <button type="button" className="fg-btn fg-btn-cheio" onClick={confirmarPlanoGuiado}
+                  disabled={busy} data-testid="confirmar-plano">
+            {busy ? "Confirmando..." : "Confirmar plano"} <Check size={18} />
+          </button>
+          <button type="button" className="fg-guiado-cancelar" onClick={() => setStep("plan")} disabled={busy}>
+            Cancelar
+          </button>
         </div>
       </div>
+      </AstraPage>
     );
   }
 
@@ -562,85 +594,132 @@ export default function Nutrition({ API, profileId, db }) {
     const totalMeals = guidedDraft?.meals?.length || 0;
     const lockedCount = guidedDraft?.locked?.filter(Boolean).length || 0;
     return (
-      <div className="content">
-        <div className="onboarding deep-scene" style={{ maxWidth: 760 }}>
-          <p className="eyebrow">REFAZER PLANO</p>
-          <h2>{meal?.name}</h2>
-          <p className="muted">Refeição {guidedIdx + 1} de {totalMeals} · {lockedCount} já escolhidas</p>
-          <div className="onboard-progress" style={{ margin: "10px 0 20px" }}>
+      <AstraPage screen={2} testId="astra-nutricao-montagem">
+      <div className="fg-tela fg-guiado">
+        <header className="fg-guiado-topo">
+          <p className="fg-etiqueta">Montar plano · refeição {guidedIdx + 1} de {totalMeals}</p>
+          <h1>{meal?.name}</h1>
+          {/* A barra e o unico indicador de quanto falta. Sem ela, montar cinco refeicoes
+              parece nao ter fim. */}
+          <div className="fg-guiado-barra" role="progressbar"
+               aria-valuenow={lockedCount} aria-valuemin={0} aria-valuemax={totalMeals}
+               aria-label={`${lockedCount} de ${totalMeals} refeições escolhidas`}>
             <b style={{ width: `${totalMeals ? (lockedCount / totalMeals) * 100 : 0}%` }} />
           </div>
+          <p className="fg-guiado-apoio">{lockedCount} de {totalMeals} já escolhidas</p>
+        </header>
 
-          {guidedLoadingOptions ? (
-            <p className="muted">Buscando combinações...</p>
-          ) : guidedOptions.map((opt, i) => {
-            const optKcal = opt.foods.reduce((s, f) => s + (f.food?.kcal || 0) * f.grams / (f.food?.grams || 100), 0);
-            return (
-              <section className="meal-card" key={opt.archetype_id} style={{ marginBottom: 12 }}>
-                <div className="meal-head">
-                  <div><p className="eyebrow">{opt.label}</p><h3>{Math.round(optKcal)} kcal</h3></div>
-                </div>
-                <div className="food-list">
-                  {opt.foods.map((it, j) => {
-                    const swapOpen = guidedSwap?.optIdx === i && guidedSwap?.foodId === it.food_id;
-                    return (
-                      <div className="food-row" key={j}>
-                        <div className="food-row-main">
-                          <div className="food-row-info">
-                            <b>{it.food?.name || it.food_id}</b>
-                            <span className="muted">{formatQty(it)} · {textoDoMacro(kcalDoItem(it), "kcal")}{pesoCru(it)&&<em className="fg-peso-cru"> · {pesoCru(it)} na panela</em>}</span>
-                          </div>
-                          <button className="food-sub-btn" onClick={() => abrirSwapNaOpcao(i, it.food_id)}>
-                            <RefreshCw size={13} /> Trocar
-                          </button>
-                        </div>
-                        {swapOpen && (
-                          <div className="substitute-panel">
-                            {guidedSwap.loading ? (
-                              <p className="muted" style={{ fontSize: 12 }}>Buscando alternativas...</p>
-                            ) : (guidedSwap.options || []).length > 0 ? (
-                              <div className="substitute-options">
-                                {guidedSwap.options.map((s, k) => (
-                                  <button key={k} className="substitute-option" disabled={busy}
-                                    onClick={() => aplicarSwapNaOpcao(i, it.food_id, s.food_id)}>
-                                    <span>{s.food?.name || s.food_id}</span><b>{formatQty(s)}</b>
-                                  </button>
-                                ))}
-                              </div>
-                            ) : (
-                              <p className="muted" style={{ fontSize: 12 }}>Nenhuma alternativa disponível agora.</p>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-                <div className="action-row" style={{ marginTop: 12 }}>
-                  <button className="primary-button" onClick={() => escolherOpcao(opt)} disabled={busy}>
-                    Escolher esta combinação <ChevronRight size={18} />
-                  </button>
-                </div>
-              </section>
-            );
-          })}
-
-          {error && <div className="auth-error" style={{ marginTop: 14 }}>{error}</div>}
-
-          <div className="deep-actions" style={{ marginTop: 20, flexWrap: "wrap" }}>
-            <button className="secondary-button" onClick={outrasOpcoes} disabled={busy || guidedLoadingOptions}>
-              <RefreshCw size={15} /> Mostrar outras opções
+        {/*
+          * As duas formas ficam lado a lado, e nao uma escondida atras da outra. A que o
+          * atleta pediu — montar do zero — e o diferencial do produto: quem desiste de
+          * dieta desiste de comer o que nao escolheu. Esconder isso num menu seria repetir
+          * o erro que "Refazer plano" cometeu.
+          */}
+        <div className="fg-modos" role="tablist" aria-label="Como montar esta refeição">
+          {[["combos", "Combinações"], ["montar", "Montar do zero"]].map(([chave, texto]) => (
+            <button key={chave} type="button" role="tab" aria-selected={modoDaRefeicao === chave}
+                    className={`fg-modo${modoDaRefeicao === chave ? " fg-modo-ativo" : ""}`}
+                    data-testid={`modo-${chave}`}
+                    onClick={() => setModoDaRefeicao(chave)}>
+              {texto}
             </button>
-            <button className="secondary-button" onClick={forgeEscolheEsta} disabled={busy || guidedLoadingOptions}>
-              FORGE escolhe esta
-            </button>
-            <button className="secondary-button" onClick={forgeEscolheResto} disabled={busy}>
-              FORGE escolhe o resto
-            </button>
-            <button className="text-button" onClick={() => setStep("plan")}>Cancelar</button>
-          </div>
+          ))}
         </div>
+
+        {modoDaRefeicao === "montar" ? (
+          <MontarRefeicao API={API} mealIndex={guidedIdx}
+                          onPronto={refeicaoMontada}
+                          onCancelar={() => setModoDaRefeicao("combos")} />
+        ) : guidedLoadingOptions ? (
+          <div className="fg-esqueleto" aria-label="Buscando combinações" />
+        ) : guidedOptions.map((opt, i) => {
+          const optKcal = opt.foods.reduce((s, f) => s + (f.food?.kcal || 0) * f.grams / (f.food?.grams || 100), 0);
+          return (
+            <article className={opt.metodo ? "fg-opcao fg-opcao-metodo" : "fg-opcao"}
+                     key={opt.archetype_id}>
+              <header className="fg-opcao-topo">
+                {/*
+                  * O selo existe porque a ordem sozinha nao explica nada: a pessoa ve a
+                  * primeira opcao e nao sabe POR QUE ela e a primeira. Dizer "do metodo"
+                  * transforma uma lista ordenada numa recomendacao com autor.
+                  */}
+                <p className="fg-etiqueta">
+                  {opt.label}
+                  {opt.metodo && <em className="fg-selo-metodo" data-testid="selo-metodo">do método</em>}
+                </p>
+                <b className="fg-opcao-kcal">{Math.round(optKcal)}<small>kcal</small></b>
+              </header>
+
+              <div className="fg-alimentos">
+                {opt.foods.map((it, j) => {
+                  const swapOpen = guidedSwap?.optIdx === i && guidedSwap?.foodId === it.food_id;
+                  return (
+                    <div className="fg-alimento" key={j}>
+                      <div>
+                        <p className="fg-alimento-nome">{it.food?.name || it.food_id}</p>
+                        <p className="fg-alimento-porcao">{formatQty(it)} · {textoDoMacro(kcalDoItem(it), "kcal")}{pesoCru(it)&&<em className="fg-peso-cru"> · {pesoCru(it)} na panela</em>}</p>
+                      </div>
+                      <button type="button" className="fg-substituir"
+                              aria-label={`Trocar ${it.food?.name || it.food_id}`}
+                              onClick={() => abrirSwapNaOpcao(i, it.food_id)}>
+                        <RefreshCw size={15} /> <span>Trocar</span>
+                      </button>
+                      {swapOpen && (
+                        <div className="fg-trocas">
+                          {guidedSwap.loading ? (
+                            <p className="fg-guiado-apoio">Buscando alternativas...</p>
+                          ) : (guidedSwap.options || []).length > 0 ? (
+                            <div className="fg-trocas-lista">
+                              {guidedSwap.options.map((sub, k) => (
+                                <button type="button" key={k} className="fg-troca" disabled={busy}
+                                        onClick={() => aplicarSwapNaOpcao(i, it.food_id, sub.food_id)}>
+                                  <span>{sub.food?.name || sub.food_id}</span>
+                                  <b>{formatQty(sub)}</b>
+                                </button>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="fg-guiado-apoio">Nenhuma alternativa disponível agora.</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              <button type="button" className="fg-btn fg-btn-cheio" disabled={busy}
+                      onClick={() => escolherOpcao(opt)}>
+                Escolher esta combinação <ChevronRight size={18} />
+              </button>
+            </article>
+          );
+        })}
+
+        {modoDaRefeicao === "combos" && error && <p className="fg-erro" role="alert">{error}</p>}
+
+        {/*
+          * Empilhado, e nao em linha: tres rotulos longos lado a lado num telefone viravam
+          * botoes de 90px com o texto quebrando em tres linhas.
+          */}
+        {modoDaRefeicao === "combos" && <div className="fg-guiado-acoes">
+          <button type="button" className="fg-btn fg-btn-2" onClick={outrasOpcoes}
+                  disabled={busy || guidedLoadingOptions}>
+            <RefreshCw size={15} /> Mostrar outras opções
+          </button>
+          <button type="button" className="fg-btn fg-btn-2" onClick={forgeEscolheEsta}
+                  disabled={busy || guidedLoadingOptions}>
+            O FORGE escolhe esta
+          </button>
+          <button type="button" className="fg-btn fg-btn-2" onClick={forgeEscolheResto} disabled={busy}>
+            O FORGE escolhe o resto
+          </button>
+          <button type="button" className="fg-guiado-cancelar" onClick={() => setStep("plan")}>
+            Cancelar
+          </button>
+        </div>}
       </div>
+      </AstraPage>
     );
   }
 
@@ -818,6 +897,21 @@ export default function Nutrition({ API, profileId, db }) {
       <NutritionDailyFooter API={API} compact consumed={consumed} goalCalories={t?.goal_calories||t?.kcal||0}/>
       <CarboidratoDoDia ciclo={cicloCarbo} alvoDoPlano={tPlano}/>
       <MetodoDoTreinador metodo={cicloCarbo?.metodo}/>
+      {/*
+        * Montar o plano refeicao por refeicao estava atras de duas portas: dentro de
+        * "Gerenciar plano alimentar", que nasce fechado, e com o rotulo "Refazer plano",
+        * que nao diz que a pessoa escolhe cada refeicao. Ninguem encontrava.
+        */}
+      <section className="fg-montar" data-testid="montar-refeicoes">
+        <div>
+          <strong>Montar refeição por refeição</strong>
+          <small>Você escolhe cada refeição entre as combinações do método, em vez de receber o plano pronto.</small>
+        </div>
+        <button type="button" className="fg-btn fg-btn-2" onClick={refazerPlano} disabled={busy}
+                data-testid="abrir-montagem">
+          <RefreshCw size={15} /> {busy ? "Abrindo..." : "Montar"}
+        </button>
+      </section>
       <ListaDeCompras API={API}/>
       <details className="a6-details"><summary>Gerenciar plano alimentar</summary><div className="a6-editor nutrition-page">
       <div className="fg-acoes-linha">
@@ -827,13 +921,8 @@ export default function Nutrition({ API, profileId, db }) {
         </button>
       </div>
       <p className="fg-consumo-hoje" aria-live="polite">Consumido hoje: {Math.round(consumed.kcal)} kcal · Proteínas {Math.round(consumed.protein_g)} g · Carboidratos {Math.round(consumed.carbs_g)} g · Gorduras {Math.round(consumed.fat_g)} g</p>
-      {(diary.extras||[]).map(extra=><div className="food-diary-actual" key={extra.entry_id}><strong>Extra · {Math.round(extra.actual.totals.kcal)} kcal</strong><p>{extra.actual.foods.map(f=>`${f.name} (${f.grams} g)`).join(" · ")}</p><button type="button" className="secondary-button" onClick={async()=>{try{await axios.delete(`${API}/nutrition/consumed-extra/${extra.entry_id}`);await refreshDiary()}catch{setError("Não foi possível remover o extra.")}}}>Remover extra</button></div>)}
+      {(diary.extras||[]).map(extra=><div className="food-diary-actual" key={extra.entry_id}><strong>Extra · {Math.round(extra.actual.totals.kcal)} kcal</strong><p>{extra.actual.foods.map(f=>`${f.name} (${f.grams} g)`).join(" · ")}</p><button type="button" className="fg-btn fg-btn-2" onClick={async()=>{try{await axios.delete(`${API}/nutrition/consumed-extra/${extra.entry_id}`);await refreshDiary()}catch{setError("Não foi possível remover o extra.")}}}>Remover extra</button></div>)}
 
-      <div className="action-row" style={{ marginTop: 24 }}>
-        <button className="secondary-button" onClick={refazerPlano} disabled={busy}>
-          <RefreshCw size={15} /> {busy ? "Iniciando..." : "Refazer plano"}
-        </button>
-      </div>
 
       {plan?.coach_guidance && <section className="nutrition-coach-note" data-testid="nutrition-coach-guidance">
         <p className="eyebrow">ACOMPANHAMENTO FORGE</p>

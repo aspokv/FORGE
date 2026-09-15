@@ -29,6 +29,12 @@ on:
       - 'backend/ciclagem_de_carboidrato.py'
       - 'backend/metodo_do_treinador.py'
       - 'backend/tests/test_metodo_do_treinador.py'
+      - 'backend/montagem_por_alimento.py'
+      - 'backend/tests/test_montagem_por_alimento.py'
+      - 'frontend/src/features/MontarRefeicao.jsx'
+      - 'frontend/src/features/MontarRefeicao.test.js'
+      - 'frontend/src/features/montar-refeicao.css'
+      - 'frontend/src/features/forge-nutricao.css'
       - 'backend/nutrition_engine.py'
       - 'backend/text_match.py'
       - 'backend/tests/test_nutrition_directional.py'
@@ -139,6 +145,12 @@ on:
       - 'backend/ciclagem_de_carboidrato.py'
       - 'backend/metodo_do_treinador.py'
       - 'backend/tests/test_metodo_do_treinador.py'
+      - 'backend/montagem_por_alimento.py'
+      - 'backend/tests/test_montagem_por_alimento.py'
+      - 'frontend/src/features/MontarRefeicao.jsx'
+      - 'frontend/src/features/MontarRefeicao.test.js'
+      - 'frontend/src/features/montar-refeicao.css'
+      - 'frontend/src/features/forge-nutricao.css'
       - 'backend/nutrition_engine.py'
       - 'backend/text_match.py'
       - 'backend/tests/test_nutrition_directional.py'
@@ -359,3 +371,4 @@ jobs:
           tests/test_nutrition_real_meal_composition.py
           tests/test_nutrition_substitution_dna.py
           tests/test_food_substitution.py
+          tests/test_montagem_por_alimento.py

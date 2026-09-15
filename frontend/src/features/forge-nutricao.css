@@ -254,3 +254,298 @@
 
 /* O peso da panela e etiqueta secundaria: informa sem competir com a quantidade do plano. */
 .fg-peso-cru{font-style:normal;color:#f0a47e}
+
+/* ── Montar refeição por refeição ──────────────────────────────────────────
+ * Estava atrás de duas portas: dentro de "Gerenciar plano alimentar", que nasce fechado, e
+ * sob o rótulo "Refazer plano", que não diz que a pessoa escolhe cada refeição. Vira um
+ * bloco próprio, com o texto explicando o que acontece ao tocar.
+ */
+.fg-montar {
+  display: flex;
+  align-items: center;
+  gap: var(--e-4);
+  margin-top: var(--e-4);
+  padding: var(--e-4);
+  border: 1px solid var(--fg-linha);
+  border-radius: var(--r-cartao);
+  background: var(--fg-superficie);
+}
+
+.fg-montar > div { flex: 1; min-width: 0; }
+
+.fg-montar strong {
+  display: block;
+  color: var(--fg-texto);
+  font-size: var(--t-corpo);
+  font-weight: 600;
+}
+
+.fg-montar small {
+  display: block;
+  margin-top: 3px;
+  color: var(--fg-texto-3);
+  font-size: var(--t-apoio);
+  line-height: 1.45;
+}
+
+.fg-montar .fg-btn { flex: none; }
+
+/* Telefone estreito: o botão desce em vez de espremer o texto até quebrar palavra. */
+@media (max-width: 400px) {
+  .fg-montar { flex-direction: column; align-items: stretch; }
+  .fg-montar .fg-btn { width: 100%; }
+}
+
+/* ── Selo do método ────────────────────────────────────────────────────────
+ * A ordem sozinha não explica por que aquela opção veio primeiro. O selo dá autor à
+ * recomendação: não é o aplicativo sorteando, é o padrão do treinador.
+ */
+.fg-selo-metodo {
+  margin-left: 7px;
+  /* Nunca parte no meio: "DO" numa linha e "MÉTODO" na outra deixa de ser selo e vira
+     ruído. Prefere-se o nome do alimento quebrando, que é texto e quebra bem. */
+  white-space: nowrap;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--fg-acao);
+  color: var(--fg-acao-tinta);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+/* ── Ações do fluxo guiado ─────────────────────────────────────────────────
+ * Eram três botões lado a lado com rótulos longos. Num telefone de 390px cada um ficava
+ * com ~90px e o texto quebrava em três linhas. Empilhar custa altura e devolve legibilidade
+ * e alvo de toque.
+ */
+.fg-guiado-acoes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-2);
+  margin-top: var(--e-5);
+}
+
+.fg-guiado-acoes .fg-btn { width: 100%; }
+
+/* Cancelar não é uma ação irmã das outras três: é a saída. Fica em texto, separada. */
+.fg-guiado-cancelar {
+  align-self: center;
+  margin-top: var(--e-2);
+  min-height: var(--fg-toque);
+  padding: 0 var(--e-4);
+  border: 0;
+  background: transparent;
+  color: var(--fg-texto-3);
+  font: 600 var(--t-apoio) / 1 var(--fg-corpo);
+  cursor: pointer;
+}
+
+.fg-guiado-cancelar:hover { color: var(--fg-texto); }
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * MONTAR O PLANO, REFEIÇÃO POR REFEIÇÃO
+ *
+ * Esta tela ficou para trás quando a Nutrição foi repaginada: continuava com o cartão
+ * antigo, o botão bege de outra época e a tipografia do onboarding. Quem montava o plano
+ * saía do tema do produto no momento em que mais precisa confiar nele.
+ *
+ * Nada aqui é desenho novo: é o mesmo vocabulário do resto da Nutrição — a mesma superfície,
+ * a mesma linha, a mesma etiqueta em mono, o mesmo botão. O que muda é que agora a tela usa.
+ * ══════════════════════════════════════════════════════════════════════════ */
+
+.fg-guiado { gap: var(--e-4); }
+
+/* ── Cabeçalho ───────────────────────────────────────────────────────────── */
+
+.fg-guiado-topo { display: flex; flex-direction: column; gap: var(--e-2); }
+
+.fg-guiado-topo h1 {
+  margin: 0;
+  font-family: var(--fg-display);
+  font-size: var(--t-display);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -.01em;
+  color: var(--fg-texto);
+  text-wrap: balance;
+}
+
+.fg-guiado-apoio {
+  margin: 0;
+  color: var(--fg-texto-3);
+  font: 400 var(--t-apoio) / 1.5 var(--fg-corpo);
+}
+
+/* A barra é o único indicador de quanto falta. Sem ela, montar cinco refeições parece
+ * não ter fim. Fina de propósito: informa sem competir com o nome da refeição. */
+.fg-guiado-barra {
+  height: 3px;
+  margin-top: var(--e-1);
+  border-radius: var(--r-pilula);
+  background: var(--fg-linha);
+  overflow: hidden;
+}
+
+.fg-guiado-barra > b {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--fg-acao);
+  transition: width var(--m-reacao, .2s) ease;
+}
+
+/* ── O cartão de uma combinação ──────────────────────────────────────────── */
+
+.fg-opcao {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-3);
+  padding: var(--e-4);
+  border: 1px solid var(--fg-linha);
+  border-radius: var(--r-folha);
+  background: var(--fg-superficie);
+  min-width: 0;
+}
+
+/* A do método não ganha cor nem sombra — ganha uma borda viva à esquerda. O selo já diz
+ * de quem é; a borda só confirma sem transformar o cartão em anúncio. */
+.fg-opcao-metodo { border-left: 3px solid var(--fg-acao); }
+
+.fg-opcao-topo {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--e-3);
+}
+
+.fg-opcao-topo .fg-etiqueta { min-width: 0; }
+
+.fg-opcao-kcal {
+  flex: none;
+  font: 600 var(--t-cartao) / 1 var(--fg-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-texto);
+}
+
+.fg-opcao-kcal small {
+  margin-left: 4px;
+  font-size: var(--t-etiqueta);
+  font-weight: 500;
+  color: var(--fg-texto-3);
+}
+
+/* ── Trocar um alimento dentro da combinação ─────────────────────────────── */
+
+.fg-trocas {
+  grid-column: 1 / -1;
+  margin-top: var(--e-2);
+  padding: var(--e-3);
+  border-radius: var(--r-cartao);
+  background: var(--fg-superficie-alta);
+}
+
+.fg-trocas-lista { display: flex; flex-direction: column; gap: var(--e-1); }
+
+.fg-troca {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--e-3);
+  width: 100%;
+  min-height: var(--fg-toque);
+  padding: 0 var(--e-3);
+  border: 1px solid var(--fg-linha);
+  border-radius: var(--r-campo);
+  background: transparent;
+  color: var(--fg-texto);
+  font: 500 var(--t-apoio) / 1.3 var(--fg-corpo);
+  text-align: left;
+  cursor: pointer;
+}
+
+.fg-troca:hover:not(:disabled) { border-color: var(--fg-linha-forte); }
+.fg-troca:disabled { opacity: .45; cursor: default; }
+
+.fg-troca > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.fg-troca > b {
+  flex: none;
+  font: 600 var(--t-dado) / 1 var(--fg-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-texto-2);
+}
+
+/* ── Campos do questionário, dentro do fluxo repaginado ────────────────────
+ * Escopado em `.fg-guiado` de propósito: `.deep-field` e `.field-grid` também são usados
+ * pelo questionário de treino, em App.js. Trocar o estilo global arrastaria uma tela que
+ * não está neste trabalho e que ninguém mediu.
+ */
+.fg-guiado .field-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--e-3);
+}
+
+.fg-guiado .deep-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-1);
+  min-width: 0;
+}
+
+.fg-guiado .deep-field > span {
+  font: 500 var(--t-etiqueta) / 1.3 var(--fg-mono);
+  letter-spacing: var(--ls-etiqueta);
+  text-transform: uppercase;
+  color: var(--fg-texto-3);
+}
+
+.fg-guiado .deep-field input,
+.fg-guiado .deep-field select {
+  width: 100%;
+  min-height: var(--fg-toque);
+  padding: 0 var(--e-3);
+  border: 1px solid var(--fg-linha);
+  border-radius: var(--r-campo);
+  background: var(--fg-superficie-alta);
+  color: var(--fg-texto);
+  font: 500 var(--t-corpo) / 1 var(--fg-corpo);
+  /* Evita o zoom automático do iOS ao focar um campo com fonte menor que 16px. */
+  font-size: max(16px, var(--t-corpo));
+}
+
+.fg-guiado .deep-field input:focus-visible,
+.fg-guiado .deep-field select:focus-visible {
+  outline: 2px solid var(--fg-acao);
+  outline-offset: -1px;
+}
+
+/* ── As duas formas de montar uma refeição ─────────────────────────────────
+ * Lado a lado, e não uma escondida atrás da outra. Montar do zero é o diferencial do
+ * produto: quem desiste de dieta desiste de comer o que não escolheu. Esconder isso num
+ * menu seria repetir o erro que "Refazer plano" cometeu.
+ */
+.fg-modos {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--e-1);
+  padding: var(--e-1);
+  border-radius: var(--r-pilula);
+  background: var(--fg-superficie);
+}
+
+.fg-modo {
+  min-height: 40px;
+  border: 0;
+  border-radius: var(--r-pilula);
+  background: transparent;
+  color: var(--fg-texto-3);
+  font: 600 var(--t-apoio) / 1.2 var(--fg-corpo);
+  cursor: pointer;
+}
+
+.fg-modo-ativo { background: var(--fg-superficie-alta); color: var(--fg-texto); }
+.fg-modo:focus-visible { outline: 2px solid var(--fg-acao); outline-offset: -2px; }

@@ -242,3 +242,122 @@ class TestOMetodoInteiroParaATela:
     def test_meta_zerada_nao_quebra(self):
         d = metodo_do_dia(0, 0, "treino")
         assert all(r["carbo_g"] == 0 for r in d["formatos"]["low"]["refeicoes"])
+
+
+class TestOMetodoMontaAsEscolhas:
+    """De descritivo a decisivo: agora o metodo escolhe o que e oferecido.
+
+    Ate aqui o atleta LIA a arquitetura do dia e aplicava sozinho. Estes testes defendem o
+    passo seguinte — quando ele monta o plano refeicao por refeicao, as opcoes que o FORGE
+    apresenta sao as combinacoes do treinador, e sao as PRIMEIRAS.
+    """
+
+    def _opcoes(self, nome, cal=700, prot=50, gord=15, objetivo="muscle_gain"):
+        from nutrition_engine import get_meal_archetype_options
+        perfil = {"avoid_foods": [], "allergies": [], "dietary_restrictions": [],
+                  "preferred_foods": [], "disliked_foods": [], "weight_kg": 80}
+        return get_meal_archetype_options(nome, cal, prot, gord, perfil, set(), objetivo)
+
+    # O motor de plano tem catalogo proprio, menor que o do diario. Uma fonte citada aqui
+    # que nao exista la some da combinacao em silencio, e o atleta recebe um prato
+    # incompleto sem ninguem perceber.
+    def test_toda_fonte_das_familias_existe_no_catalogo_do_motor(self):
+        from nutrition_engine import FOOD_INDEX
+        from metodo_do_treinador import FAMILIAS_DO_METODO
+        faltando = [(fam, fid) for fam, ids in FAMILIAS_DO_METODO.items()
+                    for fid in ids if fid not in FOOD_INDEX]
+        assert not faltando, f"fontes fora do motor de plano: {faltando}"
+
+    def test_as_familias_do_metodo_chegam_ao_motor(self):
+        from nutrition_engine import FOOD_FAMILIES
+        from metodo_do_treinador import FAMILIAS_DO_METODO
+        for nome in FAMILIAS_DO_METODO:
+            assert nome in FOOD_FAMILIES, nome
+
+    def test_nenhum_combo_do_metodo_repete_id_de_combo_que_ja_existia(self):
+        from nutrition_engine import MEAL_COMBOS
+        ids = [c["id"] for c in MEAL_COMBOS]
+        assert len(ids) == len(set(ids)), "id de combinacao duplicado"
+
+    # Alvo por refeicao, e nao um numero unico: o pre-treino do metodo e banana com whey, e
+    # cobrar dele a proteina de um almoco o tornaria inviavel por limite de porcao — o que
+    # seria uma falha do teste, e nao do metodo.
+    @pytest.mark.parametrize("refeicao,cal,prot,gord", [
+        ("Pré-treino", 450, 30, 6),
+        ("Pós-treino", 700, 50, 12),
+        ("Almoço", 800, 55, 22),
+        ("Jantar", 700, 50, 15),
+    ])
+    def test_a_primeira_opcao_oferecida_e_a_do_metodo(self, refeicao, cal, prot, gord):
+        opcoes = self._opcoes(refeicao, cal, prot, gord)
+        assert opcoes, refeicao
+        assert opcoes[0].get("metodo") is True, (
+            f"{refeicao}: primeira opcao e '{opcoes[0]['label']}', que nao e do metodo")
+
+    def test_pre_treino_grande_demais_exclui_o_combo_em_vez_de_forcar_a_porcao(self):
+        """Achado registrado, e nao defeito escondido.
+
+        Num pre-treino de 700 kcal com 50 g de proteina, banana com whey so fecharia a conta
+        com o whey muito alem da porcao real. A guarda de porcao exclui a combinacao — e o
+        que sobra e uma opcao com proteina solida, que o metodo dele evita antes do treino.
+
+        O comportamento esta certo (oferecer nada seria pior que oferecer algo), mas quem
+        mexer nas fracoes de distribuicao precisa saber que um pre-treino grande sai do
+        padrao do treinador. Se um dia o pre-treino do metodo passar a aparecer tambem
+        nesse tamanho, este teste avisa que algo mudou na guarda de porcao.
+        """
+        opcoes = self._opcoes("Pré-treino", 700, 50, 12)
+        assert opcoes, "nenhuma opcao de pre-treino"
+        assert not any(o.get("metodo") for o in opcoes)
+
+    # "Carboidrato rapido e proteina, sem fibra e sem gordura para nao pesar o estomago."
+    def test_o_pre_treino_do_metodo_nao_leva_gordura_nem_proteina_solida(self):
+        from nutrition_engine import FOOD_INDEX
+        opcao = next(o for o in self._opcoes("Pré-treino", 500, 35, 8) if o.get("metodo"))
+        for item in opcao["meal"]["foods"]:
+            alimento = FOOD_INDEX[item["food_id"]]
+            assert alimento.get("category") != "FAT", alimento["name"]
+            assert item["food_id"] not in ("chicken-breast", "beef-grill", "tilapia"), alimento["name"]
+
+    # A gordura do dia low fica em um horario so, e o horario e o almoco.
+    def test_o_almoco_do_metodo_leva_a_gordura_do_dia(self):
+        from nutrition_engine import FOOD_INDEX
+        opcao = next(o for o in self._opcoes("Almoço", 800, 55, 22) if o.get("metodo"))
+        ids = {i["food_id"] for i in opcao["meal"]["foods"]}
+        assert any(FOOD_INDEX[f].get("category") == "FAT" for f in ids), sorted(ids)
+
+    def test_o_pos_treino_do_metodo_traz_proteina_inteira_amido_e_legume(self):
+        from nutrition_engine import FOOD_INDEX
+        opcao = next(o for o in self._opcoes("Pós-treino", 700, 50, 12) if o.get("metodo"))
+        cats = {FOOD_INDEX[i["food_id"]].get("category") for i in opcao["meal"]["foods"]}
+        assert {"PROTEIN", "CARBOHYDRATE", "VEGETABLE"} <= cats, cats
+
+    # A garantia estrutural: o metodo restringe a ESCOLHA, e nao pode inventar alimento.
+    def test_nenhuma_opcao_do_metodo_usa_alimento_fora_das_familias_dele(self):
+        from metodo_do_treinador import FAMILIAS_DO_METODO
+        permitidos = {fid for ids in FAMILIAS_DO_METODO.values() for fid in ids}
+        for refeicao in ("Pré-treino", "Pós-treino", "Almoço", "Jantar"):
+            for opcao in self._opcoes(refeicao):
+                if not opcao.get("metodo") or opcao["archetype_id"] == "forge_oats_whey_banana":
+                    continue
+                for item in opcao["meal"]["foods"]:
+                    assert item["food_id"] in permitidos, (
+                        f"{refeicao}/{opcao['label']}: {item['food_id']} fora do metodo")
+
+
+def test_o_plano_automatico_nao_muda_com_o_metodo_registrado():
+    """Regressao deliberada: registrar as combinacoes NAO pode mexer em quem ja tem plano.
+
+    `generate_daily_plan` monta pelos MEAL_TEMPLATES e nunca passa por MEAL_COMBOS. Se um dia
+    alguem ligar os dois caminhos, este teste avisa antes de o plano de um assinante mudar
+    sozinho da noite para o dia.
+    """
+    from nutrition_engine import compute_macro_targets, generate_daily_plan
+    alvos = compute_macro_targets(80, 180, 30, "male", 5, "muscle_gain")
+    perfil = {"avoid_foods": [], "allergies": [], "dietary_restrictions": [],
+              "preferred_foods": [], "disliked_foods": [], "weight_kg": 80}
+    plano = generate_daily_plan(alvos, perfil, 5, "muscle_gain")
+    assert len(plano["meals"]) == 5
+    for refeicao in plano["meals"]:
+        assert refeicao["foods"], refeicao["name"]
+        assert "composition_source" not in refeicao or refeicao["composition_source"] != "dna"
