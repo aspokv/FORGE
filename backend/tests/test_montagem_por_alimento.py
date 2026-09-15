@@ -367,9 +367,14 @@ class TestOQueCombinaVemPrimeiro:
         espacos = espacos_da_refeicao("Café da manhã", SEM_RESTRICAO, escolhidos, self.ALVO)
         return next(e for e in espacos if e["papel"] == "primary_carb")["alimentos"]
 
-    def test_escolhido_o_whey_a_aveia_e_a_farinha_vem_na_frente(self):
-        primeiros = {a["food_id"] for a in self._carbos(["whey-protein"])[:2]}
-        assert primeiros <= {"oats", "rice-flour"}, primeiros
+    def test_escolhido_o_whey_o_topo_e_carbo_que_combina_e_do_metodo(self):
+        """Nao prende os DOIS ids exatos: com a lista aberta entrou tambem o creme de arroz
+        com whey, que combina e e do metodo — resultado melhor, e o teste e que estava
+        estreito. O que importa e a propriedade: o topo combina com o que foi escolhido."""
+        topo = self._carbos(["whey-protein"])[:3]
+        assert all(a["combina"] and a["metodo"] for a in topo), [a["name"] for a in topo]
+        ids = {a["food_id"] for a in topo}
+        assert {"oats", "rice-flour"} <= ids, ids
 
     def test_o_arroz_branco_nao_vem_na_frente_do_whey(self):
         nomes = [a["food_id"] for a in self._carbos(["whey-protein"])]
@@ -436,3 +441,69 @@ class TestOProtocoloAgressivoTambemTemEscolha:
                 for o in self._opcoes("Almoço", semente)))
             vistos.add(assinatura)
         assert len(vistos) >= 3, f"so {len(vistos)} resultados distintos em 5 toques"
+
+
+class TestAListaMostraTudoQueServe:
+    """O atleta pediu: "liste todas as proteinas que existem, tudo de carboidrato que existe".
+
+    Antes a lista usava a familia curada quando ela existia, e o almoco mostrava 9 das 14
+    proteinas do catalogo. A familia curada serve para o motor ESCOLHER sozinho, e nao para
+    limitar quem esta escolhendo a mao. Ela nao sumiu: virou ORDEM.
+    """
+
+    ALVO = {"cal": 800, "protein": 55, "fat": 22, "goal": "muscle_gain"}
+
+    def _espaco(self, refeicao, papel, perfil=None):
+        espacos = espacos_da_refeicao(refeicao, perfil or SEM_RESTRICAO, None, self.ALVO)
+        return next(e for e in espacos if e["papel"] == papel)
+
+    def test_a_proteina_do_almoco_lista_o_catalogo_inteiro(self):
+        from nutrition_engine import FOOD_INDEX
+        do_catalogo = {f["id"] for f in FOOD_INDEX.values()
+                       if "primary_protein" in (f.get("roles") or [])}
+        oferecidos = {a["food_id"] for a in self._espaco("Almoço", "primary_protein")["alimentos"]}
+        assert do_catalogo <= oferecidos, sorted(do_catalogo - oferecidos)
+
+    def test_o_carboidrato_do_almoco_lista_o_catalogo_inteiro(self):
+        from nutrition_engine import FOOD_INDEX
+        do_catalogo = {f["id"] for f in FOOD_INDEX.values()
+                       if "primary_carb" in (f.get("roles") or [])}
+        oferecidos = {a["food_id"] for a in self._espaco("Almoço", "primary_carb")["alimentos"]}
+        assert do_catalogo <= oferecidos, sorted(do_catalogo - oferecidos)
+
+    # Abrir a lista nao pode abrir a porta para o que a pessoa nao pode comer.
+    def test_abrir_a_lista_nao_furou_a_restricao(self):
+        perfil = {**SEM_RESTRICAO, "dietary_restrictions": ["vegetarian"]}
+        ids = {a["food_id"] for a in self._espaco("Almoço", "primary_protein", perfil)["alimentos"]}
+        assert "chicken-breast" not in ids and "beef-grill" not in ids
+
+    def test_abrir_a_lista_nao_furou_o_teto_do_protocolo(self):
+        from nutrition_engine import FOOD_INDEX, food_carb_density
+        perfil = {**SEM_RESTRICAO, "_max_food_carb_g_per_100g": 12.0}
+        for alimento in self._espaco("Almoço", "primary_carb", perfil)["alimentos"]:
+            assert food_carb_density(FOOD_INDEX[alimento["food_id"]]) <= 12.0, alimento["name"]
+
+    # A familia curada virou ordem: o que o metodo aponta continua vindo primeiro.
+    def test_o_que_o_metodo_aponta_continua_no_topo(self):
+        alimentos = self._espaco("Almoço", "primary_protein")["alimentos"]
+        assert alimentos[0]["metodo"] is True, alimentos[0]["name"]
+
+
+class TestOsAlvosDeMacroDaRefeicao:
+    def _alvos(self, cal, prot, gord):
+        from nutrition_routes import _alvos_de_macro
+        return _alvos_de_macro({"target_cal": cal, "target_protein": prot, "target_fat": gord})
+
+    # O carboidrato e o macro RESIDUAL: o que sobra da caloria depois de proteina e gordura.
+    def test_o_carboidrato_fecha_a_caloria_da_refeicao(self):
+        alvos = self._alvos(542, 40, 15)
+        somado = alvos["protein_g"] * 4 + alvos["carbs_g"] * 4 + alvos["fat_g"] * 9
+        assert abs(somado - 542) <= 4, somado
+
+    def test_nenhum_macro_fica_negativo(self):
+        """Gordura alta demais para a caloria da refeicao nao pode gerar carbo negativo."""
+        alvos = self._alvos(200, 40, 30)
+        assert alvos["carbs_g"] >= 0
+
+    def test_refeicao_sem_alvo_nao_quebra(self):
+        assert self._alvos(0, 0, 0) == {"protein_g": 0, "carbs_g": 0, "fat_g": 0}

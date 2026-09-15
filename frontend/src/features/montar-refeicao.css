@@ -361,3 +361,64 @@
   text-transform: uppercase;
   white-space: nowrap;
 }
+
+/* ── As três barras de macro ───────────────────────────────────────────────
+ * A pessoa escolhe livre, e a barra é o guia: em vez de limitar o que ela pode pegar,
+ * mostra o quanto falta de cada macro. Três linhas finas, não três anéis: elas informam
+ * durante a escolha e não podem competir com a lista de alimentos.
+ */
+.montar-macros {
+  display: grid;
+  gap: var(--e-2);
+  margin-top: var(--e-3);
+  padding-top: var(--e-3);
+  border-top: 1px solid var(--fg-linha);
+}
+
+.montar-macro {
+  display: grid;
+  grid-template-columns: 62px 1fr auto;
+  align-items: center;
+  gap: var(--e-2);
+}
+
+.montar-macro-nome {
+  font: 500 var(--t-etiqueta) / 1 var(--fg-mono);
+  letter-spacing: var(--ls-etiqueta);
+  text-transform: uppercase;
+  color: var(--fg-texto-3);
+}
+
+.montar-macro-valor {
+  order: 3;
+  font: 500 var(--t-dado) / 1 var(--fg-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-texto-3);
+  white-space: nowrap;
+}
+
+.montar-macro-valor b { color: var(--fg-texto-2); font-weight: 600; }
+
+.montar-macro-barra {
+  order: 2;
+  height: 4px;
+  border-radius: var(--r-pilula);
+  background: var(--fg-linha);
+  overflow: hidden;
+}
+
+.montar-macro-barra > b {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  transition: width 220ms ease;
+}
+
+/* Uma cor por macro, as mesmas que a tela de Nutrição já usa no cartão do dia. */
+.montar-macro-prot .montar-macro-barra > b { background: #5b9bd5; }
+.montar-macro-carb .montar-macro-barra > b { background: #e3c04a; }
+.montar-macro-gord .montar-macro-barra > b { background: #a87fd5; }
+
+@media (max-width: 360px) {
+  .montar-macro { grid-template-columns: 54px 1fr auto; }
+}

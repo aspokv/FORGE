@@ -33,6 +33,7 @@ export default function MontarRefeicao({API, mealIndex, onPronto, onCancelar}) {
   const [busca, setBusca] = useState("");
   const [achados, setAchados] = useState(null);
   const [buscando, setBuscando] = useState(false);
+  const [motivoDaBusca, setMotivoDaBusca] = useState("");
 
   useEffect(() => {
     let vivo = true;
@@ -96,13 +97,14 @@ export default function MontarRefeicao({API, mealIndex, onPronto, onCancelar}) {
 
   const procurar = async (texto) => {
     setBusca(texto);
-    if (texto.trim().length < 2) { setAchados(null); return; }
+    if (texto.trim().length < 2) { setAchados(null); setMotivoDaBusca(""); return; }
     setBuscando(true);
     try {
       const r = await axios.get(`${API}/nutrition/plan/draft/search-food`,
         {params: {q: texto.trim()}});
       setAchados(r.data.foods || []);
-    } catch { setAchados([]); }
+      setMotivoDaBusca(r.data.motivo || "");
+    } catch { setAchados([]); setMotivoDaBusca(""); }
     finally { setBuscando(false); }
   };
 
@@ -150,6 +152,7 @@ export default function MontarRefeicao({API, mealIndex, onPronto, onCancelar}) {
   const alvo = previa?.alvo || dados.target_cal || 0;
   const proporcao = Math.min(1, previa?.proporcao || 0);
   const falta = dados.falta || [];
+  const alvos = previa?.alvos || dados.alvos;
   const pronto = falta.length === 0 && (escolhidos.length > 0 || manuais.length > 0);
   /* Passar da meta nao pode aparecer como barra cheia e "pronto". O motor dimensiona o que
      ele escolhe para fechar a conta, mas um item pesado pela pessoa entra por cima — e foi
@@ -185,6 +188,30 @@ export default function MontarRefeicao({API, mealIndex, onPronto, onCancelar}) {
         <b style={{width: `${proporcao * 100}%`}}
            className={passou ? "passou" : pronto && !faltando ? "cheia" : ""} />
       </div>
+      {/*
+        * As tres barras de macro. A pessoa pediu para escolher livre, e a barra e o que
+        * substitui a lista curta como guia: em vez de limitar o que ela pode pegar, mostra
+        * o quanto falta de cada macro para a refeicao fechar.
+        *
+        * O carboidrato nao tem meta gravada no plano — ele e o macro residual, o que sobra
+        * da caloria depois da proteina e da gordura. O servidor deriva e manda pronto.
+        */}
+      {alvos && <div className="montar-macros" data-testid="montar-macros">
+        {[["protein_g", "Proteína", "prot"], ["carbs_g", "Carbo", "carb"], ["fat_g", "Gordura", "gord"]]
+          .map(([chave, rotulo, cor]) => {
+            const meta = alvos[chave] || 0;
+            const tem = Math.round(previa?.totais?.[chave] || 0);
+            const fracao = meta ? Math.min(1, tem / meta) : 0;
+            return (
+              <div className={`montar-macro montar-macro-${cor}`} key={chave}>
+                <span className="montar-macro-nome">{rotulo}</span>
+                <span className="montar-macro-valor"><b>{tem}</b> / {meta} g</span>
+                <span className="montar-macro-barra"><b style={{width: `${fracao * 100}%`}} /></span>
+              </div>
+            );
+          })}
+      </div>}
+
       {/*
         * A linha do DIA, embaixo da refeicao. Quem tem 2.000 kcal para bater nao se importa
         * se o cafe da manha passou 80: importa se o dia fecha. E o dia fecha sozinho, porque
@@ -341,7 +368,11 @@ export default function MontarRefeicao({API, mealIndex, onPronto, onCancelar}) {
       </label>
       {buscando && <p className="montar-falta">Procurando...</p>}
       {achados && achados.length === 0 && !buscando &&
-        <p className="montar-falta">Nenhum alimento com esse nome.</p>}
+        <p className="montar-falta">
+          {/* Dizer "nao existe" quando existe e foi o protocolo que barrou seria mentir
+              para quem digitou certo. */}
+          {motivoDaBusca || "Nenhum alimento com esse nome."}
+        </p>}
       {achados && achados.length > 0 && <ul className="montar-opcoes">
         {achados.map(alimento => (
           <li key={alimento.food_id}>

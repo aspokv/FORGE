@@ -722,6 +722,20 @@ def _somar_macros(itens) -> dict:
     return {k: round(v, 1) for k, v in totais.items()}
 
 
+def _alvos_de_macro(refeicao: dict) -> dict:
+    """Proteina, carboidrato e gordura que a refeicao precisa entregar.
+
+    O carboidrato nao e gravado no rascunho: ele e o macro RESIDUAL — o que sobra da
+    caloria depois da proteina e da gordura. Derivar aqui e o mesmo calculo que o motor faz
+    em `calculate_carb_target`, e nao um numero paralelo.
+    """
+    cal = float(refeicao.get("target_cal") or 0)
+    prot = float(refeicao.get("target_protein") or 0)
+    gord = float(refeicao.get("target_fat") or 0)
+    return {"protein_g": round(prot), "fat_g": round(gord),
+            "carbs_g": max(0, round((cal - prot * 4 - gord * 9) / 4))}
+
+
 def _dia_do_rascunho(draft: dict, idx: int, totais_desta: dict) -> dict:
     """Como o DIA fica se esta refeicao for confirmada assim.
 
@@ -778,7 +792,17 @@ async def draft_search_food(request: Request, q: str = Query(min_length=2, max_l
     draft = await db.nutrition_plan_drafts.find_one({"profile_id": user["id"]}, {"_id": 0})
     if draft:
         na = _com_protocolo(na, draft.get("targets"))
-    return {"foods": buscar_para_montagem(q, na)}
+    achados = buscar_para_montagem(q, na)
+    # "Nenhum alimento com esse nome" seria mentira quando o alimento EXISTE e foi barrado
+    # pelo protocolo da pessoa. Ela digitou certo; o FORGE e que nao pode oferecer aquilo.
+    motivo = None
+    if not achados:
+        sem_filtro = buscar_para_montagem(q, {})
+        if sem_filtro:
+            nomes = ", ".join(a["name"] for a in sem_filtro[:3])
+            motivo = (f"Encontrei {nomes}, mas fora do seu protocolo atual. "
+                      "Troque a intensidade no questionário se quiser liberar.")
+    return {"foods": achados, "motivo": motivo}
 
 
 async def _sugestao_do_plano_anterior(db, profile_id: str, nome_da_refeicao: str):
@@ -855,6 +879,7 @@ async def draft_meal_slots(request: Request, meal_index: int = Query(0, ge=0),
     return {"meal_index": meal_index, "name": refeicao["name"],
             "target_cal": refeicao["target_cal"], "target_protein": refeicao["target_protein"],
             "target_fat": refeicao.get("target_fat", 0),
+            "alvos": _alvos_de_macro(refeicao),
             "espacos": espacos, "falta": falta_escolher(espacos),
             "sugestao": sugestao}
 
@@ -897,6 +922,7 @@ async def draft_compose_meal(payload: ComporRefeicaoIn, request: Request,
                 "alvo": refeicao["target_cal"],
                 "proporcao": 0.0, "coerencia": 0, "espacos": espacos,
                 "falta": falta_escolher(espacos),
+                "alvos": _alvos_de_macro(refeicao),
                 "dia": _dia_do_rascunho(draft, idx, vazio)}
 
     # A caloria que os manuais ja entregam SAI do alvo antes de dimensionar o resto: sem
@@ -919,6 +945,7 @@ async def draft_compose_meal(payload: ComporRefeicaoIn, request: Request,
             "alvo": round(alvo), "proporcao": round(totais["kcal"] / alvo, 3) if alvo else 0.0,
             "coerencia": round(coerencia), "espacos": espacos,
             "falta": falta_escolher(espacos),
+            "alvos": _alvos_de_macro(refeicao),
             "dia": _dia_do_rascunho(draft, idx, totais)}
 
 

@@ -37,29 +37,35 @@ ORDEM = ["primary_protein", "secondary_protein", "primary_carb", "fruit",
 
 
 def _candidatos(componente: Dict[str, Any], perfil: Dict[str, Any]) -> List[str]:
-    """Os alimentos que cabem num espaco, ja sem o que a pessoa nao pode comer.
+    """TODOS os alimentos que servem aquele papel, ja sem o que a pessoa nao pode comer.
 
-    A familia manda quando existe: ela e mais estreita que a categoria e foi escrita a mao
-    para cada papel. Sem familia, cai na categoria, que e o comportamento que
-    `generate_meal` ja tem para o mesmo componente.
+    Antes eu usava a familia curada quando ela existia, e a lista de proteina do almoco
+    mostrava 9 de 14 alimentos. O atleta pediu o contrario: "liste todas as proteinas que
+    existem, tudo de carboidrato que existe". Ele tem razao — a familia curada serve para o
+    motor ESCOLHER sozinho, e nao para limitar quem esta escolhendo a mao.
+
+    A familia nao some: ela vira ORDEM, la embaixo. O que o metodo e as combinacoes ja
+    apontam continua aparecendo primeiro; o resto do catalogo vem depois, em vez de nao vir.
+
+    O que continua filtrando e so o que a pessoa nao pode comer: alergia, restricao,
+    alimento evitado e o teto de carboidrato do protocolo dela.
     """
-    familia = componente.get("family")
-    if familia:
-        ids = FOOD_FAMILIES.get(familia) or []
-    else:
-        ids = [f["id"] for f in FOOD_INDEX.values()
-               if f.get("category") == componente.get("category")]
+    papel = componente.get("role")
+    categoria = componente.get("category")
     saida = []
-    for fid in ids:
-        alimento = FOOD_INDEX.get(fid)
-        if not alimento:
-            continue
-        if componente.get("role") not in (alimento.get("roles") or []) and familia is None:
+    for fid, alimento in FOOD_INDEX.items():
+        serve = papel in (alimento.get("roles") or []) or alimento.get("category") == categoria
+        if not serve:
             continue
         if not _food_compatible(alimento, perfil, set()):
             continue
         saida.append(fid)
     return saida
+
+
+def _da_familia_curada(componente: Dict[str, Any]) -> set:
+    """Os alimentos que a familia do componente aponta, para ordenar sem restringir."""
+    return set(FOOD_FAMILIES.get(componente.get("family")) or [])
 
 
 def _cartao_do_alimento(fid: str, do_metodo: bool, alvo: Optional[Dict[str, Any]] = None,
@@ -181,12 +187,14 @@ def espacos_da_refeicao(nome_da_refeicao: str, perfil: Dict[str, Any],
             # O mesmo papel pode aparecer duas vezes no template (cutting repete vegetal).
             # Na tela isso e um espaco so, com a uniao das opcoes.
             por_papel[papel]["_ids"].update(ids)
+            por_papel[papel]["_curados"].update(_da_familia_curada(componente))
             continue
         rotulo, explicacao = ROTULOS.get(papel, (papel, ""))
         por_papel[papel] = {
             "papel": papel, "rotulo": rotulo, "explicacao": explicacao,
             "obrigatorio": bool(componente.get("required")),
             "_ids": set(ids),
+            "_curados": _da_familia_curada(componente),
         }
 
     # Qual espaco ficou com cada alimento ja escolhido. Precisa ser decidido ANTES de montar
@@ -214,8 +222,13 @@ def espacos_da_refeicao(nome_da_refeicao: str, perfil: Dict[str, Any],
         # nada adianta sugerir a fonte certa do metodo se ela nao casa com o que a pessoa
         # acabou de escolher.
         ja = [f for f in dono.values()]
+        curados = espaco.pop("_curados", set())
+        # Ordem: o que combina com o que ja esta no prato, depois o que e do metodo do
+        # treinador, depois o que as combinacoes do FORGE ja usavam, e so entao o resto do
+        # catalogo. A lista deixou de RESTRINGIR e passou a RECOMENDAR.
         ids = sorted(espaco.pop("_ids") - tomados,
                      key=lambda f: (not _combina_com(f, ja), f not in do_metodo,
+                                    f not in curados,
                                     FOOD_INDEX.get(f, {}).get("name", f)))
         # O que ja esta escolhido NOS OUTROS espacos entra na simulacao: a porcao do frango
         # depende de ja ter arroz no prato ou nao.
