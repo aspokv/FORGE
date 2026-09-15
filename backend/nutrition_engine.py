@@ -24,6 +24,13 @@ FORGE_COACH_METHODOLOGY = {
     "fat_range_g_per_kg": {"fat_loss": [0.8, 1.0], "maintenance": [0.8, 1.2], "muscle_gain": [0.8, 1.2]},
     "fat_min_pct": 0.15,
     "deficit_pct": 0.80, "surplus_pct": 1.12, "calorie_tolerance_pct": 0.05,
+    # Piso absoluto da tolerancia, em kcal. A porcentagem sozinha dava 100 kcal em 2.000,
+    # e 100 kcal e apertado demais para uma refeicao de verdade: forcava o motor a
+    # deformar a porcao ou a trocar o alimento so para fechar uma conta que, na pratica,
+    # se resolve no treino. O treinador definiu a faixa: 150 para mais ou para menos nao
+    # muda resultado nenhum. Acima de 3.000 kcal a porcentagem volta a mandar, porque ai
+    # 150 kcal realmente vira ruido.
+    "calorie_tolerance_min_kcal": 150,
     # Safety floor for the more-aggressive-deficit check in calculate_goal_calories: a
     # profile only gets pushed to daily_guardrails.fat_loss's min_total_kcal_pct floor
     # when the residual carb after protein+fat still clears this per-kg minimum — a
@@ -299,6 +306,13 @@ MEAL_TEMPLATES = {
         {"role": "primary_protein", "category": "PROTEIN", "required": True, "family": "QUICK_PROTEIN"},
         {"role": "primary_carb", "category": "CARBOHYDRATE", "required": False, "family": "PORRIDGE_CARB"},
         {"role": "fruit", "category": "FRUIT", "required": False, "family": "FRUIT_FAMILY"},
+        # O lanche tinha tres espacos so, e para quem esta em ganho isso nao cabe: as
+        # calorias do lanche eram empurradas para dentro dos tres, e saia whey de 50 g com
+        # 100 g de farinha de arroz e 280 g de morango — tudo no teto da porcao. Com a
+        # gordura como quarto espaco o mesmo lanche vira whey, aveia e pasta de amendoim,
+        # que e o lanche do metodo. Opcional: em lanche pequeno o motor nao preenche, e a
+        # refeicao continua com dois ou tres itens.
+        {"role": "fat_source", "category": "FAT", "required": False, "family": "FAT_FAMILY"},
     ],
     "pre_workout": [
         # Mesmo buraco do cafe da manha: sem familia, o pre-treino aceitava qualquer
@@ -946,8 +960,13 @@ _TAGS_DE_REFEICAO = ("breakfast", "lunch", "dinner", "snack", "quick")
 _REFEICAO_PARA_TAGS = {
     "breakfast": ["breakfast"], "lunch": ["lunch"], "dinner": ["dinner"],
     "snack": ["snack", "quick"],
-    "pre_workout": ["snack", "quick", "breakfast"],
-    "post_workout": ["snack", "quick", "breakfast"],
+    # Pre e pos-treino aceitam TAMBEM o que e de prato feito, e isso nao e frouxidao: quem
+    # treina as 11h almoca depois de treinar. Sem almoco e jantar aqui, o arroz branco (que
+    # o catalogo marca so como `lunch`/`dinner`) era empurrado para fora do pos-treino, e
+    # sobrava a tapioca — densa e com teto de porcao baixo. O pos-treino de um atleta em
+    # ganho ficava com whey, tapioca e laranja, os tres no teto.
+    "pre_workout": ["snack", "quick", "breakfast", "lunch", "dinner"],
+    "post_workout": ["snack", "quick", "breakfast", "lunch", "dinner"],
 }
 
 
@@ -1739,6 +1758,12 @@ def _reconcile_daily(meals, targets, pn, goal, max_iterations=8):
                         grams = round(min(abs(fat_gap), 15) / max(0.01, fpg))
                         m["foods"].append(build_food_item(fid, max(lo, min(hard_max, grams))))
             elif fat_gap < -5:
+                # O piso de 3 g e antigo e deixa "Pasta de amendoim 3 g" no prato, que nao
+                # e porcao de verdade. Subir para o minimo da categoria (5 g) parece obvio
+                # e foi MEDIDO como pior: a gordura do dia passa a nao caber, e
+                # test_profile_c_fat_generation_improved reprova. Fica registrado como
+                # divida — o conserto certo e nao COLOCAR a gordura quando ela nao cabe, e
+                # nao encolhe-la depois.
                 for item in fat_items:
                     item["grams"] = max(3, item["grams"] - 5)
 
@@ -2080,13 +2105,24 @@ def check_plan_hard_limits(plan, targets):
     return errors
 
 
+def tolerancia_de_caloria(alvo_kcal):
+    """Quanto o dia (ou a refeicao) pode passar, para cima ou para baixo, sem ser erro.
+
+    Uma so funcao porque tres lugares liam a porcentagem direto, e o quarto esqueceria do
+    piso. A regra e `max(porcentagem, piso)`: a porcentagem protege quem come muito, o
+    piso protege quem come pouco de ficar preso a uma conta de 100 kcal.
+    """
+    m = FORGE_COACH_METHODOLOGY
+    alvo = abs(float(alvo_kcal or 0))
+    return max(alvo * m["calorie_tolerance_pct"], float(m.get("calorie_tolerance_min_kcal", 0)))
+
+
 def validate_daily_plan(plan, targets, pn):
     w = []
     for i, m in enumerate(plan.get("meals",[])): w.extend(validate_meal(m, pn, i))
     t = plan.get("daily_totals",{})
-    tp = FORGE_COACH_METHODOLOGY["calorie_tolerance_pct"]
     gc = targets["goal_calories"]
-    if abs(t.get("kcal",0)-gc) > gc*tp:
+    if abs(t.get("kcal",0)-gc) > tolerancia_de_caloria(gc):
         w.append(f"[daily] Cal mismatch: {round(t['kcal'])} vs {round(gc)}")
     if abs(t.get("fat_g",0)-targets["fat_g"]) > targets["fat_g"]*0.3:
         w.append(f"[daily] Fat mismatch: {t['fat_g']}g vs {targets['fat_g']}g")

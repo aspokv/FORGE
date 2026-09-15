@@ -45,9 +45,23 @@ def plano(na=None, intensidade=None, goal="fat_loss", seed=3):
 
 
 def opcoes_de(fid_procurado, na=None, intensidade=None, goal="fat_loss", seed=3, maximo=6):
-    """Opcoes para o primeiro item com este id, no plano gerado."""
+    """Opcoes para o primeiro item com este id, no plano gerado.
+
+    Se o motor nao escolher aquele alimento sozinho, o perfil PEDE por ele. Isto nao e
+    contornar o teste: e o unico jeito de continuar exercitando o que ele protege.
+
+    O caso concreto foi a tilapia. Depois que o catalogo ganhou preco, ela deixou de sair
+    no plano de todo mundo — que era o defeito relatado pelo treinador, "ninguem quase tem
+    dinheiro pra comprar uma tilapia". Mas quem PEDE tilapia continua recebendo (preferido
+    vale +35 e passa na frente da penalidade de preco), e para essa pessoa a substituicao
+    tem de funcionar igual. Entao o teste passou a descrever essa pessoa, em vez de
+    depender de um padrao que o produto mudou de proposito.
+    """
     na = na or BASE
     t, p = plano(na, intensidade, goal, seed)
+    if not any(it["food_id"] == fid_procurado for m in p["meals"] for it in m["foods"]):
+        na = dict(na, preferred_foods=list(na.get("preferred_foods") or []) + [fid_procurado])
+        t, p = plano(na, intensidade, goal, seed)
     for meal in p["meals"]:
         for item in meal["foods"]:
             if item["food_id"] != fid_procurado:

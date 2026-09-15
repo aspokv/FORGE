@@ -258,8 +258,14 @@ class TestAContaDoDia:
     dia fecha. E ele fecha sozinho, porque as refeicoes seguintes passam a mirar o que sobrou
     (`redistribute_remaining_targets`, que ja existia).
 
-    A margem nao foi inventada para esta tela: e `calorie_tolerance_pct`, que vive no metodo
-    do FORGE e vale 5%. Em 2.000 kcal da os 100 para cima ou para baixo que o atleta pediu.
+    A margem nao foi inventada para esta tela: vem de `tolerancia_de_caloria`, que vive no
+    metodo do FORGE. Sao 5% COM PISO DE 150 kcal.
+
+    O piso entrou depois, a pedido do treinador: 5% davam 100 kcal em 2.000, e 100 kcal e
+    apertado demais para uma refeicao de verdade — forcava o motor a deformar a porcao ou
+    trocar o alimento so para fechar uma conta que, na pratica, se resolve no treino.
+    "Numa diferenca de 150 para mais ou para menos nao faz diferenca." Acima de 3.000 kcal
+    a porcentagem volta a mandar, porque ai 150 kcal vira ruido.
     """
 
     def _dia(self, alvo, refeicoes, travadas, idx, kcal_desta):
@@ -276,10 +282,17 @@ class TestAContaDoDia:
         return _dia_do_rascunho(draft, idx, {"kcal": kcal_desta})
 
     def test_a_margem_sai_do_metodo_e_nao_de_um_numero_solto(self):
-        from nutrition_engine import FORGE_COACH_METHODOLOGY
+        from nutrition_engine import tolerancia_de_caloria
         dia = self._dia(2000, 5, [False] * 5, 0, 500)
-        assert dia["tolerancia"] == round(2000 * FORGE_COACH_METHODOLOGY["calorie_tolerance_pct"])
-        assert dia["tolerancia"] == 100, "2.000 kcal com 5% tem de dar exatamente 100"
+        assert dia["tolerancia"] == round(tolerancia_de_caloria(2000))
+        assert dia["tolerancia"] == 150, "2.000 kcal tem de dar os 150 do piso"
+
+    def test_quem_come_muito_volta_a_ser_regido_pela_porcentagem(self):
+        """O piso protege quem come pouco; a porcentagem protege quem come muito. Em 3.600
+        kcal, 5% ja passam dos 150 e voltam a mandar."""
+        from nutrition_engine import tolerancia_de_caloria
+        assert round(tolerancia_de_caloria(3600)) == 180
+        assert round(tolerancia_de_caloria(1500)) == 150, "o piso nao depende do alvo"
 
     # Julgar um dia pela metade diria "voce esta 1.500 kcal abaixo" para quem acabou de
     # escolher o cafe da manha.
@@ -301,15 +314,19 @@ class TestAContaDoDia:
         assert dia["ja_escolhido"] < 500 + 4 * 200
 
     @pytest.mark.parametrize("consumido,dentro", [
-        (2000, True), (2100, True), (1900, True), (2101, False), (1899, False),
+        (2000, True), (2150, True), (1850, True), (2151, False), (1849, False),
     ])
-    def test_a_margem_aceita_cem_para_cada_lado(self, consumido, dentro):
+    def test_a_margem_aceita_cento_e_cinquenta_para_cada_lado(self, consumido, dentro):
         dia = self._dia(2000, 1, [True], 0, consumido)
         assert dia["dentro_da_tolerancia"] is dentro, f"{consumido} kcal"
 
     def test_alvo_zerado_nao_quebra(self):
+        """Alvo zero e estado degenerado (plano ainda sem meta). O piso continua valendo, e
+        o que importa e a tela nao quebrar nem acusar erro de quem nao tem meta."""
         dia = self._dia(0, 3, [False] * 3, 0, 0)
-        assert dia["alvo"] == 0 and dia["tolerancia"] == 0
+        assert dia["alvo"] == 0
+        assert dia["tolerancia"] == 150
+        assert dia["dentro_da_tolerancia"] is True
 
 
 class TestAPorcaoNaLista:
