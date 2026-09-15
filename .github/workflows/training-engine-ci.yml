@@ -31,6 +31,11 @@ on:
       - 'backend/tests/test_metodo_do_treinador.py'
       - 'backend/montagem_por_alimento.py'
       - 'backend/tests/test_montagem_por_alimento.py'
+      - 'backend/muscles.py'
+      - 'backend/tests/test_prioridades_musculares.py'
+      - 'frontend/src/features/PrioridadesMusculares.jsx'
+      - 'frontend/src/features/PrioridadesMusculares.test.js'
+      - 'frontend/src/features/prioridades-musculares.css'
       - 'frontend/src/features/FoodDiaryEditor.test.js'
       - 'frontend/src/features/food-diary.css'
       - 'frontend/src/features/MontarRefeicao.jsx'
@@ -146,6 +151,11 @@ on:
       - 'backend/tests/test_metodo_do_treinador.py'
       - 'backend/montagem_por_alimento.py'
       - 'backend/tests/test_montagem_por_alimento.py'
+      - 'backend/muscles.py'
+      - 'backend/tests/test_prioridades_musculares.py'
+      - 'frontend/src/features/PrioridadesMusculares.jsx'
+      - 'frontend/src/features/PrioridadesMusculares.test.js'
+      - 'frontend/src/features/prioridades-musculares.css'
       - 'frontend/src/features/FoodDiaryEditor.test.js'
       - 'frontend/src/features/food-diary.css'
       - 'frontend/src/features/MontarRefeicao.jsx'
@@ -370,3 +380,4 @@ jobs:
           tests/test_nutrition_substitution_dna.py
           tests/test_food_substitution.py
           tests/test_montagem_por_alimento.py
+          tests/test_prioridades_musculares.py

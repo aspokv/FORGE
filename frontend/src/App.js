@@ -31,6 +31,7 @@ const ManualWorkout=lazy(()=>import("./features/ManualWorkout"));
 import WorkoutLibrary from "./features/WorkoutLibrary";
 import ReferenceHome from "./features/ReferenceHome";
 import CampoAltura from "./features/CampoAltura";
+import PrioridadesMusculares from "./features/PrioridadesMusculares";
 import {lerAltura} from "./features/alturaEmCm";
 import {AstraNavigation,AstraBottomNav,AstraPage,AstraRow} from "./features/AstraUI";
 import AstraProgress from "./features/AstraProgress";
@@ -488,7 +489,11 @@ export function Profile({db,redo,openBuilder,openManual,signOut,user,openAnalysi
       <div className="training-setting"><p className="eyebrow">MÉTODO DE PROGRESSÃO</p><div className="training-option-grid methods">{TRAINING_METHODS.map(x=><button type="button"key={x.id}className={method===x.id?"active":""}data-testid={`method-${x.id}`}onClick={()=>setMethod(x.id)}><b>{x.label}</b><small>{x.description}</small></button>)}</div></div>
       {manual&&<p className="notice">Seu programa manual permanece intocado. Esta preferência vale quando o modo automático for reativado.</p>}{trainingNotice&&<p className="notice"data-testid="training-preferences-notice">{trainingNotice}</p>}<button className="fg-btn fg-btn-cheio"data-testid="save-training-preferences"disabled={savingTraining}onClick={saveTraining}>{savingTraining?"Salvando…":"Aplicar divisão e recalcular"}</button>
     </section>
-<section><h3>Prioridades manuais</h3><ul>{(db.profile.priorities||[]).map(x=><li key={x}>{x}</li>)}</ul></section></div>}
+<section><h3>Prioridades manuais</h3>
+{/* Era uma LISTA somente leitura: a pessoa via o que escolheu no questionario e nao tinha
+    como trocar. Quem errou na primeira vez ficava preso, porque o unico caminho era
+    refazer a avaliacao inteira. */}
+<PrioridadesMusculares API={API} profileId={db.profile.id} iniciais={db.profile.priorities||[]}/></section></div>}
     <AstraRow icon="training" title="Meu programa" subtitle="Criar, importar ou editar" expanded={profileSection==="program"} onClick={()=>setProfileSection(x=>x==="program"?null:"program")}/>
     {profileSection==="program"&&<div className="a6-editor"><AstraRow icon="settings" title={manual?"Editar programa manual":"Montar programa avançado"} testId="open-builder-button" onClick={openBuilder}/><AstraRow icon="book" title="Criar meu próprio treino" subtitle="Importar ou montar manualmente" testId="open-manual-button" onClick={openManual}/></div>}
     <AstraRow icon="camera" title="Avaliação física" subtitle="Refazer avaliação ou analisar fotos" expanded={profileSection==="assessment"} onClick={()=>setProfileSection(x=>x==="assessment"?null:"assessment")}/>

@@ -31,7 +31,7 @@ from preassessment_routes import router as preassessment_router
 from signup_routes import router as signup_router
 from workout_templates import WORKOUT_TEMPLATES, public_catalog
 from muscles import (
-    to_frontend, to_internal, get_profile_priorities_internal,
+    MAX_PRIORITIES, to_frontend, to_internal, get_profile_priorities_internal,
     get_assessment_internal, FRONTEND_MUSCLES as MUSCLES_FRONTEND_LIST,
     LEGACY_TO_INTERNAL, MUSCLE_IDS,
 )
@@ -239,6 +239,16 @@ class TrainingPreferencesIn(BaseModel):
     profile_id: Optional[str] = None
 
 
+class PrioridadesIn(BaseModel):
+    """As regioes que o atleta quer priorizar, em ORDEM.
+
+    A ordem e o dado: a primeira e a prioridade principal e recebe mais atencao no plano;
+    as outras sao secundarias. Lista vazia e escolha valida — significa treino equilibrado.
+    """
+    priorities: List[str] = Field(default_factory=list, max_length=MAX_PRIORITIES)
+    profile_id: Optional[str] = None
+
+
 def owned_profile_id(user: dict, requested: Optional[str]) -> str:
     """ATHLETE: always their own id. SUPER_ADMIN: may pass any id (falls back to 'demo')."""
     if user.get("role") == "SUPER_ADMIN":
@@ -427,6 +437,74 @@ async def update_training_preferences(payload: TrainingPreferencesIn,
         "profile": updated,
         "program": await build_program(updated),
         "manual_program_active": manual_active,
+    }
+
+
+@api.put("/training/priorities")
+async def update_training_priorities(payload: PrioridadesIn, user=Depends(get_current_user)):
+    """Trocar as regioes prioritarias sem refazer a avaliacao inteira.
+
+    Isto existia so dentro do questionario de onboarding. Quem escolheu errado na primeira
+    vez — e isso acontece, porque a pessoa ainda nao sabe o que cada regiao significa —
+    ficava preso: o Perfil listava as prioridades e nao deixava mexer, e o unico caminho era
+    responder tudo de novo. Um atleta real travou assim.
+
+    O programa e reconstruido na hora, porque prioridade que nao muda o treino nao e
+    prioridade. E o historico nao e tocado: series, cargas e conclusoes continuam.
+    """
+    target = owned_profile_id(user, payload.profile_id)
+    profile = await load_profile(target)
+
+    # Nome desconhecido vira 400 com a lista do que vale, e nao um perfil gravado com uma
+    # regiao que o motor nao sabe ler.
+    limpas, vistas = [], set()
+    for nome in payload.priorities:
+        interno = to_internal(nome)
+        # `to_internal` devolve o nome INTACTO quando nao conhece — ele e tradutor, e nao
+        # validador. Conferir contra MUSCLE_IDS e o que separa "Deltoide lateral" de
+        # "Panturrilha do Nicolas"; sem isso o perfil gravava uma regiao que o motor nunca
+        # vai encontrar, e a prioridade simplesmente nao teria efeito nenhum.
+        if interno not in MUSCLE_IDS:
+            raise HTTPException(
+                400, f"Região desconhecida: {nome}. Use uma das regiões do questionário.")
+        if interno in vistas:
+            continue
+        vistas.add(interno)
+        limpas.append(to_frontend(interno))
+
+    anteriores = list(profile.get("priorities") or [])
+    await db.profiles.update_one({"id": target}, {"$set": {"priorities": limpas}})
+    atualizado = await load_profile(target)
+    programa = await build_program(atualizado)
+
+    # Nem todo programa responde a prioridade, e esconder isso seria o pior dos mundos: a
+    # pessoa troca a regiao, ve "salvo", e o treino dela continua identico sem explicacao.
+    #
+    # Programa COLADO pelo atleta ou SELECIONADO da biblioteca e um retrato fixo — ele nao
+    # foi calculado a partir do perfil e nao se recalcula. Medido: trocar de gluteos para
+    # deltoide lateral mudou o volume do programa gerado pelo motor (22 -> 23 series no
+    # Upper) e nao mudou uma linha do programa curado.
+    da_biblioteca = bool(programa.get("program_source"))
+    colado = bool((atualizado.get("custom_program") or {}).get("sessions")) and not da_biblioteca
+    recalculou = not (da_biblioteca or colado)
+
+    aviso = ""
+    if da_biblioteca:
+        aviso = ("Seu treino hoje é um programa completo da biblioteca, que não se recalcula "
+                 "sozinho. A nova prioridade já está salva: escolha outro programa na "
+                 "Biblioteca para ela valer no treino.")
+    elif colado:
+        aviso = ("Seu treino hoje é a ficha que você colou, e ela não se recalcula sozinha. "
+                 "A nova prioridade já está salva e vale quando você voltar para o programa "
+                 "gerado pelo FORGE.")
+
+    return {
+        "profile": atualizado,
+        "program": programa,
+        "priorities": limpas,
+        "anteriores": anteriores,
+        "recalculou": recalculou,
+        "aviso": aviso,
     }
 
 

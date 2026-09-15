@@ -1,0 +1,131 @@
+/*
+ * Trocar as regiões prioritárias.
+ *
+ * O desenho serve a uma decisão só, tomada de vez em quando: escolher até três regiões e
+ * ver a ordem delas. Por isso o resumo do foco fica no topo, fixo, e os grupos vêm abaixo
+ * como blocos de chips — a pessoa precisa ver o que já escolheu enquanto rola a lista.
+ */
+
+.prioridades { display: flex; flex-direction: column; gap: var(--e-4); }
+
+.prioridades-apoio {
+  margin: 0;
+  color: var(--fg-texto-3);
+  font: 400 var(--t-apoio) / 1.5 var(--fg-corpo);
+}
+
+.prioridades-apoio b { color: var(--fg-texto-2); font-weight: 600; }
+
+/* ── O foco atual ──────────────────────────────────────────────────────────
+ * A ordem é o dado, e não só quais foram marcadas: a primeira recebe mais atenção no
+ * plano. O número ao lado é o que torna isso visível.
+ */
+.prioridades-foco {
+  padding: var(--e-3);
+  border: 1px solid var(--fg-linha);
+  border-radius: var(--r-cartao);
+  background: var(--fg-superficie);
+}
+
+.prioridades-foco ol { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--e-2); }
+
+.prioridades-foco li { display: flex; align-items: center; gap: var(--e-2); min-width: 0; }
+
+.prioridades-foco li > b {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--fg-acao);
+  color: var(--fg-acao-tinta);
+  font: 700 var(--t-etiqueta) / 1 var(--fg-mono);
+}
+
+.prioridades-foco li > span {
+  flex: 1;
+  min-width: 0;
+  color: var(--fg-texto);
+  font: 500 var(--t-corpo) / 1.3 var(--fg-corpo);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.prioridades-foco li > em {
+  flex: none;
+  font: 500 var(--t-etiqueta) / 1 var(--fg-mono);
+  font-style: normal;
+  letter-spacing: var(--ls-etiqueta);
+  text-transform: uppercase;
+  color: var(--fg-texto-3);
+}
+
+.prioridades-vazio { margin: 0; color: var(--fg-texto-3); font: 400 var(--t-apoio) / 1.4 var(--fg-corpo); }
+
+/* ── Os grupos ─────────────────────────────────────────────────────────────── */
+
+.prioridades-grupo { display: flex; flex-direction: column; gap: var(--e-2); }
+
+.prioridades-chips { display: flex; flex-wrap: wrap; gap: var(--e-2); }
+
+.prioridade-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: var(--fg-toque);
+  padding: 0 var(--e-3);
+  border: 1px solid var(--fg-linha-forte);
+  border-radius: var(--r-pilula);
+  background: transparent;
+  color: var(--fg-texto-2);
+  font: 500 var(--t-apoio) / 1 var(--fg-corpo);
+  cursor: pointer;
+}
+
+.prioridade-chip.marcada {
+  border-color: var(--fg-acao);
+  background: var(--fg-superficie-alta);
+  color: var(--fg-texto);
+  font-weight: 600;
+}
+
+.prioridade-chip:focus-visible { outline: 2px solid var(--fg-acao); outline-offset: 2px; }
+
+.prioridade-ordem {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--fg-acao);
+  color: var(--fg-acao-tinta);
+  font: 700 10px / 1 var(--fg-mono);
+}
+
+/* ── Retorno depois de salvar ──────────────────────────────────────────────
+ * O aviso existe para o caso em que a prioridade foi salva e o treino NÃO mudou, porque o
+ * programa é colado ou veio da biblioteca. Dizer "salvo" e deixar o treino igual sem
+ * explicação seria pior que não deixar trocar.
+ */
+.prioridades-aviso {
+  margin: 0;
+  padding: var(--e-3);
+  border-left: 3px solid var(--fg-atencao);
+  border-radius: var(--r-campo);
+  background: var(--fg-atencao-fundo);
+  color: var(--fg-texto-2);
+  font: 400 var(--t-apoio) / 1.5 var(--fg-corpo);
+}
+
+.prioridades-ok {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: var(--fg-ok);
+  font: 500 var(--t-apoio) / 1.4 var(--fg-corpo);
+}
