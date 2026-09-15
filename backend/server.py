@@ -30,6 +30,7 @@ from password_reset_routes import router as password_reset_router
 from preassessment_routes import router as preassessment_router
 from signup_routes import router as signup_router
 from workout_templates import WORKOUT_TEMPLATES, public_catalog
+from recomendar_da_biblioteca import recomendar
 from muscles import (
     MAX_PRIORITIES, to_frontend, to_internal, get_profile_priorities_internal,
     get_assessment_internal, FRONTEND_MUSCLES as MUSCLES_FRONTEND_LIST,
@@ -489,14 +490,23 @@ async def update_training_priorities(payload: PrioridadesIn, user=Depends(get_cu
     recalculou = not (da_biblioteca or colado)
 
     aviso = ""
-    if da_biblioteca:
-        aviso = ("Seu treino hoje é um programa completo da biblioteca, que não se recalcula "
-                 "sozinho. A nova prioridade já está salva: escolha outro programa na "
-                 "Biblioteca para ela valer no treino.")
-    elif colado:
-        aviso = ("Seu treino hoje é a ficha que você colou, e ela não se recalcula sozinha. "
-                 "A nova prioridade já está salva e vale quando você voltar para o programa "
-                 "gerado pelo FORGE.")
+    sugestao = None
+    if da_biblioteca or colado:
+        # Mandar a pessoa "escolher outro programa na Biblioteca" e empurrar 23 programas
+        # para ela decidir sozinha justamente no momento em que ela acabou de dizer o que
+        # quer. O FORGE sabe os dias dela, o perfil e a regiao: ele tem de apontar QUAL.
+        sugestao = recomendar(atualizado)
+        melhor = sugestao.get("melhor")
+        origem = ("um programa completo da biblioteca" if da_biblioteca
+                  else "a ficha que você colou")
+        if melhor:
+            aviso = (f"Seu treino hoje é {origem}, e ele não se recalcula sozinho. "
+                     f"Para a nova prioridade valer, o que mais se encaixa em você é "
+                     f"{melhor['nome']}. {sugestao['porque']}")
+        else:
+            aviso = (f"Seu treino hoje é {origem}, e ele não se recalcula sozinho. "
+                     "A nova prioridade já está salva e vale quando você voltar para o "
+                     "programa gerado pelo FORGE.")
 
     return {
         "profile": atualizado,
@@ -505,6 +515,7 @@ async def update_training_priorities(payload: PrioridadesIn, user=Depends(get_cu
         "anteriores": anteriores,
         "recalculou": recalculou,
         "aviso": aviso,
+        "sugestao": sugestao,
     }
 
 

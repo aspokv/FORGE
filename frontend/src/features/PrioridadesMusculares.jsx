@@ -32,10 +32,11 @@ export default function PrioridadesMusculares({API, profileId, iniciais = [], on
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState("");
   const [aviso, setAviso] = useState("");
+  const [sugestao, setSugestao] = useState(null);
   const [salvo, setSalvo] = useState(false);
 
   const alternar = (regiao) => {
-    setErro(""); setSalvo(""); setAviso("");
+    setErro(""); setSalvo(""); setAviso(""); setSugestao(null);
     setEscolhidas(atual => {
       if (atual.includes(regiao)) return atual.filter(x => x !== regiao);
       if (atual.length >= MAXIMO) {
@@ -47,7 +48,7 @@ export default function PrioridadesMusculares({API, profileId, iniciais = [], on
   };
 
   const salvar = async () => {
-    setSalvando(true); setErro(""); setAviso(""); setSalvo(false);
+    setSalvando(true); setErro(""); setAviso(""); setSalvo(false); setSugestao(null);
     try {
       const r = await axios.put(`${API}/training/priorities`,
         {priorities: escolhidas, profile_id: profileId});
@@ -56,6 +57,7 @@ export default function PrioridadesMusculares({API, profileId, iniciais = [], on
       // da biblioteca. Dizer "salvo" e deixar o treino igual sem explicacao seria pior que
       // nao deixar trocar.
       setAviso(r.data?.aviso || "");
+      setSugestao(r.data?.sugestao || null);
       if (onSalvo) onSalvo(r.data);
       /* Recarregar e o que a tela de preferencias de treino ja faz depois de salvar, e por
          um motivo: o programa novo precisa chegar em todas as abas, e esta tela nao tem
@@ -110,7 +112,23 @@ export default function PrioridadesMusculares({API, profileId, iniciais = [], on
     ))}
 
     {erro && <p className="fg-erro" role="alert">{erro}</p>}
-    {aviso && <p className="prioridades-aviso" role="status" data-testid="prioridades-aviso">{aviso}</p>}
+    {aviso && <div className="prioridades-aviso" role="status" data-testid="prioridades-aviso">
+      <p>{aviso}</p>
+      {/*
+        * As alternativas aparecem porque a escolha e dela, e nao minha. O FORGE aponta a
+        * que melhor se encaixa e mostra as seguintes, em vez de empurrar 23 programas ou
+        * decidir sozinho por ela.
+        */}
+      {(sugestao?.recomendados || []).length > 1 && <ul className="prioridades-alternativas">
+        {sugestao.recomendados.slice(1).map(op => (
+          <li key={op.id}>
+            <b>{op.nome}</b>
+            <span>{op.dias} sessões · {String(op.nivel || "").toLowerCase()}
+              {op.cobertura > 0 && ` · ${Math.round(op.cobertura * 100)}% nas prioridades`}</span>
+          </li>
+        ))}
+      </ul>}
+    </div>}
     {salvo && !aviso && <p className="prioridades-ok" role="status">
       <Check size={15} aria-hidden="true" /> Prioridades salvas e treino recalculado.
     </p>}

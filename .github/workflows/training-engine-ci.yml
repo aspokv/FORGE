@@ -33,6 +33,15 @@ on:
       - 'backend/tests/test_montagem_por_alimento.py'
       - 'backend/muscles.py'
       - 'backend/tests/test_prioridades_musculares.py'
+      - 'backend/recomendar_da_biblioteca.py'
+      - 'backend/tests/test_recomendar_da_biblioteca.py'
+      - 'backend/training_programs.py'
+      - 'frontend/src/features/TrocarObjetivo.jsx'
+      - 'frontend/src/features/TrocarObjetivo.test.js'
+      - 'frontend/src/features/trocar-objetivo.css'
+      - 'frontend/src/features/AcrescentarRefeicao.jsx'
+      - 'frontend/src/features/AcrescentarRefeicao.test.js'
+      - 'frontend/src/features/acrescentar-refeicao.css'
       - 'frontend/src/features/PrioridadesMusculares.jsx'
       - 'frontend/src/features/PrioridadesMusculares.test.js'
       - 'frontend/src/features/prioridades-musculares.css'
@@ -153,6 +162,15 @@ on:
       - 'backend/tests/test_montagem_por_alimento.py'
       - 'backend/muscles.py'
       - 'backend/tests/test_prioridades_musculares.py'
+      - 'backend/recomendar_da_biblioteca.py'
+      - 'backend/tests/test_recomendar_da_biblioteca.py'
+      - 'backend/training_programs.py'
+      - 'frontend/src/features/TrocarObjetivo.jsx'
+      - 'frontend/src/features/TrocarObjetivo.test.js'
+      - 'frontend/src/features/trocar-objetivo.css'
+      - 'frontend/src/features/AcrescentarRefeicao.jsx'
+      - 'frontend/src/features/AcrescentarRefeicao.test.js'
+      - 'frontend/src/features/acrescentar-refeicao.css'
       - 'frontend/src/features/PrioridadesMusculares.jsx'
       - 'frontend/src/features/PrioridadesMusculares.test.js'
       - 'frontend/src/features/prioridades-musculares.css'
@@ -381,3 +399,4 @@ jobs:
           tests/test_food_substitution.py
           tests/test_montagem_por_alimento.py
           tests/test_prioridades_musculares.py
+          tests/test_recomendar_da_biblioteca.py

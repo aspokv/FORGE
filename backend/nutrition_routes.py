@@ -31,7 +31,7 @@ from nutrition_engine import (
     find_substitutes, recalculate_substitution_portion, FOOD_INDEX,
     FORGE_COACH_METHODOLOGY, sum_plan_totals,
     get_meal_archetype_options, redistribute_remaining_targets, aplicar_teto_de_carboidrato,
-    calculate_meal_portions, calculate_meal_coherence_score, _infer_meal_type,
+    calculate_meal_portions, calculate_meal_coherence_score, _infer_meal_type, generate_meal,
     build_food_item,
 )
 
@@ -118,6 +118,19 @@ class ComporRefeicaoIn(BaseModel):
     # aceitar uma lista longa seria convidar a pessoa a montar algo que o proprio motor
     # considera ruim.
     food_ids: List[str] = Field(default_factory=list, max_length=8)
+
+
+class ObjetivoIn(BaseModel):
+    """Trocar so o objetivo e o ritmo, sem refazer o questionario inteiro."""
+    goal: str = Field(min_length=2, max_length=30)
+    intensity: Optional[str] = Field(default=None, max_length=30)
+
+
+class RefeicaoNovaIn(BaseModel):
+    """Acrescentar uma refeicao ao plano, sem refazer o cardapio."""
+    nome: str = Field(min_length=2, max_length=40)
+    # Onde ela entra. None significa no fim.
+    posicao: Optional[int] = Field(default=None, ge=0, le=5)
 
 
 class ChooseMealIn(BaseModel):
@@ -380,6 +393,54 @@ async def save_assessment(payload: NutritionAssessmentIn, request: Request, user
     return {"assessment": doc, "assessment_version": 1, "plan_targets_updated": atualizados}
 
 
+@router.put("/goal")
+async def trocar_objetivo(payload: ObjetivoIn, request: Request, user=Depends(get_current_user)):
+    """Trocar o objetivo alimentar e o ritmo direto da Nutricao.
+
+    Antes, mudar de emagrecimento para ganho de massa exigia refazer o questionario
+    inteiro — peso, altura, idade, dias, refeicoes, tudo — para alterar dois campos. O
+    atleta pediu o botao, e ele esta certo: objetivo e a coisa que mais muda ao longo do
+    ano, e era a mais cara de mudar.
+
+    A meta calorica e os macros sao recalculados na hora. O CARDAPIO nao e regerado: as
+    refeicoes continuam as que a pessoa escolheu, e ela decide se quer refazer o plano. Um
+    plano montado refeicao por refeicao sumindo sozinho seria pior que um alvo novo.
+    """
+    db = request.app.state.db
+    target = user["id"]
+    await exigir_capacidade(db, user, ALIMENTACAO)
+
+    objetivos = {g["id"] for g in FORGE_COACH_METHODOLOGY["body_goals"]}
+    if payload.goal not in objetivos:
+        raise HTTPException(400, f"Objetivo desconhecido. Use um de: {', '.join(sorted(objetivos))}.")
+
+    # Mesma guarda da rota do questionario, e pelo mesmo motivo: o modo Agressivo/Atleta e
+    # do plano Elite. Sem repetir aqui, esta rota viraria o contorno.
+    if _intensity_key(payload.intensity) == "agressivo":
+        await exigir_capacidade(db, user, PROTOCOLOS_AGRESSIVOS)
+
+    perfil = await db.profiles.find_one({"id": target}, {"_id": 0})
+    na = dict((perfil or {}).get("nutrition_assessment") or {})
+    _exigir_assessment(na, target, "trocar objetivo")
+
+    anterior = {"goal": na.get("goal"), "intensity": na.get("intensity")}
+    na["goal"] = payload.goal
+    # Objetivo sem ritmo proprio (manutencao) limpa a intensidade em vez de carregar a
+    # anterior: "manutencao agressiva" nao existe, e guardar isso faria o calculo aplicar um
+    # deficit que a pessoa nao pediu quando ela voltasse para emagrecimento.
+    na["intensity"] = payload.intensity or None
+
+    await db.profiles.update_one({"id": target}, {"$set": {"nutrition_assessment": na}})
+    recalculou = await _atualizar_meta_do_plano(db, target, na)
+
+    alvos = compute_macro_targets(
+        na["weight_kg"], na["height_cm"], na["age"], na.get("sex") or "male",
+        na["training_days"], na["goal"], na.get("activity_level", "moderate"),
+        na.get("intensity"))
+    return {"goal": na["goal"], "intensity": na["intensity"], "anterior": anterior,
+            "targets": alvos, "plano_atualizado": recalculou}
+
+
 @router.post("/generate")
 async def generate_plan(request: Request, user=Depends(get_current_user)):
     db = request.app.state.db
@@ -431,6 +492,90 @@ async def get_plan(request: Request, user=Depends(get_current_user)):
         raise HTTPException(404, "Plano nÃ£o encontrado. Gere primeiro via POST /api/nutrition/generate.")
     # O peso cru e etiqueta, nao dado do plano: entra na resposta e nao no que esta gravado.
     return anotar_peso_cru(stored["plan"])
+
+
+MAXIMO_DE_REFEICOES = 6
+
+
+@router.post("/plan/add-meal")
+async def acrescentar_refeicao(payload: RefeicaoNovaIn, request: Request,
+                               user=Depends(get_current_user)):
+    """Acrescentar uma refeicao ao plano, na posicao que a pessoa escolher.
+
+    O caso do atleta: ele tem cafe da manha e quer um PRE-TREINO antes. Ate aqui a unica
+    forma era refazer o questionario mudando a quantidade de refeicoes, o que joga fora o
+    cardapio inteiro.
+
+    A parte que precisa ser dita: acrescentar uma refeicao faz as OUTRAS ENCOLHEREM. O dia
+    tem a mesma caloria; ela passa a ser dividida em mais partes. Entao as refeicoes que ja
+    existiam mantem os ALIMENTOS que a pessoa escolheu e tem as PORCOES recalculadas — que
+    e o que um treinador faz, e nao apagar o cardapio para comecar de novo.
+    """
+    db = request.app.state.db
+    target = user["id"]
+    await exigir_capacidade(db, user, ALIMENTACAO)
+
+    guardado = await db.nutrition_plans.find_one({"profile_id": target}, {"_id": 0})
+    plano = (guardado or {}).get("plan")
+    if not plano or not plano.get("meals"):
+        raise HTTPException(404, "Plano não encontrado. Gere um plano antes de acrescentar refeições.")
+
+    refeicoes = list(plano["meals"])
+    if len(refeicoes) >= MAXIMO_DE_REFEICOES:
+        raise HTTPException(
+            400, f"O plano já tem {len(refeicoes)} refeições, que é o máximo. "
+                 "Renomeie ou troque uma que já existe.")
+
+    perfil = await db.profiles.find_one({"id": target}, {"_id": 0})
+    na = (perfil or {}).get("nutrition_assessment") or {}
+    objetivo = na.get("goal") or "maintenance"
+    alvos = plano.get("targets") or {}
+
+    posicao = payload.posicao if payload.posicao is not None else len(refeicoes)
+    posicao = max(0, min(posicao, len(refeicoes)))
+    refeicoes.insert(posicao, {"name": payload.nome.strip(), "foods": [], "archetype_id": None})
+
+    # A divisao do dia muda porque o numero de refeicoes mudou. Sem isto, a refeicao nova
+    # entraria "de graca" e o dia somaria acima da meta.
+    quantas = len(refeicoes)
+    m = FORGE_COACH_METHODOLOGY
+    dist = m["meal_distribution"].get(quantas, m["meal_distribution"][4])
+    gc = float(alvos.get("goal_calories") or 0)
+    gp = float(alvos.get("protein_g") or 0)
+    gf = float(alvos.get("fat_g") or 0)
+
+    for i, refeicao in enumerate(refeicoes):
+        fatia = dist[i] if i < len(dist) else dist[-1]
+        refeicao["target_cal"] = round(gc * fatia)
+        refeicao["target_protein"] = round(gp * fatia)
+        refeicao["target_fat"] = round(gf * fatia, 1)
+
+        if i == posicao:
+            # A refeicao nova nasce montada, e nao vazia: plano com um buraco no meio nao e
+            # plano. Quem quiser trocar usa o "Montar refeicao por refeicao".
+            nova = generate_meal(refeicao["name"], _infer_meal_type(refeicao["name"]),
+                                 refeicao["target_cal"], refeicao["target_protein"],
+                                 refeicao["target_fat"], na, set(), objetivo)
+            refeicao["foods"] = nova.get("foods") or []
+            continue
+
+        # As que ja existiam mantem os ALIMENTOS e mudam a PORCAO.
+        ids = [item["food_id"] for item in (refeicao.get("foods") or [])]
+        if not ids:
+            continue
+        porcoes = calculate_meal_portions(ids, refeicao["target_cal"], refeicao["target_protein"],
+                                          refeicao["target_fat"], objetivo)
+        refeicao["foods"] = [build_food_item(fid, porcoes.get(fid, 100)) for fid in ids]
+
+    plano["meals"] = refeicoes
+    await db.nutrition_plans.update_one({"profile_id": target}, {"$set": {"plan": plano}})
+    # O questionario passa a refletir a quantidade nova, senao a proxima geracao voltaria
+    # para a contagem antiga e a refeicao acrescentada sumiria sem aviso.
+    if na:
+        na["meal_count"] = min(MAXIMO_DE_REFEICOES, max(3, quantas))
+        await db.profiles.update_one({"id": target}, {"$set": {"nutrition_assessment": na}})
+
+    return {"plan": anotar_peso_cru(plano), "meal_count": quantas, "posicao": posicao}
 
 
 @router.post("/substitute")
