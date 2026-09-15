@@ -280,7 +280,12 @@ export default function Nutrition({ API, profileId, db }) {
     finally { setBusy(false); }
   };
 
-  const outrasOpcoes = () => loadMealOptions(guidedIdx, Math.floor(Math.random() * 1000));
+  /* Semente que SEMPRE avanca, e nao sorteio. Com `Math.random()` dois toques seguidos
+     caiam no mesmo giro com frequencia e a tela parecia nao responder — que foi exatamente
+     a reclamacao: "mostrar outras opcoes nao traz novas opcoes". Somar 1 garante um giro
+     diferente a cada toque. */
+  const giroRef = useRef(0);
+  const outrasOpcoes = () => { giroRef.current += 1; return loadMealOptions(guidedIdx, giroRef.current); };
 
   const escolherOpcao = async (option) => {
     setBusy(true); setError("");

@@ -306,7 +306,60 @@ MEAL_TEMPLATES = {
 # archetype_options() is what turns a combo into 2-5 real, sized, guardrail-checked
 # options for one meal slot — MEAL_TEMPLATES remains the always-viable fallback whenever
 # no combo below survives an athlete's restrictions for that slot.
+# O feijao tinha rotacao mas nao tinha familia, entao nenhuma combinacao podia pedir "um
+# feijao" — e o prato mais comum do pais ficava impossivel de montar.
+FOOD_FAMILIES["LEGUME_FAMILY"] = ["beans-carioca", "beans-black", "lentils", "chickpeas"]
+
 MEAL_COMBOS = [
+    # ── Combinacoes acrescentadas depois de medir ───────────────────────────────────
+    #
+    # Almoco e jantar tinham DUAS combinacoes cada, e pos-treino tres. O atleta reclamou que
+    # "mostrar outras opcoes" nao mostrava nada de novo; a causa nao era filtro nem caloria,
+    # era catalogo: nao havia uma terceira opcao para mostrar.
+    #
+    # As quatro abaixo sao pratos reais e comuns, montados com as familias que ja existiam.
+    # Nenhuma delas e marcada como "do metodo": as do metodo saem dos protocolos do
+    # treinador, e inventar essa etiqueta aqui seria por na conta dele escolha que e minha.
+    # O rotulo NAO nomeia alimento. A primeira versao se chamava "Arroz, feijao e carne" e
+    # apareceu na tela com mandioca e grao-de-bico — as duas sao escolhas validas das
+    # familias, e o rotulo virou promessa quebrada. Nome por ESTRUTURA vale para toda
+    # resolucao possivel do combo.
+    {"id": "forge_arroz_feijao", "label": "Prato completo", "meal_types": ["lunch", "dinner"],
+     "components": [
+         {"role": "primary_protein", "category": "PROTEIN", "family": "LEAN_PROTEIN_SOLID", "required": True},
+         {"role": "primary_carb", "category": "CARBOHYDRATE", "family": "MAIN_CARB", "required": True},
+         {"role": "legume", "category": "LEGUME", "family": "LEGUME_FAMILY", "required": True},
+         {"role": "vegetable", "category": "VEGETABLE", "family": "VEGETABLE_FAMILY", "required": False},
+     ]},
+
+    # Sem amido: e o formato do dia low do metodo, e tambem o prato de quem janta leve.
+    {"id": "forge_prato_leve", "label": "Prato sem amido", "meal_types": ["lunch", "dinner"],
+     "components": [
+         {"role": "primary_protein", "category": "PROTEIN", "family": "LEAN_PROTEIN_SOLID", "required": True},
+         {"role": "vegetable", "category": "VEGETABLE", "family": "VEGETABLE_FAMILY", "required": True},
+         {"role": "fat_source", "category": "FAT", "family": "FAT_FAMILY", "required": True},
+     ]},
+
+    # Ovos no jantar: comum, barato e rapido. O ovo ja e primary_protein no catalogo.
+    {"id": "forge_ovos_jantar", "label": "Ovos com legumes", "meal_types": ["dinner", "post_workout"],
+     "components": [
+         {"role": "primary_protein", "category": "PROTEIN", "family": "EGG_FAMILY", "required": True},
+         {"role": "primary_carb", "category": "CARBOHYDRATE", "family": "MAIN_CARB", "required": True},
+         {"role": "vegetable", "category": "VEGETABLE", "family": "VEGETABLE_FAMILY", "required": True},
+     ]},
+
+    # Lanche com pao: o lanche caia para UMA opcao em alvo grande, porque mingau e fruta nao
+    # tem capacidade calorica para 800 kcal sem estourar a porcao.
+    # So no lanche, NAO no cafe da manha: a familia QUICK_PROTEIN inclui atum em lata, e
+    # "atum no cafe da manha" foi defeito real em producao — tem teste proprio defendendo
+    # isso desde entao, e foi ele que me pegou quando liberei o combo para o cafe.
+    {"id": "forge_lanche_pao", "label": "Pão com proteína", "meal_types": ["snack"],
+     "components": [
+         {"role": "primary_carb", "category": "CARBOHYDRATE", "family": "BREAD_FAMILY", "required": True},
+         {"role": "primary_protein", "category": "PROTEIN", "family": "QUICK_PROTEIN", "required": True},
+         {"role": "fruit", "category": "FRUIT", "family": "FRUIT_FAMILY", "required": False},
+     ]},
+
     {"id": "forge_oats_whey_banana", "label": "Mingau FORGE", "meal_types": ["breakfast", "snack"],
      "components": [
          {"role": "primary_carb", "category": "CARBOHYDRATE", "family": "PORRIDGE_CARB", "required": True},
@@ -851,14 +904,53 @@ def _score_food(food, meal_type, pn, goal="maintenance"):
         score += round((food.get("fat_g",0) / food["grams"]) * 20)
     return score
 
-def select_food_for_slot(candidates, role, meal_type, pn, used_ids, goal="maintenance"):
+# Quantos dos melhores candidatos entram no rodizio. Tres, e nao todos: a pontuacao existe
+# para separar o que serve do que nao serve naquela refeicao, e girar pela lista inteira
+# entregaria o pior alimento disponivel so para parecer variado.
+MELHORES_PARA_GIRAR = 3
+
+
+def select_food_for_slot(candidates, role, meal_type, pn, used_ids, goal="maintenance",
+                         preferido=None, giro=0):
+    """O alimento que preenche um espaco da refeicao.
+
+    Dois defeitos moravam aqui, e os dois faziam a mesma coisa: entregar SEMPRE o mesmo
+    alimento, por mais que o chamador pedisse variedade.
+
+    1. `generate_meal` reordena os candidatos para por na frente o alimento da rotacao do dia
+       (VEG_ROTATION, FRUIT_ROTATION, LEGUME_ROTATION). Esta funcao ordenava por pontuacao
+       logo em seguida e a ordem recebida ia inteira para o lixo. A rotacao existia no codigo
+       desde sempre e nunca decidiu nada. Agora ela chega por `preferido` e vence.
+
+    `giro` existe para o mesmo fim, mas NAO e usado para proteina nem carboidrato, e isso e
+    uma decisao medida. Eu tentei: girar entre os tres melhores nesses dois papeis quebrou
+    quatro testes de uma vez — atum no cafe da manha, lanche sem proteina, coerencia caindo
+    de 55 para 37, e a gordura do dia saindo 17% fora do alvo. A pontuacao nesses dois
+    papeis nao e preferencia estetica: e ela que faz a refeicao FECHAR a conta de macro.
+    Vegetal, fruta e leguminosa tem listas de rotacao escritas a mao justamente porque ali
+    trocar nao move a conta.
+
+    O efeito visivel do defeito era "Mostrar outras opcoes" nao mostrar nada de novo.
+    """
     scored = []
     for fid in candidates:
         f = FOOD_INDEX.get(fid)
         if not f or not _food_compatible(f, pn, used_ids): continue
-        scored.append((_score_food(f, meal_type, pn, goal), fid))
+        nota = _score_food(f, meal_type, pn, goal)
+        if nota > 0:
+            scored.append((nota, fid))
+    if not scored:
+        return None
+
+    # O preferido so vence se ele PASSOU no filtro: rotacao nao pode furar restricao
+    # alimentar nem entregar um alimento que nao serve para aquela refeicao.
+    if preferido and any(fid == preferido for _, fid in scored):
+        return preferido
+
     scored.sort(key=lambda x: -x[0])
-    return scored[0][1] if scored and scored[0][0] > 0 else None
+    if giro:
+        return scored[giro % min(len(scored), MELHORES_PARA_GIRAR)][1]
+    return scored[0][1]
 
 def calculate_meal_portions(food_ids, target_cal, target_protein, target_fat=0, goal="maintenance"):
     """Size the primary_protein and fat_source foods directly from their macro targets
@@ -1209,22 +1301,16 @@ def generate_meal(meal_name, meal_type, target_cal, target_protein, target_fat,
             varied = [c for c in cands if prot_count.get(c, 0) < max_same]
             if varied: cands = varied
 
-        if role == "legume":
-            idx = (day_index + len(selected)) % len(LEGUME_ROTATION)
-            preferred = LEGUME_ROTATION[idx]
-            if preferred in cands: cands = [preferred] + [c for c in cands if c != preferred]
+        # A rotacao do dia agora CHEGA em quem decide, em vez de ser reordenacao que a
+        # pontuacao desfazia logo depois.
+        preferido = None
+        rotacao = {"legume": LEGUME_ROTATION, "vegetable": VEG_ROTATION, "fruit": FRUIT_ROTATION}.get(role)
+        if rotacao:
+            candidato = rotacao[(day_index + len(selected)) % len(rotacao)]
+            if candidato in cands:
+                preferido = candidato
 
-        if role == "vegetable":
-            idx = (day_index + len(selected)) % len(VEG_ROTATION)
-            preferred = VEG_ROTATION[idx]
-            if preferred in cands: cands = [preferred] + [c for c in cands if c != preferred]
-
-        if role == "fruit":
-            idx = (day_index + len(selected)) % len(FRUIT_ROTATION)
-            preferred = FRUIT_ROTATION[idx]
-            if preferred in cands: cands = [preferred] + [c for c in cands if c != preferred]
-
-        fid = select_food_for_slot(cands, role, mt, pn, mu, goal)
+        fid = select_food_for_slot(cands, role, mt, pn, mu, goal, preferido)
         if fid:
             if role == "primary_protein":
                 prot_count[fid] = prot_count.get(fid, 0) + 1
