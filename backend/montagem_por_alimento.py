@@ -181,6 +181,16 @@ def falta_escolher(espacos: List[Dict[str, Any]]) -> List[str]:
 from text_match import normalize, token_score, token_set  # noqa: E402
 
 
+def _chave_do_nome(nome: str) -> str:
+    """Identidade de um alimento pelo nome, para achar o mesmo item escrito de dois jeitos.
+
+    Sem acento, sem pontuacao e com as palavras ordenadas: "Batata-doce cozida" e "Batata
+    doce cozida" caem na mesma chave, e "Arroz branco" nao se confunde com "Arroz integral".
+    """
+    texto = normalize(nome or "")
+    return " ".join(sorted(p for p in texto.split() if p))
+
+
 def _macros_por_100(alimento: Dict[str, Any]) -> Dict[str, Any]:
     base = max(1, alimento.get("grams", 100))
     fator = 100.0 / base
@@ -295,6 +305,23 @@ def buscar_para_montagem(consulta: str, perfil: Dict[str, Any],
         })
 
     achados.sort(key=lambda a: (-a["_pontos"], not a["dimensionavel"], a["name"]))
+
+    # O mesmo alimento existe duas vezes no catalogo em dois casos conhecidos (batata-doce e
+    # castanha-do-para): um registro no motor de plano e outro so no diario, com macro
+    # ligeiramente diferente. Na busca isso aparece como duas linhas iguais, e a pessoa nao
+    # tem como saber qual escolher.
+    #
+    # A desduplicacao e feita AQUI, e nao apagando um dos ids: alguem pode ter o id do
+    # diario gravado no historico dele, e remover o alimento apagaria o registro de uma
+    # refeicao que a pessoa de fato comeu. O que fica e o do motor, porque ele dimensiona
+    # sozinho e o outro obrigaria a pessoa a pesar.
+    vistos = set()
+    unicos = []
     for a in achados:
+        chave = _chave_do_nome(a["name"])
+        if chave in vistos:
+            continue
+        vistos.add(chave)
         a.pop("_pontos", None)
-    return achados[:limite]
+        unicos.append(a)
+    return unicos[:limite]
