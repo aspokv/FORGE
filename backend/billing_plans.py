@@ -80,7 +80,7 @@ PLANOS: List[Dict[str, Any]] = [
             "Ganho de massa",
             "Emagrecimento",
             "Recomposição corporal",
-            "Intensidades controlada, leve e moderada",
+            "Intensidades: controlada, leve e moderada",
             "Substituições alimentares equivalentes",
             "Whey, carnes, ovos e outras alternativas compatíveis",
             "Regeneração e ajustes do plano",

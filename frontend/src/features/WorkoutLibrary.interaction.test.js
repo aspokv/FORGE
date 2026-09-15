@@ -210,3 +210,25 @@ describe("female program routing",()=>{
   expect(host.textContent).not.toContain("male-program");
  });
 });
+
+describe("a descricao do programa nao aparece duas vezes",()=>{
+ let host,root;
+ const curado=(id)=>({id,category:"abcd",audience_type:"female",name:"Programa "+id,level:"Avançado",
+   safety:"standard",description:"Base de forca com progressao dupla",days_per_week:4,phase_count:1,
+   phases:[{id:"base",label:"Base",sessions:[],days_per_week:4,total_sets:0}]});
+ beforeEach(()=>{jest.clearAllMocks();host=document.createElement("div");document.body.appendChild(host);root=createRoot(host);});
+ afterEach(async()=>{await act(async()=>root.unmount());host.remove();});
+
+ // O mesmo paragrafo renderizava no cartao selecionado E na previa logo abaixo. A previa
+ // existe para mostrar o que o cartao NAO mostra: fases, sessoes e exercicios.
+ test("ao abrir um programa, o resumo continua so no cartao",async()=>{
+  axios.get.mockResolvedValue({data:{...catalog,program_categories:[{id:"abcd",label:"ABCD"}],
+   programs:[curado("um")]}});
+  // Perfil feminino abre direto na aba de programas completos, que e onde a previa vive.
+  await act(async()=>{root.render(<WorkoutLibrary API="/api" profile={{sex:"Feminino"}}/>);await Promise.resolve();});
+  await act(async()=>click(host.querySelector('[data-testid="training-program-um"]')));
+  expect(host.querySelector('[data-testid="program-preview"]')).not.toBeNull();
+  const vezes=host.textContent.split("Base de forca com progressao dupla").length-1;
+  expect(vezes).toBe(1);
+ });
+});
