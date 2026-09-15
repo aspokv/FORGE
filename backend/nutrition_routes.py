@@ -8,6 +8,7 @@ from food_diary import DIARY_FOODS, food_snapshot
 from lista_de_compras import montar_lista, anotar_peso_cru
 from ciclagem_de_carboidrato import ciclar_por_sessao, classe_da_sessao, onde_colocar
 from metodo_do_treinador import metodo_do_dia
+from montagem_por_alimento import espacos_da_refeicao, falta_escolher
 from engine import build_program_v2
 from external_food_catalog import search_external_foods, resolve_external_food
 import uuid, random
@@ -97,6 +98,14 @@ class SwapFoodIn(BaseModel):
     food_ids: List[str]
     food_id: str
     substitute_food_id: Optional[str] = None
+
+
+class ComporRefeicaoIn(BaseModel):
+    meal_index: int = Field(ge=0)
+    # Ate 8: o marcador de coerencia do motor ja pune prato com 6 ou mais itens, entao
+    # aceitar uma lista longa seria convidar a pessoa a montar algo que o proprio motor
+    # considera ruim.
+    food_ids: List[str] = Field(default_factory=list, max_length=8)
 
 
 class ChooseMealIn(BaseModel):
@@ -662,6 +671,93 @@ async def draft_swap_food(payload: SwapFoodIn, request: Request, user=Depends(ge
         meal_target.get("target_fat", 0), goal)
     foods = [build_food_item(fid, portions.get(fid, 100)) for fid in new_food_ids]
     return {"meal_index": idx, "foods": foods, "applied": True}
+
+
+@router.get("/plan/draft/slots")
+async def draft_meal_slots(request: Request, meal_index: int = Query(0, ge=0),
+                           user=Depends(get_current_user)):
+    """Os espacos de uma refeicao do rascunho, com o que cabe em cada um.
+
+    E a lista que a pessoa vai usar para montar a refeicao dela. Alergia, restricao e
+    alimento evitado ja saem daqui: nada que ela nao possa comer chega a ser oferecido.
+    """
+    db = request.app.state.db
+    target = user["id"]
+    await exigir_capacidade(db, user, ALIMENTACAO)
+    perfil = await db.profiles.find_one({"id": target}, {"_id": 0})
+    na = (perfil or {}).get("nutrition_assessment", {})
+    draft = await db.nutrition_plan_drafts.find_one({"profile_id": target}, {"_id": 0})
+    if not draft:
+        raise HTTPException(404, "Nenhum rascunho de plano em andamento. Chame /plan/reset primeiro.")
+    if meal_index >= len(draft["meals"]):
+        raise HTTPException(400, "Indice de refeicao invalido")
+
+    refeicao = draft["meals"][meal_index]
+    na = _com_protocolo(na, draft.get("targets"))
+    escolhidos = [i["food_id"] for i in (refeicao.get("foods") or [])]
+    espacos = espacos_da_refeicao(refeicao["name"], na, escolhidos)
+    return {"meal_index": meal_index, "name": refeicao["name"],
+            "target_cal": refeicao["target_cal"], "target_protein": refeicao["target_protein"],
+            "target_fat": refeicao.get("target_fat", 0),
+            "espacos": espacos, "falta": falta_escolher(espacos)}
+
+
+@router.post("/plan/draft/compose")
+async def draft_compose_meal(payload: ComporRefeicaoIn, request: Request,
+                             user=Depends(get_current_user)):
+    """A previa da refeicao que a pessoa esta montando, SEM gravar.
+
+    A grama de cada alimento continua saindo do motor, nunca do cliente — a pessoa escolhe
+    quais, `calculate_meal_portions` decide quanto. Sem esta previa ela so descobriria as
+    porcoes depois de confirmar, que e tarde para mudar de ideia.
+
+    Devolve tambem o quanto falta para a meta, que e o numero que a barra da tela enche.
+    """
+    db = request.app.state.db
+    target = user["id"]
+    await exigir_capacidade(db, user, ALIMENTACAO)
+    perfil = await db.profiles.find_one({"id": target}, {"_id": 0})
+    na = (perfil or {}).get("nutrition_assessment", {})
+    draft = await db.nutrition_plan_drafts.find_one({"profile_id": target}, {"_id": 0})
+    if not draft:
+        raise HTTPException(404, "Nenhum rascunho de plano em andamento.")
+    idx = payload.meal_index
+    if idx >= len(draft["meals"]):
+        raise HTTPException(400, "Indice de refeicao invalido")
+
+    refeicao = draft["meals"][idx]
+    goal = draft.get("goal", na.get("goal", "maintenance"))
+    na = _com_protocolo(na, draft.get("targets"))
+
+    espacos = espacos_da_refeicao(refeicao["name"], na, payload.food_ids)
+    if not payload.food_ids:
+        return {"meal_index": idx, "foods": [], "totais": {"kcal": 0, "protein_g": 0,
+                "carbs_g": 0, "fat_g": 0}, "alvo": refeicao["target_cal"],
+                "proporcao": 0.0, "coerencia": 0, "espacos": espacos,
+                "falta": falta_escolher(espacos)}
+
+    porcoes = calculate_meal_portions(
+        payload.food_ids, refeicao["target_cal"], refeicao["target_protein"],
+        refeicao.get("target_fat", 0), goal)
+    alimentos = [build_food_item(fid, porcoes.get(fid, 100)) for fid in payload.food_ids]
+
+    totais = {"kcal": 0.0, "protein_g": 0.0, "carbs_g": 0.0, "fat_g": 0.0}
+    for item in alimentos:
+        base = FOOD_INDEX.get(item["food_id"], {})
+        fator = item["grams"] / max(1, base.get("grams", 100))
+        totais["kcal"] += (base.get("kcal", 0) or 0) * fator
+        totais["protein_g"] += (base.get("protein_g", 0) or 0) * fator
+        totais["carbs_g"] += (base.get("carbs_g", 0) or 0) * fator
+        totais["fat_g"] += (base.get("fat_g", 0) or 0) * fator
+    totais = {k: round(v, 1) for k, v in totais.items()}
+
+    coerencia = calculate_meal_coherence_score(
+        {"foods": alimentos}, _infer_meal_type(refeicao["name"]), goal)
+    alvo = float(refeicao["target_cal"] or 0)
+    return {"meal_index": idx, "foods": alimentos, "totais": totais,
+            "alvo": round(alvo), "proporcao": round(totais["kcal"] / alvo, 3) if alvo else 0.0,
+            "coerencia": round(coerencia), "espacos": espacos,
+            "falta": falta_escolher(espacos)}
 
 
 @router.post("/plan/draft/choose")

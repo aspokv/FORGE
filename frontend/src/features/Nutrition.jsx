@@ -5,6 +5,7 @@ import NutritionDailyFooter from "./NutritionDailyFooter";
 import ListaDeCompras from "./ListaDeCompras";
 import CarboidratoDoDia from "./CarboidratoDoDia";
 import MetodoDoTreinador from "./MetodoDoTreinador";
+import MontarRefeicao from "./MontarRefeicao";
 import NutritionImport from "./NutritionImport";
 import FoodDiaryEditor from "./FoodDiaryEditor";
 import {localFoodDate, consumedTotals} from "./foodDiary";
@@ -118,6 +119,10 @@ export default function Nutrition({ API, profileId, db }) {
   const [guidedLoadingOptions, setGuidedLoadingOptions] = useState(false);
   const [guidedSwap, setGuidedSwap] = useState(null);
   const [guidedPhase, setGuidedPhase] = useState("choosing");
+  // "combos" = escolher uma combinacao pronta; "montar" = escolher alimento por
+  // alimento. Volta para "combos" a cada refeicao nova de proposito: a pessoa que
+  // montou o cafe da manha a mao nao necessariamente quer montar as outras quatro.
+  const [modoDaRefeicao, setModoDaRefeicao] = useState("combos");
   // Uma busca so do ciclo de carboidrato, compartilhada pelo card de cima e pelo bloco de
   // baixo. Duas buscas dariam dois resultados possiveis para a mesma pergunta.
   const [cicloCarbo, setCicloCarbo] = useState(null);
@@ -291,6 +296,17 @@ export default function Nutrition({ API, profileId, db }) {
       else { setGuidedIdx(next); await loadMealOptions(next); }
     } catch (e) { setError("Não foi possível escolher esta combinação agora."); }
     finally { setBusy(false); }
+  };
+
+  /* Montar a mao e escolher uma combinacao terminam igual: o rascunho volta do servidor e
+     o fluxo decide qual e a proxima refeicao. Dois caminhos para "o que vem depois" seria
+     a porta aberta para um deles esquecer de ir para a revisao no fim. */
+  const refeicaoMontada = async (draft) => {
+    setGuidedDraft(draft);
+    setModoDaRefeicao("combos");
+    const next = nextUnlockedIndex(draft);
+    if (next === -1) { setGuidedPhase("review"); }
+    else { setGuidedIdx(next); await loadMealOptions(next); }
   };
 
   // FORGE_CHOOSES_FOR_ME — for this one meal, or for every meal still unlocked.
@@ -593,7 +609,28 @@ export default function Nutrition({ API, profileId, db }) {
           <p className="fg-guiado-apoio">{lockedCount} de {totalMeals} já escolhidas</p>
         </header>
 
-        {guidedLoadingOptions ? (
+        {/*
+          * As duas formas ficam lado a lado, e nao uma escondida atras da outra. A que o
+          * atleta pediu — montar do zero — e o diferencial do produto: quem desiste de
+          * dieta desiste de comer o que nao escolheu. Esconder isso num menu seria repetir
+          * o erro que "Refazer plano" cometeu.
+          */}
+        <div className="fg-modos" role="tablist" aria-label="Como montar esta refeição">
+          {[["combos", "Combinações"], ["montar", "Montar do zero"]].map(([chave, texto]) => (
+            <button key={chave} type="button" role="tab" aria-selected={modoDaRefeicao === chave}
+                    className={`fg-modo${modoDaRefeicao === chave ? " fg-modo-ativo" : ""}`}
+                    data-testid={`modo-${chave}`}
+                    onClick={() => setModoDaRefeicao(chave)}>
+              {texto}
+            </button>
+          ))}
+        </div>
+
+        {modoDaRefeicao === "montar" ? (
+          <MontarRefeicao API={API} mealIndex={guidedIdx}
+                          onPronto={refeicaoMontada}
+                          onCancelar={() => setModoDaRefeicao("combos")} />
+        ) : guidedLoadingOptions ? (
           <div className="fg-esqueleto" aria-label="Buscando combinações" />
         ) : guidedOptions.map((opt, i) => {
           const optKcal = opt.foods.reduce((s, f) => s + (f.food?.kcal || 0) * f.grams / (f.food?.grams || 100), 0);
@@ -659,13 +696,13 @@ export default function Nutrition({ API, profileId, db }) {
           );
         })}
 
-        {error && <p className="fg-erro" role="alert">{error}</p>}
+        {modoDaRefeicao === "combos" && error && <p className="fg-erro" role="alert">{error}</p>}
 
         {/*
           * Empilhado, e nao em linha: tres rotulos longos lado a lado num telefone viravam
           * botoes de 90px com o texto quebrando em tres linhas.
           */}
-        <div className="fg-guiado-acoes">
+        {modoDaRefeicao === "combos" && <div className="fg-guiado-acoes">
           <button type="button" className="fg-btn fg-btn-2" onClick={outrasOpcoes}
                   disabled={busy || guidedLoadingOptions}>
             <RefreshCw size={15} /> Mostrar outras opções
@@ -680,7 +717,7 @@ export default function Nutrition({ API, profileId, db }) {
           <button type="button" className="fg-guiado-cancelar" onClick={() => setStep("plan")}>
             Cancelar
           </button>
-        </div>
+        </div>}
       </div>
       </AstraPage>
     );

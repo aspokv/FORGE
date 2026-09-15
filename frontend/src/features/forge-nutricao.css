@@ -302,6 +302,9 @@
  */
 .fg-selo-metodo {
   margin-left: 7px;
+  /* Nunca parte no meio: "DO" numa linha e "MÉTODO" na outra deixa de ser selo e vira
+     ruído. Prefere-se o nome do alimento quebrando, que é texto e quebra bem. */
+  white-space: nowrap;
   padding: 2px 6px;
   border-radius: 6px;
   background: var(--fg-acao);
@@ -519,3 +522,30 @@
   outline: 2px solid var(--fg-acao);
   outline-offset: -1px;
 }
+
+/* ── As duas formas de montar uma refeição ─────────────────────────────────
+ * Lado a lado, e não uma escondida atrás da outra. Montar do zero é o diferencial do
+ * produto: quem desiste de dieta desiste de comer o que não escolheu. Esconder isso num
+ * menu seria repetir o erro que "Refazer plano" cometeu.
+ */
+.fg-modos {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--e-1);
+  padding: var(--e-1);
+  border-radius: var(--r-pilula);
+  background: var(--fg-superficie);
+}
+
+.fg-modo {
+  min-height: 40px;
+  border: 0;
+  border-radius: var(--r-pilula);
+  background: transparent;
+  color: var(--fg-texto-3);
+  font: 600 var(--t-apoio) / 1.2 var(--fg-corpo);
+  cursor: pointer;
+}
+
+.fg-modo-ativo { background: var(--fg-superficie-alta); color: var(--fg-texto); }
+.fg-modo:focus-visible { outline: 2px solid var(--fg-acao); outline-offset: -2px; }
