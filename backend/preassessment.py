@@ -18,7 +18,7 @@ informacao que o produto nao cumpre.
 """
 from typing import Any, Dict, List, Optional
 
-from billing_plans import ALIMENTACAO, PROTOCOLOS_AGRESSIVOS
+from billing_plans import ALIMENTACAO, PROTOCOLOS_AGRESSIVOS, plano_minimo_com
 from engine import determine_split, get_day_targets
 from muscles import (
     DEFAULT_EMPHASIS_BY_SEX, FRONTEND_MUSCLES, MAX_PRIORITIES, MUSCLE_GROUPS, to_frontend,
@@ -197,10 +197,15 @@ def normalizar(respostas: Dict[str, Any], capacidades: Optional[set] = None) -> 
             if cfg is None:
                 raise RespostaInvalida("goal_intensity", "Escolha um ritmo válido.")
             if cfg.get("advanced") and PROTOCOLOS_AGRESSIVOS not in caps:
+                # O nome do plano vem da tabela, e nao escrito a mao: `aggressive_protocols`
+                # ja mudou de plano uma vez, e a frase antiga passou a mandar a pessoa
+                # comprar o plano errado.
+                dono = plano_minimo_com(PROTOCOLOS_AGRESSIVOS)
                 raise RespostaInvalida(
                     "goal_intensity",
-                    "O ritmo agressivo faz parte do FORGE Elite. Escolha outro ritmo ou "
-                    "troque de plano.")
+                    (f"O ritmo agressivo faz parte do {dono['nome']}. Escolha outro ritmo "
+                     "ou troque de plano.") if dono else
+                    "O ritmo agressivo não está disponível no seu plano. Escolha outro ritmo.")
             doc["goal_intensity"] = ritmo
 
     return doc

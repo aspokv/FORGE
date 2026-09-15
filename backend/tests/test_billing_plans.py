@@ -97,14 +97,33 @@ def test_essencial_tem_treino_e_nao_tem_alimentacao():
     assert bp.PROTOCOLOS_AGRESSIVOS not in caps
 
 
-def test_pro_tem_alimentacao_e_nao_tem_agressivo():
+def test_pro_tem_alimentacao_e_os_protocolos_agressivos():
+    """O ritmo Agressivo/Atleta saiu do Elite e passou para o Pro, por decisao do dono.
+
+    O Essencial continua sem ele — e sem alimentacao nenhuma —, entao a capacidade segue
+    sendo paga, so que um degrau abaixo."""
     caps = bp.capacidades_do_plano("pro")
     assert bp.ALIMENTACAO in caps and bp.SUBSTITUICAO_DE_ALIMENTO in caps
-    assert bp.PROTOCOLOS_AGRESSIVOS not in caps
+    assert bp.PROTOCOLOS_AGRESSIVOS in caps
 
 
-def test_elite_tem_protocolos_avancados():
+def test_elite_continua_contendo_tudo_do_pro():
+    """Ninguem que ja pagava o Elite perdeu nada quando o agressivo desceu para o Pro."""
+    assert bp.capacidades_do_plano("pro") <= bp.capacidades_do_plano("elite")
     assert bp.PROTOCOLOS_AGRESSIVOS in bp.capacidades_do_plano("elite")
+
+
+def test_a_mensagem_de_upgrade_aponta_o_plano_mais_barato_que_entrega():
+    """Nenhuma frase de "troque de plano" pode citar plano escrito a mao.
+
+    Quando o agressivo era do Elite, as mensagens diziam "FORGE Elite". Ao descer para o
+    Pro, toda frase escrita a mao passou a mandar a pessoa comprar o plano ERRADO, mais
+    caro, por um recurso que o mais barato ja entrega."""
+    dono = bp.plano_minimo_com(bp.PROTOCOLOS_AGRESSIVOS)
+    assert dono["code"] == "pro"
+    assert bp.plano_minimo_com(bp.ALIMENTACAO)["code"] == "pro"
+    assert bp.plano_minimo_com(bp.TREINO)["code"] == "essential"
+    assert bp.plano_minimo_com("capacidade_que_nao_existe") is None
 
 
 # ── Resolucao de acesso ──────────────────────────────────────────────────────────────
@@ -224,7 +243,9 @@ def test_assinatura_ativa_libera_o_plano_contratado():
     acesso = ent.resolver_acesso(_atleta(created_at=_iso(_agora())), _assinatura(plan="pro"))
     assert acesso["plan_code"] == "pro"
     assert bp.ALIMENTACAO in acesso["capabilities"]
-    assert bp.PROTOCOLOS_AGRESSIVOS not in acesso["capabilities"]
+    assert bp.PROTOCOLOS_AGRESSIVOS in acesso["capabilities"]
+    # O que o Pro continua NAO tendo: o degrau ainda existe, so mudou de lugar.
+    assert bp.ANALISES_AVANCADAS not in acesso["capabilities"]
 
 
 @pytest.mark.parametrize("estado", ["pending", "cancelled", "expired", "rejected", "paused"])

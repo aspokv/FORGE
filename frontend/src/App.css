@@ -39,3 +39,11 @@
 .inline-rest-copy{display:grid;gap:4px;min-width:0}.inline-rest-copy span{display:flex;align-items:center;gap:7px;color:#dfb98f;font:500 10px var(--fg-mono);letter-spacing:.13em}.inline-rest-copy small{color:var(--muted);font-size:11px}.inline-rest>strong{font:500 32px var(--fg-mono);color:var(--text);letter-spacing:-.04em}.inline-rest-actions{grid-column:1/-1;display:flex;gap:7px;flex-wrap:wrap}.inline-rest-actions button{min-height:40px;padding:0 12px;border:1px solid #4d443c;background:#111315;color:#d9c2aa;font:500 10px var(--fg-mono);letter-spacing:.05em}.inline-rest-actions button:hover{border-color:#a46b50;color:#f0d0ac;background:#201714}.inline-rest>i{position:absolute;left:0;bottom:0;height:2px;background:#c38b62;transition:width 1s linear}
 .set-row.current{border-left:2px solid #b77e5b;padding-left:8px;background:rgba(183,126,91,.045)}.set-row.upcoming{opacity:.62}.set-row.completed{opacity:.72;background:#151719}.set-check{color:#ddbb92;border-color:#595047;background:#111315}.set-check:hover{border-color:#b77e5b;color:#f0d0ac;background:#201714}.set-row.completed .set-check{background:#1a1b1d;border-color:#756653;color:#d8b98f}.set-row.completed .set-check span{background:#756653}
 @media(max-width:800px){.inline-rest{grid-template-columns:1fr auto;padding:13px 12px 15px}.inline-rest>strong{font-size:28px}.inline-rest-actions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}.inline-rest-actions button{padding:0 5px;font-size:9px}.today-action-top>b{font-size:clamp(1.8rem,9vw,2.7rem);line-height:1.02;max-width:15ch}}
+
+/* Ritmo que o plano da conta nao inclui: visivel e legivel, mas claramente indisponivel.
+   Escolhivel ele seria um beco — o questionario terminaria num 402 na hora de salvar. */
+.intensity-card.bloqueada{border-style:dashed;cursor:not-allowed}
+.intensity-card.bloqueada:hover{border-color:var(--line)}
+.intensity-card.bloqueada .intensity-head b,.intensity-card.bloqueada small{opacity:.62}
+.intensity-tag.bloqueada{color:var(--muted)}
+.intensity-bloqueio{border-left:2px solid var(--muted);background:var(--elevated);color:var(--muted);padding:9px;font-size:11px;line-height:1.5}

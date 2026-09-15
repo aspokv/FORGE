@@ -113,3 +113,31 @@
 .objetivo-resultado p { margin: 0; color: var(--fg-texto-2); font: 400 var(--t-apoio) / 1.5 var(--fg-corpo); }
 .objetivo-resultado b { color: var(--fg-texto); font-variant-numeric: tabular-nums; }
 .objetivo-resultado small { display: block; margin-top: var(--e-2); color: var(--fg-texto-3); font-size: var(--t-apoio); line-height: 1.45; }
+
+/* ── Ritmo que o plano nao inclui ──────────────────────────────────────────────
+ * Visivel, legivel e claramente indisponivel. Nao e cinza-apagado a ponto de nao
+ * dar para ler: a pessoa precisa entender o que esta perdendo para querer o plano.
+ */
+.objetivo-ritmo.bloqueada {
+  border-style: dashed;
+  background: var(--fg-superficie);
+  cursor: not-allowed;
+}
+
+.objetivo-ritmo.bloqueada .objetivo-ritmo-nome,
+.objetivo-ritmo.bloqueada small { opacity: .62; }
+
+.objetivo-tag.bloqueada {
+  background: var(--fg-metal-fundo, var(--fg-superficie-alta));
+  color: var(--fg-texto-2);
+}
+
+.objetivo-bloqueio {
+  margin-top: var(--e-2);
+  padding: var(--e-2);
+  border-left: 3px solid var(--fg-metal);
+  border-radius: var(--r-campo);
+  background: var(--fg-superficie-alta);
+  color: var(--fg-texto-2);
+  font: 500 var(--t-apoio) / 1.45 var(--fg-corpo);
+}
