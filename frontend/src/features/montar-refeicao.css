@@ -328,3 +328,17 @@
   text-transform: uppercase;
   white-space: nowrap;
 }
+
+/* ── A linha do dia ────────────────────────────────────────────────────────
+ * Abaixo da refeição, e menor que ela: quem está montando age sobre a refeição, mas
+ * decide olhando o dia. Passar 80 kcal no café da manhã só importa se o dia não fechar.
+ */
+.montar-dia {
+  margin: var(--e-2) 0 0;
+  padding-top: var(--e-2);
+  border-top: 1px solid var(--fg-linha);
+  color: var(--fg-texto-3);
+  font: 400 var(--t-apoio) / 1.45 var(--fg-corpo);
+}
+
+.montar-dia b { color: var(--fg-texto-2); font-weight: 600; font-variant-numeric: tabular-nums; }

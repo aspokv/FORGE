@@ -249,3 +249,64 @@ class TestABuscaLivre:
     def test_entre_os_duplicados_fica_o_que_o_motor_dimensiona(self):
         achados = self._buscar("batata doce")
         assert achados and achados[0]["dimensionavel"] is True
+
+
+class TestAContaDoDia:
+    """A tolerancia que importa e a do DIA, e nao a da refeicao.
+
+    Quem tem 2.000 kcal para bater nao se importa se o cafe da manha passou 80: importa se o
+    dia fecha. E ele fecha sozinho, porque as refeicoes seguintes passam a mirar o que sobrou
+    (`redistribute_remaining_targets`, que ja existia).
+
+    A margem nao foi inventada para esta tela: e `calorie_tolerance_pct`, que vive no metodo
+    do FORGE e vale 5%. Em 2.000 kcal da os 100 para cima ou para baixo que o atleta pediu.
+    """
+
+    def _dia(self, alvo, refeicoes, travadas, idx, kcal_desta):
+        from nutrition_routes import _dia_do_rascunho
+        draft = {
+            "targets": {"goal_calories": alvo},
+            "meals": [{"foods": [{"food_id": "rice-white", "grams": 200}] if t else []}
+                      for t in travadas],
+            "locked": list(travadas),
+        }
+        for i, t in enumerate(travadas):
+            if t and i != idx:
+                draft["meals"][i]["foods"] = [{"food_id": "rice-white", "grams": 100}]
+        return _dia_do_rascunho(draft, idx, {"kcal": kcal_desta})
+
+    def test_a_margem_sai_do_metodo_e_nao_de_um_numero_solto(self):
+        from nutrition_engine import FORGE_COACH_METHODOLOGY
+        dia = self._dia(2000, 5, [False] * 5, 0, 500)
+        assert dia["tolerancia"] == round(2000 * FORGE_COACH_METHODOLOGY["calorie_tolerance_pct"])
+        assert dia["tolerancia"] == 100, "2.000 kcal com 5% tem de dar exatamente 100"
+
+    # Julgar um dia pela metade diria "voce esta 1.500 kcal abaixo" para quem acabou de
+    # escolher o cafe da manha.
+    def test_o_dia_so_e_julgado_quando_esta_completo(self):
+        parcial = self._dia(2000, 5, [False, False, False, False, False], 0, 500)
+        assert parcial["fechado"] is False
+        assert parcial["refeicoes_faltando"] == 4
+
+    def test_com_todas_travadas_o_dia_fecha(self):
+        fechado = self._dia(2000, 5, [True] * 5, 0, 500)
+        assert fechado["fechado"] is True
+        assert fechado["refeicoes_faltando"] == 0
+
+    def test_a_refeicao_sendo_montada_nao_conta_duas_vezes(self):
+        """Ela entra pelo total da previa, e nao pelo que esta gravado no rascunho."""
+        dia = self._dia(2000, 5, [True] * 5, 0, 500)
+        # 4 refeicoes travadas de 100 g de arroz + os 500 da previa. Se a refeicao 0
+        # contasse duas vezes, o total passaria disso.
+        assert dia["ja_escolhido"] < 500 + 4 * 200
+
+    @pytest.mark.parametrize("consumido,dentro", [
+        (2000, True), (2100, True), (1900, True), (2101, False), (1899, False),
+    ])
+    def test_a_margem_aceita_cem_para_cada_lado(self, consumido, dentro):
+        dia = self._dia(2000, 1, [True], 0, consumido)
+        assert dia["dentro_da_tolerancia"] is dentro, f"{consumido} kcal"
+
+    def test_alvo_zerado_nao_quebra(self):
+        dia = self._dia(0, 3, [False] * 3, 0, 0)
+        assert dia["alvo"] == 0 and dia["tolerancia"] == 0

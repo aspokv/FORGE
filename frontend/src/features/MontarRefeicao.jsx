@@ -185,13 +185,34 @@ export default function MontarRefeicao({API, mealIndex, onPronto, onCancelar}) {
         <b style={{width: `${proporcao * 100}%`}}
            className={passou ? "passou" : pronto && !faltando ? "cheia" : ""} />
       </div>
+      {/*
+        * A linha do DIA, embaixo da refeicao. Quem tem 2.000 kcal para bater nao se importa
+        * se o cafe da manha passou 80: importa se o dia fecha. E o dia fecha sozinho, porque
+        * as refeicoes seguintes passam a mirar o que sobrou.
+        *
+        * Enquanto faltam refeicoes o texto so informa o restante. Julgar um dia pela metade
+        * diria "voce esta 2.000 kcal abaixo" para quem acabou de escolher o cafe da manha.
+        */}
+      {previa?.dia && <p className="montar-dia" data-testid="montar-dia">
+        {previa.dia.fechado
+          ? previa.dia.dentro_da_tolerancia
+            ? <>Dia fechado: <b>{previa.dia.ja_escolhido} kcal</b> de {previa.dia.alvo}, dentro da margem de ±{previa.dia.tolerancia}.</>
+            : <><b>{previa.dia.ja_escolhido} kcal</b> no dia, de {previa.dia.alvo}. Fora da margem de ±{previa.dia.tolerancia}.</>
+          : <>No dia: <b>{previa.dia.ja_escolhido}</b> de {previa.dia.alvo} kcal · faltam {previa.dia.refeicoes_faltando} {previa.dia.refeicoes_faltando === 1 ? "refeição" : "refeições"}</>}
+      </p>}
+
       <p className={passou ? "montar-falta montar-passou" : "montar-falta"}>
         {falta.length > 0
           ? <>Falta escolher: <b>{falta.join(", ")}</b></>
           : escolhidos.length === 0 && manuais.length === 0
             ? "Escolha o que você vai comer nesta refeição."
             : passou
-              ? <><b>{diferenca} kcal</b> acima da meta desta refeição.</>
+              /* Passar na refeicao deixa de ser alarme enquanto o dia ainda vai se ajustar:
+                 as proximas refeicoes miram o que sobrou. So quando o dia fecha e que o
+                 excesso vira excesso de verdade. */
+              ? previa?.dia && !previa.dia.fechado
+                ? <><b>{diferenca} kcal</b> acima nesta refeição. As próximas absorvem.</>
+                : <><b>{diferenca} kcal</b> acima da meta desta refeição.</>
               : faltando
                 ? <><b>{diferenca} kcal</b> abaixo da meta desta refeição.</>
                 : "Pronto para confirmar."}
