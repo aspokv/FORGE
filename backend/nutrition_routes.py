@@ -722,6 +722,46 @@ def _somar_macros(itens) -> dict:
     return {k: round(v, 1) for k, v in totais.items()}
 
 
+def _dia_do_rascunho(draft: dict, idx: int, totais_desta: dict) -> dict:
+    """Como o DIA fica se esta refeicao for confirmada assim.
+
+    A tela de montagem so olhava a refeicao. Mas quem tem 2.000 kcal para bater nao se
+    importa se o cafe da manha passou 80: importa se o DIA fecha. E o dia fecha, porque as
+    refeicoes seguintes passam a mirar o que sobrou (`redistribute_remaining_targets`).
+
+    A tolerancia nao e inventada aqui: e `calorie_tolerance_pct`, que ja vive no metodo do
+    FORGE e vale 5%. Em 2.000 kcal da os mesmos 100 kcal para cima ou para baixo que o
+    atleta pediu.
+    """
+    alvo_do_dia = float((draft.get("targets") or {}).get("goal_calories") or 0)
+    travado = 0.0
+    for i, refeicao in enumerate(draft.get("meals") or []):
+        if i == idx or not (draft.get("locked") or [])[i]:
+            continue
+        travado += _somar_macros(refeicao.get("foods") or [])["kcal"]
+
+    desta = float(totais_desta.get("kcal") or 0)
+    somado = travado + desta
+    tolerancia = round(alvo_do_dia * FORGE_COACH_METHODOLOGY.get("calorie_tolerance_pct", 0.05))
+    # Quantas refeicoes ainda vao entrar. Enquanto houver alguma, o que sobra nao e "erro":
+    # e orcamento que ainda vai ser gasto, e dizer "voce esta 900 kcal abaixo" assustaria
+    # sem motivo.
+    faltam = sum(1 for i, t in enumerate(draft.get("locked") or [])
+                 if not t and i != idx)
+
+    return {
+        "alvo": round(alvo_do_dia),
+        "ja_escolhido": round(somado),
+        "restante": round(alvo_do_dia - somado),
+        "tolerancia": tolerancia,
+        "refeicoes_faltando": faltam,
+        # So faz sentido julgar o dia quando ele esta completo. Antes disso o numero e
+        # parcial por construcao.
+        "fechado": faltam == 0,
+        "dentro_da_tolerancia": abs(somado - alvo_do_dia) <= tolerancia,
+    }
+
+
 @router.get("/plan/draft/search-food")
 async def draft_search_food(request: Request, q: str = Query(min_length=2, max_length=80),
                             user=Depends(get_current_user)):
@@ -800,7 +840,10 @@ async def draft_meal_slots(request: Request, meal_index: int = Query(0, ge=0),
         if sugestao:
             escolhidos = list(sugestao["food_ids"])
 
-    espacos = espacos_da_refeicao(refeicao["name"], na, escolhidos)
+    alvo = {"cal": refeicao["target_cal"], "protein": refeicao["target_protein"],
+            "fat": refeicao.get("target_fat", 0),
+            "goal": draft.get("goal", na.get("goal", "maintenance"))}
+    espacos = espacos_da_refeicao(refeicao["name"], na, escolhidos, alvo)
     # O que a sugestao trouxe e o motor nao reconhece em nenhum espaco nao pode ficar
     # pendurado: seria um alimento marcado que a tela nao tem onde mostrar.
     if sugestao:
@@ -843,13 +886,18 @@ async def draft_compose_meal(payload: ComporRefeicaoIn, request: Request,
     goal = draft.get("goal", na.get("goal", "maintenance"))
     na = _com_protocolo(na, draft.get("targets"))
 
-    espacos = espacos_da_refeicao(refeicao["name"], na, payload.food_ids)
+    espacos = espacos_da_refeicao(
+        refeicao["name"], na, payload.food_ids,
+        {"cal": refeicao["target_cal"], "protein": refeicao["target_protein"],
+         "fat": refeicao.get("target_fat", 0), "goal": goal})
     manuais = [_item_manual(m.food_id, m.grams) for m in payload.manuais]
     if not payload.food_ids and not manuais:
-        return {"meal_index": idx, "foods": [], "totais": {"kcal": 0, "protein_g": 0,
-                "carbs_g": 0, "fat_g": 0}, "alvo": refeicao["target_cal"],
+        vazio = {"kcal": 0, "protein_g": 0, "carbs_g": 0, "fat_g": 0}
+        return {"meal_index": idx, "foods": [], "totais": vazio,
+                "alvo": refeicao["target_cal"],
                 "proporcao": 0.0, "coerencia": 0, "espacos": espacos,
-                "falta": falta_escolher(espacos)}
+                "falta": falta_escolher(espacos),
+                "dia": _dia_do_rascunho(draft, idx, vazio)}
 
     # A caloria que os manuais ja entregam SAI do alvo antes de dimensionar o resto: sem
     # isso, escolher 200 g de um alimento manual e depois deixar o motor preencher daria
@@ -870,7 +918,8 @@ async def draft_compose_meal(payload: ComporRefeicaoIn, request: Request,
     return {"meal_index": idx, "foods": alimentos, "totais": totais,
             "alvo": round(alvo), "proporcao": round(totais["kcal"] / alvo, 3) if alvo else 0.0,
             "coerencia": round(coerencia), "espacos": espacos,
-            "falta": falta_escolher(espacos)}
+            "falta": falta_escolher(espacos),
+            "dia": _dia_do_rascunho(draft, idx, totais)}
 
 
 @router.post("/plan/draft/choose")

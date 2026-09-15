@@ -249,3 +249,137 @@ class TestABuscaLivre:
     def test_entre_os_duplicados_fica_o_que_o_motor_dimensiona(self):
         achados = self._buscar("batata doce")
         assert achados and achados[0]["dimensionavel"] is True
+
+
+class TestAContaDoDia:
+    """A tolerancia que importa e a do DIA, e nao a da refeicao.
+
+    Quem tem 2.000 kcal para bater nao se importa se o cafe da manha passou 80: importa se o
+    dia fecha. E ele fecha sozinho, porque as refeicoes seguintes passam a mirar o que sobrou
+    (`redistribute_remaining_targets`, que ja existia).
+
+    A margem nao foi inventada para esta tela: e `calorie_tolerance_pct`, que vive no metodo
+    do FORGE e vale 5%. Em 2.000 kcal da os 100 para cima ou para baixo que o atleta pediu.
+    """
+
+    def _dia(self, alvo, refeicoes, travadas, idx, kcal_desta):
+        from nutrition_routes import _dia_do_rascunho
+        draft = {
+            "targets": {"goal_calories": alvo},
+            "meals": [{"foods": [{"food_id": "rice-white", "grams": 200}] if t else []}
+                      for t in travadas],
+            "locked": list(travadas),
+        }
+        for i, t in enumerate(travadas):
+            if t and i != idx:
+                draft["meals"][i]["foods"] = [{"food_id": "rice-white", "grams": 100}]
+        return _dia_do_rascunho(draft, idx, {"kcal": kcal_desta})
+
+    def test_a_margem_sai_do_metodo_e_nao_de_um_numero_solto(self):
+        from nutrition_engine import FORGE_COACH_METHODOLOGY
+        dia = self._dia(2000, 5, [False] * 5, 0, 500)
+        assert dia["tolerancia"] == round(2000 * FORGE_COACH_METHODOLOGY["calorie_tolerance_pct"])
+        assert dia["tolerancia"] == 100, "2.000 kcal com 5% tem de dar exatamente 100"
+
+    # Julgar um dia pela metade diria "voce esta 1.500 kcal abaixo" para quem acabou de
+    # escolher o cafe da manha.
+    def test_o_dia_so_e_julgado_quando_esta_completo(self):
+        parcial = self._dia(2000, 5, [False, False, False, False, False], 0, 500)
+        assert parcial["fechado"] is False
+        assert parcial["refeicoes_faltando"] == 4
+
+    def test_com_todas_travadas_o_dia_fecha(self):
+        fechado = self._dia(2000, 5, [True] * 5, 0, 500)
+        assert fechado["fechado"] is True
+        assert fechado["refeicoes_faltando"] == 0
+
+    def test_a_refeicao_sendo_montada_nao_conta_duas_vezes(self):
+        """Ela entra pelo total da previa, e nao pelo que esta gravado no rascunho."""
+        dia = self._dia(2000, 5, [True] * 5, 0, 500)
+        # 4 refeicoes travadas de 100 g de arroz + os 500 da previa. Se a refeicao 0
+        # contasse duas vezes, o total passaria disso.
+        assert dia["ja_escolhido"] < 500 + 4 * 200
+
+    @pytest.mark.parametrize("consumido,dentro", [
+        (2000, True), (2100, True), (1900, True), (2101, False), (1899, False),
+    ])
+    def test_a_margem_aceita_cem_para_cada_lado(self, consumido, dentro):
+        dia = self._dia(2000, 1, [True], 0, consumido)
+        assert dia["dentro_da_tolerancia"] is dentro, f"{consumido} kcal"
+
+    def test_alvo_zerado_nao_quebra(self):
+        dia = self._dia(0, 3, [False] * 3, 0, 0)
+        assert dia["alvo"] == 0 and dia["tolerancia"] == 0
+
+
+class TestAPorcaoNaLista:
+    """A lista tem de dizer QUANTO, e nao caloria por 100 g.
+
+    Eu tinha escrito o contrario no codigo, com o argumento de que a porcao so existe depois
+    do conjunto todo escolhido. O argumento estava certo e a conclusao errada: a lista passou
+    a oferecer "Whey — 400 kcal /100g", e ninguem come 100 g de whey. O atleta reclamou
+    disso com essas palavras.
+    """
+
+    ALVO = {"cal": 760, "protein": 50, "fat": 20, "goal": "muscle_gain"}
+
+    def test_cada_alimento_traz_a_porcao_que_ele_teria(self):
+        espacos = espacos_da_refeicao("Café da manhã", SEM_RESTRICAO, None, self.ALVO)
+        for espaco in espacos:
+            for alimento in espaco["alimentos"]:
+                assert alimento.get("porcao_g"), f"{espaco['rotulo']}/{alimento['name']}"
+
+    # O numero que motivou a reclamacao.
+    def test_a_porcao_do_whey_e_de_gente_e_nao_de_100g(self):
+        espacos = espacos_da_refeicao("Café da manhã", SEM_RESTRICAO, None, self.ALVO)
+        proteina = next(e for e in espacos if e["papel"] == "primary_protein")
+        whey = next(a for a in proteina["alimentos"] if a["food_id"] == "whey-protein")
+        assert whey["porcao_g"] <= 60, whey["porcao_g"]
+
+    def test_nenhuma_porcao_passa_do_teto_do_alimento(self):
+        from nutrition_engine import _portion_limit
+        for refeicao in ("Café da manhã", "Almoço", "Jantar"):
+            espacos = espacos_da_refeicao(refeicao, SEM_RESTRICAO, None, self.ALVO)
+            for espaco in espacos:
+                for alimento in espaco["alimentos"]:
+                    teto = _portion_limit(FOOD_INDEX[alimento["food_id"]], "hard_max")
+                    assert alimento["porcao_g"] <= teto + 1, f"{alimento['name']}"
+
+    # Sem alvo a lista continua funcionando: a porcao some, a caloria por 100 g fica.
+    def test_sem_alvo_a_lista_nao_quebra(self):
+        espacos = espacos_da_refeicao("Almoço", SEM_RESTRICAO)
+        assert espacos
+        for alimento in espacos[0]["alimentos"]:
+            assert "kcal_por_100g" in alimento
+            assert "porcao_g" not in alimento
+
+
+class TestOQueCombinaVemPrimeiro:
+    """Ninguem bate whey com batata inglesa.
+
+    A afinidade nao e lista escrita a mao: sai de MEAL_COMBOS. Se "Mingau FORGE" junta
+    PORRIDGE_CARB com FAST_PROTEIN, entao aveia e farinha de arroz andam com whey.
+    """
+
+    ALVO = {"cal": 760, "protein": 50, "fat": 20, "goal": "muscle_gain"}
+
+    def _carbos(self, escolhidos):
+        espacos = espacos_da_refeicao("Café da manhã", SEM_RESTRICAO, escolhidos, self.ALVO)
+        return next(e for e in espacos if e["papel"] == "primary_carb")["alimentos"]
+
+    def test_escolhido_o_whey_a_aveia_e_a_farinha_vem_na_frente(self):
+        primeiros = {a["food_id"] for a in self._carbos(["whey-protein"])[:2]}
+        assert primeiros <= {"oats", "rice-flour"}, primeiros
+
+    def test_o_arroz_branco_nao_vem_na_frente_do_whey(self):
+        nomes = [a["food_id"] for a in self._carbos(["whey-protein"])]
+        assert nomes.index("rice-white") > nomes.index("oats")
+
+    def test_o_que_combina_vem_marcado(self):
+        for alimento in self._carbos(["whey-protein"]):
+            if alimento["food_id"] in ("oats", "rice-flour"):
+                assert alimento["combina"] is True, alimento["name"]
+
+    # Sem nada escolhido nao existe com o que combinar, e marcar tudo seria ruido.
+    def test_sem_escolha_nada_e_marcado_como_combina(self):
+        assert not any(a["combina"] for a in self._carbos([]))

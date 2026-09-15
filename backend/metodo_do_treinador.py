@@ -348,7 +348,10 @@ COMBOS_DO_METODO = [
          _c("fruit", "FRUIT", "METODO_FRUTA_PRE"),
          _c("primary_protein", "PROTEIN", "METODO_PROTEINA_RAPIDA")]},
 
-    {"id": "metodo_pre_creme", "label": "Creme de arroz do método", "metodo": True,
+    # O rotulo nao nomeia alimento: a familia aceita creme de arroz, farinha de arroz E
+    # aveia, e a tela chegou a mostrar "Creme de arroz do metodo" com aveia em flocos. O que
+    # distingue este combo do outro pre-treino e a ausencia da fruta, e e isso que o nome diz.
+    {"id": "metodo_pre_creme", "label": "Pré-treino sem fruta do método", "metodo": True,
      "meal_types": ["pre_workout"], "components": [
          _c("primary_carb", "CARBOHYDRATE", "METODO_CARBO_PRE"),
          _c("primary_protein", "PROTEIN", "METODO_PROTEINA_RAPIDA")]},

@@ -361,3 +361,142 @@ test("dentro da meta continua dizendo que esta pronto",async()=>{
   expect(texto()).toContain("Pronto para confirmar");
   expect(host.querySelector(".montar-barra > b").className).toBe("cheia");
 });
+
+// ─── A conta do DIA, e nao so da refeicao ─────────────────────────────────────────────
+
+const comDia = (kcalDia, alvoDia, faltando, tolerancia = 100) => {
+  const base = compor(["chicken-breast", "rice-white"], 800, []);
+  base.data.dia = {
+    alvo: alvoDia, ja_escolhido: kcalDia, restante: alvoDia - kcalDia,
+    tolerancia, refeicoes_faltando: faltando, fechado: faltando === 0,
+    dentro_da_tolerancia: Math.abs(kcalDia - alvoDia) <= tolerancia,
+  };
+  return base;
+};
+
+// Julgar um dia pela metade diria "voce esta 1.200 kcal abaixo" para quem acabou de
+// escolher o cafe da manha.
+test("com refeicoes faltando, o dia so informa o quanto ja foi escolhido",async()=>{
+  axios.get.mockResolvedValue(comSugestao());
+  axios.post.mockResolvedValue(comDia(800,2000,3));
+  await montar();
+  const dia=host.querySelector('[data-testid="montar-dia"]').textContent;
+  expect(dia).toContain("800");
+  expect(dia).toContain("2000");
+  expect(dia).toContain("faltam 3 refeições");
+  expect(dia).not.toContain("margem");
+});
+
+test("uma refeicao faltando fala no singular",async()=>{
+  axios.get.mockResolvedValue(comSugestao());
+  axios.post.mockResolvedValue(comDia(1600,2000,1));
+  await montar();
+  expect(host.querySelector('[data-testid="montar-dia"]').textContent).toContain("faltam 1 refeição");
+});
+
+// A tolerancia e do DIA: 2.000 com margem de 100 aceita 1.950 e 2.080.
+test("dia fechado dentro da margem diz que fechou",async()=>{
+  axios.get.mockResolvedValue(comSugestao());
+  axios.post.mockResolvedValue(comDia(2080,2000,0));
+  await montar();
+  const dia=host.querySelector('[data-testid="montar-dia"]').textContent;
+  expect(dia).toContain("Dia fechado");
+  expect(dia).toContain("±100");
+});
+
+test("dia fechado fora da margem avisa",async()=>{
+  axios.get.mockResolvedValue(comSugestao());
+  axios.post.mockResolvedValue(comDia(2350,2000,0));
+  await montar();
+  const dia=host.querySelector('[data-testid="montar-dia"]').textContent;
+  expect(dia).toContain("Fora da margem");
+  expect(dia).not.toContain("Dia fechado");
+});
+
+// Passar na refeicao nao e alarme enquanto as proximas ainda vao se ajustar.
+test("excesso na refeicao vira aviso brando quando o dia ainda nao fechou",async()=>{
+  axios.get.mockResolvedValue(comSugestao());
+  const r=comDia(900,2000,3); r.data.totais.kcal=870; r.data.proporcao=870/800;
+  axios.post.mockResolvedValue(r);
+  await montar();
+  expect(texto()).toContain("As próximas absorvem");
+});
+
+test("com o dia fechado, o excesso na refeicao volta a ser excesso",async()=>{
+  axios.get.mockResolvedValue(comSugestao());
+  const r=comDia(2350,2000,0); r.data.totais.kcal=870; r.data.proporcao=870/800;
+  axios.post.mockResolvedValue(r);
+  await montar();
+  expect(texto()).toContain("acima da meta desta refeição");
+  expect(texto()).not.toContain("As próximas absorvem");
+});
+
+// ─── A porcao, e nao caloria por 100 g ────────────────────────────────────────────────
+
+const comPorcao = (id, nome, porcao, kcal, combina = false, metodo = false) => ({
+  food_id: id, name: nome, kcal_por_100g: 400, protein_por_100g: 0,
+  carb_por_100g: 0, fat_por_100g: 0, metodo, combina,
+  porcao_g: porcao, kcal_da_porcao: kcal,
+});
+
+// A previa DEVOLVE os espacos e sobrescreve os que vieram de /slots. O mock tem de
+// devolver os mesmos, senao o teste monta uma tela que a rota nunca produz.
+const comporComPorcao = (d) => ({data: {
+  meal_index: 1, foods: [], totais: {kcal: 0, protein_g: 0, carbs_g: 0, fat_g: 0},
+  alvo: 760, proporcao: 0, coerencia: 0,
+  espacos: d.data.espacos, falta: d.data.falta,
+}});
+
+const slotsComPorcao = () => ({data: {
+  meal_index: 1, name: "Café da manhã", target_cal: 760, target_protein: 50, target_fat: 20,
+  espacos: [{papel: "primary_protein", rotulo: "Proteína", explicacao: "", obrigatorio: true,
+             escolhido: null, alimentos: [
+               comPorcao("whey-protein", "Whey protein concentrado", 60, 240, false, true),
+               comPorcao("chicken-breast", "Peito de frango grelhado", 150, 248),
+             ]}],
+  falta: ["Proteína"],
+}});
+
+// "Whey - 400 kcal /100g" nao ajuda ninguem a decidir: ninguem come 100 g de whey.
+test("a lista mostra a porcao real, e nao caloria por 100 g",async()=>{
+  const dados=slotsComPorcao();
+  axios.get.mockResolvedValue(dados);
+  axios.post.mockResolvedValue(comporComPorcao(dados));
+  await montar();
+  const linha=host.querySelector('[data-testid="opcao-whey-protein"]').textContent;
+  expect(linha).toContain("60 g");
+  expect(linha).toContain("240 kcal");
+  expect(linha).not.toContain("/100g");
+});
+
+test("sem porcao calculada, cai na caloria por 100 g em vez de sumir",async()=>{
+  const d=slotsComPorcao();
+  delete d.data.espacos[0].alimentos[0].porcao_g;
+  delete d.data.espacos[0].alimentos[0].kcal_da_porcao;
+  axios.get.mockResolvedValue(d);
+  axios.post.mockResolvedValue(comporComPorcao(d));
+  await montar();
+  expect(host.querySelector('[data-testid="opcao-whey-protein"]').textContent).toContain("/100g");
+});
+
+// Escolhido o whey, a farinha de arroz tem de vir marcada: ninguem bate whey com batata.
+test("o alimento que combina com o escolhido vem marcado",async()=>{
+  const d=slotsComPorcao();
+  d.data.espacos[0].alimentos[1].combina=true;
+  axios.get.mockResolvedValue(d);
+  axios.post.mockResolvedValue(comporComPorcao(d));
+  await montar();
+  expect(host.querySelector('[data-testid="opcao-chicken-breast"] .montar-combina')).not.toBeNull();
+  expect(host.querySelector('[data-testid="opcao-whey-protein"] .montar-combina')).toBeNull();
+});
+
+test("combina e do metodo podem aparecer juntos sem um apagar o outro",async()=>{
+  const d=slotsComPorcao();
+  d.data.espacos[0].alimentos[0].combina=true;
+  axios.get.mockResolvedValue(d);
+  axios.post.mockResolvedValue(comporComPorcao(d));
+  await montar();
+  const linha=host.querySelector('[data-testid="opcao-whey-protein"]');
+  expect(linha.querySelector(".montar-combina")).not.toBeNull();
+  expect(linha.querySelector(".fg-selo-metodo")).not.toBeNull();
+});
