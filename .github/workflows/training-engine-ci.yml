@@ -29,6 +29,10 @@ on:
       - 'backend/ciclagem_de_carboidrato.py'
       - 'backend/metodo_do_treinador.py'
       - 'backend/tests/test_metodo_do_treinador.py'
+      - 'backend/nutrition_engine.py'
+      - 'backend/text_match.py'
+      - 'backend/tests/test_nutrition_directional.py'
+      - 'backend/tests/test_nutrition_meal_type_and_import_guard.py'
       - 'frontend/src/features/MetodoDoTreinador.jsx'
       - 'frontend/src/features/MetodoDoTreinador.test.js'
       - 'frontend/src/features/metodo-do-treinador.css'
@@ -135,6 +139,10 @@ on:
       - 'backend/ciclagem_de_carboidrato.py'
       - 'backend/metodo_do_treinador.py'
       - 'backend/tests/test_metodo_do_treinador.py'
+      - 'backend/nutrition_engine.py'
+      - 'backend/text_match.py'
+      - 'backend/tests/test_nutrition_directional.py'
+      - 'backend/tests/test_nutrition_meal_type_and_import_guard.py'
       - 'frontend/src/features/MetodoDoTreinador.jsx'
       - 'frontend/src/features/MetodoDoTreinador.test.js'
       - 'frontend/src/features/metodo-do-treinador.css'
@@ -330,3 +338,24 @@ jobs:
           tests/test_lista_de_compras.py
           tests/test_ciclagem_de_carboidrato.py
           tests/test_metodo_do_treinador.py
+      # As suites de COMPOSICAO de nutricao: como o prato e montado, como a refeicao e
+      # nomeada, como a meta se distribui. Rodam sem servidor e levam menos de dois
+      # segundos juntas. Nunca estiveram no CI — e foi uma delas que pegou o acento
+      # entrando no nome da refeicao e quebrando o casamento com o template.
+      - name: Run nutrition composition suites
+        run: >-
+          pytest -q --noconftest
+          tests/test_nutrition.py
+          tests/test_nutrition_altura_em_metros.py
+          tests/test_nutrition_directional.py
+          tests/test_nutrition_dna.py
+          tests/test_nutrition_guided_carb_ceiling.py
+          tests/test_nutrition_guided_flow.py
+          tests/test_nutrition_import.py
+          tests/test_nutrition_meal_type_and_import_guard.py
+          tests/test_nutrition_meta_segue_questionario.py
+          tests/test_nutrition_periodization.py
+          tests/test_nutrition_portion_hierarchy.py
+          tests/test_nutrition_real_meal_composition.py
+          tests/test_nutrition_substitution_dna.py
+          tests/test_food_substitution.py

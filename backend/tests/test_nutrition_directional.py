@@ -7,6 +7,7 @@ from nutrition_engine import (
     compute_macro_targets, generate_daily_plan, find_substitutes,
     evaluate_goal_directional_substitution, FOOD_INDEX, FORGE_COACH_METHODOLOGY,
 )
+from text_match import strip_accents
 
 
 def _kcal_density(fid):
@@ -227,7 +228,11 @@ def test_profile_e_protein_distribution():
     min_daily_protein = FORGE_COACH_METHODOLOGY["daily_guardrails"]["fat_loss"]["min_protein_g_per_kg"] * 75
     assert dt["protein_g"] >= min_daily_protein
 
-    main_meals = [m for m in plan["meals"] if m["name"] in ("Almoco", "Jantar")]
+    # Sem acento na comparacao: o catalogo escreve "Almoço" para o atleta ler, e este
+    # filtro so precisa ENCONTRAR as duas refeicoes principais. O que o teste defende e
+    # a proteina de cada uma, e nao a grafia do nome.
+    main_meals = [m for m in plan["meals"]
+                  if strip_accents(m["name"]) in ("Almoco", "Jantar")]
     assert len(main_meals) == 2
     for m in main_meals:
         mp = sum(FOOD_INDEX.get(it["food_id"], {}).get("protein_g", 0) * it["grams"]

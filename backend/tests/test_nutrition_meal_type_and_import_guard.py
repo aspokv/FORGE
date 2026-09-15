@@ -18,6 +18,7 @@ import pytest
 from nutrition_engine import (FORGE_COACH_METHODOLOGY, MEAL_TEMPLATES, _infer_meal_type,
                               calculate_bmr, compute_macro_targets, generate_daily_plan,
                               _meal_totals)
+from text_match import strip_accents
 from nutrition_import import (draft_to_plan, parse_diet_text, recompute, validate_draft)
 
 
@@ -60,7 +61,10 @@ def test_cafe_da_manha_de_seis_refeicoes_tem_proteina_de_cafe_da_manha(objetivo)
     refeicoes = plano["meals"] if isinstance(plano, dict) else plano
     primeira = refeicoes[0]
 
-    assert "cafe da manha" in primeira["name"].lower()
+    # Sem acento dos dois lados: o catalogo escreve "Café da manhã" para o atleta ler,
+    # e esta linha so confirma QUAL refeicao esta sendo checada. Prender a grafia aqui
+    # faria uma correcao de acentuacao derrubar um teste que defende outra coisa.
+    assert "cafe da manha" in strip_accents(primeira["name"]).lower()
     familia = set(FORGE_COACH_METHODOLOGY.get("food_families", {}).get("BREAKFAST_PROTEIN", [])) \
         or set(__import__("nutrition_engine").FOOD_FAMILIES["BREAKFAST_PROTEIN"])
     ids = {f["food_id"] for f in primeira["foods"]}

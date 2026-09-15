@@ -1,6 +1,7 @@
 ﻿"""FORGE Nutrition Engine v1.2 — Final calibration.
 Goal-directional substitution, daily impact, protein distribution."""
 import json, random, unicodedata
+from text_match import strip_accents
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Set, Union
 
@@ -130,11 +131,15 @@ FORGE_COACH_METHODOLOGY = {
         3: [0.30, 0.35, 0.35], 4: [0.25, 0.30, 0.20, 0.25],
         5: [0.25, 0.18, 0.22, 0.12, 0.23], 6: [0.20, 0.17, 0.22, 0.13, 0.18, 0.10],
     },
+    # Os nomes chegam ACENTUADOS na tela do atleta, que le "Cafe da manha" como descuido —
+    # e com razao. Quem casa esses nomes com o template de composicao e _infer_meal_type,
+    # que normaliza o acento antes de comparar; sem aquela normalizacao, escrever "cafe"
+    # com acento aqui faria a refeicao cair silenciosamente no template errado.
     "meal_names": {
-        3: ["Cafe da manha", "Almoco", "Jantar"],
-        4: ["Cafe da manha", "Almoco", "Lanche", "Jantar"],
-        5: ["Cafe da manha", "Lanche manha", "Almoco", "Lanche tarde", "Jantar"],
-        6: ["Cafe da manha / Pre-treino", "Pos-treino", "Almoco", "Lanche da tarde", "Jantar", "Ceia"],
+        3: ["Café da manhã", "Almoço", "Jantar"],
+        4: ["Café da manhã", "Almoço", "Lanche", "Jantar"],
+        5: ["Café da manhã", "Lanche da manhã", "Almoço", "Lanche da tarde", "Jantar"],
+        6: ["Café da manhã / Pré-treino", "Pós-treino", "Almoço", "Lanche da tarde", "Jantar", "Ceia"],
     },
     "portion_limits": {"PROTEIN": [50, 300], "CARBOHYDRATE": [50, 350], "FAT": [5, 40],
                        "FRUIT": [80, 350], "VEGETABLE": [80, 400], "DAIRY": [100, 300], "LEGUME": [50, 250], "MIXED": [50, 300]},
@@ -1082,7 +1087,10 @@ def _infer_meal_type(meal_name):
     papeis: ele tem carboidrato, fruta e gordura, e ainda ancora a proteina na familia
     BREAKFAST_PROTEIN (ovo, clara, laticinio, whey).
     """
-    tn = meal_name.lower()
+    # Sem acento e em caixa baixa: o nome pode vir do catalogo do FORGE, que agora escreve
+    # "Café da manhã", ou do texto que o atleta colou, que escreve de qualquer jeito. As
+    # duas formas tem de cair no mesmo template.
+    tn = strip_accents(meal_name or "").lower()
     if "cafe" in tn or "manha" in tn: return "breakfast"
     if "pre" in tn and "trein" in tn: return "pre_workout"
     if "pos" in tn and "trein" in tn: return "post_workout"
