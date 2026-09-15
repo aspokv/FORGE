@@ -360,6 +360,60 @@ MEAL_COMBOS = [
          {"role": "fruit", "category": "FRUIT", "family": "FRUIT_FAMILY", "required": False},
      ]},
 
+    # ── Combinacoes SEM AMIDO ───────────────────────────────────────────────────────
+    #
+    # O atleta no protocolo agressivo tinha UMA opcao no almoco, uma no jantar, uma no
+    # pre-treino e uma no pos-treino. A causa: o teto de densidade de carboidrato desse
+    # protocolo (12 g/100g) reprova praticamente todo carboidrato do catalogo — sobra a
+    # beterraba — e quase toda combinacao existente exige um. Ele acabava vendo sempre o
+    # mesmo prato, e com razao achou que nada tinha mudado.
+    #
+    # Estas nao sao "versoes pobres" das outras: sao pratos completos que simplesmente nao
+    # dependem de amido, e por isso servem tanto ao protocolo agressivo quanto ao dia low do
+    # metodo do treinador, onde o pos-treino vai sem batata de proposito.
+    {"id": "forge_ovos_legumes_sem_amido", "label": "Ovos com legumes e azeite",
+     "meal_types": ["lunch", "dinner", "breakfast"], "components": [
+         {"role": "primary_protein", "category": "PROTEIN", "family": "EGG_FAMILY", "required": True},
+         {"role": "vegetable", "category": "VEGETABLE", "family": "VEGETABLE_FAMILY", "required": True},
+         {"role": "fat_source", "category": "FAT", "family": "FAT_FAMILY", "required": True},
+     ]},
+
+    {"id": "forge_proteina_rapida_legumes", "label": "Proteína rápida com salada",
+     "meal_types": ["lunch", "dinner", "snack"], "components": [
+         {"role": "primary_protein", "category": "PROTEIN", "family": "QUICK_PROTEIN", "required": True},
+         {"role": "vegetable", "category": "VEGETABLE", "family": "VEGETABLE_FAMILY", "required": True},
+         {"role": "fat_source", "category": "FAT", "family": "FAT_FAMILY", "required": False},
+     ]},
+
+    # Pre e pos-treino sem amido: hoje TODA combinacao desses dois exige carboidrato, entao
+    # quem esta no teto cai no template padrao e nunca recebe opcao nenhuma.
+    {"id": "forge_pre_proteico", "label": "Pré-treino proteico",
+     "meal_types": ["pre_workout"], "components": [
+         {"role": "primary_protein", "category": "PROTEIN", "family": "FAST_PROTEIN", "required": True},
+         {"role": "fruit", "category": "FRUIT", "family": "FRUIT_FAMILY", "required": False},
+     ]},
+
+    {"id": "forge_pos_sem_amido", "label": "Pós-treino sem amido",
+     "meal_types": ["post_workout"], "components": [
+         {"role": "primary_protein", "category": "PROTEIN", "family": "POST_PRE_PROTEIN", "required": True},
+         {"role": "vegetable", "category": "VEGETABLE", "family": "VEGETABLE_FAMILY", "required": True},
+         {"role": "fat_source", "category": "FAT", "family": "FAT_FAMILY", "required": False},
+     ]},
+
+    # Segunda opcao para cada um: com uma so, "mostrar outras opcoes" continua sem ter o que
+    # mostrar para quem esta no teto de carboidrato.
+    {"id": "forge_pre_leve", "label": "Pré-treino leve",
+     "meal_types": ["pre_workout"], "components": [
+         {"role": "primary_protein", "category": "PROTEIN", "family": "QUICK_PROTEIN", "required": True},
+         {"role": "fruit", "category": "FRUIT", "family": "FRUIT_FAMILY", "required": False},
+     ]},
+
+    {"id": "forge_pos_ovos", "label": "Ovos no pós-treino",
+     "meal_types": ["post_workout"], "components": [
+         {"role": "primary_protein", "category": "PROTEIN", "family": "EGG_FAMILY", "required": True},
+         {"role": "vegetable", "category": "VEGETABLE", "family": "VEGETABLE_FAMILY", "required": True},
+     ]},
+
     {"id": "forge_oats_whey_banana", "label": "Mingau FORGE", "meal_types": ["breakfast", "snack"],
      "components": [
          {"role": "primary_carb", "category": "CARBOHYDRATE", "family": "PORRIDGE_CARB", "required": True},
