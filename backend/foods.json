@@ -32,7 +32,8 @@
       "file de frango",
       "peito de frango grelhado",
       "frango cozido"
-    ]
+    ],
+    "custo": 1
   },
   {
     "id": "eggs-whole",
@@ -69,7 +70,8 @@
       "ovos mexidos",
       "ovo frito",
       "ovos inteiros"
-    ]
+    ],
+    "custo": 1
   },
   {
     "id": "egg-whites",
@@ -104,7 +106,8 @@
       "claras",
       "clara de ovo",
       "claras de ovo"
-    ]
+    ],
+    "custo": 1
   },
   {
     "id": "beef-grill",
@@ -139,7 +142,8 @@
       "carne bovina",
       "alcatra",
       "coxao mole"
-    ]
+    ],
+    "custo": 2
   },
   {
     "id": "beef-ground",
@@ -171,7 +175,8 @@
       "patinho moido",
       "acem",
       "carne moida refogada"
-    ]
+    ],
+    "custo": 1
   },
   {
     "id": "tilapia",
@@ -204,7 +209,8 @@
       "file de peixe",
       "file de tilapia",
       "peixe grelhado"
-    ]
+    ],
+    "custo": 3
   },
   {
     "id": "salmon",
@@ -234,7 +240,8 @@
     "aliases": [
       "salmao",
       "salmao grelhado"
-    ]
+    ],
+    "custo": 3
   },
   {
     "id": "chicken-thigh",
@@ -266,7 +273,8 @@
       "coxa de frango",
       "frango assado",
       "sobrecoxa assada"
-    ]
+    ],
+    "custo": 1
   },
   {
     "id": "whey-protein",
@@ -301,7 +309,8 @@
       "proteina em po",
       "suplemento de proteina",
       "scoop de whey"
-    ]
+    ],
+    "custo": 2
   },
   {
     "id": "tuna-can",
@@ -334,7 +343,8 @@
       "atum",
       "lata de atum",
       "atum em lata"
-    ]
+    ],
+    "custo": 2
   },
   {
     "id": "pork-loin",
@@ -366,7 +376,8 @@
       "lombo suino",
       "carne de porco",
       "porco"
-    ]
+    ],
+    "custo": 2
   },
   {
     "id": "rice-white",
@@ -397,7 +408,8 @@
       "arroz",
       "arroz branco",
       "arroz cozido"
-    ]
+    ],
+    "custo": 1
   },
   {
     "id": "rice-brown",
@@ -426,7 +438,8 @@
     "hard_max_portion_g": 350,
     "aliases": [
       "arroz integral"
-    ]
+    ],
+    "custo": 1
   },
   {
     "id": "beans-black",
@@ -460,7 +473,8 @@
     "aliases": [
       "feijao preto",
       "feijao"
-    ]
+    ],
+    "custo": 1
   },
   {
     "id": "beans-carioca",
@@ -493,7 +507,8 @@
     "hard_max_portion_g": 280,
     "aliases": [
       "feijao carioca"
-    ]
+    ],
+    "custo": 1
   },
   {
     "id": "lentils",
@@ -526,7 +541,8 @@
     "hard_max_portion_g": 280,
     "aliases": [
       "lentilha"
-    ]
+    ],
+    "custo": 1
   },
   {
     "id": "chickpeas",
@@ -558,7 +574,8 @@
     "hard_max_portion_g": 250,
     "aliases": [
       "grao de bico"
-    ]
+    ],
+    "custo": 1
   },
   {
     "id": "potato",
@@ -591,7 +608,8 @@
       "batata",
       "batata inglesa",
       "batata cozida"
-    ]
+    ],
+    "custo": 1
   },
   {
     "id": "sweet-potato",
@@ -622,7 +640,8 @@
     "hard_max_portion_g": 380,
     "aliases": [
       "batata doce"
-    ]
+    ],
+    "custo": 1
   },
   {
     "id": "cassava",
@@ -654,7 +673,8 @@
       "mandioca",
       "aipim",
       "macaxeira"
-    ]
+    ],
+    "custo": 1
   },
   {
     "id": "pasta",
@@ -685,7 +705,8 @@
       "macarrao",
       "massa",
       "espaguete"
-    ]
+    ],
+    "custo": 1
   },
   {
     "id": "pasta-whole",
@@ -715,7 +736,8 @@
     "aliases": [
       "macarrao integral",
       "massa integral"
-    ]
+    ],
+    "custo": 1
   },
   {
     "id": "oats",
@@ -747,7 +769,8 @@
       "aveia",
       "farelo de aveia",
       "flocos de aveia"
-    ]
+    ],
+    "custo": 1
   },
   {
     "id": "bread-whole",
@@ -778,7 +801,8 @@
       "pao integral",
       "fatia de pao integral",
       "pao de forma integral"
-    ]
+    ],
+    "custo": 1
   },
   {
     "id": "bread-white",
@@ -810,7 +834,8 @@
       "pao frances",
       "pao careca",
       "paozinho"
-    ]
+    ],
+    "custo": 1
   },
   {
     "id": "tapioca",
@@ -843,7 +868,8 @@
       "tapioca",
       "goma de tapioca",
       "beiju"
-    ]
+    ],
+    "custo": 1
   },
   {
     "id": "corn-flour",
@@ -876,7 +902,8 @@
       "cuscuz",
       "cuscuz de milho",
       "flocao"
-    ]
+    ],
+    "custo": 1
   },
   {
     "id": "banana",
@@ -910,7 +937,8 @@
       "banana",
       "banana prata",
       "banana nanica"
-    ]
+    ],
+    "custo": 1
   },
   {
     "id": "apple",
@@ -940,7 +968,8 @@
     "hard_max_portion_g": 280,
     "aliases": [
       "maca"
-    ]
+    ],
+    "custo": 1
   },
   {
     "id": "papaya",
@@ -971,7 +1000,8 @@
     "aliases": [
       "mamao",
       "mamao papaia"
-    ]
+    ],
+    "custo": 1
   },
   {
     "id": "orange",
@@ -1001,7 +1031,8 @@
     "aliases": [
       "laranja",
       "suco de laranja"
-    ]
+    ],
+    "custo": 1
   },
   {
     "id": "avocado",
@@ -1031,7 +1062,8 @@
     "hard_max_portion_g": 150,
     "aliases": [
       "abacate"
-    ]
+    ],
+    "custo": 2
   },
   {
     "id": "olive-oil",
@@ -1063,7 +1095,8 @@
       "azeite",
       "oleo de oliva",
       "azeite de oliva extra virgem"
-    ]
+    ],
+    "custo": 1
   },
   {
     "id": "peanuts",
@@ -1094,7 +1127,8 @@
     "aliases": [
       "amendoim",
       "amendoim torrado"
-    ]
+    ],
+    "custo": 1
   },
   {
     "id": "brazil-nuts",
@@ -1125,7 +1159,8 @@
       "castanha",
       "castanha do para",
       "castanha do brasil"
-    ]
+    ],
+    "custo": 3
   },
   {
     "id": "peanut-butter",
@@ -1156,7 +1191,8 @@
     "aliases": [
       "pasta de amendoim",
       "manteiga de amendoim"
-    ]
+    ],
+    "custo": 1
   },
   {
     "id": "milk-whole",
@@ -1186,7 +1222,8 @@
     "aliases": [
       "leite",
       "leite integral"
-    ]
+    ],
+    "custo": 1
   },
   {
     "id": "milk-skim",
@@ -1215,7 +1252,8 @@
     "aliases": [
       "leite desnatado",
       "leite magro"
-    ]
+    ],
+    "custo": 1
   },
   {
     "id": "yogurt-natural",
@@ -1244,7 +1282,8 @@
     "aliases": [
       "iogurte",
       "iogurte natural"
-    ]
+    ],
+    "custo": 1
   },
   {
     "id": "yogurt-greek",
@@ -1273,7 +1312,8 @@
     "hard_max_portion_g": 280,
     "aliases": [
       "iogurte grego"
-    ]
+    ],
+    "custo": 1
   },
   {
     "id": "cheese-mozzarella",
@@ -1303,7 +1343,8 @@
       "mussarela",
       "queijo",
       "queijo mussarela"
-    ]
+    ],
+    "custo": 1
   },
   {
     "id": "cheese-cottage",
@@ -1334,7 +1375,8 @@
       "cottage",
       "queijo cottage",
       "ricota"
-    ]
+    ],
+    "custo": 1
   },
   {
     "id": "broccoli",
@@ -1364,7 +1406,8 @@
     "hard_max_portion_g": 400,
     "aliases": [
       "brocolis"
-    ]
+    ],
+    "custo": 1
   },
   {
     "id": "spinach",
@@ -1394,7 +1437,8 @@
     "hard_max_portion_g": 400,
     "aliases": [
       "espinafre"
-    ]
+    ],
+    "custo": 1
   },
   {
     "id": "lettuce",
@@ -1425,7 +1469,8 @@
     "aliases": [
       "alface",
       "salada verde"
-    ]
+    ],
+    "custo": 1
   },
   {
     "id": "tomato",
@@ -1455,7 +1500,8 @@
     "hard_max_portion_g": 350,
     "aliases": [
       "tomate"
-    ]
+    ],
+    "custo": 1
   },
   {
     "id": "carrot",
@@ -1486,7 +1532,8 @@
     "hard_max_portion_g": 350,
     "aliases": [
       "cenoura"
-    ]
+    ],
+    "custo": 1
   },
   {
     "id": "zucchini",
@@ -1516,7 +1563,8 @@
     "hard_max_portion_g": 400,
     "aliases": [
       "abobrinha"
-    ]
+    ],
+    "custo": 1
   },
   {
     "id": "green-beans",
@@ -1546,7 +1594,8 @@
     "hard_max_portion_g": 400,
     "aliases": [
       "vagem"
-    ]
+    ],
+    "custo": 1
   },
   {
     "id": "tofu",
@@ -1577,7 +1626,8 @@
     "hard_max_portion_g": 280,
     "aliases": [
       "tofu"
-    ]
+    ],
+    "custo": 2
   },
   {
     "id": "soy-protein",
@@ -1613,7 +1663,8 @@
       "proteina de soja",
       "soja texturizada",
       "carne de soja"
-    ]
+    ],
+    "custo": 2
   },
   {
     "id": "chicken-egg-omelet",
@@ -1643,7 +1694,8 @@
     "hard_max_portion_g": 240,
     "aliases": [
       "omelete"
-    ]
+    ],
+    "custo": 1
   },
   {
     "id": "granola",
@@ -1670,7 +1722,8 @@
     "hard_max_portion_g": 90,
     "aliases": [
       "granola"
-    ]
+    ],
+    "custo": 2
   },
   {
     "id": "watermelon",
@@ -1699,7 +1752,8 @@
     "hard_max_portion_g": 400,
     "aliases": [
       "melancia"
-    ]
+    ],
+    "custo": 1
   },
   {
     "id": "strawberry",
@@ -1729,7 +1783,8 @@
     "aliases": [
       "morango",
       "morangos"
-    ]
+    ],
+    "custo": 1
   },
   {
     "id": "grapes",
@@ -1759,7 +1814,8 @@
     "aliases": [
       "uva",
       "uvas"
-    ]
+    ],
+    "custo": 1
   },
   {
     "id": "mango",
@@ -1788,7 +1844,8 @@
     "hard_max_portion_g": 250,
     "aliases": [
       "manga"
-    ]
+    ],
+    "custo": 1
   },
   {
     "id": "eggplant",
@@ -1818,7 +1875,8 @@
     "hard_max_portion_g": 400,
     "aliases": [
       "berinjela"
-    ]
+    ],
+    "custo": 1
   },
   {
     "id": "pumpkin",
@@ -1849,7 +1907,8 @@
     "aliases": [
       "abobora",
       "jerimum"
-    ]
+    ],
+    "custo": 1
   },
   {
     "id": "beetroot",
@@ -1880,7 +1939,8 @@
     "hard_max_portion_g": 300,
     "aliases": [
       "beterraba"
-    ]
+    ],
+    "custo": 1
   },
   {
     "id": "rice-flour",
@@ -1915,7 +1975,8 @@
     "aliases": [
       "farinha de arroz",
       "creme de arroz"
-    ]
+    ],
+    "custo": 1
   },
   {
     "id": "rice-cream-whey",
@@ -1945,6 +2006,7 @@
     "hard_max_portion_g": 280,
     "aliases": [
       "creme de arroz com whey"
-    ]
+    ],
+    "custo": 2
   }
 ]

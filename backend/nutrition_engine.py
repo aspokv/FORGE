@@ -24,6 +24,13 @@ FORGE_COACH_METHODOLOGY = {
     "fat_range_g_per_kg": {"fat_loss": [0.8, 1.0], "maintenance": [0.8, 1.2], "muscle_gain": [0.8, 1.2]},
     "fat_min_pct": 0.15,
     "deficit_pct": 0.80, "surplus_pct": 1.12, "calorie_tolerance_pct": 0.05,
+    # Piso absoluto da tolerancia, em kcal. A porcentagem sozinha dava 100 kcal em 2.000,
+    # e 100 kcal e apertado demais para uma refeicao de verdade: forcava o motor a
+    # deformar a porcao ou a trocar o alimento so para fechar uma conta que, na pratica,
+    # se resolve no treino. O treinador definiu a faixa: 150 para mais ou para menos nao
+    # muda resultado nenhum. Acima de 3.000 kcal a porcentagem volta a mandar, porque ai
+    # 150 kcal realmente vira ruido.
+    "calorie_tolerance_min_kcal": 150,
     # Safety floor for the more-aggressive-deficit check in calculate_goal_calories: a
     # profile only gets pushed to daily_guardrails.fat_loss's min_total_kcal_pct floor
     # when the residual carb after protein+fat still clears this per-kg minimum — a
@@ -169,6 +176,13 @@ FORGE_COACH_METHODOLOGY = {
     "methodology_exclude_default": ["bread-whole","bread-white","pasta","pasta-whole"],
     "satiety_weight_by_goal": {"fat_loss": 3.0, "maintenance": 1.0, "muscle_gain": 0.3},
     "satiety_bonus": {"HIGH": 20, "MEDIUM": 10, "LOW": 0},
+    # Quanto cada faixa de preco perde na pontuacao. Desempate, nao proibicao: um
+    # preferred_foods vale +35 e continua passando na frente de qualquer penalidade
+    # daqui. O alvo sao os alimentos que sairam em TODO plano gerado e que a maioria dos
+    # alunos nao compra — tilapia, salmao, castanha do Para.
+    "custo_penalidade": {"1": 0, "2": 8, "3": 26},
+    # O quanto pesa estar fora da refeicao a que o alimento pertence.
+    "fora_da_refeicao_penalidade": 45,
     "meal_role_scores": {"primary_protein": 50, "primary_carb": 40, "vegetable": 20,
                          "fruit": 15, "dairy": 15, "fat_source": 12, "legume": 10,
                          "secondary_protein": 8, "recipe_component": 0},
@@ -233,6 +247,12 @@ FOOD_FAMILIES = {
     "POST_PRE_PROTEIN": ["chicken-breast", "beef-grill", "tilapia", "pork-loin", "salmon",
                          "chicken-thigh", "beef-ground", "whey-protein"],
     "MAIN_CARB": ["rice-white", "potato", "sweet-potato", "cassava", "rice-brown"],
+    # O carboidrato de cafe da manha. A ordem e a preferencia: aveia primeiro, que e a
+    # base do metodo; granola por ultimo, que e a mais cara e a mais acucarada.
+    "BREAKFAST_CARB": ["oats", "rice-flour", "tapioca", "corn-flour", "bread-white",
+                       "bread-whole", "granola"],
+    # Carboidrato de volta do treino: rapido, sem fibra sobrando e sem prato feito.
+    "FAST_CARB": ["rice-flour", "tapioca", "rice-white", "potato", "corn-flour", "oats"],
     "PORRIDGE_CARB": ["oats", "rice-flour"],
     "RICE_FLOUR_FAMILY": ["rice-flour"],
     "BREAD_FAMILY": ["bread-whole", "bread-white"],
@@ -262,7 +282,11 @@ MEAL_TEMPLATES = {
     "breakfast": [
         {"role": "primary_protein", "category": "PROTEIN", "required": True, "family": "BREAKFAST_PROTEIN"},
         {"role": "secondary_protein", "category": "PROTEIN", "required": False},
-        {"role": "primary_carb", "category": "CARBOHYDRATE", "required": True},
+        # Este era o unico slot de carboidrato do arquivo SEM familia, e por isso o cafe da
+        # manha saia com batata doce, mandioca ou macarrao — alimentos que o proprio
+        # catalogo marca como `lunch`/`dinner`. Cafe da manha e aveia, pao, tapioca,
+        # cuscuz ou farinha de arroz.
+        {"role": "primary_carb", "category": "CARBOHYDRATE", "required": True, "family": "BREAKFAST_CARB"},
         {"role": "fruit", "category": "FRUIT", "required": False, "family": "FRUIT_FAMILY"},
         {"role": "fat_source", "category": "FAT", "required": False, "family": "FAT_FAMILY"},
     ],
@@ -282,15 +306,24 @@ MEAL_TEMPLATES = {
         {"role": "primary_protein", "category": "PROTEIN", "required": True, "family": "QUICK_PROTEIN"},
         {"role": "primary_carb", "category": "CARBOHYDRATE", "required": False, "family": "PORRIDGE_CARB"},
         {"role": "fruit", "category": "FRUIT", "required": False, "family": "FRUIT_FAMILY"},
+        # O lanche tinha tres espacos so, e para quem esta em ganho isso nao cabe: as
+        # calorias do lanche eram empurradas para dentro dos tres, e saia whey de 50 g com
+        # 100 g de farinha de arroz e 280 g de morango — tudo no teto da porcao. Com a
+        # gordura como quarto espaco o mesmo lanche vira whey, aveia e pasta de amendoim,
+        # que e o lanche do metodo. Opcional: em lanche pequeno o motor nao preenche, e a
+        # refeicao continua com dois ou tres itens.
+        {"role": "fat_source", "category": "FAT", "required": False, "family": "FAT_FAMILY"},
     ],
     "pre_workout": [
-        {"role": "primary_carb", "category": "CARBOHYDRATE", "required": True},
+        # Mesmo buraco do cafe da manha: sem familia, o pre-treino aceitava qualquer
+        # carboidrato do catalogo, inclusive os de prato feito.
+        {"role": "primary_carb", "category": "CARBOHYDRATE", "required": True, "family": "FAST_CARB"},
         {"role": "fruit", "category": "FRUIT", "required": False, "family": "FRUIT_FAMILY"},
         {"role": "primary_protein", "category": "PROTEIN", "required": False, "family": "POST_PRE_PROTEIN"},
     ],
     "post_workout": [
         {"role": "primary_protein", "category": "PROTEIN", "required": True, "family": "POST_PRE_PROTEIN"},
-        {"role": "primary_carb", "category": "CARBOHYDRATE", "required": True},
+        {"role": "primary_carb", "category": "CARBOHYDRATE", "required": True, "family": "FAST_CARB"},
         {"role": "fruit", "category": "FRUIT", "required": False, "family": "FRUIT_FAMILY"},
     ],
 }
@@ -919,6 +952,36 @@ def _food_compatible(food, pn, used_ids):
         return False
     return True
 
+# As tags que dizem em QUAIS refeicoes um alimento entra. Fora desta lista o resto das
+# tags e outra coisa (gluten_free, vegan, high_protein) e nao diz nada sobre horario.
+_TAGS_DE_REFEICAO = ("breakfast", "lunch", "dinner", "snack", "quick")
+
+# Quais tags valem para cada tipo de refeicao. Pre e pos-treino aceitam o que e rapido.
+_REFEICAO_PARA_TAGS = {
+    "breakfast": ["breakfast"], "lunch": ["lunch"], "dinner": ["dinner"],
+    "snack": ["snack", "quick"],
+    # Pre e pos-treino aceitam TAMBEM o que e de prato feito, e isso nao e frouxidao: quem
+    # treina as 11h almoca depois de treinar. Sem almoco e jantar aqui, o arroz branco (que
+    # o catalogo marca so como `lunch`/`dinner`) era empurrado para fora do pos-treino, e
+    # sobrava a tapioca — densa e com teto de porcao baixo. O pos-treino de um atleta em
+    # ganho ficava com whey, tapioca e laranja, os tres no teto.
+    "pre_workout": ["snack", "quick", "breakfast", "lunch", "dinner"],
+    "post_workout": ["snack", "quick", "breakfast", "lunch", "dinner"],
+}
+
+
+def _pertence_a_refeicao(food_id, meal_type):
+    """O alimento declara que entra nesta refeicao?
+
+    Quem nao declara horario nenhum (arroz, frango, legume) serve em qualquer uma — a
+    ausencia de tag e liberdade, e nao exclusao. Quem declara e so vale onde declarou.
+    """
+    tags = [t for t in FOOD_INDEX.get(food_id, {}).get("tags", []) if t in _TAGS_DE_REFEICAO]
+    if not tags:
+        return True
+    return any(t in tags for t in _REFEICAO_PARA_TAGS.get(meal_type, [meal_type]))
+
+
 def _score_food(food, meal_type, pn, goal="maintenance"):
     score = 30; fid = food["id"]; m = FORGE_COACH_METHODOLOGY
     if fid in m.get("methodology_exclude_default",[]): score -= 80
@@ -947,7 +1010,7 @@ def _score_food(food, meal_type, pn, goal="maintenance"):
     for r in food.get("roles",[]):
         rs += m.get("meal_role_scores",{}).get(r, 0)
     score += min(rs, 40)
-    mt = {"breakfast":["breakfast"],"lunch":["lunch"],"dinner":["dinner"],"snack":["snack","quick"]}
+    mt = _REFEICAO_PARA_TAGS
     if any(t in food.get("tags",[]) for t in mt.get(meal_type,[])): score += 12
     if "high_protein" in food.get("tags",[]): score += 10
     if "primary_protein" in food.get("roles",[]) and food.get("kcal",0) > 0:
@@ -956,6 +1019,22 @@ def _score_food(food, meal_type, pn, goal="maintenance"):
         # denser fat sources (oil) can hit a meal's fat target within realistic portion
         # limits; low-density ones (avocado) hit their portion cap before reaching target.
         score += round((food.get("fat_g",0) / food["grams"]) * 20)
+
+    # Preco. Um plano so vale se a pessoa consegue comprar o que esta nele: tilapia e
+    # castanha do Para apareciam TODO dia, e sao justamente o que a maioria nao poe no
+    # carrinho. A penalidade desempata, e nao proibe — quem gosta continua podendo pedir
+    # pelos preferred_foods, que valem +35 e passam na frente.
+    score -= m.get("custo_penalidade", {}).get(str(food.get("custo", 1)), 0)
+
+    # O alimento que NAO e daquela refeicao. O catalogo ja dizia que azeite e
+    # `lunch`/`dinner` e que castanha do Para e `snack`; a pontuacao so dava bonus a quem
+    # combinava e nunca tirava de quem nao combinava. Resultado: azeite de oliva dentro de
+    # um shake de whey com mamao, e castanha do Para no almoco. Se o alimento declara em
+    # quais refeicoes ele entra e esta nao e uma delas, ele perde de quem pertence ali.
+    refeicoes_do_alimento = [t for t in food.get("tags", []) if t in _TAGS_DE_REFEICAO]
+    if refeicoes_do_alimento and not any(t in refeicoes_do_alimento
+                                         for t in mt.get(meal_type, [])):
+        score -= m.get("fora_da_refeicao_penalidade", 45)
     return score
 
 # Quantos dos melhores candidatos entram no rodizio. Tres, e nao todos: a pontuacao existe
@@ -1259,10 +1338,21 @@ def _infer_meal_type(meal_name):
     # "Café da manhã", ou do texto que o atleta colou, que escreve de qualquer jeito. As
     # duas formas tem de cair no mesmo template.
     tn = strip_accents(meal_name or "").lower()
-    if "cafe" in tn or "manha" in tn: return "breakfast"
+    # "cafe" primeiro, pelo motivo do bloco de cima: "Cafe da manha / Pre-treino" e um
+    # cafe da manha.
+    if "cafe" in tn: return "breakfast"
+    # Treino antes de lanche: "Lanche pre-treino" e um pre-treino, e nao um lanche comum.
     if "pre" in tn and "trein" in tn: return "pre_workout"
     if "pos" in tn and "trein" in tn: return "post_workout"
-    if "lanche" in tn or "tarde" in tn or "snack" in tn or "ceia" in tn: return "snack"
+    # E "lanche" ANTES de "manha". Este era um defeito com consequencia grande: a regra
+    # anterior perguntava por "manha" primeiro, entao "Lanche da manha" casava e virava um
+    # CAFE DA MANHA inteiro — template de cafe, familia de cafe, pontuacao de cafe. Na
+    # pratica o lanche da manha recebia azeite de oliva junto com whey, aveia e mamao,
+    # porque o azeite pontua para almoco e jantar e nunca para lanche. Lanche e lanche, a
+    # qualquer hora do dia.
+    if "lanche" in tn or "snack" in tn or "ceia" in tn: return "snack"
+    if "manha" in tn: return "breakfast"
+    if "tarde" in tn: return "snack"
     if "jantar" in tn: return "dinner"
     return "lunch"
 
@@ -1348,8 +1438,20 @@ def generate_meal(meal_name, meal_type, target_cal, target_protein, target_fat,
         # Daily variety (item 10): every role prefers a food not already used elsewhere
         # today — soft preference, not a hard ban, so "frango duas vezes" or "aveia no
         # café e na ceia" stays perfectly valid whenever no fresh alternative exists.
-        remaining = [c for c in cands if c not in mu]
-        if remaining: cands = remaining
+        # A variedade do dia nunca vale mais do que PERTENCER a refeicao.
+        #
+        # A regra antiga preferia qualquer alimento ainda nao usado hoje. Numa familia
+        # pequena isso vira o absurdo ao contrario: o azeite (que e de almoco e jantar) ia
+        # para o almoco, e o jantar recebia amendoim torrado — que e de lanche — so por
+        # ser o unico "novo" que sobrou entre cinco gorduras. Repetir o azeite no jantar e
+        # o que qualquer cozinha faz; por amendoim no jantar nao e.
+        #
+        # Entao a preferencia por novidade passa a acontecer DENTRO do grupo que pertence
+        # aquela refeicao, e so cai para a lista inteira quando ninguem pertence.
+        pertencem = [c for c in cands if _pertence_a_refeicao(c, mt)]
+        base = pertencem or cands
+        remaining = [c for c in base if c not in mu]
+        cands = remaining or base
 
         if role == "primary_protein":
             varied = [c for c in cands if prot_count.get(c, 0) < max_same]
@@ -1622,11 +1724,31 @@ def _reconcile_daily(meals, targets, pn, goal, max_iterations=8):
                         item["grams"] = min(hard_max, item["grams"] + min(8, max(1, round(abs(fat_gap)/6))))
                         bumped = True
                 if not bumped:
+                    # ESTA linha era o defeito mais visivel do plano inteiro. A gordura
+                    # que falta era escolhida SO pela densidade — e o primeiro da fila e
+                    # sempre o azeite. Por isso o aluno recebia azeite de oliva dentro de
+                    # um shake de whey com aveia e mamao, e castanha do Para no almoco.
+                    #
+                    # O motor tem escrito nele que "MACROS AJUSTAM A REFEICAO, MACROS NAO
+                    # INVENTAM A REFEICAO", e era exatamente isso que acontecia aqui: o
+                    # macro faltando inventava um alimento que nao pertencia ao prato.
+                    #
+                    # Agora manda a refeicao. `_score_food` ja sabe de tudo — as tags de
+                    # horario, o preco, o que a pessoa gosta e o que ela nao come — e a
+                    # densidade continua no criterio, em segundo lugar, porque e ela que
+                    # torna o alvo alcancavel dentro de uma porcao realista.
+                    mt_da_refeicao = _infer_meal_type(m.get("name") or "")
                     used_ids = [it["food_id"] for it in m.get("foods",[])]
-                    fat_cands = sorted(
-                        [fid for fid in FOODS_BY_ROLE.get("fat_source",[])
-                         if _food_compatible(FOOD_INDEX.get(fid,{}), pn, set()) and fid not in used_ids],
-                        key=lambda fid: -(FOOD_INDEX.get(fid,{}).get("fat_g",0) / max(1, FOOD_INDEX.get(fid,{}).get("grams",100))))
+                    pontuados = []
+                    for fid in FOODS_BY_ROLE.get("fat_source", []):
+                        f = FOOD_INDEX.get(fid, {})
+                        if fid in used_ids or not _food_compatible(f, pn, set()):
+                            continue
+                        nota = _score_food(f, mt_da_refeicao, pn, goal)
+                        if nota <= 0:
+                            continue
+                        pontuados.append((nota, f.get("fat_g",0) / max(1, f.get("grams",100)), fid))
+                    fat_cands = [fid for _, _, fid in sorted(pontuados, key=lambda x: (-x[0], -x[1]))]
                     if fat_cands:
                         fid = fat_cands[0]
                         f = FOOD_INDEX.get(fid, {})
@@ -1636,6 +1758,12 @@ def _reconcile_daily(meals, targets, pn, goal, max_iterations=8):
                         grams = round(min(abs(fat_gap), 15) / max(0.01, fpg))
                         m["foods"].append(build_food_item(fid, max(lo, min(hard_max, grams))))
             elif fat_gap < -5:
+                # O piso de 3 g e antigo e deixa "Pasta de amendoim 3 g" no prato, que nao
+                # e porcao de verdade. Subir para o minimo da categoria (5 g) parece obvio
+                # e foi MEDIDO como pior: a gordura do dia passa a nao caber, e
+                # test_profile_c_fat_generation_improved reprova. Fica registrado como
+                # divida — o conserto certo e nao COLOCAR a gordura quando ela nao cabe, e
+                # nao encolhe-la depois.
                 for item in fat_items:
                     item["grams"] = max(3, item["grams"] - 5)
 
@@ -1977,13 +2105,24 @@ def check_plan_hard_limits(plan, targets):
     return errors
 
 
+def tolerancia_de_caloria(alvo_kcal):
+    """Quanto o dia (ou a refeicao) pode passar, para cima ou para baixo, sem ser erro.
+
+    Uma so funcao porque tres lugares liam a porcentagem direto, e o quarto esqueceria do
+    piso. A regra e `max(porcentagem, piso)`: a porcentagem protege quem come muito, o
+    piso protege quem come pouco de ficar preso a uma conta de 100 kcal.
+    """
+    m = FORGE_COACH_METHODOLOGY
+    alvo = abs(float(alvo_kcal or 0))
+    return max(alvo * m["calorie_tolerance_pct"], float(m.get("calorie_tolerance_min_kcal", 0)))
+
+
 def validate_daily_plan(plan, targets, pn):
     w = []
     for i, m in enumerate(plan.get("meals",[])): w.extend(validate_meal(m, pn, i))
     t = plan.get("daily_totals",{})
-    tp = FORGE_COACH_METHODOLOGY["calorie_tolerance_pct"]
     gc = targets["goal_calories"]
-    if abs(t.get("kcal",0)-gc) > gc*tp:
+    if abs(t.get("kcal",0)-gc) > tolerancia_de_caloria(gc):
         w.append(f"[daily] Cal mismatch: {round(t['kcal'])} vs {round(gc)}")
     if abs(t.get("fat_g",0)-targets["fat_g"]) > targets["fat_g"]*0.3:
         w.append(f"[daily] Fat mismatch: {t['fat_g']}g vs {targets['fat_g']}g")

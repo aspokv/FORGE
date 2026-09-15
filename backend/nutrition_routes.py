@@ -28,7 +28,7 @@ GENERATION_ATTEMPTS = 6
 from nutrition_engine import (
     compute_macro_targets, generate_daily_plan, validate_daily_plan, check_plan_hard_limits,
     normalizar_altura_cm,
-    find_substitutes, recalculate_substitution_portion, FOOD_INDEX,
+    find_substitutes, recalculate_substitution_portion, FOOD_INDEX, tolerancia_de_caloria,
     FORGE_COACH_METHODOLOGY, sum_plan_totals,
     get_meal_archetype_options, redistribute_remaining_targets, aplicar_teto_de_carboidrato,
     calculate_meal_portions, calculate_meal_coherence_score, _infer_meal_type, generate_meal,
@@ -914,9 +914,9 @@ def _dia_do_rascunho(draft: dict, idx: int, totais_desta: dict) -> dict:
     importa se o cafe da manha passou 80: importa se o DIA fecha. E o dia fecha, porque as
     refeicoes seguintes passam a mirar o que sobrou (`redistribute_remaining_targets`).
 
-    A tolerancia nao e inventada aqui: e `calorie_tolerance_pct`, que ja vive no metodo do
-    FORGE e vale 5%. Em 2.000 kcal da os mesmos 100 kcal para cima ou para baixo que o
-    atleta pediu.
+    A tolerancia nao e inventada aqui: vem de `tolerancia_de_caloria`, que vive no metodo
+    do FORGE. Sao 5% com piso de 150 kcal, entao em 2.000 kcal da os 150 para cima ou para
+    baixo que o treinador definiu — "isso depois a gente corta no treino".
     """
     alvo_do_dia = float((draft.get("targets") or {}).get("goal_calories") or 0)
     travado = 0.0
@@ -927,7 +927,7 @@ def _dia_do_rascunho(draft: dict, idx: int, totais_desta: dict) -> dict:
 
     desta = float(totais_desta.get("kcal") or 0)
     somado = travado + desta
-    tolerancia = round(alvo_do_dia * FORGE_COACH_METHODOLOGY.get("calorie_tolerance_pct", 0.05))
+    tolerancia = round(tolerancia_de_caloria(alvo_do_dia))
     # Quantas refeicoes ainda vao entrar. Enquanto houver alguma, o que sobra nao e "erro":
     # e orcamento que ainda vai ser gasto, e dizer "voce esta 900 kcal abaixo" assustaria
     # sem motivo.
