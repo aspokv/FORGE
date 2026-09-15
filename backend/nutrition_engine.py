@@ -363,6 +363,28 @@ MEAL_COMBOS = [
      ]},
 ]
 
+# ── O metodo do treinador entra nas escolhas ────────────────────────────────────────────
+#
+# As combinacoes dele vao para o INICIO de MEAL_COMBOS por dois motivos, e os dois importam:
+#
+#   - a desduplicacao em get_meal_archetype_options guarda a primeira combinacao que chega a
+#     um conjunto de alimentos. Vindo primeiro, quando o combo do metodo e o generico caem
+#     no mesmo prato, o que fica com o nome e o dele;
+#   - a ordenacao final poe `metodo` na frente, entao a escolha que o FORGE sugere primeiro
+#     e a do padrao do treinador.
+#
+# Isto afeta SOMENTE o fluxo de montar refeicao por refeicao. `generate_daily_plan` monta
+# pelos MEAL_TEMPLATES e nao passa por aqui: quem ja tem plano gerado nao tem nada alterado.
+from metodo_do_treinador import (COMBOS_DO_METODO, FAMILIAS_DO_METODO,  # noqa: E402
+                                 IDS_JA_DO_METODO)
+
+FOOD_FAMILIES.update(FAMILIAS_DO_METODO)
+MEAL_COMBOS[:0] = COMBOS_DO_METODO
+for _combo in MEAL_COMBOS:
+    if _combo["id"] in IDS_JA_DO_METODO:
+        _combo["metodo"] = True
+
+
 SUB_GROUPS = {
     "CARB": ["potato","sweet-potato","cassava","rice-white","rice-brown","tapioca","oats","corn-flour"],
     "LEAN_PROTEIN": ["chicken-breast","tilapia","tuna-can","egg-whites","pork-loin","beef-grill","tofu","soy-protein"],
@@ -1290,6 +1312,7 @@ def get_meal_archetype_options(meal_name, target_cal, target_protein, target_fat
         options.append({
             "archetype_id": combo["id"], "label": combo["label"], "meal": meal,
             "coherence_score": score,
+            "metodo": bool(combo.get("metodo")),
             "rank_score": score + _preference_bonus(meal["foods"], preferences),
         })
     if not options:
@@ -1303,7 +1326,9 @@ def get_meal_archetype_options(meal_name, target_cal, target_protein, target_fat
         score = calculate_meal_coherence_score(fallback, mt, goal, used_elsewhere=used_food_ids)
         options = [{"archetype_id": "default", "label": "Padrão", "meal": fallback,
                     "coherence_score": score, "rank_score": score}]
-    options.sort(key=lambda o: -o["rank_score"])
+    # Metodo primeiro, e so entao pontuacao. Somar bonus ao `rank_score` daria a mesma
+    # ordem e estragaria o numero que a tela mostra.
+    options.sort(key=lambda o: (not o.get("metodo"), -o["rank_score"]))
     return options[:max_options]
 
 def redistribute_remaining_targets(meals, locked, targets, goal="maintenance"):

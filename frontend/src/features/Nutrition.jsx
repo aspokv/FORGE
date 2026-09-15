@@ -578,7 +578,18 @@ export default function Nutrition({ API, profileId, db }) {
             return (
               <section className="meal-card" key={opt.archetype_id} style={{ marginBottom: 12 }}>
                 <div className="meal-head">
-                  <div><p className="eyebrow">{opt.label}</p><h3>{Math.round(optKcal)} kcal</h3></div>
+                  {/*
+                    * O selo existe porque a ordem sozinha nao explica nada: a pessoa ve a
+                    * primeira opcao e nao sabe POR QUE ela e a primeira. Dizer "do metodo"
+                    * transforma uma lista ordenada numa recomendacao com autor.
+                    */}
+                  <div>
+                    <p className="eyebrow">
+                      {opt.label}
+                      {opt.metodo && <em className="fg-selo-metodo" data-testid="selo-metodo">do método</em>}
+                    </p>
+                    <h3>{Math.round(optKcal)} kcal</h3>
+                  </div>
                 </div>
                 <div className="food-list">
                   {opt.foods.map((it, j) => {
@@ -627,17 +638,26 @@ export default function Nutrition({ API, profileId, db }) {
 
           {error && <div className="auth-error" style={{ marginTop: 14 }}>{error}</div>}
 
-          <div className="deep-actions" style={{ marginTop: 20, flexWrap: "wrap" }}>
-            <button className="secondary-button" onClick={outrasOpcoes} disabled={busy || guidedLoadingOptions}>
+          {/*
+            * Empilhado, e nao em linha: tres rotulos longos lado a lado num telefone viravam
+            * botoes de 90px com o texto quebrando em tres linhas. Aqui cada acao ocupa a
+            * largura toda, na ordem em que a pessoa provavelmente precisa delas.
+            */}
+          <div className="fg-guiado-acoes">
+            <button type="button" className="fg-btn fg-btn-2" onClick={outrasOpcoes}
+                    disabled={busy || guidedLoadingOptions}>
               <RefreshCw size={15} /> Mostrar outras opções
             </button>
-            <button className="secondary-button" onClick={forgeEscolheEsta} disabled={busy || guidedLoadingOptions}>
-              FORGE escolhe esta
+            <button type="button" className="fg-btn fg-btn-2" onClick={forgeEscolheEsta}
+                    disabled={busy || guidedLoadingOptions}>
+              O FORGE escolhe esta
             </button>
-            <button className="secondary-button" onClick={forgeEscolheResto} disabled={busy}>
-              FORGE escolhe o resto
+            <button type="button" className="fg-btn fg-btn-2" onClick={forgeEscolheResto} disabled={busy}>
+              O FORGE escolhe o resto
             </button>
-            <button className="text-button" onClick={() => setStep("plan")}>Cancelar</button>
+            <button type="button" className="fg-guiado-cancelar" onClick={() => setStep("plan")}>
+              Cancelar
+            </button>
           </div>
         </div>
       </div>
@@ -818,6 +838,21 @@ export default function Nutrition({ API, profileId, db }) {
       <NutritionDailyFooter API={API} compact consumed={consumed} goalCalories={t?.goal_calories||t?.kcal||0}/>
       <CarboidratoDoDia ciclo={cicloCarbo} alvoDoPlano={tPlano}/>
       <MetodoDoTreinador metodo={cicloCarbo?.metodo}/>
+      {/*
+        * Montar o plano refeicao por refeicao estava atras de duas portas: dentro de
+        * "Gerenciar plano alimentar", que nasce fechado, e com o rotulo "Refazer plano",
+        * que nao diz que a pessoa escolhe cada refeicao. Ninguem encontrava.
+        */}
+      <section className="fg-montar" data-testid="montar-refeicoes">
+        <div>
+          <strong>Montar refeição por refeição</strong>
+          <small>Você escolhe cada refeição entre as combinações do método, em vez de receber o plano pronto.</small>
+        </div>
+        <button type="button" className="fg-btn fg-btn-2" onClick={refazerPlano} disabled={busy}
+                data-testid="abrir-montagem">
+          <RefreshCw size={15} /> {busy ? "Abrindo..." : "Montar"}
+        </button>
+      </section>
       <ListaDeCompras API={API}/>
       <details className="a6-details"><summary>Gerenciar plano alimentar</summary><div className="a6-editor nutrition-page">
       <div className="fg-acoes-linha">
@@ -829,11 +864,6 @@ export default function Nutrition({ API, profileId, db }) {
       <p className="fg-consumo-hoje" aria-live="polite">Consumido hoje: {Math.round(consumed.kcal)} kcal · Proteínas {Math.round(consumed.protein_g)} g · Carboidratos {Math.round(consumed.carbs_g)} g · Gorduras {Math.round(consumed.fat_g)} g</p>
       {(diary.extras||[]).map(extra=><div className="food-diary-actual" key={extra.entry_id}><strong>Extra · {Math.round(extra.actual.totals.kcal)} kcal</strong><p>{extra.actual.foods.map(f=>`${f.name} (${f.grams} g)`).join(" · ")}</p><button type="button" className="secondary-button" onClick={async()=>{try{await axios.delete(`${API}/nutrition/consumed-extra/${extra.entry_id}`);await refreshDiary()}catch{setError("Não foi possível remover o extra.")}}}>Remover extra</button></div>)}
 
-      <div className="action-row" style={{ marginTop: 24 }}>
-        <button className="secondary-button" onClick={refazerPlano} disabled={busy}>
-          <RefreshCw size={15} /> {busy ? "Iniciando..." : "Refazer plano"}
-        </button>
-      </div>
 
       {plan?.coach_guidance && <section className="nutrition-coach-note" data-testid="nutrition-coach-guidance">
         <p className="eyebrow">ACOMPANHAMENTO FORGE</p>

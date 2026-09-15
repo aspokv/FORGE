@@ -254,3 +254,90 @@
 
 /* O peso da panela e etiqueta secundaria: informa sem competir com a quantidade do plano. */
 .fg-peso-cru{font-style:normal;color:#f0a47e}
+
+/* ── Montar refeição por refeição ──────────────────────────────────────────
+ * Estava atrás de duas portas: dentro de "Gerenciar plano alimentar", que nasce fechado, e
+ * sob o rótulo "Refazer plano", que não diz que a pessoa escolhe cada refeição. Vira um
+ * bloco próprio, com o texto explicando o que acontece ao tocar.
+ */
+.fg-montar {
+  display: flex;
+  align-items: center;
+  gap: var(--e-4);
+  margin-top: var(--e-4);
+  padding: var(--e-4);
+  border: 1px solid var(--fg-linha);
+  border-radius: var(--r-cartao);
+  background: var(--fg-superficie);
+}
+
+.fg-montar > div { flex: 1; min-width: 0; }
+
+.fg-montar strong {
+  display: block;
+  color: var(--fg-texto);
+  font-size: var(--t-corpo);
+  font-weight: 600;
+}
+
+.fg-montar small {
+  display: block;
+  margin-top: 3px;
+  color: var(--fg-texto-3);
+  font-size: var(--t-apoio);
+  line-height: 1.45;
+}
+
+.fg-montar .fg-btn { flex: none; }
+
+/* Telefone estreito: o botão desce em vez de espremer o texto até quebrar palavra. */
+@media (max-width: 400px) {
+  .fg-montar { flex-direction: column; align-items: stretch; }
+  .fg-montar .fg-btn { width: 100%; }
+}
+
+/* ── Selo do método ────────────────────────────────────────────────────────
+ * A ordem sozinha não explica por que aquela opção veio primeiro. O selo dá autor à
+ * recomendação: não é o aplicativo sorteando, é o padrão do treinador.
+ */
+.fg-selo-metodo {
+  margin-left: 7px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--fg-acao);
+  color: var(--fg-acao-tinta);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+/* ── Ações do fluxo guiado ─────────────────────────────────────────────────
+ * Eram três botões lado a lado com rótulos longos. Num telefone de 390px cada um ficava
+ * com ~90px e o texto quebrava em três linhas. Empilhar custa altura e devolve legibilidade
+ * e alvo de toque.
+ */
+.fg-guiado-acoes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-2);
+  margin-top: var(--e-5);
+}
+
+.fg-guiado-acoes .fg-btn { width: 100%; }
+
+/* Cancelar não é uma ação irmã das outras três: é a saída. Fica em texto, separada. */
+.fg-guiado-cancelar {
+  align-self: center;
+  margin-top: var(--e-2);
+  min-height: var(--fg-toque);
+  padding: 0 var(--e-4);
+  border: 0;
+  background: transparent;
+  color: var(--fg-texto-3);
+  font: 600 var(--t-apoio) / 1 var(--fg-corpo);
+  cursor: pointer;
+}
+
+.fg-guiado-cancelar:hover { color: var(--fg-texto); }

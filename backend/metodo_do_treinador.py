@@ -213,11 +213,14 @@ def ciclo_do_protocolo(chave: str) -> List[str]:
 # treino seria por na boca do treinador uma regra que nao e dele. Em dia de descanso o bloco
 # mostra os formatos como referencia e nao aponta nenhum como "o de hoje".
 
-from food_diary import DIARY_FOODS  # noqa: E402
-
-
 def _nome_de_exibicao(food_id: str) -> str:
-    """O nome do alimento como a pessoa le, sem o rodape tecnico do catalogo."""
+    """O nome do alimento como a pessoa le, sem o rodape tecnico do catalogo.
+
+    O import do catalogo e feito AQUI DENTRO, e nao no topo: `nutrition_engine` importa
+    este modulo para montar as combinacoes do metodo, e `food_diary` importa
+    `nutrition_engine`. Import no topo fecharia o ciclo e quebraria a carga do app.
+    """
+    from food_diary import DIARY_FOODS
     alimento = DIARY_FOODS.get(food_id)
     if not alimento:
         return food_id
@@ -292,3 +295,93 @@ def metodo_do_dia(carbo_low: float, carbo_high: float, classe: Optional[str] = N
     return {"hoje": hoje, "classe": classe, "formatos": formatos,
             "regras": [dict(r) for r in REGRAS],
             "protocolos": [{"chave": c, **p} for c, p in PROTOCOLOS.items()]}
+
+
+# ── As combinacoes do metodo, para o motor de plano ─────────────────────────────────────
+#
+# Ate aqui o metodo era DESCRITIVO: o atleta lia a arquitetura do dia e aplicava sozinho.
+# O que segue faz o FORGE MONTAR nesse padrao — quando a pessoa monta o plano refeicao por
+# refeicao, as opcoes oferecidas sao as combinacoes que o treinador usa, e nao um sorteio
+# dentro de todo o catalogo.
+#
+# Duas notas de fidelidade, porque elas mudam o que o atleta recebe:
+#
+# 1. O motor de plano tem catalogo PROPRIO (foods.json, 62 alimentos) e menor que o do
+#    diario (296). Quatro fontes citadas nos papeis acima so existem no diario:
+#    whey, whey isolado, couve-flor e abacaxi. O whey tem equivalente no motor
+#    (`whey-protein`) e e usado; couve-flor e abacaxi nao tem, e no lugar deles entram
+#    outras fontes DO PROPRIO metodo para o mesmo papel — abobrinha e vagem no lugar da
+#    couve-flor, maca e laranja no lugar do abacaxi. Nenhum alimento de fora dele entra.
+#
+# 2. O metodo nao tem "cafe da manha", porque nomeia refeicao por funcao. O FORGE nomeia a
+#    primeira refeicao assim, entao o mingau de aveia com whey — que e o lanche dele —
+#    tambem e oferecido no cafe da manha. E a refeicao dele que serve a esse horario.
+
+FAMILIAS_DO_METODO = {
+    "METODO_CARBO_PRE": ["oats", "rice-flour", "rice-cream-whey"],
+    "METODO_PROTEINA_RAPIDA": ["whey-protein", "rice-cream-whey"],
+    "METODO_FRUTA_PRE": ["banana"],
+    "METODO_AMIDO_POS": ["potato", "sweet-potato", "rice-white"],
+    "METODO_PROTEINA_SOLIDA": ["chicken-breast", "beef-grill", "tilapia"],
+    "METODO_LEGUME": ["broccoli", "zucchini", "green-beans"],
+    "METODO_SALADA": ["lettuce", "tomato", "broccoli"],
+    "METODO_CARBO_ALMOCO": ["rice-white", "potato"],
+    "METODO_GORDURA": ["olive-oil"],
+    "METODO_AVEIA": ["oats"],
+    "METODO_PROTEINA_LANCHE": ["whey-protein", "yogurt-natural", "cheese-cottage"],
+    "METODO_FRUTA": ["apple", "orange", "banana"],
+    "METODO_PROTEINA_LENTA": ["egg-whites", "eggs-whole", "cheese-cottage"],
+    "METODO_AMIDO_JANTAR": ["sweet-potato", "potato"],
+}
+
+
+def _c(role, category, family, required=True):
+    return {"role": role, "category": category, "family": family, "required": required}
+
+
+# `metodo: True` e o que faz estas combinacoes aparecerem ANTES das outras na hora de
+# escolher. Nao e um numero maior de pontuacao — e uma preferencia declarada, que se le no
+# codigo e que nao se confunde com qualidade nutricional.
+COMBOS_DO_METODO = [
+    {"id": "metodo_pre_banana", "label": "Pré-treino do método", "metodo": True,
+     "meal_types": ["pre_workout"], "components": [
+         _c("fruit", "FRUIT", "METODO_FRUTA_PRE"),
+         _c("primary_protein", "PROTEIN", "METODO_PROTEINA_RAPIDA")]},
+
+    {"id": "metodo_pre_creme", "label": "Creme de arroz do método", "metodo": True,
+     "meal_types": ["pre_workout"], "components": [
+         _c("primary_carb", "CARBOHYDRATE", "METODO_CARBO_PRE"),
+         _c("primary_protein", "PROTEIN", "METODO_PROTEINA_RAPIDA")]},
+
+    {"id": "metodo_pos_treino", "label": "Pós-treino do método", "metodo": True,
+     "meal_types": ["post_workout"], "components": [
+         _c("primary_protein", "PROTEIN", "METODO_PROTEINA_SOLIDA"),
+         _c("primary_carb", "CARBOHYDRATE", "METODO_AMIDO_POS"),
+         _c("vegetable", "VEGETABLE", "METODO_LEGUME")]},
+
+    {"id": "metodo_almoco", "label": "Almoço do método", "metodo": True,
+     "meal_types": ["lunch"], "components": [
+         _c("primary_protein", "PROTEIN", "METODO_PROTEINA_SOLIDA"),
+         _c("primary_carb", "CARBOHYDRATE", "METODO_CARBO_ALMOCO"),
+         _c("vegetable", "VEGETABLE", "METODO_SALADA"),
+         # A gordura do dia low fica num horario so, e o horario e este.
+         _c("fat_source", "FAT", "METODO_GORDURA")]},
+
+    {"id": "metodo_lanche_final", "label": "Lanche final do método", "metodo": True,
+     "meal_types": ["snack"], "components": [
+         _c("fruit", "FRUIT", "METODO_FRUTA"),
+         _c("primary_protein", "PROTEIN", "METODO_PROTEINA_LENTA")]},
+
+    {"id": "metodo_jantar", "label": "Jantar do método", "metodo": True,
+     "meal_types": ["dinner"], "components": [
+         _c("primary_protein", "PROTEIN", "METODO_PROTEINA_SOLIDA"),
+         _c("primary_carb", "CARBOHYDRATE", "METODO_AMIDO_JANTAR"),
+         _c("vegetable", "VEGETABLE", "METODO_LEGUME")]},
+]
+
+
+# Combinacoes que JA estavam no motor e ja sao do metodo dele: os MEAL_COMBOS nasceram
+# observando os protocolos. Elas nao sao duplicadas aqui — sao apenas MARCADAS, para
+# aparecerem na frente junto com as demais. Duplicar criaria duas combinacoes caindo no
+# mesmo prato, e a desduplicacao apagaria uma das duas em silencio.
+IDS_JA_DO_METODO = ["forge_oats_whey_banana"]

@@ -601,8 +601,12 @@ async def draft_meal_options(payload: MealOptionsIn, request: Request, user=Depe
         meal["name"], meal["target_cal"], meal["target_protein"], meal.get("target_fat", 0),
         na, _locked_used_ids(draft), goal, None, idx, preferences, 5, seed)
     return {"meal_index": idx, "target_cal": meal["target_cal"], "target_protein": meal["target_protein"],
+            # `metodo` chega a tela para a opcao poder se identificar como sendo o padrao do
+            # treinador. Sem isso ela viria como mais uma da lista, e a pessoa nao teria como
+            # saber que aquela e a combinacao que ele usa com os alunos dele.
             "options": [{
                 "archetype_id": o["archetype_id"], "label": o["label"], "coherence_score": o["coherence_score"],
+                "metodo": bool(o.get("metodo")),
                 "foods": [build_food_item(it["food_id"], it["grams"]) for it in o["meal"]["foods"]],
             } for o in options]}
 
