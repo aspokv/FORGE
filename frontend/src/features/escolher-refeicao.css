@@ -1,0 +1,155 @@
+/*
+ * Escolher a refeicao.
+ *
+ * A tela e uma conversa, e nao um formulario: uma pergunta em cima, as montagens como
+ * cartoes largos, e as trocas como fichas que cabem na largura do telefone. Nada aqui e
+ * denso de proposito — quem desiste de dieta desiste de comer o que nao escolheu, e uma
+ * tela que parece planilha e o primeiro passo para desistir.
+ */
+.escolher {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-4);
+  min-width: 0;
+}
+
+.escolher-topo h3 {
+  margin: 0;
+  font-family: var(--fg-display);
+  font-size: var(--t-cartao);
+  font-weight: 700;
+  color: var(--fg-texto);
+  text-wrap: balance;
+}
+
+/* O alvo e a margem na mesma linha: o numero sozinho vira meta a perseguir; com a margem
+   do lado ele vira faixa, que e como o treinador pensa. */
+.escolher-alvo {
+  margin: var(--e-1) 0 0;
+  font: 500 var(--t-apoio) / 1.45 var(--fg-corpo);
+  color: var(--fg-texto-3);
+}
+.escolher-alvo b {
+  font-family: var(--fg-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-texto);
+}
+
+/* ── As montagens ────────────────────────────────────────────────────────── */
+
+.escolher-lista { display: flex; flex-direction: column; gap: var(--e-2); }
+
+.escolher-combo {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  min-height: var(--fg-toque);
+  padding: var(--e-3);
+  border: 1px solid var(--fg-linha);
+  border-radius: var(--r-cartao);
+  background: var(--fg-superficie-alta);
+  color: var(--fg-texto);
+  text-align: left;
+  cursor: pointer;
+}
+
+.escolher-combo.marcada { border-color: var(--fg-acao); background: var(--fg-superficie-alta); }
+.escolher-combo:focus-visible { outline: 2px solid var(--fg-acao); outline-offset: 2px; }
+
+.escolher-combo-topo {
+  display: flex;
+  align-items: center;
+  gap: var(--e-2);
+  flex-wrap: wrap;
+}
+.escolher-combo-topo b { font: 600 var(--t-corpo) / 1.3 var(--fg-corpo); }
+
+.escolher-combo small {
+  color: var(--fg-texto-3);
+  font: 400 var(--t-apoio) / 1.45 var(--fg-corpo);
+}
+
+.escolher-kcal {
+  margin-left: auto;
+  font: 500 var(--t-dado) / 1 var(--fg-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-texto-2);
+}
+
+.escolher-selo {
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--fg-ok-fundo);
+  color: var(--fg-ok);
+  font: 700 10px / 1.4 var(--fg-mono);
+  font-style: normal;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+/* ── As trocas ───────────────────────────────────────────────────────────── */
+
+.escolher-troca { display: flex; flex-direction: column; gap: var(--e-2); }
+
+.escolher-rotulo {
+  margin: 0;
+  font: 500 var(--t-etiqueta) / 1.3 var(--fg-mono);
+  letter-spacing: var(--ls-etiqueta);
+  text-transform: uppercase;
+  color: var(--fg-texto-2);
+}
+.escolher-rotulo span {
+  font-family: var(--fg-corpo);
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--fg-texto-3);
+}
+
+/* Fichas que quebram linha: no telefone a lista de carnes tem sete itens e nao pode virar
+   rolagem horizontal. */
+.escolher-opcoes { display: flex; flex-wrap: wrap; gap: var(--e-2); }
+
+.escolher-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--e-2);
+  min-height: var(--fg-toque);
+  padding: var(--e-2) var(--e-3);
+  border: 1px solid var(--fg-linha-forte);
+  border-radius: var(--r-pilula);
+  background: transparent;
+  color: var(--fg-texto-2);
+  font: 500 var(--t-apoio) / 1.2 var(--fg-corpo);
+  cursor: pointer;
+}
+
+.escolher-chip.marcada {
+  border-color: var(--fg-acao);
+  background: var(--fg-acao);
+  color: var(--fg-acao-tinta);
+}
+
+.escolher-chip:focus-visible { outline: 2px solid var(--fg-acao); outline-offset: 2px; }
+
+/* A porcao ao lado do nome, sempre. Escolher sem ver quanto e escolher no escuro. */
+.escolher-chip b {
+  font-family: var(--fg-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+/* ── A conta ─────────────────────────────────────────────────────────────── */
+
+.escolher-conta {
+  margin: 0;
+  padding: var(--e-3);
+  border-left: 3px solid var(--fg-ok);
+  border-radius: var(--r-campo);
+  background: var(--fg-superficie);
+  font: 500 var(--t-apoio) / 1.45 var(--fg-corpo);
+  color: var(--fg-texto-2);
+}
+.escolher-conta.fora { border-left-color: var(--fg-atencao); color: var(--fg-atencao); }
+
+.escolher-acoes { display: flex; flex-direction: column; gap: var(--e-2); }

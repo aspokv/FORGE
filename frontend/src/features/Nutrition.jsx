@@ -5,6 +5,7 @@ import NutritionDailyFooter from "./NutritionDailyFooter";
 import ListaDeCompras from "./ListaDeCompras";
 import CarboidratoDoDia from "./CarboidratoDoDia";
 import MontarRefeicao from "./MontarRefeicao";
+import EscolherRefeicao from "./EscolherRefeicao";
 import TrocarObjetivo from "./TrocarObjetivo";
 import AcrescentarRefeicao from "./AcrescentarRefeicao";
 import NutritionImport from "./NutritionImport";
@@ -116,9 +117,6 @@ export default function Nutrition({ API, profileId, db }) {
   // (plan view, Substituir, meal-status) needs no changes at all.
   const [guidedDraft, setGuidedDraft] = useState(null);
   const [guidedIdx, setGuidedIdx] = useState(0);
-  const [guidedOptions, setGuidedOptions] = useState([]);
-  const [guidedLoadingOptions, setGuidedLoadingOptions] = useState(false);
-  const [guidedSwap, setGuidedSwap] = useState(null);
   const [guidedPhase, setGuidedPhase] = useState("choosing");
   // "combos" = escolher uma combinacao pronta; "montar" = escolher alimento por
   // alimento. Volta para "combos" a cada refeicao nova de proposito: a pessoa que
@@ -228,16 +226,6 @@ export default function Nutrition({ API, profileId, db }) {
 
   const nextUnlockedIndex = (draft) => draft.locked.findIndex(l => !l);
 
-  const loadMealOptions = async (idx, seed) => {
-    setGuidedLoadingOptions(true); setGuidedSwap(null);
-    try {
-      const r = await axios.post(`${API}/nutrition/plan/draft/options`, {
-        meal_index: idx, ...(seed != null ? { variety_seed: seed } : {}),
-      });
-      setGuidedOptions(r.data.options || []);
-    } catch (e) { setError("Não foi possível carregar opções para esta refeição."); }
-    finally { setGuidedLoadingOptions(false); }
-  };
 
   /**
    * Preserva o motivo REAL no console e devolve texto util para a tela.
@@ -266,7 +254,6 @@ export default function Nutrition({ API, profileId, db }) {
     try {
       const r = await axios.post(`${API}/nutrition/plan/reset`);
       setGuidedDraft(r.data); setGuidedIdx(0); setGuidedPhase("choosing"); setStep("guided");
-      await loadMealOptions(0);
     } catch (e) {
       const motivo = explicarErro(e, "refazer plano", "Não foi possível refazer o plano agora.");
       // 400 aqui significa questionario ausente ou incompleto. O plano antigo continua
@@ -285,24 +272,7 @@ export default function Nutrition({ API, profileId, db }) {
      caiam no mesmo giro com frequencia e a tela parecia nao responder — que foi exatamente
      a reclamacao: "mostrar outras opcoes nao traz novas opcoes". Somar 1 garante um giro
      diferente a cada toque. */
-  const giroRef = useRef(0);
-  const outrasOpcoes = () => { giroRef.current += 1; return loadMealOptions(guidedIdx, giroRef.current); };
 
-  const escolherOpcao = async (option) => {
-    setBusy(true); setError("");
-    try {
-      const r = await axios.post(`${API}/nutrition/plan/draft/choose`, {
-        meal_index: guidedIdx, archetype_id: option.archetype_id,
-        food_ids: option.foods.map(f => f.food_id),
-      });
-      const draft = r.data;
-      setGuidedDraft(draft);
-      const next = nextUnlockedIndex(draft);
-      if (next === -1) { setGuidedPhase("review"); }
-      else { setGuidedIdx(next); await loadMealOptions(next); }
-    } catch (e) { setError("Não foi possível escolher esta combinação agora."); }
-    finally { setBusy(false); }
-  };
 
   /* Montar a mao e escolher uma combinacao terminam igual: o rascunho volta do servidor e
      o fluxo decide qual e a proxima refeicao. Dois caminhos para "o que vem depois" seria
@@ -312,11 +282,10 @@ export default function Nutrition({ API, profileId, db }) {
     setModoDaRefeicao("combos");
     const next = nextUnlockedIndex(draft);
     if (next === -1) { setGuidedPhase("review"); }
-    else { setGuidedIdx(next); await loadMealOptions(next); }
+    else { setGuidedIdx(next); }
   };
 
   // FORGE_CHOOSES_FOR_ME — for this one meal, or for every meal still unlocked.
-  const forgeEscolheEsta = () => { if (guidedOptions.length) escolherOpcao(guidedOptions[0]); };
 
   const forgeEscolheResto = async () => {
     setBusy(true); setError("");
@@ -327,33 +296,6 @@ export default function Nutrition({ API, profileId, db }) {
     finally { setBusy(false); }
   };
 
-  // Trocar um alimento dentro da combinação sugerida: a estrutura escolhida permanece,
-  // só esse componente muda, e as porções da combinação inteira são recalculadas.
-  const abrirSwapNaOpcao = async (optIdx, foodId) => {
-    if (guidedSwap?.optIdx === optIdx && guidedSwap?.foodId === foodId) { setGuidedSwap(null); return; }
-    const option = guidedOptions[optIdx];
-    setGuidedSwap({ optIdx, foodId, options: [], loading: true });
-    try {
-      const r = await axios.post(`${API}/nutrition/plan/draft/swap-food`, {
-        meal_index: guidedIdx, food_ids: option.foods.map(f => f.food_id), food_id: foodId,
-      });
-      setGuidedSwap({ optIdx, foodId, options: r.data.options || [] });
-    } catch (e) { setGuidedSwap(null); setError("Substituição indisponível agora."); }
-  };
-
-  const aplicarSwapNaOpcao = async (optIdx, foodId, subId) => {
-    const option = guidedOptions[optIdx];
-    setBusy(true);
-    try {
-      const r = await axios.post(`${API}/nutrition/plan/draft/swap-food`, {
-        meal_index: guidedIdx, food_ids: option.foods.map(f => f.food_id),
-        food_id: foodId, substitute_food_id: subId,
-      });
-      setGuidedOptions(opts => opts.map((o, i) => i === optIdx ? { ...o, foods: r.data.foods } : o));
-      setGuidedSwap(null);
-    } catch (e) { setError("Não foi possível aplicar a troca agora."); }
-    finally { setBusy(false); }
-  };
 
   const confirmarPlanoGuiado = async () => {
     setBusy(true); setError("");
@@ -644,71 +586,22 @@ export default function Nutrition({ API, profileId, db }) {
           <MontarRefeicao API={API} mealIndex={guidedIdx}
                           onPronto={refeicaoMontada}
                           onCancelar={() => setModoDaRefeicao("combos")} />
-        ) : guidedLoadingOptions ? (
-          <div className="fg-esqueleto" aria-label="Buscando combinações" />
-        ) : guidedOptions.map((opt, i) => {
-          const optKcal = opt.foods.reduce((s, f) => s + (f.food?.kcal || 0) * f.grams / (f.food?.grams || 100), 0);
-          return (
-            <article className={opt.metodo ? "fg-opcao fg-opcao-metodo" : "fg-opcao"}
-                     key={opt.archetype_id}>
-              <header className="fg-opcao-topo">
-                {/*
-                  * O selo existe porque a ordem sozinha nao explica nada: a pessoa ve a
-                  * primeira opcao e nao sabe POR QUE ela e a primeira. Dizer "do metodo"
-                  * transforma uma lista ordenada numa recomendacao com autor.
-                  */}
-                <p className="fg-etiqueta">
-                  {opt.label}
-                  {opt.metodo && <em className="fg-selo-metodo" data-testid="selo-metodo">do método</em>}
-                </p>
-                <b className="fg-opcao-kcal">{Math.round(optKcal)}<small>kcal</small></b>
-              </header>
-
-              <div className="fg-alimentos">
-                {opt.foods.map((it, j) => {
-                  const swapOpen = guidedSwap?.optIdx === i && guidedSwap?.foodId === it.food_id;
-                  return (
-                    <div className="fg-alimento" key={j}>
-                      <div>
-                        <p className="fg-alimento-nome">{it.food?.name || it.food_id}</p>
-                        <p className="fg-alimento-porcao">{formatQty(it)} · {textoDoMacro(kcalDoItem(it), "kcal")}{pesoCru(it)&&<em className="fg-peso-cru"> · {pesoCru(it)} na panela</em>}</p>
-                      </div>
-                      <button type="button" className="fg-substituir"
-                              aria-label={`Trocar ${it.food?.name || it.food_id}`}
-                              onClick={() => abrirSwapNaOpcao(i, it.food_id)}>
-                        <RefreshCw size={15} /> <span>Trocar</span>
-                      </button>
-                      {swapOpen && (
-                        <div className="fg-trocas">
-                          {guidedSwap.loading ? (
-                            <p className="fg-guiado-apoio">Buscando alternativas...</p>
-                          ) : (guidedSwap.options || []).length > 0 ? (
-                            <div className="fg-trocas-lista">
-                              {guidedSwap.options.map((sub, k) => (
-                                <button type="button" key={k} className="fg-troca" disabled={busy}
-                                        onClick={() => aplicarSwapNaOpcao(i, it.food_id, sub.food_id)}>
-                                  <span>{sub.food?.name || sub.food_id}</span>
-                                  <b>{formatQty(sub)}</b>
-                                </button>
-                              ))}
-                            </div>
-                          ) : (
-                            <p className="fg-guiado-apoio">Nenhuma alternativa disponível agora.</p>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-
-              <button type="button" className="fg-btn fg-btn-cheio" disabled={busy}
-                      onClick={() => escolherOpcao(opt)}>
-                Escolher esta combinação <ChevronRight size={18} />
-              </button>
-            </article>
-          );
-        })}
+        ) : (
+          /*
+            * A lista de combinacoes com um botao "Trocar" por linha virou esta tela.
+            *
+            * O que havia aqui mostrava as montagens e escondia a troca atras de um botao
+            * em cada alimento, um por vez, com tres alternativas. A capacidade estava
+            * toda no motor; o que faltava era PERGUNTAR — e a pergunta que o treinador
+            * faz e "escolha a sua carne", com todas as opcoes e a porcao de cada uma.
+            *
+            * "Mostrar outras opcoes" saiu junto: ele existia porque as alternativas
+            * apareciam uma de cada vez. Agora aparecem todas.
+            */
+          <EscolherRefeicao API={API} mealIndex={guidedIdx}
+                            onPronto={refeicaoMontada}
+                            onMontarDoZero={() => setModoDaRefeicao("montar")} />
+        )}
 
         {modoDaRefeicao === "combos" && error && <p className="fg-erro" role="alert">{error}</p>}
 
@@ -717,14 +610,6 @@ export default function Nutrition({ API, profileId, db }) {
           * botoes de 90px com o texto quebrando em tres linhas.
           */}
         {modoDaRefeicao === "combos" && <div className="fg-guiado-acoes">
-          <button type="button" className="fg-btn fg-btn-2" onClick={outrasOpcoes}
-                  disabled={busy || guidedLoadingOptions}>
-            <RefreshCw size={15} /> Mostrar outras opções
-          </button>
-          <button type="button" className="fg-btn fg-btn-2" onClick={forgeEscolheEsta}
-                  disabled={busy || guidedLoadingOptions}>
-            O FORGE escolhe esta
-          </button>
           <button type="button" className="fg-btn fg-btn-2" onClick={forgeEscolheResto} disabled={busy}>
             O FORGE escolhe o resto
           </button>

@@ -54,6 +54,11 @@ on:
       - 'backend/nutrition_engine.py'
       - 'backend/foods.json'
       - 'backend/tests/test_prato_do_metodo.py'
+      - 'backend/escolha_humana.py'
+      - 'backend/tests/test_escolha_humana.py'
+      - 'frontend/src/features/EscolherRefeicao.jsx'
+      - 'frontend/src/features/EscolherRefeicao.test.js'
+      - 'frontend/src/features/escolher-refeicao.css'
       - 'backend/text_match.py'
       - 'backend/tests/test_nutrition_directional.py'
       - 'backend/tests/test_nutrition_meal_type_and_import_guard.py'
@@ -197,6 +202,11 @@ on:
       - 'backend/nutrition_engine.py'
       - 'backend/foods.json'
       - 'backend/tests/test_prato_do_metodo.py'
+      - 'backend/escolha_humana.py'
+      - 'backend/tests/test_escolha_humana.py'
+      - 'frontend/src/features/EscolherRefeicao.jsx'
+      - 'frontend/src/features/EscolherRefeicao.test.js'
+      - 'frontend/src/features/escolher-refeicao.css'
       - 'backend/text_match.py'
       - 'backend/tests/test_nutrition_directional.py'
       - 'backend/tests/test_nutrition_meal_type_and_import_guard.py'
@@ -412,6 +422,7 @@ jobs:
           tests/test_billing_plans.py
           tests/test_ritmo_bloqueado.py
           tests/test_prato_do_metodo.py
+          tests/test_escolha_humana.py
       # As suites de COMPOSICAO de nutricao: como o prato e montado, como a refeicao e
       # nomeada, como a meta se distribui. Rodam sem servidor e levam menos de dois
       # segundos juntas. Nunca estiveram no CI — e foi uma delas que pegou o acento
