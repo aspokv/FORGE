@@ -12,7 +12,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import preassessment as pa  # noqa: E402
 from billing_plans import (  # noqa: E402
-    CAPACIDADES_ELITE, CAPACIDADES_ESSENCIAL, CAPACIDADES_PRO, plano,
+    CAPACIDADES_ELITE, CAPACIDADES_ESSENCIAL, CAPACIDADES_PRO, PROTOCOLOS_AGRESSIVOS,
+    plano, plano_minimo_com,
 )
 
 BASE = {
@@ -45,14 +46,32 @@ def test_pro_e_elite_recebem_as_perguntas_de_alimentacao():
         assert {g["id"] for g in c["body_goals"]} == {"muscle_gain", "fat_loss", "maintenance"}
 
 
-def test_o_ritmo_agressivo_aparece_bloqueado_no_pro_e_livre_no_elite():
+# Depois que PROTOCOLOS_AGRESSIVOS desceu do Elite para o Pro, nenhum plano ATIVO tem
+# alimentacao sem o ritmo agressivo. O mecanismo de bloqueio continua valendo e continua
+# precisando de teste — ele e o que faz a oferta bater com o que o servidor aceita —,
+# entao os testes abaixo montam o conjunto de capacidades a mao em vez de depender de um
+# plano que hoje nao existe. No dia em que a capacidade mudar de plano de novo, o
+# mecanismo ja esta provado.
+SO_ALIMENTACAO = (CAPACIDADES_PRO - {PROTOCOLOS_AGRESSIVOS})
+
+
+def test_o_ritmo_agressivo_aparece_bloqueado_para_quem_nao_tem_a_capacidade():
     def agressivos(caps):
         c = pa.catalogo(caps)
         return {i["locked"] for g in c["body_goals"] for i in g["intensities"]
                 if i["id"] == "agressivo"}
 
-    assert agressivos(CAPACIDADES_PRO) == {True}
+    assert agressivos(SO_ALIMENTACAO) == {True}
+    assert agressivos(CAPACIDADES_PRO) == {False}
     assert agressivos(CAPACIDADES_ELITE) == {False}
+
+
+def test_bloqueado_aparece_em_vez_de_sumir():
+    """Esconder faria a pessoa achar que o produto nao tem o recurso, quando quem nao tem
+    e o plano dela. A opcao continua na lista, marcada."""
+    c = pa.catalogo(SO_ALIMENTACAO)
+    ids = {i["id"] for g in c["body_goals"] for i in g["intensities"]}
+    assert "agressivo" in ids
 
 
 def test_o_catalogo_traz_o_que_a_tela_precisa_para_montar_as_perguntas():
@@ -89,17 +108,19 @@ def test_resposta_fora_do_catalogo_e_recusada(campo, valor):
     assert e.value.campo == campo
 
 
-def test_o_ritmo_agressivo_e_recusado_para_quem_nao_tem_o_plano():
+def test_o_ritmo_agressivo_e_recusado_para_quem_nao_tem_a_capacidade():
     """A tela mostra bloqueado; o servidor recusa. As duas coisas precisam existir."""
     with pytest.raises(pa.RespostaInvalida) as e:
-        pa.normalizar({**COM_ALIMENTACAO, "goal_intensity": "agressivo"}, CAPACIDADES_PRO)
+        pa.normalizar({**COM_ALIMENTACAO, "goal_intensity": "agressivo"}, SO_ALIMENTACAO)
     assert e.value.campo == "goal_intensity"
-    assert "Elite" in e.value.mensagem
+    # O nome do plano vem da tabela: citar um plano a mao ja mandou gente comprar o errado.
+    assert plano_minimo_com(PROTOCOLOS_AGRESSIVOS)["nome"] in e.value.mensagem
 
 
-def test_o_elite_aceita_o_ritmo_agressivo():
-    doc = pa.normalizar({**COM_ALIMENTACAO, "goal_intensity": "agressivo"}, CAPACIDADES_ELITE)
-    assert doc["goal_intensity"] == "agressivo"
+def test_o_pro_e_o_elite_aceitam_o_ritmo_agressivo():
+    for caps in (CAPACIDADES_PRO, CAPACIDADES_ELITE):
+        doc = pa.normalizar({**COM_ALIMENTACAO, "goal_intensity": "agressivo"}, caps)
+        assert doc["goal_intensity"] == "agressivo"
 
 
 def test_o_essencial_ignora_resposta_de_alimentacao_enviada_a_forca():

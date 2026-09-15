@@ -14,8 +14,8 @@ from external_food_catalog import search_external_foods, resolve_external_food
 import uuid, random
 
 from auth import get_current_user
-from billing_plans import ALIMENTACAO, PROTOCOLOS_AGRESSIVOS
-from entitlements import exigir_capacidade
+from billing_plans import ALIMENTACAO, PROTOCOLOS_AGRESSIVOS, plano, plano_minimo_com
+from entitlements import acesso_de, exigir_capacidade
 from nutrition_engine import _intensity_key
 
 logger = logging.getLogger(__name__)
@@ -279,11 +279,23 @@ def _selo(food_id, macros, macros_originais, mais_equivalente):
     return None
 
 
-def _opcoes_de_intensidade(nome_do_conjunto):
+def _opcoes_de_intensidade(nome_do_conjunto, permite_agressivo: bool = True):
+    """Os ritmos de um objetivo, cada um sabendo se ESTA conta pode usa-lo.
+
+    `locked` existe porque a tela precisa da mesma verdade que a rota de gravacao. Sem
+    ele, o ritmo Agressivo aparecia escolhivel para todo mundo e so era recusado DEPOIS
+    do clique em salvar — a pessoa selecionava, esperava, e levava "seu plano atual nao
+    inclui este recurso". Oferecer e depois recusar e pior do que nao oferecer.
+
+    Bloqueado aparece, e nao some: esconder faria a pessoa achar que o produto nao tem o
+    recurso, quando na verdade ela e que nao escolheu o plano que tem. E a mesma decisao
+    ja tomada no catalogo do questionario (`preassessment._objetivos_alimentares`).
+    """
     cfg = FORGE_COACH_METHODOLOGY[nome_do_conjunto]
     return [
         {"id": k, "label": v["label"], "description": v["description"],
          "recommended": bool(v.get("recommended")), "advanced": bool(v.get("advanced")),
+         "locked": bool(v.get("advanced")) and not permite_agressivo,
          "warning": v.get("warning"),
          # negativo = deficit, positivo = superavit; a interface so precisa do numero
          "delta_pct": round((v["kcal_pct"] - 1) * 100),
@@ -295,30 +307,45 @@ def _opcoes_de_intensidade(nome_do_conjunto):
 
 
 @router.get("/goal-catalog")
-async def goal_catalog(_user=Depends(get_current_user)):
+async def goal_catalog(request: Request, user=Depends(get_current_user)):
     """Objetivos corporais e os ritmos de cada um, numa chamada so.
 
     A secao "Objetivo" do onboarding trata apenas do objetivo corporal/alimentar:
-    desempenho e prioridade muscular sao outras etapas. Manutencao nao tem ritmo."""
+    desempenho e prioridade muscular sao outras etapas. Manutencao nao tem ritmo.
+
+    Le o acesso da conta para marcar `locked` nos ritmos que este plano nao inclui. Esta
+    rota alimenta as DUAS telas onde se escolhe o ritmo — o questionario e a troca de
+    objetivo na Nutricao — entao e aqui que a oferta passa a bater com o que a gravacao
+    aceita."""
+    acesso = await acesso_de(request.app.state.db, user)
+    permite_agressivo = PROTOCOLOS_AGRESSIVOS in (acesso.get("capabilities") or [])
     conjuntos = {"muscle_gain": "bulking_intensity", "fat_loss": "cutting_intensity"}
     padroes = {"muscle_gain": FORGE_COACH_METHODOLOGY["bulking_intensity_default"],
                "fat_loss": FORGE_COACH_METHODOLOGY["cutting_intensity_default"]}
     return {
         "protocol_version": FORGE_COACH_METHODOLOGY["cut_protocol_version"],
+        # O nome do plano que libera o que esta bloqueado. A tela mostra isso em vez de um
+        # card morto: quem quiser o ritmo agressivo precisa saber ONDE ele esta. Vem da
+        # tabela de planos, nunca escrito a mao — a capacidade ja trocou de plano uma vez.
+        "plan_for_advanced": (plano_minimo_com(PROTOCOLOS_AGRESSIVOS) or {}).get("nome"),
+        "current_plan": (plano(acesso.get("plan_code")) or {}).get("nome"),
         "goals": [
             {**g,
              "default_intensity": padroes.get(g["id"]),
-             "intensities": _opcoes_de_intensidade(conjuntos[g["id"]]) if g["id"] in conjuntos else []}
+             "intensities": (_opcoes_de_intensidade(conjuntos[g["id"]], permite_agressivo)
+                             if g["id"] in conjuntos else [])}
             for g in FORGE_COACH_METHODOLOGY["body_goals"]
         ],
     }
 
 
 @router.get("/cutting-intensities")
-async def cutting_intensities(_user=Depends(get_current_user)):
+async def cutting_intensities(request: Request, user=Depends(get_current_user)):
     """Catalogo das intensidades de emagrecimento. A UI monta os cards a partir daqui em
     vez de repetir rotulo, descricao e aviso — a metodologia continua com uma fonte so."""
-    opcoes = _opcoes_de_intensidade("cutting_intensity")
+    acesso = await acesso_de(request.app.state.db, user)
+    opcoes = _opcoes_de_intensidade(
+        "cutting_intensity", PROTOCOLOS_AGRESSIVOS in (acesso.get("capabilities") or []))
     return {
         "default": FORGE_COACH_METHODOLOGY["cutting_intensity_default"],
         "protocol_version": FORGE_COACH_METHODOLOGY["cut_protocol_version"],
@@ -359,7 +386,7 @@ async def save_assessment(payload: NutritionAssessmentIn, request: Request, user
     # "1,63" no campo que pede centimetros vira 1,63 cm sem isto, e o plano inteiro sai
     # errado sem nenhum erro aparecer.
     doc = _normalizar_medidas(payload.model_dump())
-    # O modo Agressivo/Atleta e do plano Elite. Checado aqui, onde a escolha e gravada:
+    # O modo Agressivo/Atleta e pago. Checado aqui, onde a escolha e gravada:
     # e o unico ponto por onde ela entra, entao nao ha como contornar chamando outra rota.
     if _intensity_key(doc.get("intensity")) == "agressivo":
         await exigir_capacidade(db, user, PROTOCOLOS_AGRESSIVOS)
@@ -414,8 +441,8 @@ async def trocar_objetivo(payload: ObjetivoIn, request: Request, user=Depends(ge
     if payload.goal not in objetivos:
         raise HTTPException(400, f"Objetivo desconhecido. Use um de: {', '.join(sorted(objetivos))}.")
 
-    # Mesma guarda da rota do questionario, e pelo mesmo motivo: o modo Agressivo/Atleta e
-    # do plano Elite. Sem repetir aqui, esta rota viraria o contorno.
+    # Mesma guarda da rota do questionario, e pelo mesmo motivo: o modo Agressivo/Atleta
+    # e pago. Sem repetir aqui, esta rota viraria o contorno.
     if _intensity_key(payload.intensity) == "agressivo":
         await exigir_capacidade(db, user, PROTOCOLOS_AGRESSIVOS)
 

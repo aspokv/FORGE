@@ -459,15 +459,23 @@ export default function Nutrition({ API, profileId, db }) {
                       type="button"
                       data-testid={`intensity-${op.id}`}
                       aria-pressed={form.intensity === op.id}
-                      className={`intensity-card${form.intensity === op.id ? " active" : ""}${op.advanced ? " advanced" : ""}`}
-                      onClick={() => setForm(s2 => ({ ...s2, intensity: op.id }))}
+                      disabled={Boolean(op.locked)}
+                      className={`intensity-card${form.intensity === op.id ? " active" : ""}${op.advanced && !op.locked ? " advanced" : ""}${op.locked ? " bloqueada" : ""}`}
+                      onClick={() => { if (op.locked) return; setForm(s2 => ({ ...s2, intensity: op.id })); }}
                     >
                       <span className="intensity-head">
                         <b>{op.label}</b>
                         {op.recommended && <em className="intensity-tag">recomendado</em>}
-                        {op.advanced && <em className="intensity-tag adv">avançado</em>}
+                        {op.advanced && !op.locked && <em className="intensity-tag adv">avançado</em>}
+                        {/* Ritmo fora do plano da conta: marcado, nunca escolhivel. Se
+                            fosse escolhivel o questionario inteiro terminaria num 402. */}
+                        {op.locked && <em className="intensity-tag bloqueada"
+                                          data-testid={`intensity-bloqueado-${op.id}`}>fora do seu plano</em>}
                       </span>
                       <small>{op.description}</small>
+                      {op.locked && <span className="intensity-bloqueio">
+                        Seu plano atual não inclui este ritmo.
+                      </span>}
                       <span className="intensity-meta">
                         {`-${op.deficit_pct}% do gasto`}
                         {op.carb_range_g ? ` · ${op.carb_range_g[0]}–${op.carb_range_g[1]}g de carboidrato/dia` : ""}

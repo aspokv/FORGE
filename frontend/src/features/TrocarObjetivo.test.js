@@ -148,3 +148,68 @@ test("detalhe em objeto sem mensagem ainda mostra algo legivel",async()=>{
   expect(host.querySelector('[data-testid="trocar-objetivo"]')).not.toBeNull();
   expect(host.textContent).toContain("Não foi possível");
 });
+
+/*
+ * Ritmo fora do plano: a oferta tem que bater com o que a gravacao aceita.
+ *
+ * O card "Agressivo/Atleta" era escolhivel como qualquer outro. A pessoa escolhia,
+ * clicava em salvar, esperava, e so entao levava um 402 dizendo que o plano dela nao
+ * inclui o recurso. Oferecer e depois recusar e pior do que deixar claro desde o inicio.
+ */
+const catalogoBloqueado={data:{
+  plan_for_advanced:"FORGE PRO",
+  current_plan:"FORGE ESSENCIAL",
+  goals:catalogo.data.goals.map(g=>({...g,
+    intensities:(g.intensities||[]).map(i=>({...i,locked:Boolean(i.advanced)}))})),
+}};
+
+test("ritmo bloqueado nao e clicavel",async()=>{
+  axios.get.mockResolvedValue(catalogoBloqueado);
+  await render();
+  await abrir();
+  const card=host.querySelector('[data-testid="ritmo-agressivo"]');
+  expect(card).not.toBeNull();
+  expect(card.disabled).toBe(true);
+});
+
+test("clicar no bloqueado nao muda a escolha nem habilita o salvar",async()=>{
+  axios.get.mockResolvedValue(catalogoBloqueado);
+  await render();
+  await abrir();
+  await tocar('[data-testid="ritmo-agressivo"]');
+  expect(host.querySelector('[data-testid="ritmo-agressivo"]').getAttribute("aria-pressed")).toBe("false");
+  expect(host.querySelector('[data-testid="ritmo-moderado"]').getAttribute("aria-pressed")).toBe("true");
+  // Nada mudou, entao salvar continua desligado: nao ha como chegar no 402 por aqui.
+  expect(host.querySelector('[data-testid="salvar-objetivo"]').disabled).toBe(true);
+  expect(axios.put).not.toHaveBeenCalled();
+});
+
+test("bloqueado aparece em vez de sumir, e diz onde o recurso esta",async()=>{
+  axios.get.mockResolvedValue(catalogoBloqueado);
+  await render();
+  await abrir();
+  const card=host.querySelector('[data-testid="ritmo-agressivo"]');
+  // Esconder faria parecer que o FORGE nao tem o recurso, quando quem nao tem e o plano.
+  expect(card.textContent).toContain("Agressivo");
+  expect(host.querySelector('[data-testid="ritmo-bloqueado-agressivo"]').textContent)
+    .toContain("FORGE PRO");
+  expect(card.textContent).toContain("FORGE ESSENCIAL");
+});
+
+test("sem bloqueio, o avancado continua escolhivel como antes",async()=>{
+  axios.get.mockResolvedValue(catalogo);
+  await render();
+  await abrir();
+  const card=host.querySelector('[data-testid="ritmo-agressivo"]');
+  expect(card.disabled).toBe(false);
+  await tocar('[data-testid="ritmo-agressivo"]');
+  expect(host.querySelector('[data-testid="ritmo-agressivo"]').getAttribute("aria-pressed")).toBe("true");
+});
+
+test("o servidor manda locked: a tela nunca decide isso sozinha",async()=>{
+  // Se a tela inferisse "advanced => bloqueado", o Pro perderia o recurso que ele TEM.
+  axios.get.mockResolvedValue(catalogo);
+  await render();
+  await abrir();
+  expect(host.querySelector('[data-testid="ritmo-bloqueado-agressivo"]')).toBeNull();
+});

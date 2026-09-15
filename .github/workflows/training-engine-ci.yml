@@ -64,6 +64,10 @@ on:
       - 'frontend/src/features/RedeDeProtecao.test.js'
       - 'frontend/src/features/rede-de-protecao.css'
       - 'backend/tests/test_cors_preflight.py'
+      - 'backend/preassessment.py'
+      - 'backend/tests/test_preassessment.py'
+      - 'backend/tests/test_billing_plans.py'
+      - 'backend/tests/test_ritmo_bloqueado.py'
       - 'backend/tests/test_ciclagem_de_carboidrato.py'
       - 'backend/tests/test_lista_de_compras.py'
       - 'frontend/src/features/buscaDeAlimentos.js'
@@ -201,6 +205,10 @@ on:
       - 'frontend/src/features/RedeDeProtecao.test.js'
       - 'frontend/src/features/rede-de-protecao.css'
       - 'backend/tests/test_cors_preflight.py'
+      - 'backend/preassessment.py'
+      - 'backend/tests/test_preassessment.py'
+      - 'backend/tests/test_billing_plans.py'
+      - 'backend/tests/test_ritmo_bloqueado.py'
       - 'backend/tests/test_ciclagem_de_carboidrato.py'
       - 'backend/tests/test_lista_de_compras.py'
       - 'frontend/src/features/buscaDeAlimentos.js'
@@ -397,6 +405,8 @@ jobs:
           tests/test_lista_de_compras.py
           tests/test_ciclagem_de_carboidrato.py
           tests/test_metodo_do_treinador.py
+          tests/test_billing_plans.py
+          tests/test_ritmo_bloqueado.py
       # As suites de COMPOSICAO de nutricao: como o prato e montado, como a refeicao e
       # nomeada, como a meta se distribui. Rodam sem servidor e levam menos de dois
       # segundos juntas. Nunca estiveram no CI — e foi uma delas que pegou o acento

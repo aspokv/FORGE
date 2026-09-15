@@ -22,12 +22,15 @@ export default function TrocarObjetivo({API, objetivoAtual, intensidadeAtual, on
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState("");
   const [resultado, setResultado] = useState(null);
+  // Qual plano tem o ritmo bloqueado, e em qual plano a conta esta. Sem isso o card
+  // bloqueado vira um beco: a pessoa ve que nao pode e nao ve onde poderia.
+  const [planos, setPlanos] = useState({});
 
   useEffect(() => {
     if (!aberto || catalogo) return;
     let vivo = true;
     axios.get(`${API}/nutrition/goal-catalog`)
-      .then(r => { if (vivo) setCatalogo(r.data?.goals || []); })
+      .then(r => { if (vivo) { setCatalogo(r.data?.goals || []); setPlanos(r.data || {}); } })
       .catch(() => { if (vivo) setErro("Não foi possível carregar os objetivos."); });
     return () => { vivo = false; };
   }, [API, aberto, catalogo]);
@@ -85,16 +88,38 @@ export default function TrocarObjetivo({API, objetivoAtual, intensidadeAtual, on
 
       {ritmos.length > 0 && <div className="objetivo-ritmos">
         <p className="fg-etiqueta">Ritmo</p>
+        {/* Ritmo que este plano nao inclui vem com `locked` do servidor e NAO e clicavel.
+            Antes ele era escolhivel como qualquer outro e so o "Salvar" recusava, com um
+            402 — a pessoa escolhia, esperava, e levava "seu plano atual nao inclui este
+            recurso" sem nunca ter sido avisada. Oferecer e depois recusar e pior do que
+            deixar claro desde o inicio. Continua visivel de proposito: esconder faria
+            parecer que o FORGE nao tem o recurso, quando quem nao tem e o plano. */}
         {ritmos.map(op => (
           <button type="button" key={op.id} aria-pressed={intensidade === op.id}
-                  className={intensidade === op.id ? "objetivo-ritmo marcada" : "objetivo-ritmo"}
-                  data-testid={`ritmo-${op.id}`} onClick={() => { setIntensidade(op.id); setResultado(null); }}>
+                  disabled={Boolean(op.locked)}
+                  className={[
+                    "objetivo-ritmo",
+                    intensidade === op.id ? "marcada" : "",
+                    op.locked ? "bloqueada" : "",
+                  ].filter(Boolean).join(" ")}
+                  data-testid={`ritmo-${op.id}`}
+                  onClick={() => { if (op.locked) return; setIntensidade(op.id); setResultado(null); }}>
             <span className="objetivo-ritmo-nome">
               {op.label}
               {op.recommended && <em className="objetivo-tag">recomendado</em>}
-              {op.advanced && <em className="objetivo-tag avancado">avançado</em>}
+              {op.advanced && !op.locked && <em className="objetivo-tag avancado">avançado</em>}
+              {op.locked && <em className="objetivo-tag bloqueada"
+                                data-testid={`ritmo-bloqueado-${op.id}`}>
+                {planos.plan_for_advanced || "plano superior"}
+              </em>}
             </span>
             <small>{op.description}</small>
+            {op.locked && <span className="objetivo-bloqueio">
+              {planos.current_plan
+                ? `Seu plano ${planos.current_plan} não inclui este ritmo.`
+                : "Seu plano atual não inclui este ritmo."}
+              {" "}Veja os planos no seu perfil para liberar.
+            </span>}
             {/* O aviso do protocolo extremo viaja com a opcao e nao pode ser omitido: ele
                 e o que separa uma escolha informada de uma surpresa. */}
             {op.warning && intensidade === op.id && <span className="objetivo-aviso">{op.warning}</span>}

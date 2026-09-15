@@ -32,9 +32,13 @@ ANALISES_AVANCADAS = "advanced_analytics"
 VARIACOES_DE_TREINO = "workout_variations"
 
 CAPACIDADES_ESSENCIAL = {TREINO, PROGRESSAO, HISTORICO, SUBSTITUICAO_DE_EXERCICIO}
+# PROTOCOLOS_AGRESSIVOS era exclusivo do Elite e passou para o Pro por decisao do dono do
+# produto. Ninguem perde nada com a mudanca: Elite continua contendo tudo do Pro, entao
+# quem ja assinava o Elite mantem exatamente o mesmo acesso.
 CAPACIDADES_PRO = CAPACIDADES_ESSENCIAL | {
-    ALIMENTACAO, SUBSTITUICAO_DE_ALIMENTO, REGENERAR_ALIMENTACAO, INTENSIDADES_PADRAO, VARIACOES_DE_TREINO}
-CAPACIDADES_ELITE = CAPACIDADES_PRO | {PROTOCOLOS_AGRESSIVOS, ANALISES_AVANCADAS}
+    ALIMENTACAO, SUBSTITUICAO_DE_ALIMENTO, REGENERAR_ALIMENTACAO, INTENSIDADES_PADRAO,
+    VARIACOES_DE_TREINO, PROTOCOLOS_AGRESSIVOS}
+CAPACIDADES_ELITE = CAPACIDADES_PRO | {ANALISES_AVANCADAS}
 
 ESSENCIAL, PRO, ELITE = "essential", "pro", "elite"
 
@@ -80,7 +84,10 @@ PLANOS: List[Dict[str, Any]] = [
             "Ganho de massa",
             "Emagrecimento",
             "Recomposição corporal",
-            "Intensidades: controlada, leve e moderada",
+            "Intensidades: controlada, leve, moderada e agressiva",
+            "Modos Agressivo/Atleta",
+            "Cutting com protocolo low-carb avançado",
+            "Ganho de massa agressivo",
             "Substituições alimentares equivalentes",
             "Whey, carnes, ovos e outras alternativas compatíveis",
             "Regeneração e ajustes do plano",
@@ -101,9 +108,6 @@ PLANOS: List[Dict[str, Any]] = [
                       "protocolos intensos e controle completo."),
         "recursos": [
             "Tudo do FORGE Pro",
-            "Modos Agressivo/Atleta",
-            "Cutting com protocolo low-carb avançado",
-            "Ganho de massa agressivo",
             "Modo de treino avançado e manual",
             "Importação de treino por texto",
             "Maior nível de personalização",
@@ -120,6 +124,18 @@ PLANOS: List[Dict[str, Any]] = [
 ]
 
 PLANOS_POR_CODIGO: Dict[str, Dict[str, Any]] = {p["code"]: p for p in PLANOS}
+
+
+def plano_minimo_com(capacidade: str) -> Optional[Dict[str, Any]]:
+    """O plano ATIVO mais barato que inclui esta capacidade.
+
+    Existe para que nenhuma mensagem de "faça upgrade" precise citar um plano pelo nome.
+    Quando `aggressive_protocols` saiu do Elite para o Pro, toda frase escrita a mao
+    passou a mandar a pessoa comprar o plano errado, mais caro, por um recurso que o mais
+    barato ja entregava. Perguntar a tabela em vez de repetir o nome evita isso para
+    sempre."""
+    candidatos = [p for p in PLANOS if p.get("ativo") and capacidade in p["capacidades"]]
+    return min(candidatos, key=lambda p: p["preco_centavos"]) if candidatos else None
 
 
 def plano(code: Optional[str]) -> Optional[Dict[str, Any]]:
