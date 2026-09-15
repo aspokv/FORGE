@@ -19,7 +19,7 @@ test('save retry preserves id and sends weighed foods instead of client calories
   const div=document.createElement('div'),root=createRoot(div),close=jest.fn(),saved=jest.fn();
   await act(async()=>root.render(<FoodDiaryEditor API="/api" mealIndex={0} mealName="Almoço" onSaved={saved} onClose={close}/>));
   await act(async()=>div.querySelector('.food-diary-results button').click());
-  const save=div.querySelector('.primary-button');
+  const save=div.querySelector('.fg-btn-cheio');
   await act(async()=>save.click());
   expect(div.querySelector('[role="alert"]')).not.toBeNull();
   expect(close).not.toHaveBeenCalled();

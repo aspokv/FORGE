@@ -4,7 +4,6 @@ import { ChevronRight, RefreshCw, Check, X, Utensils, ClipboardPaste } from "luc
 import NutritionDailyFooter from "./NutritionDailyFooter";
 import ListaDeCompras from "./ListaDeCompras";
 import CarboidratoDoDia from "./CarboidratoDoDia";
-import MetodoDoTreinador from "./MetodoDoTreinador";
 import MontarRefeicao from "./MontarRefeicao";
 import NutritionImport from "./NutritionImport";
 import FoodDiaryEditor from "./FoodDiaryEditor";
@@ -901,7 +900,6 @@ export default function Nutrition({ API, profileId, db }) {
 
       <NutritionDailyFooter API={API} compact consumed={consumed} goalCalories={t?.goal_calories||t?.kcal||0}/>
       <CarboidratoDoDia ciclo={cicloCarbo} alvoDoPlano={tPlano}/>
-      <MetodoDoTreinador metodo={cicloCarbo?.metodo}/>
       {/*
         * Montar o plano refeicao por refeicao estava atras de duas portas: dentro de
         * "Gerenciar plano alimentar", que nasce fechado, e com o rotulo "Refazer plano",
