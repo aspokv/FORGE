@@ -117,3 +117,34 @@ test("recusa do servidor aparece com o motivo",async()=>{
   await tocar('[data-testid="salvar-objetivo"]');
   expect(host.textContent).toContain("não inclui protocolos agressivos");
 });
+
+// O DEFEITO QUE DEIXOU A TELA PRETA.
+//
+// `exigir_capacidade` levanta 402 com o detalhe sendo um OBJETO, e nao texto:
+//   {message, capability, current_plan, upgrade}
+// Renderizar um objeto como filho de JSX derruba a arvore inteira do React — a tela fica
+// preta e nada mais responde. Era o unico caminho que devolvia 402, por isso so acontecia
+// ao escolher o ritmo Agressivo.
+test("recusa do plano com detalhe em OBJETO nao pode derrubar a tela",async()=>{
+  axios.get.mockResolvedValue(catalogo);
+  axios.put.mockRejectedValue({response:{status:402,data:{detail:{
+    message:"Seu plano atual não inclui este recurso.",
+    capability:"aggressive_protocols",current_plan:"FORGE PRO",upgrade:true}}}});
+  await render();
+  await abrir();
+  await tocar('[data-testid="ritmo-agressivo"]');
+  await tocar('[data-testid="salvar-objetivo"]');
+  expect(host.querySelector('[data-testid="trocar-objetivo"]')).not.toBeNull();
+  expect(host.textContent).toContain("não inclui este recurso");
+});
+
+test("detalhe em objeto sem mensagem ainda mostra algo legivel",async()=>{
+  axios.get.mockResolvedValue(catalogo);
+  axios.put.mockRejectedValue({response:{status:402,data:{detail:{upgrade:true}}}});
+  await render();
+  await abrir();
+  await tocar('[data-testid="ritmo-agressivo"]');
+  await tocar('[data-testid="salvar-objetivo"]');
+  expect(host.querySelector('[data-testid="trocar-objetivo"]')).not.toBeNull();
+  expect(host.textContent).toContain("Não foi possível");
+});

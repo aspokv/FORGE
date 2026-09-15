@@ -6,6 +6,7 @@ import {
   AlertTriangle, ChevronDown, ChevronRight, ChevronUp, ClipboardPaste, Loader2, Plus,
   Save, Sliders, Trash2, X, Zap,
 } from "lucide-react";
+import {mensagemDeErro} from "./mensagemDeErro";
 
 const REP_PRESETS = ["4–6", "6–8", "8–12", "10–15", "12–20"];
 const RIR_PRESETS = ["0", "1", "1–2", "2", "2–3", "3"];
@@ -99,7 +100,7 @@ export default function ManualWorkout({ API, profile, exercises, onActivated, on
       setErrors(r.data.blocking_errors || []);
       if (r.data.draft?.warnings?.length) setMessage(r.data.draft.warnings.join(" · "));
     } catch (e) {
-      setMessage(e?.response?.data?.detail || "Não foi possível interpretar esse texto.");
+      setMessage(mensagemDeErro(e, "Não foi possível interpretar esse texto."));
     } finally {
       setBusy("");
     }
@@ -221,7 +222,7 @@ export default function ManualWorkout({ API, profile, exercises, onActivated, on
     } catch (e) {
       const detail = e?.response?.data?.detail;
       setConfirming(false);
-      setMessage(detail?.message || detail || "Não foi possível ativar o treino.");
+      setMessage(mensagemDeErro(e, "Não foi possível ativar o treino."));
       setErrors(detail?.errors || []);
     } finally {
       setBusy("");

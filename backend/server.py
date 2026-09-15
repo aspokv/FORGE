@@ -1725,7 +1725,14 @@ app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
     allow_origins=_origens_permitidas(),
-    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    # PUT faltava, e o efeito so aparece em cliente de OUTRA origem: o navegador manda
+    # um OPTIONS de verificacao antes de todo PUT com corpo JSON, e sem o metodo na
+    # lista esse OPTIONS e recusado. A requisicao nem chega a sair, e o front recebe um
+    # erro de rede sem mensagem — foi assim que travou ao trocar o objetivo.
+    #
+    # Em producao front e API vivem no mesmo dominio e nao ha verificacao, o que
+    # escondeu isto desde que a primeira rota PUT foi escrita.
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "X-Requested-With", "X-Forge-Timezone-Offset"],
 )
 

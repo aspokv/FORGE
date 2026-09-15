@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import axios from "axios";
+import {mensagemDeErro} from "./mensagemDeErro";
 import { motion } from "framer-motion";
 import { Copy, Plus, ShieldCheck, RotateCcw, Ban, Check, X, LogOut, ChevronRight, ClipboardCopy, Users, Activity, ScrollText, CreditCard } from "lucide-react";
 import { API, useAuth } from "./AuthContext";
@@ -77,8 +78,7 @@ export default function AdminPanel() {
       await load();
       notify("success", "Conta liberada para escolher e comprar um novo plano.");
     } catch (e) {
-      const detail = e.response?.data?.detail;
-      notify("error", detail?.message || detail || "Não foi possível liberar a nova assinatura.");
+      notify("error", mensagemDeErro(e, "Não foi possível liberar a nova assinatura."));
     }
   };
   const regen = async id => {

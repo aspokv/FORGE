@@ -2,6 +2,7 @@ import {useState} from "react";
 import axios from "axios";
 import {Plus} from "lucide-react";
 import "./acrescentar-refeicao.css";
+import {mensagemDeErro} from "./mensagemDeErro";
 
 /**
  * Acrescentar uma refeicao ao plano, na posicao que a pessoa escolher.
@@ -37,7 +38,7 @@ export default function AcrescentarRefeicao({API, refeicoes = [], onAcrescentada
       setAberto(false); setNome("");
       if (onAcrescentada) onAcrescentada(r.data);
     } catch (e) {
-      setErro(e?.response?.data?.detail || "Não foi possível acrescentar a refeição agora.");
+      setErro(mensagemDeErro(e, "Não foi possível acrescentar a refeição agora."));
     } finally { setSalvando(false); }
   };
 
