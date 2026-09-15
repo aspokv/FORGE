@@ -430,3 +430,73 @@ test("com o dia fechado, o excesso na refeicao volta a ser excesso",async()=>{
   expect(texto()).toContain("acima da meta desta refeição");
   expect(texto()).not.toContain("As próximas absorvem");
 });
+
+// ─── A porcao, e nao caloria por 100 g ────────────────────────────────────────────────
+
+const comPorcao = (id, nome, porcao, kcal, combina = false, metodo = false) => ({
+  food_id: id, name: nome, kcal_por_100g: 400, protein_por_100g: 0,
+  carb_por_100g: 0, fat_por_100g: 0, metodo, combina,
+  porcao_g: porcao, kcal_da_porcao: kcal,
+});
+
+// A previa DEVOLVE os espacos e sobrescreve os que vieram de /slots. O mock tem de
+// devolver os mesmos, senao o teste monta uma tela que a rota nunca produz.
+const comporComPorcao = (d) => ({data: {
+  meal_index: 1, foods: [], totais: {kcal: 0, protein_g: 0, carbs_g: 0, fat_g: 0},
+  alvo: 760, proporcao: 0, coerencia: 0,
+  espacos: d.data.espacos, falta: d.data.falta,
+}});
+
+const slotsComPorcao = () => ({data: {
+  meal_index: 1, name: "Café da manhã", target_cal: 760, target_protein: 50, target_fat: 20,
+  espacos: [{papel: "primary_protein", rotulo: "Proteína", explicacao: "", obrigatorio: true,
+             escolhido: null, alimentos: [
+               comPorcao("whey-protein", "Whey protein concentrado", 60, 240, false, true),
+               comPorcao("chicken-breast", "Peito de frango grelhado", 150, 248),
+             ]}],
+  falta: ["Proteína"],
+}});
+
+// "Whey - 400 kcal /100g" nao ajuda ninguem a decidir: ninguem come 100 g de whey.
+test("a lista mostra a porcao real, e nao caloria por 100 g",async()=>{
+  const dados=slotsComPorcao();
+  axios.get.mockResolvedValue(dados);
+  axios.post.mockResolvedValue(comporComPorcao(dados));
+  await montar();
+  const linha=host.querySelector('[data-testid="opcao-whey-protein"]').textContent;
+  expect(linha).toContain("60 g");
+  expect(linha).toContain("240 kcal");
+  expect(linha).not.toContain("/100g");
+});
+
+test("sem porcao calculada, cai na caloria por 100 g em vez de sumir",async()=>{
+  const d=slotsComPorcao();
+  delete d.data.espacos[0].alimentos[0].porcao_g;
+  delete d.data.espacos[0].alimentos[0].kcal_da_porcao;
+  axios.get.mockResolvedValue(d);
+  axios.post.mockResolvedValue(comporComPorcao(d));
+  await montar();
+  expect(host.querySelector('[data-testid="opcao-whey-protein"]').textContent).toContain("/100g");
+});
+
+// Escolhido o whey, a farinha de arroz tem de vir marcada: ninguem bate whey com batata.
+test("o alimento que combina com o escolhido vem marcado",async()=>{
+  const d=slotsComPorcao();
+  d.data.espacos[0].alimentos[1].combina=true;
+  axios.get.mockResolvedValue(d);
+  axios.post.mockResolvedValue(comporComPorcao(d));
+  await montar();
+  expect(host.querySelector('[data-testid="opcao-chicken-breast"] .montar-combina')).not.toBeNull();
+  expect(host.querySelector('[data-testid="opcao-whey-protein"] .montar-combina')).toBeNull();
+});
+
+test("combina e do metodo podem aparecer juntos sem um apagar o outro",async()=>{
+  const d=slotsComPorcao();
+  d.data.espacos[0].alimentos[0].combina=true;
+  axios.get.mockResolvedValue(d);
+  axios.post.mockResolvedValue(comporComPorcao(d));
+  await montar();
+  const linha=host.querySelector('[data-testid="opcao-whey-protein"]');
+  expect(linha.querySelector(".montar-combina")).not.toBeNull();
+  expect(linha.querySelector(".fg-selo-metodo")).not.toBeNull();
+});

@@ -310,3 +310,76 @@ class TestAContaDoDia:
     def test_alvo_zerado_nao_quebra(self):
         dia = self._dia(0, 3, [False] * 3, 0, 0)
         assert dia["alvo"] == 0 and dia["tolerancia"] == 0
+
+
+class TestAPorcaoNaLista:
+    """A lista tem de dizer QUANTO, e nao caloria por 100 g.
+
+    Eu tinha escrito o contrario no codigo, com o argumento de que a porcao so existe depois
+    do conjunto todo escolhido. O argumento estava certo e a conclusao errada: a lista passou
+    a oferecer "Whey — 400 kcal /100g", e ninguem come 100 g de whey. O atleta reclamou
+    disso com essas palavras.
+    """
+
+    ALVO = {"cal": 760, "protein": 50, "fat": 20, "goal": "muscle_gain"}
+
+    def test_cada_alimento_traz_a_porcao_que_ele_teria(self):
+        espacos = espacos_da_refeicao("Café da manhã", SEM_RESTRICAO, None, self.ALVO)
+        for espaco in espacos:
+            for alimento in espaco["alimentos"]:
+                assert alimento.get("porcao_g"), f"{espaco['rotulo']}/{alimento['name']}"
+
+    # O numero que motivou a reclamacao.
+    def test_a_porcao_do_whey_e_de_gente_e_nao_de_100g(self):
+        espacos = espacos_da_refeicao("Café da manhã", SEM_RESTRICAO, None, self.ALVO)
+        proteina = next(e for e in espacos if e["papel"] == "primary_protein")
+        whey = next(a for a in proteina["alimentos"] if a["food_id"] == "whey-protein")
+        assert whey["porcao_g"] <= 60, whey["porcao_g"]
+
+    def test_nenhuma_porcao_passa_do_teto_do_alimento(self):
+        from nutrition_engine import _portion_limit
+        for refeicao in ("Café da manhã", "Almoço", "Jantar"):
+            espacos = espacos_da_refeicao(refeicao, SEM_RESTRICAO, None, self.ALVO)
+            for espaco in espacos:
+                for alimento in espaco["alimentos"]:
+                    teto = _portion_limit(FOOD_INDEX[alimento["food_id"]], "hard_max")
+                    assert alimento["porcao_g"] <= teto + 1, f"{alimento['name']}"
+
+    # Sem alvo a lista continua funcionando: a porcao some, a caloria por 100 g fica.
+    def test_sem_alvo_a_lista_nao_quebra(self):
+        espacos = espacos_da_refeicao("Almoço", SEM_RESTRICAO)
+        assert espacos
+        for alimento in espacos[0]["alimentos"]:
+            assert "kcal_por_100g" in alimento
+            assert "porcao_g" not in alimento
+
+
+class TestOQueCombinaVemPrimeiro:
+    """Ninguem bate whey com batata inglesa.
+
+    A afinidade nao e lista escrita a mao: sai de MEAL_COMBOS. Se "Mingau FORGE" junta
+    PORRIDGE_CARB com FAST_PROTEIN, entao aveia e farinha de arroz andam com whey.
+    """
+
+    ALVO = {"cal": 760, "protein": 50, "fat": 20, "goal": "muscle_gain"}
+
+    def _carbos(self, escolhidos):
+        espacos = espacos_da_refeicao("Café da manhã", SEM_RESTRICAO, escolhidos, self.ALVO)
+        return next(e for e in espacos if e["papel"] == "primary_carb")["alimentos"]
+
+    def test_escolhido_o_whey_a_aveia_e_a_farinha_vem_na_frente(self):
+        primeiros = {a["food_id"] for a in self._carbos(["whey-protein"])[:2]}
+        assert primeiros <= {"oats", "rice-flour"}, primeiros
+
+    def test_o_arroz_branco_nao_vem_na_frente_do_whey(self):
+        nomes = [a["food_id"] for a in self._carbos(["whey-protein"])]
+        assert nomes.index("rice-white") > nomes.index("oats")
+
+    def test_o_que_combina_vem_marcado(self):
+        for alimento in self._carbos(["whey-protein"]):
+            if alimento["food_id"] in ("oats", "rice-flour"):
+                assert alimento["combina"] is True, alimento["name"]
+
+    # Sem nada escolhido nao existe com o que combinar, e marcar tudo seria ruido.
+    def test_sem_escolha_nada_e_marcado_como_combina(self):
+        assert not any(a["combina"] for a in self._carbos([]))

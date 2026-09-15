@@ -840,7 +840,10 @@ async def draft_meal_slots(request: Request, meal_index: int = Query(0, ge=0),
         if sugestao:
             escolhidos = list(sugestao["food_ids"])
 
-    espacos = espacos_da_refeicao(refeicao["name"], na, escolhidos)
+    alvo = {"cal": refeicao["target_cal"], "protein": refeicao["target_protein"],
+            "fat": refeicao.get("target_fat", 0),
+            "goal": draft.get("goal", na.get("goal", "maintenance"))}
+    espacos = espacos_da_refeicao(refeicao["name"], na, escolhidos, alvo)
     # O que a sugestao trouxe e o motor nao reconhece em nenhum espaco nao pode ficar
     # pendurado: seria um alimento marcado que a tela nao tem onde mostrar.
     if sugestao:
@@ -883,7 +886,10 @@ async def draft_compose_meal(payload: ComporRefeicaoIn, request: Request,
     goal = draft.get("goal", na.get("goal", "maintenance"))
     na = _com_protocolo(na, draft.get("targets"))
 
-    espacos = espacos_da_refeicao(refeicao["name"], na, payload.food_ids)
+    espacos = espacos_da_refeicao(
+        refeicao["name"], na, payload.food_ids,
+        {"cal": refeicao["target_cal"], "protein": refeicao["target_protein"],
+         "fat": refeicao.get("target_fat", 0), "goal": goal})
     manuais = [_item_manual(m.food_id, m.grams) for m in payload.manuais]
     if not payload.food_ids and not manuais:
         vazio = {"kcal": 0, "protein_g": 0, "carbs_g": 0, "fat_g": 0}

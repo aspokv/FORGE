@@ -18,7 +18,7 @@ o que ja existia no motor. Quem dimensiona continua sendo `calculate_meal_portio
 from typing import Any, Dict, List, Optional
 
 from nutrition_engine import (FOOD_FAMILIES, FOOD_INDEX, MEAL_TEMPLATES, _food_compatible,
-                              _infer_meal_type)
+                              _infer_meal_type, calculate_meal_portions)
 
 # Os papeis tem nome tecnico no motor ("primary_protein"). A pessoa le "Proteina". A ordem
 # desta lista tambem e a ordem da tela: proteina primeiro porque e o que ancora o prato e o
@@ -62,17 +62,24 @@ def _candidatos(componente: Dict[str, Any], perfil: Dict[str, Any]) -> List[str]
     return saida
 
 
-def _cartao_do_alimento(fid: str, do_metodo: bool) -> Dict[str, Any]:
+def _cartao_do_alimento(fid: str, do_metodo: bool, alvo: Optional[Dict[str, Any]] = None,
+                       ja_escolhidos: Optional[List[str]] = None) -> Dict[str, Any]:
     """O que a tela precisa para a pessoa decidir sem abrir o alimento.
 
-    Caloria por 100 g, e nao a porcao final: a porcao so existe depois que o conjunto todo
-    esta escolhido, porque `calculate_meal_portions` distribui a meta entre os alimentos.
-    Mostrar uma grama aqui seria um numero que muda sozinho na tela seguinte.
+    A PORCAO REAL, e nao caloria por 100 g. Eu tinha escrito o contrario aqui, com o
+    argumento de que a porcao so existe depois do conjunto todo escolhido e que mostrar
+    grama seria um numero que muda sozinho. O argumento estava certo e a conclusao errada:
+    o resultado foi a lista oferecer "Whey — 400 kcal /100g", e ninguem come 100 g de whey.
+    Numero que nao ajuda a decidir e pior que numero que muda.
+
+    A grama mostrada e a que o alimento REALMENTE teria se a pessoa tocasse nele agora,
+    calculada com o que ela ja escolheu. Ela muda conforme a refeicao se monta — e muda
+    porque a refeicao mudou, que e informacao e nao ruido.
     """
     a = FOOD_INDEX.get(fid) or {}
     base = max(1, a.get("grams", 100))
     fator = 100.0 / base
-    return {
+    cartao = {
         "food_id": fid,
         "name": a.get("name", fid),
         "kcal_por_100g": round((a.get("kcal", 0) or 0) * fator),
@@ -81,6 +88,19 @@ def _cartao_do_alimento(fid: str, do_metodo: bool) -> Dict[str, Any]:
         "fat_por_100g": round((a.get("fat_g", 0) or 0) * fator, 1),
         "metodo": do_metodo,
     }
+    if alvo:
+        # Simula a escolha: este alimento somado ao que ja esta no prato. E o mesmo
+        # `calculate_meal_portions` que decide de verdade, entao a grama mostrada aqui e
+        # exatamente a que vai aparecer depois do toque.
+        conjunto = [f for f in (ja_escolhidos or []) if f != fid] + [fid]
+        porcoes = calculate_meal_portions(
+            conjunto, alvo.get("cal", 0), alvo.get("protein", 0), alvo.get("fat", 0),
+            alvo.get("goal", "maintenance"))
+        gramas = porcoes.get(fid)
+        if gramas:
+            cartao["porcao_g"] = round(gramas)
+            cartao["kcal_da_porcao"] = round((a.get("kcal", 0) or 0) * gramas / base)
+    return cartao
 
 
 def _ids_do_metodo() -> set:
@@ -93,8 +113,52 @@ def _ids_do_metodo() -> set:
     return {fid for ids in FAMILIAS_DO_METODO.values() for fid in ids}
 
 
+def _pares_das_combinacoes() -> Dict[str, set]:
+    """Quais alimentos andam juntos, segundo as combinacoes que o FORGE ja usa.
+
+    Nao e lista de afinidade escrita a mao: sai de MEAL_COMBOS. Se "Mingau FORGE" junta
+    PORRIDGE_CARB com FAST_PROTEIN, entao aveia e farinha de arroz andam com whey. Se
+    "Refeicao solida" junta LEAN_PROTEIN_SOLID com MAIN_CARB, entao frango anda com arroz e
+    com batata.
+
+    Por que isso importa na montagem: escolhido o whey, a lista de carboidrato mostrava
+    arroz, batata-doce e batata inglesa antes da farinha de arroz. Tecnicamente todas cabem;
+    na pratica ninguem bate whey com batata inglesa. A ordem passa a refletir o que o
+    proprio catalogo de combinacoes ja dizia.
+    """
+    from nutrition_engine import MEAL_COMBOS
+    pares: Dict[str, set] = {}
+    for combo in MEAL_COMBOS:
+        grupos = []
+        for componente in combo.get("components", []):
+            familia = componente.get("family")
+            grupos.append(set(FOOD_FAMILIES.get(familia) or []) if familia else set())
+        for i, a in enumerate(grupos):
+            for j, b in enumerate(grupos):
+                if i == j:
+                    continue
+                for fid in a:
+                    pares.setdefault(fid, set()).update(b)
+    return pares
+
+
+_PARES = None
+
+
+def _combina_com(fid: str, escolhidos: List[str]) -> bool:
+    """O alimento aparece em alguma combinacao junto com algo ja escolhido."""
+    global _PARES
+    if _PARES is None:
+        _PARES = _pares_das_combinacoes()
+    if not escolhidos:
+        return False
+    vizinhos = _PARES.get(fid) or set()
+    return any(e in vizinhos for e in escolhidos)
+
+
 def espacos_da_refeicao(nome_da_refeicao: str, perfil: Dict[str, Any],
-                        escolhidos: Optional[List[str]] = None) -> List[Dict[str, Any]]:
+                        escolhidos: Optional[List[str]] = None,
+                        alvo: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
     """Os espacos daquela refeicao, cada um com o que pode entrar ali.
 
     `escolhidos` marca o que ja foi selecionado, para a tela nao precisar cruzar as duas
@@ -145,9 +209,22 @@ def espacos_da_refeicao(nome_da_refeicao: str, perfil: Dict[str, Any],
             continue
         meu = dono.get(papel)
         tomados = {f for p, f in dono.items() if p != papel}
+        # Ordem: primeiro o que COMBINA com o que ja esta no prato, depois o que e do metodo
+        # do treinador, depois alfabetico. Combinar vem antes do metodo de proposito — de
+        # nada adianta sugerir a fonte certa do metodo se ela nao casa com o que a pessoa
+        # acabou de escolher.
+        ja = [f for f in dono.values()]
         ids = sorted(espaco.pop("_ids") - tomados,
-                     key=lambda f: (f not in do_metodo, FOOD_INDEX.get(f, {}).get("name", f)))
-        espaco["alimentos"] = [_cartao_do_alimento(f, f in do_metodo) for f in ids]
+                     key=lambda f: (not _combina_com(f, ja), f not in do_metodo,
+                                    FOOD_INDEX.get(f, {}).get("name", f)))
+        # O que ja esta escolhido NOS OUTROS espacos entra na simulacao: a porcao do frango
+        # depende de ja ter arroz no prato ou nao.
+        outros = [f for p, f in dono.items() if p != papel]
+        espaco["alimentos"] = []
+        for f in ids:
+            cartao = _cartao_do_alimento(f, f in do_metodo, alvo, outros)
+            cartao["combina"] = _combina_com(f, ja)
+            espaco["alimentos"].append(cartao)
         espaco["escolhido"] = meu
         saida.append(espaco)
     return saida

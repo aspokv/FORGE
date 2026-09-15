@@ -273,9 +273,19 @@ export default function MontarRefeicao({API, mealIndex, onPronto, onCancelar}) {
                           onClick={() => alternar(espaco.papel, alimento.food_id)}>
                     <span className="montar-opcao-nome">
                       {alimento.name}
+                      {alimento.combina && <em className="montar-combina">combina</em>}
                       {alimento.metodo && <em className="fg-selo-metodo">do método</em>}
                     </span>
-                    <span className="montar-opcao-dado">{alimento.kcal_por_100g} kcal /100g</span>
+                    {/*
+                      * A PORCAO, e nao caloria por 100 g. "Whey — 400 kcal /100g" nao ajuda
+                      * ninguem a decidir: ninguem come 100 g de whey. "60 g · 240 kcal" e a
+                      * quantidade que aquele alimento teria de verdade nesta refeicao.
+                      */}
+                    <span className="montar-opcao-dado">
+                      {alimento.porcao_g
+                        ? <><b>{alimento.porcao_g} g</b> · {alimento.kcal_da_porcao} kcal</>
+                        : <>{alimento.kcal_por_100g} kcal /100g</>}
+                    </span>
                     {marcado && <Check size={16} aria-hidden="true" />}
                   </button>
                 </li>
