@@ -2,6 +2,7 @@ import {useEffect, useState} from "react";
 import axios from "axios";
 import {Target} from "lucide-react";
 import "./trocar-objetivo.css";
+import {mensagemDeErro} from "./mensagemDeErro";
 
 /**
  * Trocar o objetivo alimentar e o ritmo, direto da Nutricao.
@@ -51,7 +52,8 @@ export default function TrocarObjetivo({API, objetivoAtual, intensidadeAtual, on
       setResultado(r.data);
       if (onTrocado) onTrocado(r.data);
     } catch (e) {
-      setErro(e?.response?.data?.detail || "Não foi possível trocar o objetivo agora.");
+      // NUNCA o detalhe cru: em 402 ele e um objeto, e renderizar objeto derruba a tela.
+      setErro(mensagemDeErro(e, "Não foi possível trocar o objetivo agora."));
     } finally { setSalvando(false); }
   };
 

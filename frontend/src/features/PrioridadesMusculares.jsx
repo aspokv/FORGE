@@ -2,6 +2,7 @@ import {useState} from "react";
 import axios from "axios";
 import {Check} from "lucide-react";
 import "./prioridades-musculares.css";
+import {mensagemDeErro} from "./mensagemDeErro";
 
 /**
  * Trocar as regioes prioritarias sem refazer a avaliacao inteira.
@@ -66,7 +67,7 @@ export default function PrioridadesMusculares({API, profileId, iniciais = [], on
          ler. */
       if (r.data?.recalculou) setTimeout(() => window.location.reload(), 900);
     } catch (e) {
-      setErro(e?.response?.data?.detail || "Não foi possível salvar suas prioridades agora.");
+      setErro(mensagemDeErro(e, "Não foi possível salvar suas prioridades agora."));
     } finally { setSalvando(false); }
   };
 

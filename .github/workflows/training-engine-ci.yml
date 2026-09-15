@@ -56,6 +56,14 @@ on:
       - 'backend/tests/test_nutrition_directional.py'
       - 'backend/tests/test_nutrition_meal_type_and_import_guard.py'
       - 'frontend/src/features/Nutrition.jsx'
+      - 'frontend/src/features/NutritionImport.jsx'
+      - 'frontend/src/features/AdminPanel.jsx'
+      - 'frontend/src/features/mensagemDeErro.js'
+      - 'frontend/src/features/mensagemDeErro.test.js'
+      - 'frontend/src/features/RedeDeProtecao.jsx'
+      - 'frontend/src/features/RedeDeProtecao.test.js'
+      - 'frontend/src/features/rede-de-protecao.css'
+      - 'backend/tests/test_cors_preflight.py'
       - 'backend/tests/test_ciclagem_de_carboidrato.py'
       - 'backend/tests/test_lista_de_compras.py'
       - 'frontend/src/features/buscaDeAlimentos.js'
@@ -185,6 +193,14 @@ on:
       - 'backend/tests/test_nutrition_directional.py'
       - 'backend/tests/test_nutrition_meal_type_and_import_guard.py'
       - 'frontend/src/features/Nutrition.jsx'
+      - 'frontend/src/features/NutritionImport.jsx'
+      - 'frontend/src/features/AdminPanel.jsx'
+      - 'frontend/src/features/mensagemDeErro.js'
+      - 'frontend/src/features/mensagemDeErro.test.js'
+      - 'frontend/src/features/RedeDeProtecao.jsx'
+      - 'frontend/src/features/RedeDeProtecao.test.js'
+      - 'frontend/src/features/rede-de-protecao.css'
+      - 'backend/tests/test_cors_preflight.py'
       - 'backend/tests/test_ciclagem_de_carboidrato.py'
       - 'backend/tests/test_lista_de_compras.py'
       - 'frontend/src/features/buscaDeAlimentos.js'
@@ -367,6 +383,11 @@ jobs:
       # isolamento entre atletas.
       - name: Run session last performance suite
         run: pytest -q tests/test_session_last_performance.py
+      # Mesma razao das duas de cima: importa `server`. Mede o preflight de CORS, que e o
+      # que decide se um PUT de outra origem chega a SAIR do navegador. Faltava PUT na
+      # lista e toda troca de objetivo morria antes da requisicao.
+      - name: Run CORS preflight suite
+        run: pytest -q tests/test_cors_preflight.py
       - name: Run library program suite
         run: >-
           pytest -q --noconftest

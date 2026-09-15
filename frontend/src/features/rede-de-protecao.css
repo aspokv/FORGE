@@ -1,0 +1,40 @@
+/*
+ * A tela que aparece no lugar da tela preta.
+ *
+ * Sóbria de propósito: quem chega aqui já teve um problema, e uma tela de erro decorada
+ * parece deboche. O que importa é dizer o que houve, garantir que os dados estão salvos e
+ * dar um caminho de volta.
+ */
+.rede-protecao {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-3);
+  max-width: 520px;
+  margin: 0 auto;
+  padding: var(--e-6) var(--fg-margem);
+  color: var(--fg-texto);
+}
+
+.rede-protecao h2 {
+  margin: 0;
+  font-family: var(--fg-display);
+  font-size: var(--t-titulo);
+  font-weight: 700;
+}
+
+.rede-protecao p {
+  margin: 0;
+  color: var(--fg-texto-3);
+  font: 400 var(--t-corpo) / 1.5 var(--fg-corpo);
+}
+
+/* A mensagem técnica fica, e fica discreta: serve para quem for relatar o problema, e não
+ * para quem só quer voltar a usar o aplicativo. */
+.rede-protecao code {
+  padding: var(--e-3);
+  border-radius: var(--r-campo);
+  background: var(--fg-superficie);
+  color: var(--fg-texto-3);
+  font: 400 var(--t-apoio) / 1.5 var(--fg-mono);
+  overflow-wrap: anywhere;
+}

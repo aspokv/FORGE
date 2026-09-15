@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import axios from "axios";
+import {mensagemDeErro} from "./mensagemDeErro";
 import {
   AlertTriangle, CalendarRange, ChevronDown, ChevronRight, ClipboardPaste,
   Loader2, Plus, Save, Trash2, X, Zap,
@@ -79,7 +80,7 @@ export default function NutritionImport({ API, onActivated, onClose }) {
       setErrors(r.data.blocking_errors || []);
       if (r.data.draft?.warnings?.length) setMessage(r.data.draft.warnings.join(" · "));
     } catch (e) {
-      setMessage(e?.response?.data?.detail || "Não foi possível interpretar essa dieta.");
+      setMessage(mensagemDeErro(e, "Não foi possível interpretar essa dieta."));
     } finally { setBusy(""); }
   };
 
@@ -146,7 +147,7 @@ export default function NutritionImport({ API, onActivated, onClose }) {
     } catch (e) {
       const detail = e?.response?.data?.detail;
       setConfirming(false);
-      setMessage(detail?.message || detail || "Não foi possível ativar a dieta.");
+      setMessage(mensagemDeErro(e, "Não foi possível ativar a dieta."));
       setErrors(detail?.errors || []);
     } finally { setBusy(""); }
   };
@@ -161,7 +162,7 @@ export default function NutritionImport({ API, onActivated, onClose }) {
       setTable(r.data.table);
       setPeriodMeta(r.data);
     } catch (e) {
-      setMessage(e?.response?.data?.detail || "Não foi possível gerar a periodização.");
+      setMessage(mensagemDeErro(e, "Não foi possível gerar a periodização."));
     } finally { setBusy(""); }
   };
 
@@ -178,7 +179,7 @@ export default function NutritionImport({ API, onActivated, onClose }) {
       setTable(r.data.periodization.table);
       setMessage("Periodização salva.");
     } catch (e) {
-      setMessage(e?.response?.data?.detail || "Não foi possível salvar a periodização.");
+      setMessage(mensagemDeErro(e, "Não foi possível salvar a periodização."));
     } finally { setBusy(""); }
   };
 
