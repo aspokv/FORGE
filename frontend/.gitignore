@@ -21,3 +21,7 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Landing (Vite): dependencias e build nao vao para o repositorio.
+landing/node_modules
+landing/dist

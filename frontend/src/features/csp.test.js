@@ -34,10 +34,24 @@ function temCabecalho(nome) {
 }
 
 describe("script-src", () => {
-  test("nao permite script inline", () => {
-    expect(diretiva("script-src")).toBe("'self'");
+  test("nao permite script inline nem eval de JavaScript", () => {
+    // 'wasm-unsafe-eval' entrou com a landing 3D: o three.js instancia o decodificador do
+    // modelo por WebAssembly, e sem a diretiva o navegador lanca CompileError (medido
+    // servindo esta mesma politica localmente). Ela permite compilar WebAssembly e NAO
+    // permite eval() de JavaScript, que e o que 'unsafe-eval' abriria.
+    expect(diretiva("script-src")).toBe("'self' 'wasm-unsafe-eval'");
     expect(diretiva("script-src")).not.toContain("unsafe-inline");
-    expect(diretiva("script-src")).not.toContain("unsafe-eval");
+    // A checagem precisa ser exata: "unsafe-eval" e substring de "wasm-unsafe-eval", entao
+    // um `not.toContain` simples passaria a valer para os dois e deixaria de proteger.
+    expect(diretiva("script-src").split(/\s+/)).not.toContain("'unsafe-eval'");
+  });
+
+  test("a excecao de WebAssembly nao vazou para as outras diretivas", () => {
+    // Ela existe por causa da landing 3D e vale so para script. Se aparecesse em
+    // default-src, valeria para tudo que nao tem diretiva propria.
+    for (const outra of ["default-src", "style-src", "connect-src", "object-src"]) {
+      expect(diretiva(outra) || "").not.toContain("wasm-unsafe-eval");
+    }
   });
 
   test("o index.html nao tem script inline", () => {
