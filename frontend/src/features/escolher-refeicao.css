@@ -106,22 +106,47 @@
   color: var(--fg-texto-3);
 }
 
-/* Fichas que quebram linha: no telefone a lista de carnes tem sete itens e nao pode virar
-   rolagem horizontal. */
-.escolher-opcoes { display: flex; flex-wrap: wrap; gap: var(--e-2); }
+/* GRADE, e nao fichas soltas.
+ *
+ * Eram pilulas com `flex-wrap`, e cada uma tinha a largura do proprio nome: "Tofu firme"
+ * ficava do tamanho de um botao pequeno e "Carne bovina grelhada (patinho)" ocupava a
+ * linha inteira. Treze delas viravam uma parede irregular que dominava a tela — foi a
+ * reclamacao, e estava certa.
+ *
+ * Duas colunas de cartao do MESMO tamanho: a vista fica calma, o olho percorre em coluna,
+ * e a porcao cai sempre no mesmo lugar em todos os cartoes.
+ */
+.escolher-opcoes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--e-2);
+}
 
 .escolher-chip {
-  display: inline-flex;
-  align-items: baseline;
-  gap: var(--e-2);
-  min-height: var(--fg-toque);
-  padding: var(--e-2) var(--e-3);
-  border: 1px solid var(--fg-linha-forte);
-  border-radius: var(--r-pilula);
-  background: transparent;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: var(--e-1);
+  min-height: 74px;
+  padding: var(--e-3);
+  border: 1px solid var(--fg-linha);
+  border-radius: var(--r-cartao);
+  background: var(--fg-superficie);
   color: var(--fg-texto-2);
-  font: 500 var(--t-apoio) / 1.2 var(--fg-corpo);
+  font: 500 var(--t-apoio) / 1.3 var(--fg-corpo);
+  text-align: left;
   cursor: pointer;
+  transition: border-color .14s, background .14s;
+}
+
+/* O nome pode ter duas linhas; passando disso, corta com reticencias em vez de esticar o
+   cartao e desalinhar a grade inteira. */
+.escolher-chip span {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-width: 0;
 }
 
 .escolher-chip.marcada {
@@ -132,12 +157,28 @@
 
 .escolher-chip:focus-visible { outline: 2px solid var(--fg-acao); outline-offset: 2px; }
 
-/* A porcao ao lado do nome, sempre. Escolher sem ver quanto e escolher no escuro. */
+/* A porcao no rodape do cartao, sempre no mesmo lugar. Escolher sem ver quanto e escolher
+   no escuro, e alinhada assim ela vira coluna que da para comparar de relance. */
 .escolher-chip b {
-  font-family: var(--fg-mono);
+  font: 700 var(--t-corpo) / 1 var(--fg-mono);
   font-variant-numeric: tabular-nums;
-  font-weight: 600;
+  color: var(--fg-texto);
 }
+.escolher-chip.marcada b { color: var(--fg-acao-tinta); }
+
+/* Lista longa nao aparece inteira. Treze proteinas de uma vez empurram o resto da tela
+   para fora; as primeiras ja sao as que o metodo recomenda. */
+.escolher-mais {
+  grid-column: 1 / -1;
+  min-height: var(--fg-toque);
+  border: 1px dashed var(--fg-linha-forte);
+  border-radius: var(--r-cartao);
+  background: transparent;
+  color: var(--fg-texto-2);
+  font: 600 var(--t-apoio) / 1 var(--fg-corpo);
+  cursor: pointer;
+}
+.escolher-mais:focus-visible { outline: 2px solid var(--fg-acao); outline-offset: 2px; }
 
 /* ── A conta ─────────────────────────────────────────────────────────────── */
 

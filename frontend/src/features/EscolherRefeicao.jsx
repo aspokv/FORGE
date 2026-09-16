@@ -29,6 +29,15 @@ import {mensagemDeErro} from "./mensagemDeErro";
  * A ORDEM E RECOMENDACAO. O topo de cada lista e o que a maioria vai escolher, entao ela
  * segue a pontuacao do metodo — frango e patinho na frente, salmao no fim.
  */
+/*
+ * Quantas opcoes aparecem antes do "ver todas".
+ *
+ * Seis, e nao tres: com tres a pessoa nao percebe que existe escolha de verdade, e o botao
+ * vira obstaculo. Com seis ela ve as principais (frango, ovo, patinho, acem) e o resto e
+ * cauda. Par, para as duas colunas fecharem sem buraco.
+ */
+const VISIVEIS = 6;
+
 export default function EscolherRefeicao({API, mealIndex, onPronto, onMontarDoZero}) {
   const [dados, setDados] = useState(null);
   const [combinacao, setCombinacao] = useState(null);
@@ -36,6 +45,9 @@ export default function EscolherRefeicao({API, mealIndex, onPronto, onMontarDoZe
   const [trocado, setTrocado] = useState({});
   const [erro, setErro] = useState("");
   const [salvando, setSalvando] = useState(false);
+  // Quais espacos estao mostrando a lista inteira. Treze proteinas de uma vez empurravam
+  // o resto da tela para fora, e as primeiras ja sao as que o metodo recomenda.
+  const [abertos, setAbertos] = useState({});
 
   const buscar = useCallback((idDaCombinacao) => {
     setErro("");
@@ -57,7 +69,7 @@ export default function EscolherRefeicao({API, mealIndex, onPronto, onMontarDoZe
   // escolha anterior gravaria um alimento que a nova montagem nem tem.
   const escolherCombinacao = async (id) => {
     if (id === combinacao) return;
-    setCombinacao(id); setTrocado({}); setErro("");
+    setCombinacao(id); setTrocado({}); setErro(""); setAbertos({});
     try {
       const r = await buscar(id);
       setDados(r.data);
@@ -152,7 +164,12 @@ export default function EscolherRefeicao({API, mealIndex, onPronto, onMontarDoZe
             {t.explicacao && <span> {t.explicacao}</span>}
           </p>
           <div className="escolher-opcoes" role="radiogroup" aria-label={t.rotulo}>
-            {t.opcoes.map(o => {
+            {/*
+              * So as primeiras aparecem. A lista ja vem ordenada pela pontuacao do metodo,
+              * entao o corte nao esconde a melhor opcao: esconde a cauda. E o alimento
+              * escolhido e sempre o primeiro, entao nunca some.
+              */}
+            {(abertos[t.papel] ? t.opcoes : t.opcoes.slice(0, VISIVEIS)).map(o => {
               const marcada = (trocado[t.papel] || t.atual) === o.food_id;
               return (
                 <button type="button" key={o.food_id} role="radio" aria-checked={marcada}
@@ -160,12 +177,19 @@ export default function EscolherRefeicao({API, mealIndex, onPronto, onMontarDoZe
                         data-testid={`opcao-${t.papel}-${o.food_id}`}
                         onClick={() => setTrocado(x => ({...x, [t.papel]: o.food_id}))}>
                   <span>{o.nome}</span>
-                  {/* A porcao ao lado do nome, sempre: escolher sem ver quanto e
-                      escolher no escuro, e foi a reclamacao do "100 g de whey". */}
+                  {/* A porcao no rodape do cartao, sempre no mesmo lugar: escolher sem ver
+                      quanto e escolher no escuro, e foi a reclamacao do "100 g de whey". */}
                   <b>{o.gramas} g</b>
                 </button>
               );
             })}
+            {t.opcoes.length > VISIVEIS && (
+              <button type="button" className="escolher-mais"
+                      data-testid={`mais-${t.papel}`}
+                      onClick={() => setAbertos(x => ({...x, [t.papel]: !x[t.papel]}))}>
+                {abertos[t.papel] ? "Mostrar menos" : `Ver todas as ${t.opcoes.length}`}
+              </button>
+            )}
           </div>
         </div>
       ))}

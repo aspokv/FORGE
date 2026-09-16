@@ -30,35 +30,66 @@
 .receitas-corpo { display: flex; flex-direction: column; gap: var(--e-3); margin-top: var(--e-3); }
 
 /* ── Abas ────────────────────────────────────────────────────────────────── */
-/* Quebram linha: sete classes lado a lado no telefone viram rolagem horizontal. */
-.receitas-abas { display: flex; flex-wrap: wrap; gap: var(--e-2); }
+/*
+ * GRADE, e nao pilulas soltas.
+ *
+ * Eram pilulas com `flex-wrap`, e cada uma tinha a largura do proprio rotulo: "Todas"
+ * minusculo ao lado de "Almoço e jantar" comprido. Nove delas caiam em tres linhas
+ * irregulares e tomavam meia tela antes da primeira receita aparecer.
+ *
+ * Duas colunas iguais: o olho percorre em coluna, a contagem cai sempre no mesmo canto, e
+ * a primeira receita sobe na tela.
+ */
+.receitas-abas {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--e-2);
+}
 
 .receitas-aba {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 5px;
-  min-height: var(--fg-toque);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--e-2);
+  min-height: 46px;
   padding: var(--e-2) var(--e-3);
-  border: 1px solid var(--fg-linha-forte);
-  border-radius: var(--r-pilula);
-  background: transparent;
+  border: 1px solid var(--fg-linha);
+  border-radius: var(--r-cartao);
+  background: var(--fg-superficie);
   color: var(--fg-texto-2);
-  font: 500 var(--t-apoio) / 1.2 var(--fg-corpo);
+  font: 500 var(--t-apoio) / 1.25 var(--fg-corpo);
+  text-align: left;
   cursor: pointer;
+  transition: border-color .14s, background .14s;
 }
 .receitas-aba em {
-  font: 600 var(--t-dado) / 1 var(--fg-mono);
+  flex: none;
+  font: 700 var(--t-dado) / 1 var(--fg-mono);
   font-style: normal;
   font-variant-numeric: tabular-nums;
-  opacity: .6;
+  opacity: .55;
 }
 .receitas-aba.marcada { border-color: var(--fg-acao); background: var(--fg-acao); color: var(--fg-acao-tinta); }
-.receitas-aba.marcada em { opacity: .8; }
+.receitas-aba.marcada em { opacity: .85; }
 .receitas-aba:focus-visible { outline: 2px solid var(--fg-acao); outline-offset: 2px; }
 
-/* A refeição livre é a aba que a pessoa procura quando bate a vontade — ela se destaca. */
-.receitas-aba-livre { border-style: dashed; }
-.receitas-aba-livre.marcada { border-style: solid; }
+/* "Todas" e "Refeição livre" ocupam a linha inteira: uma abre a lista toda, a outra e o
+   destaque do produto. Nenhuma das duas e uma classe como as outras, e a largura diz isso
+   sem precisar de rotulo explicando. */
+.receitas-aba-todas,
+.receitas-aba-livre { grid-column: 1 / -1; justify-content: center; }
+
+/* A ultima classe, quando o numero e impar, ocupa a linha inteira em vez de deixar um
+   buraco ao lado. */
+.receitas-aba-larga { grid-column: 1 / -1; }
+
+.receitas-aba-livre { border-style: dashed; border-color: var(--fg-atencao); color: var(--fg-atencao); }
+.receitas-aba-livre.marcada {
+  border-style: solid;
+  border-color: var(--fg-acao);
+  background: var(--fg-acao);
+  color: var(--fg-acao-tinta);
+}
 
 .receitas-nota {
   margin: 0;
