@@ -34,18 +34,22 @@ from nutrition_engine import FOOD_INDEX, tolerancia_de_caloria
 # As classes, na ordem em que o dia acontece. O rotulo e o que aparece na tela; a chave e a
 # mesma nocao de refeicao que `_infer_meal_type` usa, para a receita poder ser encaixada no
 # plano sem tradutor no meio.
+# A frase existe porque "Cabe no seu sobremesa" saiu na tela — sobremesa e feminino, e
+# montar a frase com "no seu" + rotulo na tela dava erro de portugues em toda receita doce.
+# O genero e do rotulo, entao ele mora junto do rotulo.
 CLASSES = [
-    ("cafe_da_manha", "Café da manhã", "breakfast"),
-    ("lanche_da_manha", "Lanche da manhã", "morning_snack"),
-    ("pre_treino", "Pré-treino", "pre_workout"),
-    ("pos_treino", "Pós-treino", "post_workout"),
-    ("almoco_jantar", "Almoço e jantar", "lunch"),
-    ("lanche", "Lanche da tarde", "snack"),
-    ("sobremesa", "Sobremesa", "snack"),
+    ("cafe_da_manha", "Café da manhã", "breakfast", "no seu café da manhã"),
+    ("lanche_da_manha", "Lanche da manhã", "morning_snack", "no seu lanche da manhã"),
+    ("pre_treino", "Pré-treino", "pre_workout", "no seu pré-treino"),
+    ("pos_treino", "Pós-treino", "post_workout", "no seu pós-treino"),
+    ("almoco_jantar", "Almoço e jantar", "lunch", "no seu almoço"),
+    ("lanche", "Lanche da tarde", "snack", "no seu lanche da tarde"),
+    ("sobremesa", "Sobremesa", "snack", "na sua sobremesa"),
 ]
 
-CLASSE_PARA_REFEICAO = {chave: tipo for chave, _, tipo in CLASSES}
-ROTULO_DA_CLASSE = {chave: rotulo for chave, rotulo, _ in CLASSES}
+CLASSE_PARA_REFEICAO = {chave: tipo for chave, _, tipo, _f in CLASSES}
+ROTULO_DA_CLASSE = {chave: rotulo for chave, rotulo, _, _f in CLASSES}
+FRASE_DA_CLASSE = {chave: frase for chave, _, _t, frase in CLASSES}
 
 
 RECEITAS: List[Dict[str, Any]] = [
@@ -701,6 +705,8 @@ def receita_completa(receita: Dict[str, Any]) -> Dict[str, Any]:
         "nome": receita["nome"],
         "classe": receita["classe"],
         "classe_rotulo": ROTULO_DA_CLASSE.get(receita["classe"], receita["classe"]),
+        # Pronta, com o artigo certo: a tela nao tem como saber o genero do rotulo.
+        "classe_frase": FRASE_DA_CLASSE.get(receita["classe"], "na sua refeição"),
         "resumo": receita.get("resumo", ""),
         "tempo_min": receita.get("tempo_min"),
         # Quantas porcoes a receita rende. A grama de cada ingrediente e a da RECEITA
@@ -738,7 +744,7 @@ def por_id(receita_id: str) -> Optional[Dict[str, Any]]:
 def classes_com_contagem() -> List[Dict[str, Any]]:
     """As abas da tela, já sem as vazias."""
     saida = []
-    for chave, rotulo, _tipo in CLASSES:
+    for chave, rotulo, _tipo, _frase in CLASSES:
         quantas = sum(1 for r in RECEITAS if r["classe"] == chave)
         if quantas:
             saida.append({"chave": chave, "rotulo": rotulo, "quantas": quantas})

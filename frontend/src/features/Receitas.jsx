@@ -125,10 +125,15 @@ export default function Receitas({API}) {
                 {r.encaixe && (
                   <span className={`receita-encaixe${r.encaixe.cabe ? "" : " nao"}`}
                         data-testid={`encaixe-${r.id}`}>
+                    {/*
+                      * A frase vem PRONTA do servidor, com o artigo certo. Montar aqui com
+                      * "no seu" mais o rotulo produzia "Cabe no seu sobremesa" — sobremesa
+                      * e feminino, e a tela nao tem como saber o genero de um rotulo.
+                      */}
                     {r.encaixe.cabe
-                      ? `Cabe no seu ${r.classe_rotulo.toLowerCase()} de ${r.encaixe.alvo} kcal` +
+                      ? `Cabe ${r.classe_frase} de ${r.encaixe.alvo} kcal` +
                         (r.encaixe.sobra > 0 ? ` — sobram ${r.encaixe.sobra} kcal` : "")
-                      : `Passa ${r.encaixe.excedeu} kcal do seu ${r.classe_rotulo.toLowerCase()}`}
+                      : `Passa ${r.encaixe.excedeu} kcal ${r.classe_frase.replace(/^no seu /, "do seu ").replace(/^na sua /, "da sua ")}`}
                   </span>
                 )}
               </button>

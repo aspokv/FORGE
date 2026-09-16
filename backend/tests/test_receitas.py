@@ -25,7 +25,7 @@ import nutrition_engine as ne  # noqa: E402
 import receitas as rc  # noqa: E402
 
 TODAS = rc.RECEITAS
-IDS_DE_CLASSE = {chave for chave, _, _ in rc.CLASSES}
+IDS_DE_CLASSE = {chave for chave, _, _, _ in rc.CLASSES}
 
 
 # -- O elo com o catalogo -------------------------------------------------------------
@@ -108,7 +108,7 @@ def test_as_classes_cobrem_o_dia_inteiro():
 def test_a_classe_aponta_para_um_tipo_de_refeicao_do_motor():
     """Sem isso, encaixar a receita no plano exigiria um tradutor no meio — e tradutor no
     meio e onde as duas telas passam a discordar."""
-    for _chave, _rotulo, tipo in rc.CLASSES:
+    for _chave, _rotulo, tipo, _frase in rc.CLASSES:
         assert tipo in ne.MEAL_TEMPLATES, "%s nao e tipo de refeicao do motor" % tipo
 
 
@@ -186,6 +186,18 @@ def test_toda_receita_explica_por_que_esta_no_forge(receita):
 def test_os_ids_sao_unicos():
     ids = [r["id"] for r in TODAS]
     assert len(ids) == len(set(ids))
+
+
+def test_a_frase_da_classe_concorda_em_genero():
+    """"Cabe no seu sobremesa" saiu na tela. Montar a frase com "no seu" mais o rotulo
+    dava erro de portugues em toda receita doce — e receita doce e justamente a que a
+    pessoa mais abre."""
+    assert rc.FRASE_DA_CLASSE["sobremesa"] == "na sua sobremesa"
+    assert rc.FRASE_DA_CLASSE["cafe_da_manha"] == "no seu café da manhã"
+    # Toda classe tem frase, e nenhuma frase mistura artigo com genero errado.
+    for chave, rotulo, _tipo, frase in rc.CLASSES:
+        assert frase.startswith(("no seu ", "na sua ")), (chave, frase)
+    assert rc.por_id("mousse-de-morango")["classe_frase"] == "na sua sobremesa"
 
 
 def test_a_receita_completa_traz_o_nome_do_alimento_e_nao_so_o_id():

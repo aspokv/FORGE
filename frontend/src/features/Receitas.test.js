@@ -21,7 +21,7 @@ const classes = {data: {classes: [
 
 const mingau = {
   id: "mingau-forge", nome: "Mingau FORGE", classe: "cafe_da_manha",
-  classe_rotulo: "Café da manhã", resumo: "O café da manhã do método.",
+  classe_rotulo: "Café da manhã", classe_frase: "no seu café da manhã", resumo: "O café da manhã do método.",
   tempo_min: 5, rendimento: 1, refeicao_livre: false,
   kcal: 489, protein_g: 36, carbs_g: 67, fat_g: 11,
   ingredientes: [
@@ -38,7 +38,7 @@ const mingau = {
 
 const bolinha = {
   id: "bolinha-energetica", nome: "Bolinhas de aveia", classe: "sobremesa",
-  classe_rotulo: "Sobremesa", resumo: "Faz uma vez, come a semana.",
+  classe_rotulo: "Sobremesa", classe_frase: "na sua sobremesa", resumo: "Faz uma vez, come a semana.",
   tempo_min: 10, rendimento: 4, refeicao_livre: true,
   kcal: 170, protein_g: 11, carbs_g: 21, fat_g: 6,
   ingredientes: [{food_id: "oats", nome: "Aveia em flocos", gramas: 80}],
@@ -49,7 +49,7 @@ const bolinha = {
 };
 
 const grande = {
-  ...mingau, id: "prato-completo", nome: "Prato completo", classe_rotulo: "Almoço e jantar",
+  ...mingau, id: "prato-completo", nome: "Prato completo", classe_rotulo: "Almoço e jantar", classe_frase: "no seu almoço",
   kcal: 703, refeicao_livre: false,
   encaixe: {receita: "prato-completo", kcal: 703, alvo: 300, diferenca: 403,
             margem: 150, cabe: false, sobra: 0, excedeu: 253},
@@ -150,6 +150,16 @@ test("o encaixe diz se cabe na refeicao DAQUELA pessoa",async()=>{
   expect(encaixe).toContain("Cabe");
   expect(encaixe).toContain("500");
   expect(encaixe).toContain("sobram 11");
+});
+
+test("a frase concorda em genero: sobremesa e feminino",async()=>{
+  // "Cabe no seu sobremesa" saiu na tela de verdade. A frase vem pronta do servidor
+  // justamente porque a tela nao tem como saber o genero de um rotulo.
+  responder([bolinha]);
+  await render();
+  await abrir();
+  expect(texto('[data-testid="encaixe-bolinha-energetica"]')).toContain("na sua sobremesa");
+  expect(texto('[data-testid="encaixe-bolinha-energetica"]')).not.toContain("no seu sobremesa");
 });
 
 test("quando nao cabe, diz quanto passa",async()=>{
