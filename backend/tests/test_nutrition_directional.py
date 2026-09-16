@@ -3,6 +3,8 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+import pytest
+
 from nutrition_engine import (
     compute_macro_targets, generate_daily_plan, find_substitutes,
     evaluate_goal_directional_substitution, FOOD_INDEX, FORGE_COACH_METHODOLOGY,
@@ -240,11 +242,28 @@ def test_profile_e_protein_distribution():
         assert mp >= 20, f"{m['name']} protein too low: {mp}g"
 
 
-def test_cutting_more_satiating_than_bulking():
+@pytest.mark.parametrize("meals", [3, 4, 5, 6])
+def test_cutting_more_satiating_than_bulking(meals):
+    """Em deficit o prato tem de render MAIS volume por caloria do que em superavit.
+
+    A comparacao era 4 refeicoes de cutting contra 5 de bulking, e isso confundia a
+    medida: a quinta refeicao do bulking e o lanche da manha, que virou prato solido
+    (frango com batata e legume) e sozinho derruba a densidade do dia inteiro. O bulking
+    aparecia mais saciante que o cutting por ter uma refeicao a MAIS, e nao por ser menos
+    denso — e o teste passava ou falhava conforme aquela refeicao existisse.
+
+    Comparar com o mesmo numero de refeicoes tira o confundimento, e a propriedade vale
+    nas quatro contagens, o que e mais forte do que valer num par arbitrario. Medido:
+
+        3 refeicoes  cutting  84.6  bulking  98.3
+        4 refeicoes  cutting  97.4  bulking 101.9
+        5 refeicoes  cutting  87.2  bulking  96.3
+        6 refeicoes  cutting 107.0  bulking 110.3
+    """
     profile = {"avoid_foods": [], "allergies": [], "dietary_restrictions": [],
                "preferred_foods": [], "disliked_foods": []}
-    cutting_plan = generate_daily_plan(CUTTING_TARGETS, profile, 4, "fat_loss")
-    bulking_plan = generate_daily_plan(BULKING_TARGETS, profile, 5, "muscle_gain")
+    cutting_plan = generate_daily_plan(CUTTING_TARGETS, profile, meals, "fat_loss")
+    bulking_plan = generate_daily_plan(BULKING_TARGETS, profile, meals, "muscle_gain")
 
     def density(plan):
         grams = sum(it["grams"] for m in plan["meals"] for it in m["foods"])

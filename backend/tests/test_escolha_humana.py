@@ -37,6 +37,8 @@ REFEICOES = [
     ("Café da manhã", {"kcal": 500, "protein_g": 35, "fat_g": 14}),
     ("Pré-treino", {"kcal": 400, "protein_g": 30, "fat_g": 8}),
     ("Pós-treino", {"kcal": 550, "protein_g": 40, "fat_g": 10}),
+    # Lanche da manha tem template proprio: prato salgado pequeno, e nao o shake da tarde.
+    ("Lanche da manhã", {"kcal": 400, "protein_g": 30, "fat_g": 10}),
     ("Almoço", {"kcal": 650, "protein_g": 45, "fat_g": 18}),
     ("Lanche da tarde", {"kcal": 350, "protein_g": 25, "fat_g": 10}),
     ("Jantar", {"kcal": 600, "protein_g": 45, "fat_g": 18}),
@@ -108,7 +110,7 @@ def test_a_montagem_do_metodo_vem_marcada_e_na_frente():
 # -- Segunda pergunta: qual alimento dentro dela --------------------------------------
 
 @pytest.mark.parametrize("nome,alvo", [r for r in REFEICOES if r[0] in
-                                       ("Almoço", "Jantar", "Pós-treino")])
+                                       ("Almoço", "Jantar", "Pós-treino", "Lanche da manhã")])
 def test_o_prato_principal_deixa_escolher_a_carne(nome, alvo):
     """"Escolha a sua carne. Quando a pessoa nao tem frango, ela tem um patinho"."""
     r = _resposta(nome, alvo)
@@ -159,6 +161,24 @@ def test_a_lista_de_carne_comeca_pelo_que_o_metodo_prefere():
             assert ordem.index("chicken-breast") < ordem.index(caro)
         if caro in ordem and "beef-ground" in ordem:
             assert ordem.index("beef-ground") < ordem.index(caro)
+
+
+def test_o_lanche_da_manha_e_prato_salgado_e_nao_shake():
+    """"Quem e que vai comer atum com farinha de arroz as nove da manha?" O metodo pede
+    frango com batata inglesa, ou pao frances com frango desfiado."""
+    r = _resposta("Lanche da manhã", {"kcal": 400, "protein_g": 30, "fat_g": 10})
+    todos = {i["food_id"] for c in r["combinacoes"] for i in c["itens"]}
+    assert "tuna-can" not in todos, "atum no lanche da manha"
+    assert {"chicken-breast", "chicken-thigh", "eggs-whole", "egg-whites",
+            "beef-ground", "chicken-egg-omelet"} & todos, todos
+
+
+def test_o_lanche_da_tarde_e_o_shake_do_metodo():
+    """"Aveia, whey, whey com farinha de arroz, uma fruta, ou ovos"."""
+    r = _resposta("Lanche da tarde", {"kcal": 350, "protein_g": 25, "fat_g": 10})
+    todos = {i["food_id"] for c in r["combinacoes"] for i in c["itens"]}
+    assert "tuna-can" not in todos, "atum no lanche da tarde"
+    assert {"whey-protein", "oats", "rice-flour", "eggs-whole", "egg-whites"} & todos, todos
 
 
 def test_o_whey_e_reconhecido_como_proteina():

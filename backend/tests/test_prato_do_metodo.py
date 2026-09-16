@@ -64,7 +64,10 @@ def _por_tipo(refeicoes, tipo):
 @pytest.mark.parametrize("nome,esperado", [
     ("Café da manhã", "breakfast"),
     ("Café da manhã / Pré-treino", "breakfast"),   # o layout de seis refeicoes
-    ("Lanche da manhã", "snack"),                  # ERA "breakfast": a causa do azeite
+    # Tipo proprio: o metodo separa o lanche da manha (prato salgado pequeno) do lanche da
+    # tarde (o shake). Antes os dois caiam no mesmo template e o das nove saia com atum,
+    # farinha de arroz e laranja.
+    ("Lanche da manhã", "morning_snack"),
     ("Lanche da tarde", "snack"),
     ("Lanche pré-treino", "pre_workout"),          # treino vence lanche
     ("Pré-treino", "pre_workout"),
@@ -196,12 +199,37 @@ def test_variedade_nao_empurra_alimento_para_a_refeicao_errada():
             assert "peanuts" not in _ids(m), "amendoim torrado no jantar"
 
 
-def test_a_gordura_pode_repetir_no_almoco_e_no_jantar():
-    """E o que qualquer cozinha faz, e o teste de cima depende disso ser permitido."""
+def test_a_gordura_pode_repetir_entre_refeicoes_do_dia():
+    """Repetir o azeite e permitido — e o que qualquer cozinha faz.
+
+    Este teste pedia a repeticao no almoco E no jantar. Depois que a gordura passou a
+    entrar SO quando a refeicao ainda precisa dela, um jantar de acem (18 g de gordura
+    sozinho) deixou de receber azeite, e a repeticao passou a acontecer entre outras
+    refeicoes. O que importa nao e QUAIS duas: e que repetir seja possivel, porque a
+    alternativa e o absurdo de por amendoim torrado no jantar so por ser novo.
+    """
     repetiu = False
     for _, refeicoes in _planos():
-        almoco = {f for m in _por_tipo(refeicoes, "lunch") for f in _ids(m)}
-        jantar = {f for m in _por_tipo(refeicoes, "dinner") for f in _ids(m)}
-        if "olive-oil" in almoco and "olive-oil" in jantar:
+        vezes = sum(1 for m in refeicoes if "olive-oil" in _ids(m))
+        if vezes >= 2:
             repetiu = True
     assert repetiu, "o azeite nunca repetiu: a excecao nao esta valendo"
+
+
+def test_a_gordura_so_entra_quando_a_refeicao_ainda_precisa():
+    """Um prato que ja tem 18 g de gordura na propria carne nao leva azeite por cima. Era
+    assim que o dia fechava 21% acima do alvo de gordura."""
+    for _, refeicoes in _planos():
+        for m in refeicoes:
+            gordura_da_comida = sum(
+                ne._food_macros(it["food_id"], it["grams"])[3]
+                for it in m.get("foods", [])
+                if "fat_source" not in ne.FOOD_INDEX[it["food_id"]].get("roles", []))
+            tem_gordura_avulsa = any(
+                "fat_source" in ne.FOOD_INDEX[it["food_id"]].get("roles", [])
+                for it in m.get("foods", []))
+            alvo = m.get("target_fat") or 0
+            if tem_gordura_avulsa and alvo:
+                assert gordura_da_comida < alvo * 1.6, (
+                    "%s ja tinha %.0f g de gordura e ainda recebeu tempero"
+                    % (m.get("name"), gordura_da_comida))

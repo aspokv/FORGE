@@ -51,7 +51,8 @@
       "breakfast",
       "budget_friendly",
       "gluten_free",
-      "lactose_free"
+      "lactose_free",
+      "snack"
     ],
     "satiety": "HIGH",
     "roles": [
@@ -89,7 +90,8 @@
       "breakfast",
       "gluten_free",
       "lactose_free",
-      "high_protein"
+      "high_protein",
+      "snack"
     ],
     "satiety": "HIGH",
     "roles": [
@@ -176,7 +178,7 @@
       "acem",
       "carne moida refogada"
     ],
-    "custo": 1
+    "custo": 2
   },
   {
     "id": "tilapia",
@@ -327,10 +329,8 @@
       "lean_protein",
       "lunch",
       "dinner",
-      "snack",
       "gluten_free",
       "lactose_free",
-      "quick",
       "high_protein"
     ],
     "satiety": "HIGH",
