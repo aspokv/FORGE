@@ -38,3 +38,110 @@
 @media(min-width:1500px){
  .header-entrar{font-size:13px}
 }
+
+/* ── O aparelho como heroi no celular ──────────────────────────────────────────────
+ *
+ * Medido antes de mexer, num 390x844: o canvas tinha 298px de altura e o aparelho ja
+ * ocupava 83% dele. O aparelho nao estava pequeno por escala; estava pequeno porque a
+ * CENA tinha um terco da tela. O texto levava 281px no topo e o palco herdava o resto.
+ *
+ * Entao o palco passa a ocupar a area inteira do heroi e o texto fica POR CIMA dele. O
+ * texto encolhe para ceder altura, e o cromo — acao do heroi, controles do aparelho e
+ * navegacao de capitulo — vive em duas faixas finas ABAIXO do aparelho, nunca sobre a
+ * tela dele, que e o que a pessoa quer ler.
+ *
+ * Duas armadilhas medidas aqui, as duas invisiveis no codigo:
+ *
+ * 1. `.hero-copy` e `position:relative` desde o desktop. Com ela `align-self:start` a
+ *    caixa tem a altura do texto, e `bottom:` das acoes contava a partir do FIM DO
+ *    TITULO — o botao caia em cima da segunda linha do h1. `stretch` faz a caixa valer a
+ *    celula inteira do grid, que e o que `bottom:` precisa medir.
+ *
+ * 2. O h1 herdava `pointer-events:auto` de `.hero-copy>*` e, cobrindo o topo do palco,
+ *    matava o arrasto justamente onde o dedo procura o aparelho. So o que se clica
+ *    recebe toque.
+ */
+@media(max-width:759px){
+ .story-sticky{padding:74px 6% 6px}
+
+ /* As duas camadas ocupam a MESMA celula: o palco atras, o texto na frente. */
+ .product-stage{grid-row:1/-1;grid-column:1/-1;margin:0 -7%;min-height:0}
+ .hero-copy{grid-row:1/-1;grid-column:1/-1;align-self:stretch;z-index:25;pointer-events:none}
+ .hero-copy .eyebrow,.hero-copy h1{pointer-events:none}
+ .canvas-wrap{inset:0;align-items:center;padding-top:0}
+
+ /* Texto compacto: cada pixel que ele devolve vira aparelho. A descricao sai — ela
+  * repete o que o titulo e a legenda de cada capitulo ja dizem, e era o unico bloco
+  * que sobrava sobre a tela do aparelho. */
+ h1{font-size:clamp(31px,8.2vw,44px);letter-spacing:-.07em;line-height:1;margin:11px 0 9px}
+ .hero-description{display:none}
+
+ /* Faixa 1 do rodape: acao a esquerda, controles a direita, a MESMA altura. O botao
+  * acompanha a pilula dos controles em 34px; sendo mais alto, era ele quem encostava
+  * no aparelho primeiro. */
+ .hero-actions{position:absolute;left:6%;right:auto;bottom:30px;margin:0;z-index:30;
+   display:flex;align-items:center;justify-content:flex-start;gap:12px;pointer-events:auto}
+ .hero-actions .cta{flex:0 0 auto;min-height:34px;font-size:10px;padding:9px 14px;gap:14px}
+ .hero-actions .text-button{display:none}
+
+ /* O nome do acabamento sai: os dois circulos ja dizem o que sao, e o rotulo custava
+  * 70px de largura que a linha nao tem. */
+ .product-controls{left:auto;right:6%;bottom:30px;transform:none;gap:8px;padding:2px 6px}
+ .finish-picker{gap:6px}
+ .finish-picker span{display:none}
+ .finish-picker button{width:28px;height:28px}
+ .rotate-button,.reset-button{min-height:28px}
+ .drag-note{display:none}
+
+ /* Faixa 2: a navegacao dos sete capitulos, rente ao rodape fixo. */
+ .hero-bottom{bottom:4px}
+ .chapter-nav button{min-height:24px}
+}
+
+/* Telefone baixo: a altura minima do heroi nao pode passar da tela.
+ *
+ * O heroi tinha `min-height:790px` de quando o palco era um terco da tela e precisava
+ * daquele piso para caber. Agora o palco OCUPA o heroi, entao um piso maior que a tela
+ * empurra o aparelho para fora dela: medido num 360x640, o aparelho saia com 89% e
+ * cortado embaixo. Aqui o heroi passa a valer o que a tela tem.
+ *
+ * E aqui cabe UMA faixa de cromo, nao duas. O aparelho a 70% de 509px de altura util
+ * termina em 519, e os controles comecavam em 510: as duas faixas somam 64px que uma
+ * tela de 640 nao tem. A navegacao de capitulo sai — o scroll ja troca as sete telas, e
+ * ela continua no desktop e nos telefones mais altos — e os controles descem para o
+ * lugar dela. Medido depois: 17px de folga no 360x640, 21px no 375x667. */
+@media(max-width:759px) and (max-height:760px){
+ .story-sticky{min-height:0;padding:70px 6% 4px}
+ h1{font-size:clamp(27px,7.4vw,36px);margin:8px 0 7px}
+ .hero-bottom{display:none}
+ .hero-actions{bottom:4px}
+ .product-controls{bottom:4px}
+}
+
+/* Telefone estreito: a linha do rodape tem que caber de verdade.
+ *
+ * Medido num 360x844: o botao ia ate 184 e a pilula comecava em 178 — seis pixels de
+ * sobreposicao. A area util entre as margens e 278px e os dois somavam 305px.
+ *
+ * Nada de rotulo some. O que encolhe e o espacamento: o texto do botao, o respiro
+ * interno das duas pecas e o intervalo entre os controles. Os alvos de toque
+ * (os circulos de acabamento, girar e restaurar) ficam do tamanho que estavam. */
+@media(max-width:400px){
+ .hero-actions .cta{font-size:9.5px;padding:9px 11px;gap:8px}
+ .product-controls{gap:6px;padding:2px 4px}
+ .finish-picker{gap:5px}
+}
+
+/* Abaixo de 341px a linha nao fecha, e alguma coisa tem que sair.
+ *
+ * Medido num 320x568: a acao do heroi ia ate 164 e a pilula comecava em 150 — catorze
+ * pixels por cima. Encolher mais os dois deixaria o rotulo do botao em 8,5px, que nao e
+ * o padrao do resto da pagina.
+ *
+ * Sai a acao do heroi, e nao um controle. O pedido e manter os controles E o CTA
+ * acessiveis: o mesmo convite esta permanentemente em outros dois lugares da tela —
+ * "Conhecer o Forge" no cabecalho e "Conhecer os planos" na barra fixa do rodape — e os
+ * controles do aparelho nao tem segunda instancia em lugar nenhum. */
+@media(max-width:340px){
+ .hero-actions{display:none}
+}

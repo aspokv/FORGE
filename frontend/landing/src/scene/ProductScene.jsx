@@ -24,10 +24,10 @@ function Device({progress,finish,rotation,autoRotate,reduced,onHotspot,mobile}){
   group.current.position.y=reduced?0:Math.sin(clock.elapsedTime*.65)*.035;
   const offsets={Body:-exploded*.95,Rim:-exploded*.85,Screen:.19+exploded*1.25,Nutrition:.16+exploded*.53,Evolution:.13-exploded*.21};
   Object.entries(refs.current).forEach(([key,mesh])=>{if(mesh)mesh.position.z=MathUtils.damp(mesh.position.z,offsets[key]??0,6,dt)});
-  position.set(mobile?0:.1, .05+zoom*.35,mobile?8.65-zoom:8.15-zoom*1.1);camera.position.lerp(position,1-Math.exp(-dt*4));camera.lookAt(0,.1,0);
+  position.set(mobile?0:.1, (mobile?.19:.05)+zoom*.35,mobile?10.6-zoom*.45+exploded*1.15:8.15-zoom*1.1);camera.position.lerp(position,1-Math.exp(-dt*4));camera.lookAt(0,mobile?.09:.1,0);
  });
  const selected=PRODUCT.finishes[finish];
- return <group ref={group} scale={mobile?.94:1}>
+ return <group ref={group} scale={mobile?1.06:1}>
   {['Body','Rim','Evolution','Nutrition','Screen'].map(name=>{const node=nodes[PRODUCT.parts[name.toLowerCase()]]||nodes[name];if(!node)return null;const isFace=['Screen','Nutrition','Evolution'].includes(name);return <mesh key={name} ref={el=>refs.current[name]=el} geometry={node.geometry} position={node.position} castShadow receiveShadow>
    <meshStandardMaterial color={isFace?'#111111':selected.color} metalness={isFace?.15:selected.metalness} roughness={isFace?.44:selected.roughness}/>
    {isFace&&<ScreenSurface textures={textures} progress={progress} fixed={name==='Screen'?undefined:name==='Nutrition'?'nutrition':'meals'}/>}
