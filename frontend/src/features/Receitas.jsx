@@ -70,12 +70,20 @@ export default function Receitas({API}) {
 
         {classes && <div className="receitas-abas" role="tablist" aria-label="Classes de receita">
           <button type="button" role="tab" aria-selected={!classe && !livres}
-                  className={`receitas-aba${!classe && !livres ? " marcada" : ""}`}
+                  className={`receitas-aba receitas-aba-todas${!classe && !livres ? " marcada" : ""}`}
                   data-testid="aba-todas"
                   onClick={() => { setLivres(false); setClasse(null); }}>Todas</button>
-          {classes.map(c => (
+          {classes.map((c, i) => (
             <button type="button" key={c.chave} role="tab" aria-selected={classe === c.chave && !livres}
-                    className={`receitas-aba${classe === c.chave && !livres ? " marcada" : ""}`}
+                    /*
+                      * Numero impar de classes deixa a ultima sozinha na linha, com um
+                      * buraco do lado. Ela ocupa a largura inteira e a grade fecha.
+                      */
+                    className={[
+                      "receitas-aba",
+                      i === classes.length - 1 && classes.length % 2 === 1 ? "receitas-aba-larga" : "",
+                      classe === c.chave && !livres ? "marcada" : "",
+                    ].filter(Boolean).join(" ")}
                     data-testid={`aba-${c.chave}`} onClick={() => escolherClasse(c.chave)}>
               {c.rotulo} <em>{c.quantas}</em>
             </button>

@@ -258,3 +258,63 @@ test("sem a saida, o botao nao aparece",async()=>{
   await render();
   expect(host.querySelector('[data-testid="ir-montar-do-zero"]')).toBeNull();
 });
+
+/*
+ * A parede de fichas.
+ *
+ * As opcoes eram pilulas com quebra de linha, cada uma da largura do proprio nome: "Tofu
+ * firme" pequenininho ao lado de "Carne bovina grelhada (patinho)" ocupando a linha
+ * inteira. Treze delas viravam uma parede irregular que tomava a tela antes de a pessoa
+ * chegar no botao de confirmar. Agora e grade de cartoes iguais, e a lista longa fica
+ * atras de um "ver todas".
+ */
+const treze = {data: {...resposta.data, trocas: [{
+  papel: "primary_protein", rotulo: "Escolha sua proteína", explicacao: "",
+  atual: "chicken-breast",
+  opcoes: ["chicken-breast","eggs-whole","beef-ground","beef-grill","whey-protein",
+           "tuna-can","tilapia","chicken-thigh","pork-loin","tofu","salmon",
+           "egg-whites","soy-protein"].map((id,i)=>(
+    {food_id:id, nome:"Proteína "+id, gramas:100+i, atual:i===0, kcal:200}
+  )),
+}]}};
+
+test("lista longa mostra so as seis primeiras",async()=>{
+  axios.get.mockResolvedValue(treze);
+  await render();
+  const bloco=host.querySelector('[data-testid="troca-primary_protein"]');
+  expect(bloco.querySelectorAll(".escolher-chip").length).toBe(6);
+  expect(texto('[data-testid="mais-primary_protein"]')).toContain("13");
+});
+
+test("a escolhida esta entre as visiveis, sempre",async()=>{
+  // O servidor manda o alimento atual em primeiro lugar. Se o corte o escondesse, a
+  // pessoa nao veria o que ja esta selecionado.
+  axios.get.mockResolvedValue(treze);
+  await render();
+  expect(host.querySelector('[data-testid="opcao-primary_protein-chicken-breast"]')).not.toBeNull();
+});
+
+test("ver todas abre a lista inteira, e fecha de novo",async()=>{
+  axios.get.mockResolvedValue(treze);
+  await render();
+  await tocar('[data-testid="mais-primary_protein"]');
+  expect(host.querySelectorAll(".escolher-chip").length).toBe(13);
+  expect(texto('[data-testid="mais-primary_protein"]')).toContain("menos");
+  await tocar('[data-testid="mais-primary_protein"]');
+  expect(host.querySelectorAll(".escolher-chip").length).toBe(6);
+});
+
+test("lista curta nao ganha botao",async()=>{
+  // Quatro opcoes cabem: um "ver todas" ali seria obstaculo sem motivo.
+  axios.get.mockResolvedValue(resposta);
+  await render();
+  expect(host.querySelector('[data-testid="mais-primary_protein"]')).toBeNull();
+});
+
+test("trocar de montagem recolhe as listas abertas",async()=>{
+  axios.get.mockResolvedValue(treze);
+  await render();
+  await tocar('[data-testid="mais-primary_protein"]');
+  await tocar('[data-testid="combinacao-prato_completo"]');
+  expect(host.querySelectorAll(".escolher-chip").length).toBe(6);
+});
