@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { ArrowRight, ChevronRight, Eye, EyeOff, KeyRound, Mail, LockKeyhole } from "lucide-react";
 import "./login-forge.css";
 import { API, useAuth } from "./AuthContext";
+import { sessaoExpirouAgora, AVISO } from "./sessaoExpirada";
 
 function formatError(detail) {
   if (!detail) return "Falha na operação. Tente novamente.";
@@ -14,6 +15,10 @@ function formatError(detail) {
 
 export function LoginScreen() {
   const { signIn, navigate } = useAuth();
+  // Quem chegou aqui porque a sessao venceu precisa saber disso. Sem a frase, a pessoa so
+  // ve a tela de entrada de novo e conclui que o aplicativo a expulsou sem motivo — ou
+  // pior, que perdeu o que estava fazendo.
+  const [expirou] = useState(() => sessaoExpirouAgora());
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [verSenha, setVerSenha] = useState(false);
@@ -73,6 +78,8 @@ export function LoginScreen() {
           Esqueci minha senha
         </button>
 
+        {expirou && !err &&
+          <div className="forge-login-aviso" data-testid="login-sessao-expirada" role="status">{AVISO}</div>}
         {err && <div className="forge-login-erro" data-testid="login-error" role="alert">{err}</div>}
 
         <button className="forge-login-entrar" data-testid="login-submit" disabled={busy} type="submit">
