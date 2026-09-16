@@ -17,6 +17,7 @@ from auth import get_current_user
 from billing_plans import ALIMENTACAO, PROTOCOLOS_AGRESSIVOS, plano, plano_minimo_com
 from entitlements import acesso_de, exigir_capacidade
 from escolha_humana import escolhas_da_refeicao
+import receitas as receitas_do_forge
 from nutrition_engine import _intensity_key
 
 logger = logging.getLogger(__name__)
@@ -1054,6 +1055,80 @@ async def draft_meal_slots(request: Request, meal_index: int = Query(0, ge=0),
             "alvos": _alvos_de_macro(refeicao),
             "espacos": espacos, "falta": falta_escolher(espacos),
             "sugestao": sugestao}
+
+
+# ── Receitas ─────────────────────────────────────────────────────────────────────────
+#
+# A ordem importa: `/receitas/classes` precisa ser declarada ANTES de `/receitas/{id}`,
+# senao o FastAPI casa "classes" como se fosse o id de uma receita.
+
+@router.get("/receitas/classes")
+async def receitas_classes(request: Request, user=Depends(get_current_user)):
+    """As abas da tela de receitas, ja sem as vazias."""
+    await exigir_capacidade(request.app.state.db, user, ALIMENTACAO)
+    return {"classes": receitas_do_forge.classes_com_contagem()}
+
+
+@router.get("/receitas")
+async def receitas_listar(request: Request,
+                          classe: Optional[str] = Query(None),
+                          livres: bool = Query(False),
+                          alvo_kcal: Optional[float] = Query(None, ge=0),
+                          user=Depends(get_current_user)):
+    """As receitas, opcionalmente de uma classe ou so as de refeicao livre.
+
+    O ENCAIXE e o que separa esta tela de um livro de receitas: cada receita volta dizendo
+    se CABE na refeicao daquela pessoa e quanto sobra. A margem e a mesma do resto do
+    produto, entao a resposta aqui nunca discorda da tela do plano.
+
+    E o alvo NAO precisa vir do cliente. Sem `alvo_kcal`, o servidor procura no plano da
+    pessoa a refeicao daquela classe e usa o alvo dela — a tela nao precisa saber traduzir
+    "sobremesa" para "lanche da tarde", e nao existe como as duas discordarem.
+    """
+    db = request.app.state.db
+    await exigir_capacidade(db, user, ALIMENTACAO)
+    lista = receitas_do_forge.listar(classe=classe, apenas_livres=livres)
+
+    alvos = {} if alvo_kcal else await _alvos_por_classe(db, user["id"])
+    for r in lista:
+        alvo = alvo_kcal or alvos.get(r["classe"])
+        if alvo:
+            r["encaixe"] = receitas_do_forge.cabe_na_refeicao(r["id"], alvo)
+    return {"receitas": lista, "quantas": len(lista)}
+
+
+async def _alvos_por_classe(db, profile_id: str) -> dict:
+    """O alvo de caloria de cada classe de receita, tirado do plano que a pessoa tem.
+
+    Uma classe de receita ("sobremesa") aponta para um tipo de refeicao do motor ("snack"),
+    e o plano guarda o alvo de cada refeicao. Juntar as duas pontas aqui, no servidor, evita
+    que a tela tenha de adivinhar qual refeicao do dia corresponde a qual aba.
+    """
+    guardado = await db.nutrition_plans.find_one({"profile_id": profile_id},
+                                                 {"_id": 0, "plan": 1})
+    refeicoes = ((guardado or {}).get("plan") or {}).get("meals") or []
+    por_tipo = {}
+    for refeicao in refeicoes:
+        tipo = _infer_meal_type(refeicao.get("name") or "")
+        # A primeira de cada tipo manda: num dia com dois lanches, o alvo do lanche e o do
+        # primeiro, e nao o do ultimo que o laco encontrar.
+        por_tipo.setdefault(tipo, refeicao.get("target_cal"))
+    return {classe: por_tipo[tipo]
+            for classe, tipo in receitas_do_forge.CLASSE_PARA_REFEICAO.items()
+            if por_tipo.get(tipo)}
+
+
+@router.get("/receitas/{receita_id}")
+async def receita_detalhe(receita_id: str, request: Request,
+                          alvo_kcal: Optional[float] = Query(None, ge=0),
+                          user=Depends(get_current_user)):
+    await exigir_capacidade(request.app.state.db, user, ALIMENTACAO)
+    r = receitas_do_forge.por_id(receita_id)
+    if not r:
+        raise HTTPException(404, "Receita não encontrada.")
+    if alvo_kcal:
+        r["encaixe"] = receitas_do_forge.cabe_na_refeicao(receita_id, alvo_kcal)
+    return r
 
 
 @router.get("/plan/draft/escolhas")
