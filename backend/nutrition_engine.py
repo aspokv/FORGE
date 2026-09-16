@@ -239,7 +239,20 @@ FORGE_COACH_METHODOLOGY = {
 FOOD_FAMILIES = {
     "LEAN_PROTEIN_SOLID": ["chicken-breast", "beef-grill", "tilapia", "pork-loin", "salmon",
                            "chicken-thigh", "beef-ground", "tofu", "soy-protein"],
-    "QUICK_PROTEIN": ["tuna-can", "whey-protein", "cheese-cottage", "yogurt-greek"],
+    # O lanche do metodo e "uma aveia, um whey, um whey com farinha de arroz, uma fruta,
+    # ou ovos". O atum saiu daqui: ele e de almoco e jantar, e enquanto esteve nesta lista
+    # o motor montava "atum com farinha de arroz e laranja" as nove da manha.
+    # So entra aqui quem consegue ocupar o espaco de proteina PRINCIPAL. Cottage e iogurte
+    # grego sao `secondary_protein` no catalogo, e enquanto estiveram nesta lista o lanche
+    # saia com iogurte no lugar da proteina — refeicao sem proteina principal nenhuma,
+    # exatamente o que test_U_no_meal_missing_protein_when_combo_requires_it defende.
+    "QUICK_PROTEIN": ["whey-protein", "eggs-whole", "egg-whites"],
+    # O lanche da MANHA e outra coisa: e refeicao de verdade, pequena. "Peito de frango
+    # com batata inglesa, ou um pao frances com frango desfiado."
+    "MORNING_SNACK_PROTEIN": ["chicken-breast", "chicken-thigh", "eggs-whole", "egg-whites",
+                              "beef-ground", "chicken-egg-omelet"],
+    "MORNING_SNACK_CARB": ["potato", "bread-white", "bread-whole", "rice-white",
+                           "sweet-potato"],
     "EGG_FAMILY": ["eggs-whole", "egg-whites"],
     "OMELET_FAMILY": ["chicken-egg-omelet"],
     "FAST_PROTEIN": ["whey-protein"],
@@ -314,6 +327,18 @@ MEAL_TEMPLATES = {
         # refeicao continua com dois ou tres itens.
         {"role": "fat_source", "category": "FAT", "required": False, "family": "FAT_FAMILY"},
     ],
+    # Lanche da MANHA: prato pequeno e salgado, e nao shake. O motor tratava os dois
+    # lanches do dia como a mesma refeicao, e por isso o lanche das nove saia igual ao das
+    # quatro da tarde — com whey, farinha de arroz e fruta, ou pior, com atum.
+    "morning_snack": [
+        {"role": "primary_protein", "category": "PROTEIN", "required": True,
+         "family": "MORNING_SNACK_PROTEIN"},
+        {"role": "primary_carb", "category": "CARBOHYDRATE", "required": True,
+         "family": "MORNING_SNACK_CARB"},
+        {"role": "vegetable", "category": "VEGETABLE", "required": False,
+         "family": "VEGETABLE_FAMILY"},
+        {"role": "fat_source", "category": "FAT", "required": False, "family": "FAT_FAMILY"},
+    ],
     "pre_workout": [
         # Mesmo buraco do cafe da manha: sem familia, o pre-treino aceitava qualquer
         # carboidrato do catalogo, inclusive os de prato feito.
@@ -386,10 +411,13 @@ MEAL_COMBOS = [
     # So no lanche, NAO no cafe da manha: a familia QUICK_PROTEIN inclui atum em lata, e
     # "atum no cafe da manha" foi defeito real em producao — tem teste proprio defendendo
     # isso desde entao, e foi ele que me pegou quando liberei o combo para o cafe.
-    {"id": "forge_lanche_pao", "label": "Pão com proteína", "meal_types": ["snack"],
+    {"id": "forge_lanche_pao", "label": "Pão com frango desfiado",
+     "meal_types": ["morning_snack"], "metodo": True,
      "components": [
          {"role": "primary_carb", "category": "CARBOHYDRATE", "family": "BREAD_FAMILY", "required": True},
-         {"role": "primary_protein", "category": "PROTEIN", "family": "QUICK_PROTEIN", "required": True},
+         # Era QUICK_PROTEIN, que agora e whey, ovo e iogurte — e ninguem poe whey dentro
+         # de um pao frances. O recheio e frango desfiado, ovo ou carne moida.
+         {"role": "primary_protein", "category": "PROTEIN", "family": "MORNING_SNACK_PROTEIN", "required": True},
          {"role": "fruit", "category": "FRUIT", "family": "FRUIT_FAMILY", "required": False},
      ]},
 
@@ -471,11 +499,20 @@ MEAL_COMBOS = [
          {"role": "primary_protein", "category": "PROTEIN", "family": "OMELET_FAMILY", "required": True},
          {"role": "primary_carb", "category": "CARBOHYDRATE", "family": "MAIN_CARB", "required": False},
      ]},
-    {"id": "forge_snack_solid", "label": "Lanche sólido FORGE", "meal_types": ["snack"],
+    {"id": "forge_snack_solid", "label": "Lanche sólido FORGE",
+     "meal_types": ["snack", "morning_snack"],
      "components": [
          {"role": "primary_protein", "category": "PROTEIN", "family": "LEAN_PROTEIN_SOLID", "required": True},
          {"role": "primary_carb", "category": "CARBOHYDRATE", "family": "MAIN_CARB", "required": False},
          {"role": "vegetable", "category": "VEGETABLE", "family": "VEGETABLE_FAMILY", "required": True},
+     ]},
+    # "Peito de frango com batata inglesa" — o lanche da manha do metodo, sem salada, do
+    # jeito que se come as nove da manha.
+    {"id": "forge_lanche_manha_solido", "label": "Frango com batata",
+     "meal_types": ["morning_snack"], "metodo": True,
+     "components": [
+         {"role": "primary_protein", "category": "PROTEIN", "family": "MORNING_SNACK_PROTEIN", "required": True},
+         {"role": "primary_carb", "category": "CARBOHYDRATE", "family": "MORNING_SNACK_CARB", "required": True},
      ]},
     {"id": "forge_solid_meal", "label": "Refeição sólida", "meal_types": ["lunch", "dinner", "post_workout"],
      "components": [
@@ -965,6 +1002,9 @@ _REFEICAO_PARA_TAGS = {
     # o catalogo marca so como `lunch`/`dinner`) era empurrado para fora do pos-treino, e
     # sobrava a tapioca — densa e com teto de porcao baixo. O pos-treino de um atleta em
     # ganho ficava com whey, tapioca e laranja, os tres no teto.
+    # Lanche da manha e prato pequeno: frango e batata sao marcados como `lunch`/`dinner`
+    # no catalogo e precisam valer aqui, senao a refeicao que o metodo pede fica vazia.
+    "morning_snack": ["snack", "quick", "breakfast", "lunch", "dinner"],
     "pre_workout": ["snack", "quick", "breakfast", "lunch", "dinner"],
     "post_workout": ["snack", "quick", "breakfast", "lunch", "dinner"],
 }
@@ -1036,6 +1076,17 @@ def _score_food(food, meal_type, pn, goal="maintenance"):
                                          for t in mt.get(meal_type, [])):
         score -= m.get("fora_da_refeicao_penalidade", 45)
     return score
+
+# Quanto de pontuacao a variedade do dia pode custar antes de deixar de valer a pena, e em
+# que tamanho de lista essa conta vale.
+#
+# So em lista PEQUENA. Numa familia de nove proteinas solidas, forcar novidade custa quase
+# nada e entrega o rodizio que o atleta quer — foi por falta dele que a tilapia saia todo
+# dia. Numa familia de tres (o lanche e whey, ovo inteiro e clara), forcar novidade obriga
+# a pegar o pior: o lanche de quem esta em deficit ficava com whey (400 kcal/100 g) porque
+# a clara de ovo (52 kcal/100 g, e 12 pontos melhor) ja tinha aparecido no cafe da manha.
+NOVIDADE_VALE_ATE = 10
+FAMILIA_PEQUENA = 4
 
 # Quantos dos melhores candidatos entram no rodizio. Tres, e nao todos: a pontuacao existe
 # para separar o que serve do que nao serve naquela refeicao, e girar pela lista inteira
@@ -1350,6 +1401,11 @@ def _infer_meal_type(meal_name):
     # pratica o lanche da manha recebia azeite de oliva junto com whey, aveia e mamao,
     # porque o azeite pontua para almoco e jantar e nunca para lanche. Lanche e lanche, a
     # qualquer hora do dia.
+    # "Lanche da manha" e "Lanche da tarde" NAO sao a mesma refeicao. O metodo separa: de
+    # manha e prato salgado pequeno (frango com batata, pao com frango desfiado); de tarde
+    # e o shake (aveia com whey, whey com farinha de arroz, fruta, ovos). Enquanto os dois
+    # caiam no mesmo template, o lanche das nove saia igual ao das quatro.
+    if "lanche" in tn and "manha" in tn: return "morning_snack"
     if "lanche" in tn or "snack" in tn or "ceia" in tn: return "snack"
     if "manha" in tn: return "breakfast"
     if "tarde" in tn: return "snack"
@@ -1374,6 +1430,14 @@ def generate_meal(meal_name, meal_type, target_cal, target_protein, target_fat,
     # Only applies to the default template — a custom combo defines its own components.
     if template_override is None and mt in ("lunch", "dinner") and _goal_key(goal) == "fat_loss":
         total_roles.append(("vegetable", "VEGETABLE", True, "VEGETABLE_FAMILY"))
+    # Mesma ideia no lanche, e pelo mesmo motivo: em cutting a fruta e volume quase de
+    # graca. Ela ja estava no template como OPCIONAL, e opcional significa "so se sobrar
+    # orcamento" — entao numa refeicao apertada ela era a primeira a cair, e o lanche
+    # virava whey com farinha de arroz e mais nada. Fruta com whey e aveia e exatamente o
+    # lanche que o metodo descreve, e e o que devolve saciedade a quem esta em deficit.
+    if template_override is None and mt == "snack" and _goal_key(goal) == "fat_loss":
+        total_roles = [(r, c, True, f) if r == "fruit" else (r, c, req, f)
+                       for r, c, req, f in total_roles]
 
     # Optional roles only earn their place when the meal's own budget can actually
     # afford another item — a required role is always attempted regardless of count.
@@ -1392,8 +1456,36 @@ def generate_meal(meal_name, meal_type, target_cal, target_protein, target_fat,
 
     selected = []; mu = set(used_food_ids)
     for role, cat, required, family in total_roles:
-        if role == "fat_source" and target_fat < 5:
-            continue
+        if role == "fat_source":
+            if target_fat < 5:
+                continue
+            # NAO colocar a gordura quando ela nao cabe.
+            #
+            # O espaco de gordura era preenchido sempre que sobrava orcamento de caloria,
+            # sem olhar quanta gordura a PROTEINA ja trazia. Um jantar de acem (18 g de
+            # gordura sozinho) ainda ganhava azeite por cima, e o dia fechava 21% acima do
+            # alvo de gordura — sobrando menos para carboidrato e proteina.
+            #
+            # A conta aqui e estimativa, porque a porcao so e decidida depois, em
+            # `calculate_meal_portions`. Mas estimar pela porcao confortavel de cada
+            # alimento ja escolhido responde bem a unica pergunta que importa: esta
+            # refeicao ainda PRECISA de gordura? Consertar depois, encolhendo o azeite ate
+            # 3 g, era tratar sintoma.
+            # A estimativa e proporcional, e nao a porcao confortavel crua: somar a
+            # gordura de todo mundo na porcao confortavel superestima muito quando a
+            # refeicao e menor do que isso, e ai NENHUM almoco recebia azeite. Escalar
+            # pelo quanto a refeicao cabe do total confortavel aproxima o que
+            # `calculate_meal_portions` vai decidir depois.
+            kcal_conf = fat_conf = 0.0
+            for escolhido in selected:
+                alimento = FOOD_INDEX.get(escolhido, {})
+                porcao = _portion_limit(alimento, "comfortable")
+                macros = _food_macros(escolhido, porcao)
+                kcal_conf += macros[0]
+                fat_conf += macros[3]
+            fator = min(1.0, target_cal / kcal_conf) if kcal_conf > 0 else 1.0
+            if fat_conf * fator >= target_fat:
+                continue
         # Optional roles (item 3/6: fewer, more human items on a tight per-meal budget)
         # only get filled while the meal can still afford another ~min_kcal_per_meal_item
         # item — secondary_protein is exempt since it's gated by real protein need, not
@@ -1451,6 +1543,17 @@ def generate_meal(meal_name, meal_type, target_cal, target_protein, target_fat,
         pertencem = [c for c in cands if _pertence_a_refeicao(c, mt)]
         base = pertencem or cands
         remaining = [c for c in base if c not in mu]
+        # E a novidade tambem nao vale mais do que a QUALIDADE da refeicao. Ela e
+        # desempate: quando o melhor alimento ainda nao usado hoje e muito pior do que o
+        # melhor da lista, repetir e o certo. Numa familia de dois ou tres alimentos isso
+        # decide sozinho — o lanche de quem esta em deficit ficava com whey (400 kcal/100 g)
+        # porque a clara de ovo (52 kcal/100 g, e 12 pontos melhor na pontuacao) ja tinha
+        # aparecido no cafe da manha.
+        if remaining and len(base) <= FAMILIA_PEQUENA and len(remaining) < len(base):
+            melhor = lambda lista: max((_score_food(FOOD_INDEX[c], mt, pn, goal)
+                                        for c in lista if c in FOOD_INDEX), default=0)
+            if melhor(base) - melhor(remaining) > NOVIDADE_VALE_ATE:
+                remaining = []
         cands = remaining or base
 
         if role == "primary_protein":

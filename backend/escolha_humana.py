@@ -49,6 +49,8 @@ PERGUNTA_DA_REFEICAO = {
     "lunch": "O que você quer no almoço?",
     "dinner": "E no jantar?",
     "snack": "O que você quer no lanche?",
+    # Lanche da manha e prato salgado pequeno, e nao shake — entao a pergunta tambem muda.
+    "morning_snack": "E no lanche da manhã?",
 }
 
 # O rotulo de cada espaco trocavel, na ordem em que faz sentido perguntar: a carne
