@@ -6,6 +6,7 @@ import ListaDeCompras from "./ListaDeCompras";
 import CarboidratoDoDia from "./CarboidratoDoDia";
 import MontarRefeicao from "./MontarRefeicao";
 import EscolherRefeicao from "./EscolherRefeicao";
+import Receitas from "./Receitas";
 import TrocarObjetivo from "./TrocarObjetivo";
 import AcrescentarRefeicao from "./AcrescentarRefeicao";
 import NutritionImport from "./NutritionImport";
@@ -824,6 +825,12 @@ export default function Nutrition({ API, profileId, db }) {
           <RefreshCw size={15} /> {busy ? "Abrindo..." : "Montar"}
         </button>
       </section>
+      {/*
+        * Receitas ficam AQUI, logo depois de montar o plano e antes da lista de compras:
+        * e a ordem em que a semana acontece — a pessoa decide o que vai comer, ve como
+        * fazer, e so entao compra.
+        */}
+      <Receitas API={API}/>
       <ListaDeCompras API={API}/>
       <details className="a6-details"><summary>Gerenciar plano alimentar</summary><div className="a6-editor nutrition-page">
       <div className="fg-acoes-linha">

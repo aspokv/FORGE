@@ -55,6 +55,11 @@ on:
       - 'backend/foods.json'
       - 'backend/tests/test_prato_do_metodo.py'
       - 'backend/escolha_humana.py'
+      - 'backend/receitas.py'
+      - 'backend/tests/test_receitas.py'
+      - 'frontend/src/features/Receitas.jsx'
+      - 'frontend/src/features/Receitas.test.js'
+      - 'frontend/src/features/receitas.css'
       - 'backend/tests/test_escolha_humana.py'
       - 'frontend/src/features/EscolherRefeicao.jsx'
       - 'frontend/src/features/EscolherRefeicao.test.js'
@@ -203,6 +208,11 @@ on:
       - 'backend/foods.json'
       - 'backend/tests/test_prato_do_metodo.py'
       - 'backend/escolha_humana.py'
+      - 'backend/receitas.py'
+      - 'backend/tests/test_receitas.py'
+      - 'frontend/src/features/Receitas.jsx'
+      - 'frontend/src/features/Receitas.test.js'
+      - 'frontend/src/features/receitas.css'
       - 'backend/tests/test_escolha_humana.py'
       - 'frontend/src/features/EscolherRefeicao.jsx'
       - 'frontend/src/features/EscolherRefeicao.test.js'
@@ -423,6 +433,7 @@ jobs:
           tests/test_ritmo_bloqueado.py
           tests/test_prato_do_metodo.py
           tests/test_escolha_humana.py
+          tests/test_receitas.py
       # As suites de COMPOSICAO de nutricao: como o prato e montado, como a refeicao e
       # nomeada, como a meta se distribui. Rodam sem servidor e levam menos de dois
       # segundos juntas. Nunca estiveram no CI — e foi uma delas que pegou o acento
