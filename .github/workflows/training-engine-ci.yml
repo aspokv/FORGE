@@ -117,6 +117,11 @@ on:
       - 'backend/tests/test_training_personalization.py'
       - 'backend/tests/test_custom_training_programs.py'
       - 'frontend/src/App.js'
+      - 'frontend/landing/**'
+      - 'frontend/Dockerfile'
+      - 'frontend/nginx.conf'
+      - 'frontend/src/features/entradaPelaLanding.js'
+      - 'frontend/src/features/entradaPelaLanding.test.js'
       - 'frontend/src/features/workoutCompletionState*'
       - 'frontend/src/features/CompletedWorkout.jsx'
       - 'frontend/src/features/completed-workout.css'
@@ -271,6 +276,11 @@ on:
       - 'backend/tests/test_training_personalization.py'
       - 'backend/tests/test_custom_training_programs.py'
       - 'frontend/src/App.js'
+      - 'frontend/landing/**'
+      - 'frontend/Dockerfile'
+      - 'frontend/nginx.conf'
+      - 'frontend/src/features/entradaPelaLanding.js'
+      - 'frontend/src/features/entradaPelaLanding.test.js'
       - 'frontend/src/features/workoutCompletionState*'
       - 'frontend/src/features/CompletedWorkout.jsx'
       - 'frontend/src/features/completed-workout.css'
@@ -367,6 +377,11 @@ jobs:
         env:
           CI: 'false'
         run: yarn build
+      # A landing e um pacote separado (Vite + Three.js) e o Dockerfile a constroi junto.
+      # Sem este passo, um erro nela so apareceria no deploy, com o site fora do ar.
+      - name: Build landing
+        working-directory: frontend/landing
+        run: npm ci --no-audit --no-fund && npm run build
       - name: Upload rendered training cards for visual review
         uses: actions/upload-artifact@v4
         with:

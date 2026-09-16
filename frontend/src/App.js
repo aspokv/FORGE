@@ -33,6 +33,9 @@ import ReferenceHome from "./features/ReferenceHome";
 import CampoAltura from "./features/CampoAltura";
 import PrioridadesMusculares from "./features/PrioridadesMusculares";
 import RedeDeProtecao from "./features/RedeDeProtecao";
+// A raiz passou a ser da landing, que e outro pacote. Estas duas funcoes fazem a
+// travessia e vivem em modulo proprio para terem teste.
+import {planoDaUrl, irParaALanding} from "./features/entradaPelaLanding";
 import {mensagemDeErro} from "./features/mensagemDeErro";
 import {lerAltura} from "./features/alturaEmCm";
 import {AstraNavigation,AstraBottomNav,AstraPage,AstraRow} from "./features/AstraUI";
@@ -543,7 +546,8 @@ function ProgramPreview({program,onApprove,onBack}){const p=program||{};if(p.pro
 // E o unico endereco que precisa ser divulgado.
 // /recuperar tem que ser publica: quem esqueceu a senha nao consegue entrar para pedi-la.
 const ROTAS_PUBLICAS=["/","","/assinar","/login","/recuperar"];
-function Router(){const{user,ready,route,navigate,signIn,signOut,reload}=useAuth();const[planoEscolhido,setPlanoEscolhido]=useState("");
+
+function Router(){const{user,ready,route,navigate,signIn,signOut,reload}=useAuth();const[planoEscolhido,setPlanoEscolhido]=useState(planoDaUrl);
   // Quem ainda nao pagou nao entra no aplicativo. A tela obedece; quem garante e o
   // backend, que devolve 403 em toda rota paga.
   const aguardandoPagamento=Boolean(user)&&user.status==="PENDING_PAYMENT"&&user.role!=="SUPER_ADMIN";
@@ -551,7 +555,10 @@ function Router(){const{user,ready,route,navigate,signIn,signOut,reload}=useAuth
   useEffect(()=>{if(!ready)return;const inviteMatch=route.match(/^\/invite\/(.+)/);if(inviteMatch)return;if(!user){if(!ROTAS_PUBLICAS.includes(route)&&!route.startsWith("/recuperar/"))navigate("/",true);return}if(aguardandoPagamento){if(route!=="/assinatura"&&!route.startsWith("/assinatura/retorno"))navigate("/assinatura",true);return}if(user.role==="SUPER_ADMIN"&&(route==="/login"||route==="/"||route===""))navigate("/admin",true);if(user.role==="ATHLETE"&&(route==="/login"||route==="/admin"||route==="/"||route===""||route==="/assinar"||route.startsWith("/assinatura")))navigate("/app",true)},[user,ready,route,navigate,aguardandoPagamento]);
   if(!ready)return <div className="auth-shell"><div className="auth-card"><p className="muted">Carregando FORGE...</p></div></div>;
   const inviteMatch=route.match(/^\/invite\/(.+)/);if(inviteMatch)return <InviteScreen token={inviteMatch[1]}/>;
-  if(!user){if(route==="/login")return <LoginScreen/>;if(route==="/recuperar"||route.startsWith("/recuperar/"))return <PasswordReset/>;if(route==="/assinar")return <SignupFlow API={API}planoInicial={planoEscolhido}onEntrar={()=>navigate("/login")}onCancelar={()=>navigate("/")}onAutenticar={signIn}/>;return <Landing API={API}onComecar={code=>{setPlanoEscolhido(code);navigate("/assinar")}}onEntrar={()=>navigate("/login")}/>}
+  if(!user){if(route==="/login")return <LoginScreen/>;if(route==="/recuperar"||route.startsWith("/recuperar/"))return <PasswordReset/>;if(route==="/assinar")return <SignupFlow API={API}planoInicial={planoEscolhido}onEntrar={()=>navigate("/login")}onCancelar={()=>{if(!irParaALanding())navigate("/login")}}onAutenticar={signIn}/>;
+    // Chegou na raiz por dentro do aplicativo: carrega a landing de verdade.
+    if(irParaALanding())return null;
+    return <Landing API={API}onComecar={code=>{setPlanoEscolhido(code);navigate("/assinar")}}onEntrar={()=>navigate("/login")}/>}
   if(aguardandoPagamento)return <PagamentoPendente API={API}user={user}onSair={signOut}retornando={voltandoDoCheckout}onLiberado={reload}/>;
   if(user.role==="SUPER_ADMIN"&&route.startsWith("/admin"))return <AdminPanel/>;return <AthleteShell/>}
 // A rede fica por fora de TUDO, inclusive do AuthProvider: uma excecao dentro do

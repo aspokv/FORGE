@@ -1,0 +1,32 @@
+{
+  "name": "forge-prototype",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0",
+    "model": "node scripts/create-model.mjs"
+  },
+  "dependencies": {
+    "@react-three/drei": "10.7.0",
+    "@react-three/fiber": "9.4.0",
+    "framer-motion": "12.23.0",
+    "gsap": "3.13.0",
+    "lucide-react": "0.468.0",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "three": "0.180.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "4.1.0",
+    "@vitejs/plugin-react": "4.3.4",
+    "tailwindcss": "4.1.0",
+    "vite": "6.1.0"
+  },
+  "overrides": {
+    "motion-dom": "12.22.0",
+    "motion-utils": "12.19.0"
+  }
+}
