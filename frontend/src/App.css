@@ -47,3 +47,8 @@
 .intensity-card.bloqueada .intensity-head b,.intensity-card.bloqueada small{opacity:.62}
 .intensity-tag.bloqueada{color:var(--muted)}
 .intensity-bloqueio{border-left:2px solid var(--muted);background:var(--elevated);color:var(--muted);padding:9px;font-size:11px;line-height:1.5}
+
+/* Aviso de conferencia: a sessao continua na tela, o aviso so explica. Ele substituiu um
+   bloqueio que tirava o treino inteiro do ar quando a checagem de estado falhava. */
+.workout-aviso{display:flex;flex-direction:column;gap:10px;margin:0 0 16px;padding:12px 14px;border-left:2px solid var(--muted);border-radius:8px;background:var(--elevated);color:var(--muted);font-size:12px;line-height:1.5}
+.workout-aviso .secondary-button{align-self:flex-start;min-height:40px}

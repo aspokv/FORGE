@@ -225,6 +225,17 @@ function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutC
   const p=useScheduledProgram(db.program||{});
   const activeSession=p.rest_day?null:(p.sessions?.find(s=>s.day===p.active_day)||p.sessions?.[0]);
   const items=useMemo(()=>activeSession?.exercises||(p.rest_day?[]:p.exercises)||[],[activeSession,p.rest_day,p.exercises]);
+  /*
+   * Uma checagem de estado que falha NAO pode impedir a pessoa de treinar.
+   *
+   * A tela inteira era substituida por "Nao foi possivel confirmar o estado da sessao" com
+   * um botao de tentar de novo. Qualquer tropeco de rede — ou uma sessao vencida, que era o
+   * caso real — tirava o treino do ar. Desproporcional: o FORGE ja sabe o que aconteceu
+   * hoje pelo cache local e pelas series recentes, e quem manda na conclusao e o servidor,
+   * que tem trava propria de uma por dia (compare-and-swap, `already_completed`).
+   *
+   * Entao so o "conferindo" bloqueia. O "erro" mostra a sessao com um aviso discreto.
+   */
   const {completion:todayCompletion,status:completionStatus,retry:retryCompletion}=useWorkoutCompletion({userId:db.current_user?.id||db.profile?.user_id||db.profile?.id,program:p,recentSets:db.recent_sets,API});
   const hints=db.program?.progression_hints||{};
   const[view,setView]=useState("session");
@@ -256,7 +267,7 @@ function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutC
   // Recupera o preenchimento em andamento: refresh, queda de conexao ou sair e voltar
   // antes de "Concluir treino" nao pode perder o que ja foi digitado.
   useEffect(()=>{
-    if(todayCompletion||completionStatus!=="ready"||!db.profile?.id||draftDay==null||!items.length)return;
+    if(todayCompletion||completionStatus==="loading"||!db.profile?.id||draftDay==null||!items.length)return;
     let alive=true;draftReady.current=false;
     axios.get(`${API}/workout/session-draft`,{params:{day:draftDay}}).then(r=>{
       if(!alive)return;
@@ -272,7 +283,7 @@ function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutC
   },[db.profile?.id,draftDay,items.length,todayCompletion,completionStatus]);
   // Autosave com debounce: salva 1,5 s depois da ultima alteracao, nao a cada tecla.
   useEffect(()=>{
-    if(todayCompletion||completionStatus!=="ready"||!draftReady.current||draftDay==null)return;
+    if(todayCompletion||completionStatus==="loading"||!draftReady.current||draftDay==null)return;
     const payload=JSON.stringify(setInputs);
     if(!Object.keys(setInputs).length||payload===lastSaved.current)return;
     setDraftState("saving");
@@ -286,11 +297,11 @@ function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutC
   },[setInputs,draftDay,todayCompletion,completionStatus]);
   useEffect(()=>{if(!timer||!timerRunning)return;const i=setInterval(()=>setTimer(x=>Math.max(0,x-1)),1000);return()=>clearInterval(i)},[timer,timerRunning]);
   const parseRestSeconds=r=>{if(!r)return 90;const n=parseInt(r);if(!isNaN(n))return n<10?n*60:n;const m=r.match(/(\d+)/);return m?parseInt(m[1])*60:90};
-  const mark=(id,n,tech,rest,totalSets)=>{if(todayCompletion||completionStatus!=="ready"||done[id+n])return;const v=setInputs[`${id}-${n}`]||{weight:0,reps:8,rir:2};if(!Number.isFinite(Number(v.reps))||Number(v.reps)<=0){setSetErr(x=>({...x,[id+n]:true}));return}const rir=Math.max(0,Math.min(5,Number(v.rir)));if(!Number.isFinite(rir)){setSetErr(x=>({...x,[id+n]:true}));return}setDone(x=>({...x,[id+n]:true}));if(n+1<totalSets){const secs=parseRestSeconds(rest);setTimer(secs);setTimerTotal(secs);setRestingSet({exerciseId:id,completed:n+1,next:n+2});setTimerRunning(true)}else{setTimer(0);setRestingSet(null)}axios.post(`${API}/sets`,{profile_id:db.profile.id,exercise_id:id,set_number:n+1,weight:Number(v.weight||0),reps:Number(v.reps||8),rir,session_day:activeSession?.day,technique:tech||"Straight Sets"}).catch(()=>{setDone(x=>({...x,[id+n]:false}));setSetErr(x=>({...x,[id+n]:true}))})};
+  const mark=(id,n,tech,rest,totalSets)=>{if(todayCompletion||completionStatus==="loading"||done[id+n])return;const v=setInputs[`${id}-${n}`]||{weight:0,reps:8,rir:2};if(!Number.isFinite(Number(v.reps))||Number(v.reps)<=0){setSetErr(x=>({...x,[id+n]:true}));return}const rir=Math.max(0,Math.min(5,Number(v.rir)));if(!Number.isFinite(rir)){setSetErr(x=>({...x,[id+n]:true}));return}setDone(x=>({...x,[id+n]:true}));if(n+1<totalSets){const secs=parseRestSeconds(rest);setTimer(secs);setTimerTotal(secs);setRestingSet({exerciseId:id,completed:n+1,next:n+2});setTimerRunning(true)}else{setTimer(0);setRestingSet(null)}axios.post(`${API}/sets`,{profile_id:db.profile.id,exercise_id:id,set_number:n+1,weight:Number(v.weight||0),reps:Number(v.reps||8),rir,session_day:activeSession?.day,technique:tech||"Straight Sets"}).catch(()=>{setDone(x=>({...x,[id+n]:false}));setSetErr(x=>({...x,[id+n]:true}))})};
   const completedEntries=useMemo(()=>items.flatMap(x=>Array.from({length:x.sets},(_,n)=>({key:x.exercise_id+n,value:setInputs[`${x.exercise_id}-${n}`]}))).filter(x=>done[x.key]),[items,setInputs,done]);
   const actualVolume=useMemo(()=>completedEntries.reduce((sum,x)=>sum+Number(x.value?.weight||0)*Number(x.value?.reps||0),0),[completedEntries]);
   const averageRir=useMemo(()=>completedEntries.length?completedEntries.reduce((sum,x)=>sum+Number(x.value?.rir||0),0)/completedEntries.length:null,[completedEntries]);
-  const finish=async()=>{if(todayCompletion||completionStatus!=="ready"||finishLock.current)return;const total=items.reduce((a,x)=>a+x.sets,0);const completed=completedEntries.length;if(completed<total&&!partialReason.trim()){setShowPartial(true);return}setFinishing(true);const r=await completeWorkout({post:(u,b)=>axios.post(u,b),api:API,day:activeSession?.day,completedSets:completed,totalSets:total,startedAt,lock:finishLock,onCompleted:onWorkoutCompleted,partialReason,discomfort,volumeKg:actualVolume,averageRir:averageRir==null?null:Number(averageRir.toFixed(1))});if(r)setFinishResult(r);if(!r||r.error)setFinishing(false)};
+  const finish=async()=>{if(todayCompletion||completionStatus==="loading"||finishLock.current)return;const total=items.reduce((a,x)=>a+x.sets,0);const completed=completedEntries.length;if(completed<total&&!partialReason.trim()){setShowPartial(true);return}setFinishing(true);const r=await completeWorkout({post:(u,b)=>axios.post(u,b),api:API,day:activeSession?.day,completedSets:completed,totalSets:total,startedAt,lock:finishLock,onCompleted:onWorkoutCompleted,partialReason,discomfort,volumeKg:actualVolume,averageRir:averageRir==null?null:Number(averageRir.toFixed(1))});if(r)setFinishResult(r);if(!r||r.error)setFinishing(false)};
   const recLevel=p.logic?.recovery_level;
   const recMsg=recLevel==="LOW"?"Volume ajustado à sua recuperação de hoje.":recLevel==="VERY_LOW"?"Sessão adaptada à sua recuperação de hoje.":p.logic?.block_type==="deload"?"Semana de descarga — volume reduzido de propósito.":null;
   const totalSessionSets=items.reduce((sum,x)=>sum+(Number(x.sets)||0),0);
@@ -302,11 +313,17 @@ function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutC
     <WorkoutLibrary API={API}exercises={db.exercises||[]}profile={db.profile}program={db.program}initialCategory={sessionCategory(activeSession,p)}onBuild={onLibraryBuild}onTemplateAdd={onLibraryTemplateAdd}onApplied={()=>{setView("session");setSessionStarted(false)}}/>
   </AstraPage>;
   if(todayCompletion)return <CompletedWorkout db={db} completion={todayCompletion} onLibrary={()=>setView("library")}/>;
-  if(completionStatus!=="ready")return <div className="content workout-page">{viewTabs}<p role="status">{completionStatus==="error"?"Não foi possível confirmar o estado da sessão.":"Conferindo sua sessão…"}</p>{completionStatus==="error"&&<button className="secondary-button" onClick={retryCompletion}>Tentar novamente</button>}</div>;
+  if(completionStatus==="loading")return <div className="content workout-page">{viewTabs}<p role="status">Conferindo sua sessão…</p></div>;
+  /* Aviso, e nao bloqueio: o treino continua na tela abaixo. */
+  const avisoDeConferencia=completionStatus==="error"&&<div className="workout-aviso" role="status" data-testid="aviso-conferencia">
+    <span>Não consegui confirmar no servidor se você já treinou hoje. Pode treinar normalmente — eu registro assim que a conexão voltar.</span>
+    <button type="button" className="secondary-button" onClick={retryCompletion}>Tentar de novo</button>
+  </div>;
   if(p.rest_day)return <ReferenceWorkoutPreview db={{...db,program:p}} onLibrary={()=>setView("library")}/>;
   if(!items.length)return <div className="content workout-page">{viewTabs}<div className="empty-state"data-testid="workout-empty-state"><Dumbbell size={22}/><h3>Nenhuma sessão disponível</h3><p className="muted">Escolha um modelo na Biblioteca ou gere um programa para começar.</p><button className="primary-button"type="button"onClick={()=>setView("library")}>Abrir biblioteca</button></div></div>;
-  if(!sessionStarted)return <ReferenceWorkoutPreview db={{...db,program:p}}activeSession={activeSession}items={items}onStart={()=>{if(p.rest_day||todayCompletion||completionStatus!=="ready")return;setStartedAt(Date.now());setSessionStarted(true)}}onLibrary={()=>setView("library")}/>;
+  if(!sessionStarted)return <>{avisoDeConferencia}<ReferenceWorkoutPreview db={{...db,program:p}}activeSession={activeSession}items={items}onStart={()=>{if(p.rest_day||todayCompletion||completionStatus==="loading")return;setStartedAt(Date.now());setSessionStarted(true)}}onLibrary={()=>setView("library")}/></>;
   return <div className="content workout-page workout-live-reference">
+    {avisoDeConferencia}
     <div className="workout-head"><div><p className="eyebrow">EM EXECUÇÃO · {p.week}</p><h2>{activeSession?.label||p.session}</h2><p className="muted">Demanda {activeSession?.demand||"MODERATE"} · registre o trabalho real.</p></div>{draftState!=="idle"&&<span className={`autosave-pill ${draftState}`}data-testid="autosave-status">{draftState==="saving"?"salvando...":draftState==="saved"?"salvo automaticamente":"sem conexão — tentando salvar"}</span>}</div>
     <section className="workout-overview">
       <MuscleSessionMap items={items} exercises={db.exercises||[]} focus={activeSession?.focus||[]} sessionLabel={activeSession?.label||p.session||""} />

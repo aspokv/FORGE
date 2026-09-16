@@ -196,6 +196,20 @@
   font-size: 13px;
 }
 
+/* Sessao vencida nao e erro da pessoa: e aviso. Por isso ela nao usa o vermelho do erro
+   de senha — quem errou a senha precisa de alerta, quem so ficou 12 horas logado precisa
+   de explicacao. */
+.forge-login-aviso {
+  margin-top: 16px;
+  padding: 11px 13px;
+  border-left: 2px solid #8a8f98;
+  border-radius: 6px;
+  background: #1b1d21;
+  color: #c9ced6;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
 .forge-login-entrar {
   margin-top: 14px;
   min-height: 54px;

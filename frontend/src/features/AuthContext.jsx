@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import axios from "axios";
 import { scheduleForgePrefetch, resetForgePerformanceCache } from "./apiPerformance";
+import { ehSessaoExpirada, anunciarSessaoExpirada, limparAviso, EVENTO } from "./sessaoExpirada";
 
 const API = `${process.env.REACT_APP_BACKEND_URL || ""}/api`;
 const AuthContext = createContext(null);
@@ -21,7 +22,15 @@ window.fetch = (input, init = {}) => {
   headers.set("X-Forge-Timezone-Offset", String(new Date().getTimezoneOffset()));
   const token = localStorage.getItem("forge_token");
   if (token && !headers.has("Authorization")) headers.set("Authorization", `Bearer ${token}`);
-  return originalFetch(input, { ...init, headers });
+  return originalFetch(input, { ...init, headers }).then(resposta => {
+    // Mesma regra do Axios: o Coach usa fetch, e uma sessao vencida ali precisa deslogar
+    // igual — senao a saida depende de QUAL tela a pessoa abriu primeiro.
+    if (resposta.status === 401 && token &&
+        ehSessaoExpirada({response: {status: 401}, config: {url: requestUrl.pathname}}, true)) {
+      anunciarSessaoExpirada();
+    }
+    return resposta;
+  });
 };
 
 axios.interceptors.request.use(cfg => {
@@ -33,6 +42,21 @@ axios.interceptors.request.use(cfg => {
   if (t) cfg.headers.Authorization = `Bearer ${t}`;
   return cfg;
 });
+
+// O par que faltava. Havia interceptor de REQUISICAO e nenhum de RESPOSTA: quando o token
+// vencia com o aplicativo aberto (12 horas, sem renovacao), toda tela passava a mostrar o
+// erro generico dela e nenhuma dizia para entrar de novo. Na tela de treino isso virou
+// "Nao foi possivel confirmar o estado da sessao" com um "Tentar novamente" que nunca
+// poderia funcionar.
+axios.interceptors.response.use(
+  resposta => resposta,
+  erro => {
+    if (ehSessaoExpirada(erro, Boolean(localStorage.getItem("forge_token")))) {
+      anunciarSessaoExpirada();
+    }
+    return Promise.reject(erro);
+  },
+);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -68,8 +92,23 @@ export function AuthProvider({ children }) {
 
   useEffect(() => { loadMe(); }, [loadMe]);
 
+  // A saida acontece AQUI, e nao dentro do interceptor: so o provedor sabe navegar e
+  // limpar o estado. O interceptor apenas avisa, uma vez, que a sessao venceu.
+  useEffect(() => {
+    const aoVencer = () => {
+      resetForgePerformanceCache();
+      localStorage.removeItem("forge_token");
+      setToken(null);
+      setUser(null);
+      navigate("/login", true);
+    };
+    window.addEventListener(EVENTO, aoVencer);
+    return () => window.removeEventListener(EVENTO, aoVencer);
+  }, [navigate]);
+
   const signIn = useCallback((newToken, userObj) => {
     resetForgePerformanceCache();
+    limparAviso();
     localStorage.setItem("forge_token", newToken);
     setToken(newToken);
     setUser(userObj);
