@@ -5,7 +5,27 @@ import { motion } from "framer-motion";
 import { Copy, Plus, ShieldCheck, RotateCcw, Ban, Check, X, LogOut, ChevronRight, ClipboardCopy, Users, Activity, ScrollText, CreditCard } from "lucide-react";
 import { API, useAuth } from "./AuthContext";
 
-const PLANS = ["FORGE_ACCESS", "FORGE_PRO", "LIFETIME"];
+// Os planos que existem de verdade, os mesmos de `billing_plans.py`. O painel oferecia
+// FORGE_ACCESS, FORGE_PRO e LIFETIME, nomes de antes de existir cobranca, e o Elite nem
+// aparecia — justamente o plano onde mora o Conselho.
+export const PLANOS = [
+  { code: "essential", nome: "FORGE Essencial", preco: "R$ 39,90/mês" },
+  { code: "pro", nome: "FORGE Pro", preco: "R$ 69,90/mês" },
+  { code: "elite", nome: "FORGE Elite", preco: "R$ 99,90/mês" },
+];
+export const NOME_DO_PLANO = Object.fromEntries(PLANOS.map(p => [p.code, p.nome]));
+
+// O que a pessoa le no lugar do enum do banco. "PENDING_PAYMENT" nao cabia na pilula e
+// vazava por cima da borda; alem de caber, isto e o que um humano entende.
+export const ROTULO_DE_STATUS = {
+  ACTIVE: "Ativo", PENDING: "Pendente", PENDING_PAYMENT: "Aguardando",
+  SUSPENDED: "Suspenso", EXPIRED: "Expirado",
+};
+
+// De onde veio o acesso, para o administrador nao confundir cortesia com venda.
+export const ROTULO_DA_ORIGEM = {
+  admin: "administrador", courtesy: "cortesia", mercadopago: "assinatura",
+};
 const VALIDITIES = [
   { id: "30", label: "30 dias" },
   { id: "90", label: "90 dias" },
@@ -16,6 +36,30 @@ const VALIDITIES = [
 ];
 
 const STATUS_COLORS = { ACTIVE: "success", PENDING: "warn", PENDING_PAYMENT: "warn", SUSPENDED: "danger", EXPIRED: "danger" };
+
+/**
+ * O plano que a pessoa REALMENTE tem.
+ *
+ * A coluna mostrava `users.plan`, um campo que `resolver_acesso` nunca le: a tela dizia
+ * "vitalicio" para uma conta bloqueada por falta de pagamento. Agora ela mostra o que o
+ * backend usa para liberar ou negar, e de onde esse acesso veio.
+ */
+function PlanoDoAtleta({ acesso, id }) {
+  const code = acesso?.plan_code;
+  if (!code) {
+    return (
+      <span className="athlete-plano" data-testid={`athlete-plan-${id}`}>
+        <b className="sem-plano">{acesso?.awaiting_payment ? "Aguardando pagamento" : "Sem plano"}</b>
+      </span>
+    );
+  }
+  return (
+    <span className="athlete-plano" data-testid={`athlete-plan-${id}`}>
+      <b>{NOME_DO_PLANO[code] || code}</b>
+      <small>{ROTULO_DA_ORIGEM[acesso.source] || acesso.source || ""}</small>
+    </span>
+  );
+}
 
 function copyToClipboard(text) {
   if (navigator.clipboard?.writeText) return navigator.clipboard.writeText(text);
@@ -148,8 +192,8 @@ export default function AdminPanel() {
                       <b>{a.name}</b>
                       <span className="muted">{a.email}</span>
                     </div>
-                    <span className={`badge ${STATUS_COLORS[a.status] || "muted"}`} data-testid={`athlete-status-${a.id}`}>{a.status}</span>
-                    <span className="muted">{a.plan}</span>
+                    <span className={`badge ${STATUS_COLORS[a.status] || "muted"}`} data-testid={`athlete-status-${a.id}`}>{ROTULO_DE_STATUS[a.status] || a.status}</span>
+                    <PlanoDoAtleta acesso={a.acesso} id={a.id} />
                     <span className="muted">{a.expires_at ? `até ${a.expires_at.slice(0, 10)}` : "vitalício"}</span>
                     <div className="athlete-actions">
                       <button className="ghost-button" data-testid={`view-athlete-${a.id}`} onClick={() => setDetail({ athlete: a })}>Ver</button>
@@ -207,7 +251,7 @@ function CreateAthleteModal({ onClose, onCreated }) {
   // access_mode decide quem paga a conta. Cortesia exige confirmar e dizer por que:
   // o backend recusa sem isso, e o formulario nao deve deixar chegar la sem.
   const [form, setForm] = useState({
-    email: "", name: "", plan: "FORGE_ACCESS", validity: "30", custom_days: 60,
+    email: "", name: "", validity: "30", custom_days: 60,
     admin_note: "", access_mode: "courtesy", confirm_courtesy: false,
     courtesy_reason: "", plan_code: "pro",
   });
@@ -256,16 +300,12 @@ function CreateAthleteModal({ onClose, onCreated }) {
               <option value="subscription">Convidar para assinar</option>
             </select>
           </label>
-          {form.access_mode === "subscription" && (
-            <label className="deep-field">
-              <span>Plano sugerido</span>
-              <select data-testid="new-athlete-plan-code" value={form.plan_code} onChange={e => set("plan_code", e.target.value)}>
-                <option value="essential">FORGE Essencial — R$ 39,90/mês</option>
-                <option value="pro">FORGE Pro — R$ 69,90/mês</option>
-                <option value="elite">FORGE Elite — R$ 99,90/mês</option>
-              </select>
-            </label>
-          )}
+          <label className="deep-field">
+            <span>{form.access_mode === "courtesy" ? "Plano concedido" : "Plano sugerido"}</span>
+            <select data-testid="new-athlete-plan-code" value={form.plan_code} onChange={e => set("plan_code", e.target.value)}>
+              {PLANOS.map(p => <option key={p.code} value={p.code}>{p.nome} — {p.preco}</option>)}
+            </select>
+          </label>
           {form.access_mode === "courtesy" && (
             <>
               <label className="deep-field">
@@ -282,12 +322,6 @@ function CreateAthleteModal({ onClose, onCreated }) {
               </label>
             </>
           )}
-          <label className="deep-field">
-            <span>Plano interno</span>
-            <select data-testid="new-athlete-plan" value={form.plan} onChange={e => set("plan", e.target.value)}>
-              {PLANS.map(p => <option key={p} value={p}>{p.replace("_", " ")}</option>)}
-            </select>
-          </label>
           <label className="deep-field">
             <span>Validade</span>
             <select data-testid="new-athlete-validity" value={form.validity} onChange={e => set("validity", e.target.value)}>
@@ -315,7 +349,8 @@ function CreateAthleteModal({ onClose, onCreated }) {
 function AthleteDetail({ data, onClose, onChanged, onNotify }) {
   const [full, setFull] = useState(null);
   const [inviteUrl, setInviteUrl] = useState(data.invite_url || "");
-  const [edit, setEdit] = useState({ plan: data.athlete.plan, validity: "", custom_days: 60, name: data.athlete.name });
+  const [edit, setEdit] = useState({ validity: "", custom_days: 60, name: data.athlete.name });
+  const [plano, setPlano] = useState({ code: "", motivo: "", substituir: false, busy: false });
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -329,13 +364,44 @@ function AthleteDetail({ data, onClose, onChanged, onNotify }) {
     try {
       const payload = {};
       if (edit.name !== data.athlete.name) payload.name = edit.name;
-      if (edit.plan !== data.athlete.plan) payload.plan = edit.plan;
       if (edit.validity) { payload.validity = edit.validity; if (edit.validity === "CUSTOM") payload.custom_days = Number(edit.custom_days); }
       if (!Object.keys(payload).length) { onNotify("success", "Sem mudanças."); return; }
       await axios.patch(`${API}/admin/athletes/${data.athlete.id}`, payload);
       onChanged();
       onNotify("success", "Atleta atualizado.");
     } finally { setBusy(false); }
+  };
+
+  const acessoAtual = full?.acesso || data.athlete.acesso;
+
+  const concederPlano = async (substituir = false) => {
+    setPlano(p => ({ ...p, busy: true }));
+    try {
+      const revogar = plano.code === "__revogar";
+      const r = await axios.post(`${API}/admin/athletes/${data.athlete.id}/plano`, {
+        plan_code: revogar ? null : plano.code,
+        motivo: plano.motivo,
+        substituir_assinatura_paga: substituir,
+      });
+      setFull(f => (f ? { ...f, acesso: r.data.acesso || { plan_code: null } } : f));
+      setPlano({ code: "", motivo: "", substituir: false, busy: false });
+      onChanged();
+      onNotify("success", revogar ? "Cortesia removida." : "Plano concedido.");
+    } catch (erro) {
+      const detalhe = erro?.response?.data?.detail;
+      // Uma assinatura PAGA nao e sobrescrita por acidente: o servidor devolve 409 e a
+      // troca so acontece se a pessoa disser, olhando, que e isso mesmo que ela quer.
+      if (detalhe?.reason === "paid_subscription") {
+        setPlano(p => ({ ...p, busy: false }));
+        if (window.confirm(`${detalhe.message}\n\nSubstituir mesmo assim?`)) {
+          return concederPlano(true);
+        }
+        return;
+      }
+      onNotify("error", mensagemDeErro(erro, "Não foi possível aplicar o plano."));
+    } finally {
+      setPlano(p => ({ ...p, busy: false }));
+    }
   };
 
   const regen = async () => {
@@ -352,7 +418,18 @@ function AthleteDetail({ data, onClose, onChanged, onNotify }) {
           <div><p className="eyebrow">ATLETA</p><h2>{data.athlete.name}</h2></div>
           <button className="icon-button" data-testid="close-athlete-detail" onClick={onClose}><X size={20} /></button>
         </div>
-        <p className="muted">{data.athlete.email} · Status <b>{data.athlete.status}</b> · Plano {data.athlete.plan}</p>
+        <p className="muted">
+          {data.athlete.email} · Status <b>{ROTULO_DE_STATUS[data.athlete.status] || data.athlete.status}</b>
+          {" · "}
+          {acessoAtual?.plan_code ? (
+            <>
+              Plano <b data-testid="detail-plan">{NOME_DO_PLANO[acessoAtual.plan_code] || acessoAtual.plan_code}</b>
+              {acessoAtual.source ? ` (${ROTULO_DA_ORIGEM[acessoAtual.source] || acessoAtual.source})` : ""}
+            </>
+          ) : (
+            <b data-testid="detail-plan">{acessoAtual?.awaiting_payment ? "Aguardando pagamento" : "Sem plano"}</b>
+          )}
+        </p>
         {full && (
           <div className="athlete-metrics">
             <div><b>{full.workouts}</b><span>séries registradas</span></div>
@@ -375,12 +452,6 @@ function AthleteDetail({ data, onClose, onChanged, onNotify }) {
         <div className="admin-edit">
           <label className="deep-field"><span>Nome</span><input data-testid="edit-athlete-name" value={edit.name || ""} onChange={e => setEdit({ ...edit, name: e.target.value })} /></label>
           <label className="deep-field">
-            <span>Plano</span>
-            <select data-testid="edit-athlete-plan" value={edit.plan} onChange={e => setEdit({ ...edit, plan: e.target.value })}>
-              {PLANS.map(p => <option key={p} value={p}>{p.replace("_", " ")}</option>)}
-            </select>
-          </label>
-          <label className="deep-field">
             <span>Alterar validade</span>
             <select data-testid="edit-athlete-validity" value={edit.validity} onChange={e => setEdit({ ...edit, validity: e.target.value })}>
               <option value="">Manter</option>
@@ -390,6 +461,29 @@ function AthleteDetail({ data, onClose, onChanged, onNotify }) {
           {edit.validity === "CUSTOM" && (
             <label className="deep-field"><span>Dias personalizados</span><input data-testid="edit-athlete-custom-days" type="number" value={edit.custom_days} onChange={e => setEdit({ ...edit, custom_days: e.target.value })} /></label>
           )}
+        </div>
+
+        <div className="conceder-plano" data-testid="conceder-plano">
+          <h4>Conceder plano</h4>
+          <p>
+            Cortesia é acesso concedido, não pagamento: valor zero, sem cobrança e fora de
+            qualquer relatório de receita. Fica registrado quem concedeu, quando e por quê.
+          </p>
+          <div className="linha">
+            <select data-testid="conceder-plano-code" value={plano.code}
+                    onChange={e => setPlano({ ...plano, code: e.target.value })}>
+              <option value="">Escolher plano...</option>
+              {PLANOS.map(p => <option key={p.code} value={p.code}>{p.nome}</option>)}
+              <option value="__revogar">Remover a cortesia</option>
+            </select>
+            <input data-testid="conceder-plano-motivo" value={plano.motivo}
+                   onChange={e => setPlano({ ...plano, motivo: e.target.value })}
+                   placeholder="Motivo (ex.: conta de demonstração)" />
+          </div>
+          <button className="primary-button" data-testid="conceder-plano-salvar"
+                  onClick={concederPlano} disabled={plano.busy || !plano.code}>
+            <ShieldCheck size={15} /> {plano.busy ? "Aplicando..." : "Aplicar plano"}
+          </button>
         </div>
 
         <div className="builder-actions">
