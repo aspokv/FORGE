@@ -173,3 +173,25 @@
 .conceder-confirmar p{margin:0;font-size:12.5px;color:#e6dfd4;line-height:1.55}
 .conceder-confirmar .linha{display:flex;gap:8px;flex-wrap:wrap}
 .conceder-confirmar button{flex:1 1 auto;min-height:40px;border-radius:9px}
+
+/* Area de risco: o que nao tem volta fica separado, e parece separado.
+ *
+ * Excluir mora depois de tudo, atras de um passo, com a cor que so aparece aqui. A
+ * distancia visual e deliberada: arquivar e o caminho normal, e excluir nao pode ficar
+ * a um clique de distancia numa lista de 1.600 linhas. */
+.area-de-risco{margin-top:22px;padding-top:18px;border-top:1px solid var(--line)}
+.ghost-button.perigo{color:#c96a58;border-color:#4a2620}
+.ghost-button.perigo:hover{background:#2a1a17;border-color:#6e4338}
+.exclusao-confirmar{display:grid;gap:12px;border:1px solid #6e4338;border-radius:12px;
+  padding:16px;background:#1b110f}
+.exclusao-alerta{display:flex;align-items:flex-start;gap:9px;margin:0;font-size:12.5px;
+  line-height:1.6;color:#f0c0b0}
+.exclusao-alerta svg{flex:none;margin-top:2px;color:#e08a6a}
+.exclusao-alerta b{color:#fff}
+.exclusao-confirmar .linha{display:flex;gap:8px;flex-wrap:wrap}
+.exclusao-confirmar .linha button{flex:1 1 auto;min-height:42px;border-radius:10px}
+.botao-perigo{display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  background:#8c2f27;color:#fff;border:1px solid #a5382e;font-size:12.5px;font-weight:600;
+  padding:11px 17px;cursor:pointer;transition:background .16s,opacity .16s}
+.botao-perigo:hover:not(:disabled){background:#a5382e}
+.botao-perigo:disabled{opacity:.5;cursor:default}

@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import axios from "axios";
 import {mensagemDeErro} from "./mensagemDeErro";
 import { motion } from "framer-motion";
-import { Copy, Plus, ShieldCheck, RotateCcw, Ban, Check, X, LogOut, ChevronRight, ClipboardCopy, Users, Activity, ScrollText, CreditCard } from "lucide-react";
+import { Copy, Plus, ShieldCheck, RotateCcw, Ban, Check, X, LogOut, ChevronRight, ClipboardCopy, Users, Activity, ScrollText, CreditCard, Archive, ArchiveRestore, Trash2, AlertTriangle } from "lucide-react";
 import { API, useAuth } from "./AuthContext";
 
 // Os planos que existem de verdade, os mesmos de `billing_plans.py`. O painel oferecia
@@ -116,6 +116,17 @@ export default function AdminPanel() {
 
   const suspend = async id => { await axios.post(`${API}/admin/athletes/${id}/suspend`); await load(); notify("success", "Atleta suspenso."); };
   const reactivate = async id => { await axios.post(`${API}/admin/athletes/${id}/reactivate`); await load(); notify("success", "Atleta reativado."); };
+  const arquivar = async (id, arquivado) => {
+    try {
+      await axios.post(`${API}/admin/athletes/${id}/${arquivado ? "desarquivar" : "arquivar"}`,
+                       arquivado ? undefined : {});
+      notify("success", arquivado ? "Atleta de volta à lista." : "Atleta arquivado.");
+      load();
+    } catch (erro) {
+      notify("error", mensagemDeErro(erro, "Não foi possível arquivar."));
+    }
+  };
+
   const requirePayment = async id => {
     try {
       await axios.post(`${API}/admin/athletes/${id}/require-payment`);
@@ -179,6 +190,7 @@ export default function AdminPanel() {
                 <option value="ACTIVE">Ativos</option>
                 <option value="SUSPENDED">Suspensos</option>
                 <option value="EXPIRED">Expirados</option>
+                <option value="ARCHIVED">Arquivados</option>
               </select>
             </div>
 
@@ -197,6 +209,17 @@ export default function AdminPanel() {
                     <span className="muted">{a.expires_at ? `até ${a.expires_at.slice(0, 10)}` : "vitalício"}</span>
                     <div className="athlete-actions">
                       <button className="ghost-button" data-testid={`view-athlete-${a.id}`} onClick={() => setDetail({ athlete: a })}>Ver</button>
+                      {a.archived_at ? (
+                        <button className="ghost-button" data-testid={`unarchive-athlete-${a.id}`}
+                                onClick={() => arquivar(a.id, true)}>
+                          <ArchiveRestore size={14} /> Restaurar
+                        </button>
+                      ) : (
+                        <button className="ghost-button" data-testid={`archive-athlete-${a.id}`}
+                                onClick={() => arquivar(a.id, false)}>
+                          <Archive size={14} /> Arquivar
+                        </button>
+                      )}
                       {a.status === "SUSPENDED" ? (
                         <>
                           <button className="ghost-button" data-testid={`reactivate-athlete-${a.id}`} onClick={() => reactivate(a.id)}><Check size={14} /> Reativar</button>
@@ -351,6 +374,7 @@ export function AthleteDetail({ data, onClose, onChanged, onNotify }) {
   const [inviteUrl, setInviteUrl] = useState(data.invite_url || "");
   const [edit, setEdit] = useState({ validity: "", custom_days: 60, name: data.athlete.name });
   const [plano, setPlano] = useState({ code: "", motivo: "", busy: false, erro: "", confirmarPago: null });
+  const [exclusao, setExclusao] = useState({ aberta: false, email: "", motivo: "", busy: false, erro: "" });
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -413,6 +437,28 @@ export function AthleteDetail({ data, onClose, onChanged, onNotify }) {
       // segundos e fica longe da acao: na pratica a tela simplesmente nao respondia.
       setPlano(p => ({ ...p, busy: false,
         erro: mensagemDeErro(erro, "Não foi possível aplicar o plano.") }));
+    }
+  };
+
+  /**
+   * Exclusao definitiva.
+   *
+   * O e-mail digitado vai para o servidor e e ELE quem compara. A tela poderia comparar
+   * sozinha e evitar a viagem, mas ai a trava viveria no lugar errado: quem chama a API
+   * direto passaria por cima dela. Aqui a tela so nao deixa clicar a toa.
+   */
+  const excluir = async () => {
+    setExclusao(e => ({ ...e, busy: true, erro: "" }));
+    try {
+      const r = await axios.delete(`${API}/admin/athletes/${data.athlete.id}`, {
+        data: { confirmar_email: exclusao.email, motivo: exclusao.motivo },
+      });
+      onNotify("success", `Atleta excluído. ${r.data.total} registros removidos.`);
+      onChanged();
+      onClose();
+    } catch (erro) {
+      setExclusao(e => ({ ...e, busy: false,
+        erro: mensagemDeErro(erro, "Não foi possível excluir.") }));
     }
   };
 
@@ -517,6 +563,52 @@ export function AthleteDetail({ data, onClose, onChanged, onNotify }) {
               {plano.erro}
             </p>
           ) : null}
+        </div>
+
+        <div className="area-de-risco" data-testid="area-de-risco">
+          {!exclusao.aberta ? (
+            <button className="ghost-button perigo" data-testid="abrir-exclusao"
+                    onClick={() => setExclusao({ aberta: true, email: "", motivo: "", busy: false, erro: "" })}>
+              <Trash2 size={14} /> Excluir definitivamente
+            </button>
+          ) : (
+            <div className="exclusao-confirmar">
+              {/* O texto vai dentro de um <span> proprio: sem ele, o <b> vira um item
+                  do flex e a frase se parte em colunas no meio. */}
+              <p className="exclusao-alerta">
+                <AlertTriangle size={15} />
+                <span>
+                  Isto apaga a pessoa e tudo que é dela: treinos, séries, alimentação,
+                  pesagens e fotos. <b>Não tem volta.</b> Para só tirar da lista, use
+                  Arquivar.
+                </span>
+              </p>
+              <label className="deep-field">
+                <span>Digite {data.athlete.email} para confirmar</span>
+                <input data-testid="exclusao-email" value={exclusao.email} autoComplete="off"
+                       onChange={e => setExclusao(x => ({ ...x, email: e.target.value }))} />
+              </label>
+              <label className="deep-field">
+                <span>Motivo (fica na auditoria)</span>
+                <input data-testid="exclusao-motivo" value={exclusao.motivo}
+                       onChange={e => setExclusao(x => ({ ...x, motivo: e.target.value }))}
+                       placeholder="Ex.: conta de teste" />
+              </label>
+              {exclusao.erro ? (
+                <p className="conceder-erro" data-testid="exclusao-erro" role="alert">{exclusao.erro}</p>
+              ) : null}
+              <div className="linha">
+                <button className="secondary-button" data-testid="exclusao-cancelar"
+                        onClick={() => setExclusao({ aberta: false, email: "", motivo: "", busy: false, erro: "" })}>
+                  Cancelar
+                </button>
+                <button className="botao-perigo" data-testid="exclusao-confirmar"
+                        onClick={excluir} disabled={exclusao.busy || !exclusao.email.trim()}>
+                  <Trash2 size={15} /> {exclusao.busy ? "Excluindo..." : "Excluir para sempre"}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="builder-actions">
