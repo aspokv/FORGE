@@ -166,6 +166,9 @@ on:
       - 'backend/conselho_routes.py'
       - 'backend/tests/test_conselho.py'
       - 'backend/tests/test_conselho_api.py'
+      - 'backend/tests/test_admin_planos.py'
+      - 'frontend/src/features/AdminPanel.planos.test.js'
+      - 'frontend/src/features/conselho.css'
       # Estava de fora: a varredura que exige pagamento em TODA rota mora aqui, e um teste
       # dela tinha ficado vermelho sem ninguem ver quando o agressivo desceu para o Pro.
       - 'backend/tests/test_billing_api.py'
@@ -335,6 +338,9 @@ on:
       - 'backend/conselho_routes.py'
       - 'backend/tests/test_conselho.py'
       - 'backend/tests/test_conselho_api.py'
+      - 'backend/tests/test_admin_planos.py'
+      - 'frontend/src/features/AdminPanel.planos.test.js'
+      - 'frontend/src/features/conselho.css'
       # Estava de fora: a varredura que exige pagamento em TODA rota mora aqui, e um teste
       # dela tinha ficado vermelho sem ninguem ver quando o agressivo desceu para o Pro.
       - 'backend/tests/test_billing_api.py'
@@ -469,6 +475,10 @@ jobs:
           pytest -q --noconftest tests/test_conselho.py
       - name: Run weekly council API and billing sweep
         run: pytest -q tests/test_conselho_api.py tests/test_billing_api.py
+      # O painel administrativo concede plano de verdade: cada caso termina batendo numa
+      # rota paga com o token do atleta, porque "a rota devolveu 200" nao prova acesso.
+      - name: Run admin plan grant suite
+        run: pytest -q tests/test_admin_planos.py
       - name: Run library program suite
         run: >-
           pytest -q --noconftest

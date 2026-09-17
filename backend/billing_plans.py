@@ -110,11 +110,15 @@ PLANOS: List[Dict[str, Any]] = [
             "Tudo do FORGE Pro",
             "Modo de treino avançado e manual",
             "Importação de treino por texto",
+            # Saiu de "em_breve" quando o Conselho entrou no ar. Anunciar como pronto o
+            # que nao existe seria vender o que nao entregamos, e o inverso tambem custa:
+            # deixar em "em breve" o que ja esta no ar esconde o motivo de assinar.
+            "O Conselho: toda semana o FORGE lê seus números e decide um ajuste",
+            "Previsão semanal conferida: o motor diz se acertou",
             "Maior nível de personalização",
         ],
         # Separado de proposito: sao promessas, nao entregas.
         "em_breve": [
-            "Análises avançadas de evolução",
             "Periodização avançada",
             "Acesso prioritário a futuros recursos premium",
         ],

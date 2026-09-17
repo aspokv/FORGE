@@ -84,3 +84,80 @@
   .admin-stats{grid-template-columns:repeat(2,1fr)}
   .admin-filters{flex-direction:column}
 }
+
+/* ── Console administrativo: o mesmo acabamento do aplicativo ─────────────────────────
+ *
+ * O painel nasceu antes da camada visual atual e ficou para tras: cantos vivos onde o
+ * resto do produto tem cantos arredondados, e dois defeitos que so aparecem com dado
+ * real na tela.
+ *
+ * Os dois defeitos, medidos num 1440x1000:
+ *
+ *   1. O selo de status VAZAVA da propria pilula. `.athlete-row` da 100px para a coluna
+ *      do selo, o item de grade estica para a largura da coluna, e "PENDING_PAYMENT"
+ *      com 10px de mono passa de 115px: o texto saia por cima da borda arredondada.
+ *   2. "PERFORMANCE OS", que `performance-os.css` desenha em `.topbar::after` ancorado
+ *      em `right:calc(5vw + 64px)`, foi posicionado para o cabecalho do atleta, onde o
+ *      canto direito tem um botao de icone de 44px. Aqui o canto tem "Adicionar atleta",
+ *      que e largo, e a marca dagua ficava POR BAIXO do botao.
+ *
+ * O acento continua sendo `var(--accent)`: o painel ja estava certo nisso, e trocar por
+ * uma cor fixa criaria uma segunda paleta dentro do mesmo produto.
+ */
+
+/* A marca dagua nao cabe num cabecalho com botao largo. */
+.admin-main .topbar::after{display:none}
+.admin-main .topbar{padding:26px 0 22px}
+
+/* Cantos do resto do produto. */
+.admin-main .panel,.admin-main .stat-card,.admin-flash{border-radius:12px}
+.admin-filters input,.admin-filters select{border-radius:10px}
+.admin-main .primary-button,.admin-main .ghost-button,.admin-main .secondary-button{
+  border-radius:10px}
+
+.admin-stats{gap:12px}
+.stat-card{padding:15px 16px;gap:6px}
+.stat-card span{font:500 9px var(--fg-mono);letter-spacing:.18em;text-transform:uppercase;
+  color:var(--muted)}
+.stat-card b{font:500 25px var(--fg-display);letter-spacing:-.02em;
+  font-variant-numeric:tabular-nums}
+
+/* O selo cabe no que ele diz. `justify-self:start` tira a esticada da grade, e o texto
+ * nunca quebra: um selo de status em duas linhas desalinha a linha inteira. */
+.athlete-row{grid-template-columns:2fr 132px 128px 132px auto;gap:16px;padding:15px 20px}
+.athlete-row:hover{background:var(--elevated)}
+.badge{justify-self:start;white-space:nowrap;width:auto;padding:5px 11px;
+  font:500 10px var(--fg-mono);letter-spacing:.08em}
+
+/* O plano vem do acesso REAL, entao ele merece peso de texto e nao de legenda. */
+.athlete-plano{display:flex;flex-direction:column;gap:2px;min-width:0}
+.athlete-plano b{font:500 13px var(--fg-corpo);color:var(--text)}
+.athlete-plano small{font:9px var(--fg-mono);letter-spacing:.12em;text-transform:uppercase;
+  color:var(--muted)}
+.athlete-plano .sem-plano{color:var(--muted);font-weight:400}
+
+/* Conceder plano: a acao vive na ficha, com motivo, porque deixa rastro. */
+.conceder-plano{display:grid;gap:10px;border:1px solid var(--line);border-radius:12px;
+  padding:16px;background:var(--surface);margin-top:14px}
+.conceder-plano h4{margin:0;font:500 13px var(--fg-corpo);color:var(--text)}
+.conceder-plano p{margin:0;font-size:11.5px;color:var(--muted);line-height:1.55}
+.conceder-plano .linha{display:flex;gap:8px;flex-wrap:wrap}
+.conceder-plano select,.conceder-plano input{flex:1;min-width:140px;background:var(--elevated);
+  border:1px solid var(--line);color:var(--text);padding:10px 12px;border-radius:9px;
+  font:13px var(--fg-corpo);min-height:42px}
+
+@media(max-width:1100px){
+  .admin-stats{grid-template-columns:repeat(3,1fr)}
+  .athlete-row{grid-template-columns:1fr auto;gap:10px}
+  .athlete-row .badge{grid-column:2;justify-self:end}
+  .athlete-plano,.athlete-row>.muted{grid-column:1/-1}
+  .athlete-actions{grid-column:1/-1;flex-wrap:wrap}
+}
+@media(max-width:620px){
+  .admin-stats{grid-template-columns:repeat(2,1fr)}
+  .admin-main{margin-left:0;width:100%;padding:0 5vw 80px}
+  .admin-rail{position:static;width:100%;min-height:0;flex-direction:row;align-items:center;
+    gap:14px;flex-wrap:wrap}
+  .admin-rail nav{display:flex;margin-top:0;gap:4px}
+  .admin-rail .rail-bottom{margin-top:0;flex-direction:row;align-items:center;gap:12px}
+}
