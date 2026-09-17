@@ -168,6 +168,7 @@ on:
       - 'backend/tests/test_conselho_api.py'
       - 'backend/tests/test_admin_planos.py'
       - 'frontend/src/features/AdminPanel.planos.test.js'
+      - 'frontend/src/features/AdminPanel.conceder.test.js'
       - 'frontend/src/features/conselho.css'
       # Estava de fora: a varredura que exige pagamento em TODA rota mora aqui, e um teste
       # dela tinha ficado vermelho sem ninguem ver quando o agressivo desceu para o Pro.
@@ -340,6 +341,7 @@ on:
       - 'backend/tests/test_conselho_api.py'
       - 'backend/tests/test_admin_planos.py'
       - 'frontend/src/features/AdminPanel.planos.test.js'
+      - 'frontend/src/features/AdminPanel.conceder.test.js'
       - 'frontend/src/features/conselho.css'
       # Estava de fora: a varredura que exige pagamento em TODA rota mora aqui, e um teste
       # dela tinha ficado vermelho sem ninguem ver quando o agressivo desceu para o Pro.
