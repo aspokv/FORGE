@@ -161,3 +161,15 @@
   .admin-rail nav{display:flex;margin-top:0;gap:4px}
   .admin-rail .rail-bottom{margin-top:0;flex-direction:row;align-items:center;gap:12px}
 }
+
+/* Erro e confirmacao ficam DENTRO do cartao de concessao.
+ *
+ * O erro ia para a faixa do topo, que some em quatro segundos e fica longe do botao.
+ * Com a requisicao falhando antes de sair, o efeito pratico era uma tela que nao
+ * respondia: clicava, nada acontecia, e nada explicava por que. */
+.conceder-erro{margin:0;font-size:12px;color:#e08a6a;line-height:1.5}
+.conceder-confirmar{display:grid;gap:10px;border:1px solid var(--warn);border-radius:10px;
+  padding:13px 14px;background:#1f1610}
+.conceder-confirmar p{margin:0;font-size:12.5px;color:#e6dfd4;line-height:1.55}
+.conceder-confirmar .linha{display:flex;gap:8px;flex-wrap:wrap}
+.conceder-confirmar button{flex:1 1 auto;min-height:40px;border-radius:9px}

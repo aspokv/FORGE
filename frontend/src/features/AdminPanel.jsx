@@ -346,11 +346,11 @@ function CreateAthleteModal({ onClose, onCreated }) {
   );
 }
 
-function AthleteDetail({ data, onClose, onChanged, onNotify }) {
+export function AthleteDetail({ data, onClose, onChanged, onNotify }) {
   const [full, setFull] = useState(null);
   const [inviteUrl, setInviteUrl] = useState(data.invite_url || "");
   const [edit, setEdit] = useState({ validity: "", custom_days: 60, name: data.athlete.name });
-  const [plano, setPlano] = useState({ code: "", motivo: "", substituir: false, busy: false });
+  const [plano, setPlano] = useState({ code: "", motivo: "", busy: false, erro: "", confirmarPago: null });
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -374,33 +374,45 @@ function AthleteDetail({ data, onClose, onChanged, onNotify }) {
 
   const acessoAtual = full?.acesso || data.athlete.acesso;
 
+  /**
+   * Concede o plano.
+   *
+   * `substituir === true` e literal de proposito. A primeira versao passava esta funcao
+   * direto para `onClick`, entao o React entregava o EVENTO DO CLIQUE como primeiro
+   * argumento: `substituir` virava um SyntheticEvent, o axios tentava serializar um
+   * objeto com referencia circular, e a requisicao **nunca saia**. O plano ficava como
+   * estava e nenhum aviso aparecia perto do botao.
+   *
+   * A comparacao estrita fecha os dois lados: alem de nao quebrar, ela impede que um
+   * valor truthy qualquer vire "sim, sobrescreva a assinatura paga", que e a direcao
+   * perigosa desta chamada.
+   */
   const concederPlano = async (substituir = false) => {
-    setPlano(p => ({ ...p, busy: true }));
+    setPlano(p => ({ ...p, busy: true, erro: "", confirmarPago: null }));
     try {
       const revogar = plano.code === "__revogar";
       const r = await axios.post(`${API}/admin/athletes/${data.athlete.id}/plano`, {
         plan_code: revogar ? null : plano.code,
         motivo: plano.motivo,
-        substituir_assinatura_paga: substituir,
+        substituir_assinatura_paga: substituir === true,
       });
       setFull(f => (f ? { ...f, acesso: r.data.acesso || { plan_code: null } } : f));
-      setPlano({ code: "", motivo: "", substituir: false, busy: false });
+      setPlano({ code: "", motivo: "", busy: false, erro: "", confirmarPago: null });
       onChanged();
       onNotify("success", revogar ? "Cortesia removida." : "Plano concedido.");
     } catch (erro) {
       const detalhe = erro?.response?.data?.detail;
-      // Uma assinatura PAGA nao e sobrescrita por acidente: o servidor devolve 409 e a
-      // troca so acontece se a pessoa disser, olhando, que e isso mesmo que ela quer.
+      // Uma assinatura PAGA nao e sobrescrita por acidente. Isto era um `window.confirm`,
+      // que o navegador pode bloquear e que nenhum teste consegue acionar; agora a
+      // pergunta fica na propria tela, onde da para ler o que se esta trocando.
       if (detalhe?.reason === "paid_subscription") {
-        setPlano(p => ({ ...p, busy: false }));
-        if (window.confirm(`${detalhe.message}\n\nSubstituir mesmo assim?`)) {
-          return concederPlano(true);
-        }
+        setPlano(p => ({ ...p, busy: false, confirmarPago: detalhe.message }));
         return;
       }
-      onNotify("error", mensagemDeErro(erro, "Não foi possível aplicar o plano."));
-    } finally {
-      setPlano(p => ({ ...p, busy: false }));
+      // O erro mora AO LADO do botao. Ele ia para a faixa do topo, que some em quatro
+      // segundos e fica longe da acao: na pratica a tela simplesmente nao respondia.
+      setPlano(p => ({ ...p, busy: false,
+        erro: mensagemDeErro(erro, "Não foi possível aplicar o plano.") }));
     }
   };
 
@@ -480,10 +492,31 @@ function AthleteDetail({ data, onClose, onChanged, onNotify }) {
                    onChange={e => setPlano({ ...plano, motivo: e.target.value })}
                    placeholder="Motivo (ex.: conta de demonstração)" />
           </div>
-          <button className="primary-button" data-testid="conceder-plano-salvar"
-                  onClick={concederPlano} disabled={plano.busy || !plano.code}>
-            <ShieldCheck size={15} /> {plano.busy ? "Aplicando..." : "Aplicar plano"}
-          </button>
+          {plano.confirmarPago ? (
+            <div className="conceder-confirmar" data-testid="conceder-plano-confirmar">
+              <p>{plano.confirmarPago}</p>
+              <div className="linha">
+                <button className="secondary-button" data-testid="conceder-plano-cancelar"
+                        onClick={() => setPlano(p => ({ ...p, confirmarPago: null }))}>
+                  Cancelar
+                </button>
+                <button className="primary-button" data-testid="conceder-plano-substituir"
+                        onClick={() => concederPlano(true)} disabled={plano.busy}>
+                  Substituir mesmo assim
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button className="primary-button" data-testid="conceder-plano-salvar"
+                    onClick={() => concederPlano(false)} disabled={plano.busy || !plano.code}>
+              <ShieldCheck size={15} /> {plano.busy ? "Aplicando..." : "Aplicar plano"}
+            </button>
+          )}
+          {plano.erro ? (
+            <p className="conceder-erro" data-testid="conceder-plano-erro" role="alert">
+              {plano.erro}
+            </p>
+          ) : null}
         </div>
 
         <div className="builder-actions">
