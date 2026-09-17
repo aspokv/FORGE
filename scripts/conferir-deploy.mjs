@@ -22,9 +22,17 @@
  *
  * A prova completa e um par: o marcador novo presente E o texto antigo ausente.
  *
+ * RAIZ QUE NAO E MAIS DO APLICATIVO — desde a landing 2027, `/` e `/index.html` servem a
+ * LANDING (pacote Vite, arquivos em `/assets/`), e o aplicativo (CRA, arquivos em
+ * `/static/`) passou a responder em `app.html`. Este roteiro lia so `index.html`, nao
+ * casava nenhum `/static/...` e anunciava "0 arquivos servidos" com o site inteiro no ar
+ * — que e exatamente o falso negativo que ele existe para evitar. Agora ele parte dos
+ * DOIS documentos e entende os dois formatos de caminho.
+ *
  * Uso:
  *   node scripts/conferir-deploy.mjs https://forge.aiexec.com.br "marcador novo" ...
  *   node scripts/conferir-deploy.mjs <url> --esperar "marcador"   (aguarda o build)
+ *   node scripts/conferir-deploy.mjs <url> "novo" "!antigo"      ("!" = tem de SUMIR)
  */
 const args = process.argv.slice(2);
 const base = (args.shift() || "").replace(/\/$/, "");
@@ -42,11 +50,20 @@ const pegar = async (url) => {
   return r.ok ? r.text() : "";
 };
 
-/** Todos os arquivos servidos: os citados no index mais os do mapa de chunks do webpack. */
+/** Os dois documentos de entrada: a landing na raiz e o aplicativo em app.html. */
+const DOCUMENTOS = ["/index.html", "/app.html"];
+
+/** Todos os arquivos servidos: os citados nos documentos mais o mapa de chunks do webpack. */
 async function arquivosServidos() {
-  const index = await pegar(`${base}/index.html?t=${Date.now()}`);
-  const citados = [...index.matchAll(/(?:src|href)="(\/static\/[^"]+\.(?:js|css))"/g)]
-    .map((m) => m[1]);
+  const citados = [];
+  for (const documento of DOCUMENTOS) {
+    const html = await pegar(`${base}${documento}?t=${Date.now()}`);
+    // `/static/...` e do CRA; `/assets/...` (ou relativo, sem a barra) e da landing Vite.
+    for (const m of html.matchAll(
+      /(?:src|href)="(\/?(?:static|assets)\/[^"]+\.(?:js|css))"/g)) {
+      citados.push(m[1].startsWith("/") ? m[1] : `/${m[1]}`);
+    }
+  }
 
   const nomes = new Set(citados);
   for (const caminho of citados.filter((c) => c.endsWith(".js"))) {
@@ -70,9 +87,14 @@ async function conferir() {
   );
   const bytes = conteudos.reduce((s, [, t]) => s + t.length, 0);
 
+  // A prova completa e um par, e o docstring acima ja dizia isso sem o roteiro saber
+  // fazer: marcador prefixado com "!" e o TEXTO ANTIGO, que tem de estar AUSENTE. Sem
+  // isso so dava para provar metade, e a metade que falta e a que pega deploy parcial.
   const achados = marcadores.map((m) => {
-    const onde = conteudos.filter(([, t]) => t.includes(m)).map(([c]) => c.slice(1));
-    return [m, onde];
+    const negado = m.startsWith("!");
+    const alvo = negado ? m.slice(1) : m;
+    const onde = conteudos.filter(([, t]) => t.includes(alvo)).map(([c]) => c.slice(1));
+    return [m, onde, negado];
   });
   return { caminhos, bytes, achados };
 }
@@ -82,15 +104,22 @@ const TENTATIVAS = esperar ? 30 : 1;
 
 for (let i = 1; i <= TENTATIVAS; i += 1) {
   const { caminhos, bytes, achados } = await conferir();
-  const faltando = achados.filter(([, onde]) => !onde.length);
+  // Falta o que devia aparecer e nao apareceu, e o que devia ter sumido e ficou.
+  const faltando = achados.filter(([, onde, negado]) => (negado ? onde.length : !onde.length));
 
   if (!faltando.length || i === TENTATIVAS) {
     console.log(`${caminhos.length} arquivos servidos por ${base} (${bytes} bytes)\n`);
-    for (const [m, onde] of achados) {
-      console.log(`  ${m.padEnd(28)} ${onde.length ? "em " + onde.join(", ") : "AUSENTE"}`);
+    for (const [m, onde, negado] of achados) {
+      const situacao = onde.length ? "em " + onde.join(", ") : "AUSENTE";
+      const veredito = (negado ? !onde.length : onde.length) ? "ok  " : "NAO ";
+      console.log(`  ${veredito}${m.padEnd(28)} ${situacao}`);
     }
     if (esperar && !faltando.length) console.log(`\nPUBLICADO na tentativa ${i}`);
-    process.exit(faltando.length ? 1 : 0);
+    // `process.exit` com busca pendente derruba o Node com asserção do libuv
+    // ("!(handle->flags & UV_HANDLE_CLOSING)"), e o estouro aparece DEPOIS do resultado,
+    // fazendo parecer que a conferência falhou quando ela acabou de dar certo.
+    process.exitCode = faltando.length ? 1 : 0;
+    break;
   }
   console.log(`[${i}] ainda nao publicado; aguardando`);
   await espera(30000);
