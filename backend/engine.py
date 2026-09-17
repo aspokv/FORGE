@@ -727,6 +727,25 @@ def _compute_block_modifier(block_type: str) -> Tuple[float, float, Optional[str
 READINESS_LEVELS = ["HIGH", "NORMAL", "LOW", "VERY_LOW"]
 
 
+def classificar_recuperacao(avg_energy: float, avg_stress: float,
+                            avg_soreness: float) -> Tuple[str, float]:
+    """A prontidao do atleta em um nivel e uma pontuacao, sem banco e sem I/O.
+
+    Isto ja vivia dentro de `_get_recent_recovery`. Saiu para ca porque o Conselho
+    precisa da MESMA leitura para dizer por que a terca rende menos que a quinta, e duas
+    formulas de prontidao no mesmo aplicativo seriam duas verdades sobre o mesmo atleta.
+    """
+    pontuacao = avg_energy * 2 - avg_stress - avg_soreness
+    nivel = "NORMAL"
+    if pontuacao >= 7:
+        nivel = "HIGH"
+    elif pontuacao < 3:
+        nivel = "VERY_LOW"
+    elif pontuacao < 4.5:
+        nivel = "LOW"
+    return nivel, pontuacao
+
+
 async def _get_recent_recovery(db, profile_id: str) -> Dict[str, Any]:
     if db is None:
         return {"level": "NORMAL", "avg_energy": 5, "avg_sleep": 7, "avg_stress": 2, "avg_soreness": 2}
@@ -737,14 +756,7 @@ async def _get_recent_recovery(db, profile_id: str) -> Dict[str, Any]:
     avg_sleep = sum(r.get("sleep", 7) for r in rows) / len(rows)
     avg_stress = sum(r.get("stress", 2) for r in rows) / len(rows)
     avg_soreness = sum(r.get("soreness", 2) for r in rows) / len(rows)
-    recovery_score = avg_energy * 2 - avg_stress - avg_soreness
-    level = "NORMAL"
-    if recovery_score >= 7:
-        level = "HIGH"
-    elif recovery_score < 3:
-        level = "VERY_LOW"
-    elif recovery_score < 4.5:
-        level = "LOW"
+    level, recovery_score = classificar_recuperacao(avg_energy, avg_stress, avg_soreness)
     return {"level": level, "avg_energy": avg_energy, "avg_sleep": avg_sleep,
             "avg_stress": avg_stress, "avg_soreness": avg_soreness, "score": round(recovery_score, 1)}
 

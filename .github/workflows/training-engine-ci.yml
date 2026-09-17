@@ -162,6 +162,16 @@ on:
       - 'frontend/src/features/product-layout.css'
       - 'frontend/src/features/progressVisual.test.js'
       - 'frontend/src/home-hero-card.css'
+      - 'backend/conselho.py'
+      - 'backend/conselho_routes.py'
+      - 'backend/tests/test_conselho.py'
+      - 'backend/tests/test_conselho_api.py'
+      # Estava de fora: a varredura que exige pagamento em TODA rota mora aqui, e um teste
+      # dela tinha ficado vermelho sem ninguem ver quando o agressivo desceu para o Pro.
+      - 'backend/tests/test_billing_api.py'
+      - 'frontend/src/features/Conselho.jsx'
+      - 'frontend/src/features/Conselho.test.js'
+      - 'frontend/src/features/conselho.css'
       - '.github/workflows/training-engine-ci.yml'
   pull_request:
     paths:
@@ -321,6 +331,16 @@ on:
       - 'frontend/src/features/product-layout.css'
       - 'frontend/src/features/progressVisual.test.js'
       - 'frontend/src/home-hero-card.css'
+      - 'backend/conselho.py'
+      - 'backend/conselho_routes.py'
+      - 'backend/tests/test_conselho.py'
+      - 'backend/tests/test_conselho_api.py'
+      # Estava de fora: a varredura que exige pagamento em TODA rota mora aqui, e um teste
+      # dela tinha ficado vermelho sem ninguem ver quando o agressivo desceu para o Pro.
+      - 'backend/tests/test_billing_api.py'
+      - 'frontend/src/features/Conselho.jsx'
+      - 'frontend/src/features/Conselho.test.js'
+      - 'frontend/src/features/conselho.css'
       - '.github/workflows/training-engine-ci.yml'
 
 jobs:
@@ -441,6 +461,14 @@ jobs:
       # lista e toda troca de objetivo morria antes da requisicao.
       - name: Run CORS preflight suite
         run: pytest -q tests/test_cors_preflight.py
+      # O Conselho: a decisao pura roda sem banco; a de ponta a ponta usa o Mongo deste
+      # job. `test_billing_api` entra junto porque e ela que varre toda rota paga, e o
+      # portao do Conselho e uma delas.
+      - name: Run weekly council suites
+        run: >-
+          pytest -q --noconftest tests/test_conselho.py
+      - name: Run weekly council API and billing sweep
+        run: pytest -q tests/test_conselho_api.py tests/test_billing_api.py
       - name: Run library program suite
         run: >-
           pytest -q --noconftest

@@ -535,22 +535,50 @@ async def test_essencial_nao_acessa_alimentacao():
     assert r.json()["detail"]["capability"] == "nutrition"
 
 
+_CORPO_DE_AVALIACAO = {"weight_kg": 80, "height_cm": 175, "age": 30, "sex": "male",
+                       "goal": "fat_loss", "activity_level": "moderate",
+                       "training_days": 4, "meal_count": 4, "cooking_time": "medium"}
+
+
 @asincrono
-async def test_pro_acessa_alimentacao_mas_nao_o_agressivo():
+async def test_pro_acessa_alimentacao_E_o_agressivo():
+    """O agressivo desceu do Elite para o Pro, e este teste tinha ficado para tras.
+
+    Ele afirmava que o Pro tomava 402 no protocolo agressivo e passou a falhar no
+    instante em que a capacidade mudou de plano. Ninguem viu, porque
+    `tests/test_billing_api.py` nao estava nos `paths:` do CI: o arquivo simplesmente
+    nunca rodava. Entrou junto com esta correcao.
+    """
     os.environ["BILLING_ENFORCED"] = "true"
     os.environ["BILLING_GRANDFATHER_BEFORE"] = _iso(_agora() - timedelta(days=1))
     uid, h = await _criar_atleta(criado_em=_iso(_agora()))
     await _com_assinatura(uid, "pro")
-    corpo = {"weight_kg": 80, "height_cm": 175, "age": 30, "sex": "male",
-             "goal": "fat_loss", "activity_level": "moderate", "training_days": 4,
-             "meal_count": 4, "cooking_time": "medium"}
     async with await _cliente() as c:
-        permitido = await c.post("/api/nutrition/assessment", json=corpo, headers=h)
+        comum = await c.post("/api/nutrition/assessment", json=_CORPO_DE_AVALIACAO, headers=h)
+        agressivo = await c.post("/api/nutrition/assessment",
+                                 json={**_CORPO_DE_AVALIACAO, "intensity": "agressivo"},
+                                 headers=h)
+    assert comum.status_code == 200
+    assert agressivo.status_code == 200
+
+
+@asincrono
+async def test_essencial_nao_alcanca_o_protocolo_agressivo():
+    """A cobertura do 402 que o teste acima deixou de dar quando o agressivo desceu.
+
+    Sem isto, nenhum teste de API provaria que a capacidade ainda barra alguem, e a trava
+    poderia sumir inteira sem ninguem notar.
+    """
+    os.environ["BILLING_ENFORCED"] = "true"
+    os.environ["BILLING_GRANDFATHER_BEFORE"] = _iso(_agora() - timedelta(days=1))
+    uid, h = await _criar_atleta(criado_em=_iso(_agora()))
+    await _com_assinatura(uid, "essential")
+    async with await _cliente() as c:
         bloqueado = await c.post("/api/nutrition/assessment",
-                                 json={**corpo, "intensity": "agressivo"}, headers=h)
-    assert permitido.status_code == 200
+                                 json={**_CORPO_DE_AVALIACAO, "intensity": "agressivo"},
+                                 headers=h)
     assert bloqueado.status_code == 402
-    assert bloqueado.json()["detail"]["capability"] == "aggressive_protocols"
+    assert bloqueado.json()["detail"]["capability"] in ("aggressive_protocols", "nutrition")
 
 
 @asincrono

@@ -1,0 +1,142 @@
+/* O Conselho: o veredito da semana, no topo da Evolucao.
+ *
+ * O peso visual e deliberado. Este bloco e a unica coisa na tela que TOMA uma decisao;
+ * todo o resto da Evolucao descreve. A borda esquerda colorida por alavanca deixa a
+ * natureza da semana legivel antes de ler uma palavra: laranja quando ha uma acao,
+ * verde quando o recado e nao mexer, azul quando o assunto e treino.
+ */
+
+.conselho{
+  position:relative;
+  background:#141414;
+  border:1px solid #262626;
+  border-left:3px solid #3a3a3a;
+  border-radius:14px;
+  padding:22px 24px;
+  margin-bottom:22px;
+}
+.conselho.tom-acao{border-left-color:#ff632b}
+.conselho.tom-bom{border-left-color:#3fb87a}
+.conselho.tom-treino{border-left-color:#4f8ff7}
+.conselho.tom-atencao{border-left-color:#e8b33c}
+.conselho.tom-neutro{border-left-color:#5a5a5a}
+
+.conselho-topo{
+  display:flex;align-items:center;justify-content:space-between;
+  gap:12px;margin-bottom:12px;
+}
+.conselho-etiqueta{
+  font-size:10px;font-weight:600;letter-spacing:1.6px;text-transform:uppercase;
+  color:#7d7d78;
+}
+.conselho-alavanca{
+  font-size:10px;font-weight:700;letter-spacing:1.1px;text-transform:uppercase;
+  padding:4px 10px;border-radius:999px;border:1px solid transparent;white-space:nowrap;
+}
+.conselho-alavanca.tom-acao{color:#ff8b5e;border-color:#5a2d1b;background:#25150e}
+.conselho-alavanca.tom-bom{color:#66d29b;border-color:#1e4433;background:#0f2118}
+.conselho-alavanca.tom-treino{color:#7fb0ff;border-color:#1f3660;background:#0e1626}
+.conselho-alavanca.tom-atencao{color:#f0c765;border-color:#4d3c15;background:#211b0d}
+.conselho-alavanca.tom-neutro{color:#9a9a95;border-color:#333;background:#1b1b1b}
+
+.conselho h3{
+  font-size:22px;font-weight:600;letter-spacing:-.4px;line-height:1.2;
+  margin:0 0 10px;color:#f2f1ee;text-wrap:balance;
+}
+.conselho-motivo{
+  font-size:14px;line-height:1.65;color:#b6b5b1;margin:0;max-width:62ch;
+}
+
+/* O placar. Ele vem ANTES do veredito de proposito: quem ja viu o motor errar le o
+ * conselho de hoje com o peso certo. */
+.conselho-placar{
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;
+  padding:9px 12px;margin-bottom:14px;border-radius:9px;
+  background:#1a1a1a;border:1px solid #2a2a2a;
+}
+.conselho-placar p{display:flex;align-items:center;gap:7px;margin:0;font-size:12px}
+.conselho-placar p span{color:#8d8d88}
+.placar-acertou{color:#66d29b}
+.placar-errou{color:#f08a6a}
+.placar-corrido{font-size:11px;color:#7d7d78;white-space:nowrap}
+
+/* A mudanca proposta. */
+.conselho-mudanca{
+  margin:16px 0 0;padding:14px 16px;border-radius:10px;
+  background:#1b1b1b;border:1px solid #2e2e2e;
+}
+.conselho-troca{display:flex;align-items:center;gap:11px;flex-wrap:wrap;color:#8d8d88}
+.conselho-troca .de{font-size:15px;text-decoration:line-through;color:#75746f}
+.conselho-troca .para{font-size:20px;font-weight:650;color:#f2f1ee;letter-spacing:-.3px}
+.conselho-troca .delta{
+  display:inline-flex;align-items:center;gap:4px;
+  font-size:12px;font-weight:600;padding:3px 8px;border-radius:999px;
+}
+.conselho-troca .delta.corte{color:#ff8b5e;background:#25150e}
+.conselho-troca .delta.soma{color:#66d29b;background:#0f2118}
+.conselho-trava{display:block;margin-top:9px;font-size:11px;color:#6f6f6a}
+
+.conselho-previsao{
+  margin:15px 0 0;font-size:13px;line-height:1.6;color:#a9a8a4;
+  padding-left:12px;border-left:2px solid #333;
+}
+.conselho-previsao strong{color:#d8d7d3;font-weight:600}
+
+/* Aplicar e "agora nao" tem o MESMO peso: quem conhece o contexto que o banco nao tem
+ * e a pessoa, e uma recusa nao pode parecer um erro. */
+.conselho-acoes{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:18px}
+.conselho-principal,.conselho-secundario{
+  display:inline-flex;align-items:center;gap:8px;
+  font-size:12.5px;font-weight:600;padding:11px 17px;border-radius:9px;
+  border:1px solid transparent;cursor:pointer;
+  transition:background .16s,border-color .16s,opacity .16s;
+}
+.conselho-principal{background:#ff632b;color:#101010}
+.conselho-principal:hover:not(:disabled){background:#ff8052}
+.conselho-secundario{background:transparent;border-color:#3a3a3a;color:#bdbcb8}
+.conselho-secundario:hover:not(:disabled){background:#202020;border-color:#4a4a4a}
+.conselho-principal:disabled,.conselho-secundario:disabled{opacity:.55;cursor:default}
+
+.conselho-resolvido{margin:16px 0 0;font-size:12.5px;color:#8d8d88}
+.conselho-aviso{margin:11px 0 0;font-size:12.5px;color:#66d29b}
+
+/* A leitura que produziu o veredito. Sem ela o conselho seria um palpite com tipografia
+ * bonita, e a pessoa nao teria como discordar do motor. */
+.conselho-leitura{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:14px;
+  margin-top:20px;padding-top:18px;border-top:1px solid #262626;
+}
+.conselho-numero{display:flex;flex-direction:column;gap:3px;min-width:0}
+.conselho-numero-rotulo{
+  font-size:9px;font-weight:600;letter-spacing:1.3px;text-transform:uppercase;color:#6f6f6a;
+}
+.conselho-numero strong{
+  font-size:17px;font-weight:600;color:#e8e7e3;letter-spacing:-.3px;
+  font-variant-numeric:tabular-nums;
+}
+.conselho-numero small{font-size:10.5px;color:#75746f;line-height:1.35}
+
+/* Estados sem veredito. */
+.conselho-vazio{
+  display:flex;align-items:center;gap:11px;flex-wrap:wrap;
+  color:#8d8d88;font-size:13px;
+}
+.conselho-vazio p{margin:0}
+.conselho-bloqueado{border-left-color:#ff632b}
+.conselho-bloqueado h3{margin-top:9px}
+.conselho-bloqueado p{font-size:13.5px;line-height:1.65;color:#a9a8a4;max-width:62ch;margin:0}
+
+.girando{animation:conselho-girar 1s linear infinite}
+@keyframes conselho-girar{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.girando{animation:none}}
+
+@media(max-width:720px){
+  .conselho{padding:18px 17px;border-radius:12px}
+  .conselho h3{font-size:19px}
+  .conselho-motivo{font-size:13.5px}
+  /* Quatro colunas de numero nao cabem num telefone: viram duas, e cada uma continua
+   * legivel em vez de espremer o rotulo em duas linhas. */
+  .conselho-leitura{grid-template-columns:1fr 1fr;gap:16px 14px}
+  .conselho-acoes{gap:8px}
+  .conselho-principal,.conselho-secundario{flex:1 1 auto;justify-content:center}
+}
