@@ -169,9 +169,14 @@ async def _semear_tudo(uid: str, email: str):
     verde, porque deixou de semear justamente a colecao esquecida. Um teste que so prova
     que o codigo faz o que o codigo diz.
 
-    Agora a lista sai do BANCO. Colecao que nao estiver em `COLECOES_DO_ATLETA` nem em
-    `COLECOES_PRESERVADAS` recebe dado, sobrevive a exclusao e quebra o teste — que e a
-    unica forma de a lista nao envelhecer sozinha.
+    Agora a lista e a UNIAO de duas fontes, e cada uma cobre o furo da outra:
+
+      - as colecoes que EXISTEM no banco, que e o que pega colecao esquecida na remocao;
+      - as colecoes que a remocao declara, que e o que garante cobertura num banco novo.
+
+    A segunda entrou porque o CI reprovou e estava certo: la o banco nasce vazio,
+    `list_collection_names()` devolvia 13 de 30, e o teste passava cobrindo menos da
+    metade. Passar assim seria pior do que falhar.
 
     Cada documento leva `profile_id` E `user_id`, porque as duas convencoes convivem no
     banco e a remocao so precisa acertar uma delas. Os campos unicos vao preenchidos:
@@ -179,8 +184,10 @@ async def _semear_tudo(uid: str, email: str):
     com `null` no mesmo campo derrubariam a semeadura por DuplicateKeyError, fazendo o
     teste falhar por um motivo que nada tem a ver com o que ele mede.
     """
+    do_banco = set(await DB.list_collection_names())
+    declaradas = {c for c, _ in COLECOES_DO_ATLETA} | {c for c, _ in COLECOES_POR_EMAIL}
     semeadas = []
-    for nome in await DB.list_collection_names():
+    for nome in sorted(do_banco | declaradas):
         if nome in COLECOES_PRESERVADAS or nome == "users":
             continue
         doc = {"id": str(uuid.uuid4()), "reference": str(uuid.uuid4()),
@@ -204,9 +211,12 @@ async def test_nao_sobra_dado_orfao_em_colecao_nenhuma():
     admin_id, ha = await _admin()
     uid, email = await _atleta()
     try:
-        await _semear_tudo(uid, email)
-        # A semeadura tem de ter criado dado de verdade, senao o teste passa a toa.
-        assert len(await orfaos(DB, uid, email)) >= 25
+        semeadas = await _semear_tudo(uid, email)
+        # A semeadura tem de cobrir TUDO que a remocao declara, senao o teste passa a toa
+        # cobrindo metade. O piso vem da propria lista, e nao de um numero escrito a mao.
+        minimo = len(COLECOES_DO_ATLETA) + len(COLECOES_POR_EMAIL) - 1   # `users` ja existe
+        assert len(semeadas) >= minimo, f"semeou so {len(semeadas)} de {minimo}"
+        assert len(await orfaos(DB, uid, email)) >= minimo
 
         async with await _cliente() as c:
             r = await c.request("DELETE", f"/api/admin/athletes/{uid}",
@@ -392,12 +402,13 @@ async def test_excluir_nao_leva_junto_o_dado_de_outro_atleta():
     vizinho, email_vizinho = await _atleta()
     try:
         await _semear_tudo(alvo, email_alvo)
-        await _semear_tudo(vizinho, email_vizinho)
+        semeadas_vizinho = await _semear_tudo(vizinho, email_vizinho)
         async with await _cliente() as c:
             r = await c.request("DELETE", f"/api/admin/athletes/{alvo}",
                                 json={"confirmar_email": email_alvo}, headers=ha)
         assert r.status_code == 200
         assert await orfaos(DB, alvo, email_alvo) == []
-        assert len(await orfaos(DB, vizinho, email_vizinho)) >= 25   # intacto
+        # O vizinho sai inteiro: um filtro frouxo levaria ele junto.
+        assert len(await orfaos(DB, vizinho, email_vizinho)) >= len(semeadas_vizinho)
     finally:
         await _limpar(admin_id, alvo, vizinho)
