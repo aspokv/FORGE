@@ -167,6 +167,9 @@ on:
       - 'backend/tests/test_conselho.py'
       - 'backend/tests/test_conselho_api.py'
       - 'backend/tests/test_admin_planos.py'
+      - 'backend/remocao_de_atleta.py'
+      - 'backend/tests/test_admin_remocao.py'
+      - 'frontend/src/features/AdminPanel.remocao.test.js'
       - 'frontend/src/features/AdminPanel.planos.test.js'
       - 'frontend/src/features/AdminPanel.conceder.test.js'
       - 'frontend/src/features/conselho.css'
@@ -340,6 +343,9 @@ on:
       - 'backend/tests/test_conselho.py'
       - 'backend/tests/test_conselho_api.py'
       - 'backend/tests/test_admin_planos.py'
+      - 'backend/remocao_de_atleta.py'
+      - 'backend/tests/test_admin_remocao.py'
+      - 'frontend/src/features/AdminPanel.remocao.test.js'
       - 'frontend/src/features/AdminPanel.planos.test.js'
       - 'frontend/src/features/AdminPanel.conceder.test.js'
       - 'frontend/src/features/conselho.css'
@@ -481,6 +487,11 @@ jobs:
       # rota paga com o token do atleta, porque "a rota devolveu 200" nao prova acesso.
       - name: Run admin plan grant suite
         run: pytest -q tests/test_admin_planos.py
+      # Excluir atleta apaga de trinta colecoes. A suite semeia dado em TODAS as colecoes
+      # do banco e varre tudo depois: colecao esquecida vira dado orfao, e dado orfao nao
+      # levanta erro nenhum — so fica la com o nome de quem pediu para ser apagado.
+      - name: Run admin archive and delete suite
+        run: pytest -q tests/test_admin_remocao.py
       - name: Run library program suite
         run: >-
           pytest -q --noconftest

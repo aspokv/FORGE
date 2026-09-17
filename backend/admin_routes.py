@@ -1,4 +1,5 @@
 ﻿"""FORGE admin router: athlete management, audit log, AI usage."""
+import logging
 import re
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -12,6 +13,9 @@ from auth import AGUARDANDO_PAGAMENTO
 from billing_plans import ELITE, PLANOS, plano_ativo
 from entitlements import (ATIVA, ORIGEM_CONVITE_PARA_ASSINAR, ORIGEM_CORTESIA,
                           ORIGEM_CORTESIA_CONCEDIDA, ORIGEM_MERCADOPAGO, resolver_acesso)
+from remocao_de_atleta import orfaos, remover_dados
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -27,6 +31,9 @@ PLANOS_DO_PAINEL = [p["code"] for p in PLANOS if p.get("ativo")]
 PLANOS_LEGADOS = ["FORGE_ACCESS", "FORGE_PRO", "LIFETIME"]
 VALID_PLANS = PLANOS_DO_PAINEL + PLANOS_LEGADOS
 VALID_STATUS = ["PENDING", "PENDING_PAYMENT", "ACTIVE", "SUSPENDED", "EXPIRED"]
+# Nao e um status da conta, e um filtro da tela: arquivado e uma marca separada, para
+# uma conta arquivada nao perder se estava ativa ou suspensa quando saiu da lista.
+ARQUIVADO = "ARCHIVED"
 VALIDITY_MAP = {"30": 30, "90": 90, "180": 180, "365": 365, "LIFETIME": None}
 
 # As duas formas de trazer alguem para dentro. Nomes explicitos porque a diferenca entre
@@ -121,7 +128,13 @@ async def stats(request: Request, admin=Depends(require_super_admin)):
 async def list_athletes(request: Request, admin=Depends(require_super_admin), status: Optional[str] = None, q: Optional[str] = None):
     db = request.app.state.db
     query: Dict[str, Any] = {"role": "ATHLETE"}
-    if status: query["status"] = status.upper()
+    # Arquivado some da lista por padrao: e exatamente para isso que ele serve. Para
+    # rever, o filtro tem "Arquivados", e so entao eles aparecem — sozinhos.
+    if (status or "").upper() == ARQUIVADO:
+        query["archived_at"] = {"$ne": None}
+    else:
+        query["archived_at"] = None
+        if status: query["status"] = status.upper()
     if q:
         # re.escape: sem isto, uma busca como "(a+)+$" vira regex catastrofico e
         # trava a consulta. E rota administrativa, mas o custo de escapar e zero.
@@ -344,6 +357,107 @@ async def conceder_plano(athlete_id: str, payload: ConcederPlano, request: Reque
     assinatura = await db.subscriptions.find_one({"user_id": athlete_id}, {"_id": 0})
     return {"plan_code": payload.plan_code,
             "acesso": resolver_acesso(atualizado, assinatura)}
+
+
+class Arquivamento(BaseModel):
+    motivo: str = ""
+
+
+@router.post("/athletes/{athlete_id}/arquivar")
+async def arquivar_atleta(athlete_id: str, payload: Arquivamento, request: Request,
+                          admin=Depends(require_super_admin)):
+    """Tira da lista sem tirar do banco.
+
+    E a resposta certa para "a lista esta cheia de conta que nao usa": nada se perde,
+    volta com um clique, e o historico da pessoa continua la se ela voltar. Excluir de
+    verdade existe ao lado, para quando a intencao for mesmo apagar.
+    """
+    db = request.app.state.db
+    user = await db.users.find_one({"id": athlete_id, "role": "ATHLETE"})
+    if not user:
+        raise HTTPException(404, "Atleta não encontrado")
+
+    agora = datetime.now(timezone.utc).isoformat()
+    await db.users.update_one({"id": athlete_id}, {"$set": {
+        "archived_at": agora, "archived_by": admin["id"],
+        "archived_reason": (payload.motivo or "").strip()}})
+    await log_audit(db, admin, "athlete.archived", athlete_id,
+                    {"email": user.get("email"), "reason": payload.motivo})
+    return {"archived": True, "archived_at": agora}
+
+
+@router.post("/athletes/{athlete_id}/desarquivar")
+async def desarquivar_atleta(athlete_id: str, request: Request,
+                             admin=Depends(require_super_admin)):
+    db = request.app.state.db
+    user = await db.users.find_one({"id": athlete_id, "role": "ATHLETE"})
+    if not user:
+        raise HTTPException(404, "Atleta não encontrado")
+    await db.users.update_one({"id": athlete_id}, {"$unset": {
+        "archived_at": "", "archived_by": "", "archived_reason": ""}})
+    await log_audit(db, admin, "athlete.unarchived", athlete_id,
+                    {"email": user.get("email")})
+    return {"archived": False}
+
+
+class Exclusao(BaseModel):
+    # Confirmacao digitada. Nao e cerimonia: e o que separa "cliquei na linha errada" de
+    # "quero apagar esta pessoa". A tela nao preenche isto sozinha.
+    confirmar_email: str
+    motivo: str = ""
+
+
+@router.delete("/athletes/{athlete_id}")
+async def excluir_atleta(athlete_id: str, payload: Exclusao, request: Request,
+                         admin=Depends(require_super_admin)):
+    """Apaga a pessoa e TODO o rastro dela, de trinta colecoes. Nao tem volta.
+
+    As quatro travas, cada uma por um motivo que ja custou caro em algum lugar:
+
+      1. O email tem de ser digitado e bater. Uma linha errada numa lista de 1.600 e um
+         clique de distancia, e aqui nao ha desfazer.
+      2. Assinatura PAGA e ativa barra a exclusao. Apagar a conta nao cancela a cobranca
+         no Mercado Pago: sobraria uma cobranca correndo sem ninguem para associar a ela.
+      3. Administrador nao se exclui, nem exclui outro administrador por esta tela.
+      4. Tudo fica na auditoria, com a contagem do que saiu de cada colecao — e a
+         auditoria e justamente o que NAO se apaga junto.
+    """
+    db = request.app.state.db
+    user = await db.users.find_one({"id": athlete_id})
+    if not user:
+        raise HTTPException(404, "Atleta não encontrado")
+    if user.get("role") != "ATHLETE":
+        raise HTTPException(403, {
+            "message": "Esta tela exclui atletas. Contas administrativas não.",
+            "reason": "not_an_athlete"})
+    if athlete_id == admin["id"]:
+        raise HTTPException(403, {"message": "Você não pode excluir a própria conta.",
+                                  "reason": "self_delete"})
+
+    digitado = (payload.confirmar_email or "").strip().lower()
+    if digitado != (user.get("email") or "").lower():
+        raise HTTPException(400, {
+            "message": "Digite o e-mail exato do atleta para confirmar a exclusão.",
+            "reason": "email_mismatch"})
+
+    assinatura = await db.subscriptions.find_one({"user_id": athlete_id})
+    if (assinatura and assinatura.get("provider") == ORIGEM_MERCADOPAGO
+            and assinatura.get("status") in (ATIVA, "past_due")):
+        raise HTTPException(409, {
+            "message": "Este atleta tem uma assinatura paga ativa. Cancele a cobrança no "
+                       "Mercado Pago antes de excluir, senão ela continua correndo.",
+            "reason": "paid_subscription"})
+
+    email = (user.get("email") or "").lower()
+    removidos = await remover_dados(db, athlete_id, email)
+    await log_audit(db, admin, "athlete.deleted", athlete_id, {
+        "email": email, "name": user.get("name"),
+        "reason": (payload.motivo or "").strip(),
+        "removidos": removidos})
+    logger.info("atleta excluido id=%s por=%s colecoes=%s",
+                athlete_id, admin["id"], sorted(removidos))
+    return {"deleted": True, "removidos": removidos,
+            "total": sum(removidos.values())}
 
 
 @router.post("/athletes/{athlete_id}/suspend")
