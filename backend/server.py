@@ -538,13 +538,79 @@ async def muscle_map(profile_id: str, user=Depends(get_current_user)):
 
 
 @api.get("/exercises/{exercise_id}/alternatives")
-async def alternatives(exercise_id: str, _user=Depends(get_current_user)):
+async def alternatives(exercise_id: str, user=Depends(get_current_user),
+                       profile_id: Optional[str] = None):
     source = next((x for x in EXERCISES if x["id"] == exercise_id), None)
     if not source: raise HTTPException(404, "Exercício não encontrado")
-    alt_ids = source.get("alternative_ids", [])
+    ex_index = {e["id"]: e for e in EXERCISES}
+    ja_na_sessao = await exercicios_da_mesma_sessao(
+        owned_profile_id(user, profile_id), exercise_id)
+    alt_ids = [aid for aid in source.get("alternative_ids", [])
+               if aid in ex_index and aid not in ja_na_sessao]
     return {"source": source, "alternatives": [
-        {"id": aid, "name": name, "reason": f"Mantém {source['muscle']} e o padrão {source['pattern']}, com diferença de estabilidade e custo de fadiga."}
-        for aid, name in zip(alt_ids, source["alternatives"])]}
+        {"id": aid, "name": ex_index[aid]["name"],
+         "reason": motivo_da_alternativa(source, ex_index[aid])}
+        for aid in alt_ids]}
+
+
+async def exercicios_da_mesma_sessao(perfil_id: str, exercise_id: str) -> set:
+    """Os OUTROS exercicios dos dias em que este aparece.
+
+    Oferecer como substituto algo que ja esta na mesma sessao produz o treino repetido:
+    medido, trocar "Barra fixa pronada" por "Barra fixa neutra" num dia que ja tinha as
+    duas deixava a sessao com `['neutral-pullup', 'neutral-pullup', ...]` — duas vezes o
+    mesmo exercicio, com a prescricao contada duas vezes.
+
+    O recorte e a SESSAO, e nao o programa: o mesmo exercicio em dias diferentes e
+    normal e nao deve ser excluido.
+    """
+    try:
+        profile = await load_profile(perfil_id)
+        program = await build_program(profile)
+    except Exception:
+        # A lista de alternativas nao pode deixar de abrir porque o programa falhou.
+        return set()
+    usados = set()
+    for sessao in (program or {}).get("sessions", []):
+        ids = [e.get("exercise_id") for e in sessao.get("exercises", [])]
+        if exercise_id in ids:
+            usados.update(i for i in ids if i and i != exercise_id)
+    return usados
+
+
+EQUIPAMENTO_EM_PORTUGUES = {
+    "barbell": "barra", "dumbbell": "halteres", "cable": "polia", "machine": "máquina",
+    "smith_machine": "Smith", "bodyweight": "peso do corpo", "kettlebell": "kettlebell",
+    "band": "elástico", "ez_bar": "barra EZ", "trap_bar": "trap bar", "bench": "banco",
+}
+
+FADIGA_EM_PORTUGUES = {"low": "baixo", "medium": "médio", "high": "alto"}
+
+
+def motivo_da_alternativa(origem: dict, alvo: dict) -> str:
+    """Por que ESTA alternativa, e nao as outras duas.
+
+    A frase antiga era a mesma para as tres, e ainda vazava o identificador interno do
+    padrao: "Mantém Tríceps e o padrão elbow_extension". O atleta lia um nome de campo do
+    banco no meio de um texto em portugues, e as tres opcoes diziam exatamente a mesma
+    coisa — ou seja, nao ajudavam a escolher.
+
+    O que muda de verdade entre elas e o equipamento e o custo de fadiga, e os dois ja
+    estao no catalogo. O que NAO muda (musculo e padrao) vale dizer uma vez, porque e a
+    garantia de que series, reps e descanso continuam valendo.
+    """
+    partes = []
+    eq_origem = EQUIPAMENTO_EM_PORTUGUES.get(origem.get("equipment"), origem.get("equipment"))
+    eq_alvo = EQUIPAMENTO_EM_PORTUGUES.get(alvo.get("equipment"), alvo.get("equipment"))
+    if eq_alvo and eq_alvo != eq_origem:
+        partes.append(f"troca {eq_origem} por {eq_alvo}")
+    fad_origem, fad_alvo = origem.get("fatigue"), alvo.get("fatigue")
+    if fad_alvo and fad_alvo != fad_origem:
+        partes.append(f"custo de fadiga {FADIGA_EM_PORTUGUES.get(fad_alvo, fad_alvo)} "
+                      f"no lugar de {FADIGA_EM_PORTUGUES.get(fad_origem, fad_origem)}")
+    if not partes:
+        partes.append("mesmo equipamento e mesma fadiga, muda a execução")
+    return f"Mantém {origem['muscle']}: " + ", ".join(partes) + "."
 
 
 @api.post("/exercises/substitute")
@@ -560,9 +626,40 @@ async def substitute_exercise(payload: ExerciseSubstituteIn, user=Depends(get_cu
     # needing a separate adaptation step.
     if payload.new_exercise_id not in source.get("alternative_ids", []):
         raise HTTPException(400, "Substituição não permitida: não é uma alternativa válida para este exercício")
+    # A trava vive aqui, e nao so na listagem: a tela ja nao oferece o que esta repetido,
+    # mas quem chamar a rota direto passaria por cima dela.
+    if payload.new_exercise_id in await exercicios_da_mesma_sessao(
+            target, payload.original_exercise_id):
+        raise HTTPException(409, {
+            "message": "Esse exercício já está nesta sessão. Escolha outro.",
+            "reason": "duplicate_in_session"})
     profile = await load_profile(target)
     subs = dict(profile.get("exercise_substitutions") or {})
-    subs[payload.original_exercise_id] = payload.new_exercise_id
+
+    # Trocar DUAS VEZES o mesmo lugar precisa reescrever a origem, e nao criar um elo novo.
+    #
+    # `_apply_exercise_substitutions` percorre cada exercicio do programa UMA vez e
+    # consulta o mapa: item `dip` vira `incline-smith` e o passeio acaba ali. Se a segunda
+    # troca gravasse `incline-smith -> db-incline-press`, essa entrada nunca dispararia,
+    # porque nenhum exercicio GERADO se chama `incline-smith`. Medido: a rota devolvia 200,
+    # a troca ficava salva no perfil, e o programa voltava igual — do lado do atleta, "nao
+    # salva": sem erro, o painel fecha e a tela nao muda.
+    #
+    # A troca continua segura porque "mesmo musculo primario e mesmo padrao" e transitivo:
+    # se `dip` equivale a `incline-smith` e este equivale a `db-incline-press`, entao a
+    # prescricao original continua valendo para o ultimo.
+    origem = payload.original_exercise_id
+    for gerado, escolhido in subs.items():
+        if escolhido == payload.original_exercise_id:
+            origem = gerado
+            break
+
+    if payload.new_exercise_id == origem:
+        # Voltar ao exercicio original e desfazer, e nao mapear algo para ele mesmo.
+        subs.pop(origem, None)
+    else:
+        subs[origem] = payload.new_exercise_id
+
     await db.profiles.update_one(
         {"id": target}, {"$set": {"exercise_substitutions": subs, "user_id": target}}, upsert=True)
     profile = await load_profile(target)

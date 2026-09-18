@@ -38,8 +38,15 @@ for ex in FRONTEND_EXERCISE_LIST:
     alt_ids = [a["id"] for a in EXERCISES
                if a["id"] != ex["id"] and a["primary_muscle"] == src["primary_muscle"]
                and a.get("movement_pattern") == src.get("movement_pattern")][:3]
-    if not alt_ids:
-        alt_ids = [e["id"] for e in EXERCISES if e["id"] != ex["id"]][:1]
+    # Sem alternativa real, a lista fica VAZIA. Havia aqui um recuo que oferecia o
+    # primeiro exercicio do catalogo, qualquer um: medido, 12 dos 134 exercicios caiam
+    # nele, e todos os 12 ofereciam "Supino inclinado Smith". Na tela isso virava
+    # "Cadeira abdutora -> Supino inclinado Smith", com a frase "Mantem Gluteos e o
+    # padrao hip_abduction" — que e falsa, e pior que nao oferecer nada: a prescricao
+    # (series, reps, descanso, RIR) e mantida intacta na troca justamente porque o
+    # substituto tem o MESMO musculo e o MESMO padrao. Sem isso, a troca entrega um
+    # treino errado com a conta do treino certo.
+    #
     # alternative_ids is what the substitution-apply endpoint validates a swap against
     # (item: real substitution, not just listing) — alternatives (names) is unchanged
     # for any existing frontend consumer that only ever read the display strings.
