@@ -300,9 +300,33 @@ async def load_profile(profile_id: str) -> Dict[str, Any]:
 async def root(): return {"message": "FORGE API online", "version": "2.0"}
 
 
+async def _semana_em_segundo_plano(perfil_id: str, user: dict) -> None:
+    """Grava a leitura da semana sem segurar a abertura do aplicativo.
+
+    O calculo faz varias consultas (consumo, peso, series, check-ins). Feito em linha, o
+    `bootstrap` — que e a primeira requisicao de toda sessao — pagaria esse custo uma vez
+    por semana por atleta, bem na hora em que a pessoa esta olhando a tela de carregando.
+    Em segundo plano, ninguem espera.
+
+    Falha aqui nao pode derrubar a abertura: registrar o que aconteceu vale menos do que
+    o aplicativo abrir.
+    """
+    try:
+        from conselho_routes import _pode_ver_conselho, registrar_semana
+        await registrar_semana(db, perfil_id, visivel=await _pode_ver_conselho(db, user))
+    except Exception:
+        logger.exception("conselho: falha ao registrar a semana de %s", perfil_id)
+
+
 @api.get("/bootstrap")
 async def bootstrap(user=Depends(get_current_user), profile_id: Optional[str] = None):
     target = owned_profile_id(user, profile_id)
+    # A leitura da semana e gravada para TODO atleta, veja ele o Conselho ou nao: cada
+    # semana e um experimento (condicao, decisao, previsao, resultado), e aprender so com
+    # quem paga mais seria aprender com a fatia errada. A gravacao e idempotente, entao
+    # isto custa uma consulta indexada nas outras aberturas da semana.
+    if user.get("role") == "ATHLETE":
+        asyncio.create_task(_semana_em_segundo_plano(target, user))
     profile = await load_profile(target)
     program = await build_program(profile)
     recent = await db.set_logs.find({"profile_id": target}, {"_id": 0}).sort("created_at", -1).to_list(100)
@@ -1849,6 +1873,12 @@ async def startup():
     # Cobranca. Os indices unicos sao a garantia estrutural contra: duas assinaturas para
     # o mesmo atleta, reprocessamento do mesmo evento e duas liberacoes pelo mesmo
     # pagamento — nenhuma delas depende de o codigo "lembrar" de checar.
+    # Uma leitura por atleta por semana. Sem este indice a corrida e real e foi medida:
+    # o `bootstrap` dispara a gravacao em segundo plano, dez aberturas rapidas disparam
+    # dez tarefas, todas veem "ainda nao existe" e todas inserem. O teste pegou 3 linhas
+    # para a mesma semana — e semana duplicada estragaria a serie desde o primeiro dia,
+    # em silencio.
+    await db.conselho_semanal.create_index([("profile_id", 1), ("semana", 1)], unique=True)
     await db.subscriptions.create_index("user_id", unique=True)
     await db.subscriptions.create_index("provider_subscription_id", sparse=True)
     await db.billing_events.create_index("event_key", unique=True)

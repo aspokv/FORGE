@@ -539,3 +539,81 @@ def test_nenhuma_frase_gerada_sai_sem_acento():
         for texto in textos:
             for forma in sem_acento:
                 assert forma not in texto, f"{forma!r} sem acento em: {texto!r}"
+
+
+# ── O placar do metodo ──────────────────────────────────────────────────────────────
+
+def _semana(alavanca="caloria", objetivo="fat_loss", resultado=None, visivel=True,
+            aplicada=None):
+    return {"decisao": {"alavanca": alavanca, "objetivo": objetivo},
+            "conferido": {"resultado": resultado} if resultado else None,
+            "visivel": visivel,
+            "aplicada": {"status": aplicada} if aplicada else None}
+
+
+def test_com_amostra_pequena_o_placar_diz_que_ainda_nao_sabe():
+    """Uma taxa tirada de duas semanas convenceria alguem a mudar uma regra com base em
+    ruido. O numero aparece, mas acompanhado de "nao da para concluir"."""
+    placar = retrospecto([])  # nao usado aqui, so garante o import vivo
+    assert placar is not None
+
+    from conselho import placar_do_metodo, MINIMO_PARA_CONCLUIR
+    p = placar_do_metodo([_semana(resultado=ACERTOU), _semana(resultado=ACERTOU)])
+    assert p["taxa"] == 1.0
+    assert p["amostra_suficiente"] is False
+    assert p["minimo_para_concluir"] == MINIMO_PARA_CONCLUIR
+
+
+def test_com_amostra_suficiente_o_placar_conclui():
+    from conselho import placar_do_metodo, MINIMO_PARA_CONCLUIR
+    semanas = ([_semana(resultado=ACERTOU)] * 24) + ([_semana(resultado=ERROU)] * 8)
+    p = placar_do_metodo(semanas)
+    assert p["julgadas"] == 32 >= MINIMO_PARA_CONCLUIR
+    assert p["amostra_suficiente"] is True
+    assert p["taxa"] == 0.75
+
+
+def test_a_semana_sem_veredito_conta_mas_nao_julga():
+    """Quem parou de registrar nao vira acerto nem erro: premiar o silencio seria pior."""
+    from conselho import placar_do_metodo
+    p = placar_do_metodo([_semana(resultado=ACERTOU), _semana(resultado=None)])
+    assert p["semanas"] == 2
+    assert p["julgadas"] == 1
+
+
+def test_o_placar_separa_quem_VIU_de_quem_nunca_viu():
+    """Quem nunca viu o conselho nunca pode te-lo aplicado: esse grupo mede o que
+    acontece sem intervencao, e e a unica comparacao honesta que existe."""
+    from conselho import placar_do_metodo
+    p = placar_do_metodo([_semana(visivel=True), _semana(visivel=False),
+                          _semana(visivel=False)])
+    assert p["vistas"] == 1
+    assert p["nao_vistas"] == 2
+
+
+def test_o_placar_separa_por_alavanca_e_por_objetivo():
+    """Uma taxa unica esconde o que interessa: a regra que erra pode ser uma so."""
+    from conselho import placar_do_metodo
+    p = placar_do_metodo([
+        _semana(alavanca=AJUSTAR_CALORIA, objetivo="fat_loss", resultado=ACERTOU),
+        _semana(alavanca=AJUSTAR_CALORIA, objetivo="muscle_gain", resultado=ERROU),
+        _semana(alavanca=MANTER, objetivo="fat_loss", resultado=ACERTOU),
+    ])
+    assert p["por_alavanca"][AJUSTAR_CALORIA]["semanas"] == 2
+    assert p["por_alavanca"][MANTER]["taxa"] == 1.0
+    assert p["por_objetivo"]["muscle_gain"]["taxa"] == 0.0
+
+
+def test_o_placar_conta_quantas_foram_aplicadas():
+    from conselho import placar_do_metodo
+    p = placar_do_metodo([_semana(aplicada="aplicada"), _semana(aplicada="recusada"),
+                          _semana()])
+    assert p["aplicadas"] == 1
+
+
+def test_o_placar_de_base_vazia_nao_inventa_taxa():
+    from conselho import placar_do_metodo
+    p = placar_do_metodo([])
+    assert p["semanas"] == 0
+    assert p["taxa"] is None
+    assert p["amostra_suficiente"] is False

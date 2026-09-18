@@ -17,12 +17,13 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from pymongo.errors import DuplicateKeyError
 from pydantic import BaseModel
 
 import conselho as motor
 from auth import get_current_user
 from billing_plans import ANALISES_AVANCADAS
-from entitlements import exigir_capacidade
+from entitlements import acesso_de, exigir_capacidade
 
 logger = logging.getLogger(__name__)
 
@@ -126,6 +127,67 @@ async def _ler_atleta(db, perfil_id: str) -> Dict[str, Any]:
     )
 
 
+async def registrar_semana(db, perfil_id: str, visivel: bool) -> Dict[str, Any]:
+    """Grava a leitura e a previsao da semana, uma vez por atleta por semana.
+
+    Por que isto vive fora da rota do Elite
+    ---------------------------------------
+    A decisao so APARECE para quem tem `advanced_analytics`. Mas cada semana gravada e
+    um experimento completo: `estado` (a condicao antes), `decisao` (a intervencao),
+    `previsao` (a aposta) e, na semana seguinte, `conferido` (o que aconteceu). Gravar so
+    para quem ve significaria aprender so com a fatia que paga mais — e comecar a contar
+    o tempo do zero no dia em que alguem resolvesse medir.
+
+    O custo e um documento por atleta por semana. O ganho e que os limiares do motor
+    (`PASSO_CALORICO`, `QUEDA_DE_VOLUME`, `RITMO_ESPERADO`) deixam de ser julgamento e
+    passam a ter medida, sobre a base inteira, desde hoje.
+
+    `visivel` nao e enfeite
+    -----------------------
+    Quem nao ve o Conselho nunca aplica a mudanca; quem ve escolhe aplicar ou nao. Sao
+    tres grupos diferentes, e misturar os tres numa media transformaria a analise futura
+    em correlacao disfarcada de causa. Guardar em qual deles a semana caiu, no momento em
+    que ela acontece, e o que permite comparar direito depois — e nao da para reconstruir
+    isso olhando para tras, porque o plano da pessoa muda.
+
+    Idempotente: a semana ja gravada nao e recalculada, entao chamar isto a cada abertura
+    do aplicativo custa uma consulta indexada.
+    """
+    agora = datetime.now(timezone.utc)
+    semana = _semana_de(agora)
+    ja = await db.conselho_semanal.find_one(
+        {"profile_id": perfil_id, "semana": semana}, {"_id": 0})
+    if ja:
+        return ja
+
+    estado = await _ler_atleta(db, perfil_id)
+    decisao = motor.decidir(estado)
+    documento = {
+        "id": str(uuid.uuid4()), "profile_id": perfil_id, "semana": semana,
+        "criado_em": agora.isoformat(), "decisao": decisao,
+        "previsao": decisao.get("previsao"), "estado": estado,
+        "visivel": bool(visivel),
+        "aplicada": None, "conferido": None,
+    }
+    try:
+        await db.conselho_semanal.insert_one(documento)
+    except DuplicateKeyError:
+        # Outra tarefa gravou primeiro. Isso e o esperado, nao um erro: o indice unico e
+        # que decide quem ganha, e as duas chamadas devolvem a MESMA semana.
+        return await db.conselho_semanal.find_one(
+            {"profile_id": perfil_id, "semana": semana}, {"_id": 0})
+    documento.pop("_id", None)
+    return documento
+
+
+async def _pode_ver_conselho(db, user: Dict[str, Any]) -> bool:
+    try:
+        acesso = await acesso_de(db, user)
+        return ANALISES_AVANCADAS in (acesso.get("capabilities") or [])
+    except Exception:
+        return False
+
+
 def _sem_underscore(documento: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
     if not documento:
         return None
@@ -161,21 +223,15 @@ async def conselho_da_semana(request: Request, user=Depends(get_current_user)):
                 {"$set": {"conferido": placar,
                           "conferido_em": agora.isoformat()}})
 
-    # Idempotencia: a semana ja decidida nao e decidida de novo.
-    desta_semana = await db.conselho_semanal.find_one(
-        {"profile_id": perfil_id, "semana": semana}, {"_id": 0})
-    if desta_semana:
-        decisao = desta_semana.get("decisao") or {}
-        aplicada = desta_semana.get("aplicada")
-    else:
-        decisao = motor.decidir(estado)
-        await db.conselho_semanal.insert_one({
-            "id": str(uuid.uuid4()), "profile_id": perfil_id, "semana": semana,
-            "criado_em": agora.isoformat(), "decisao": decisao,
-            "previsao": decisao.get("previsao"), "estado": estado,
-            "aplicada": None, "conferido": None,
-        })
-        aplicada = None
+    # A mesma gravacao que roda para todo mundo no `bootstrap`. Aqui ela quase sempre ja
+    # aconteceu, e esta chamada so devolve o que esta guardado.
+    desta_semana = await registrar_semana(db, perfil_id, visivel=True)
+    decisao = desta_semana.get("decisao") or {}
+    aplicada = desta_semana.get("aplicada")
+    # Quem virou Elite depois da semana ser gravada passa a ver o que ja estava la.
+    if not desta_semana.get("visivel"):
+        await db.conselho_semanal.update_one(
+            {"profile_id": perfil_id, "semana": semana}, {"$set": {"visivel": True}})
 
     conferidas = await db.conselho_semanal.find(
         {"profile_id": perfil_id, "conferido": {"$ne": None}},
@@ -278,6 +334,55 @@ async def aplicar_conselho(payload: AplicarIn, request: Request,
     logger.info("conselho aplicado perfil=%s semana=%s delta=%s", perfil_id, semana,
                 round(delta_kcal, 0))
     return {"status": "aplicada", "targets": alvos, "aplicada": resultado}
+
+
+@router.post("/varrer")
+async def varrer_todos(request: Request, user=Depends(get_current_user)):
+    """Grava a semana de TODO atleta ativo, de uma vez.
+
+    O `bootstrap` cobre quem abre o aplicativo, que e a maioria mas nao e todo mundo:
+    quem some por duas semanas deixa dois buracos na serie, e buraco por ausencia e
+    justamente o dado mais interessante — some quem parou de aderir.
+
+    Esta rota fecha os buracos. E do dono, e nao do atleta: ela toca a base inteira.
+    """
+    db = request.app.state.db
+    if user.get("role") != "SUPER_ADMIN":
+        raise HTTPException(403, "Apenas o proprietário pode varrer a base.")
+
+    atletas = await db.users.find(
+        {"role": "ATHLETE", "status": "ACTIVE", "archived_at": None},
+        {"_id": 0, "id": 1}).to_list(5000)
+
+    gravadas, ja_tinham, falhas = 0, 0, 0
+    for atleta in atletas:
+        try:
+            antes = await db.conselho_semanal.count_documents(
+                {"profile_id": atleta["id"], "semana": _semana_de(datetime.now(timezone.utc))})
+            await registrar_semana(db, atleta["id"], visivel=False)
+            if antes:
+                ja_tinham += 1
+            else:
+                gravadas += 1
+        except Exception:
+            falhas += 1
+            logger.exception("conselho: varredura falhou em %s", atleta["id"])
+
+    logger.info("conselho: varredura gravou=%s ja_tinham=%s falhas=%s de %s atletas",
+                gravadas, ja_tinham, falhas, len(atletas))
+    return {"atletas": len(atletas), "gravadas": gravadas,
+            "ja_tinham": ja_tinham, "falhas": falhas}
+
+
+@router.get("/metodo")
+async def placar_do_metodo(request: Request, user=Depends(get_current_user)):
+    """O placar do metodo, sobre a base inteira. Do dono, e nao do atleta."""
+    db = request.app.state.db
+    if user.get("role") != "SUPER_ADMIN":
+        raise HTTPException(403, "Apenas o proprietário vê o placar do método.")
+    semanas = await db.conselho_semanal.find(
+        {}, {"_id": 0, "estado": 0}).sort("semana", -1).to_list(20000)
+    return motor.placar_do_metodo(semanas)
 
 
 @router.get("/historico")

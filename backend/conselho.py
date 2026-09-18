@@ -825,3 +825,77 @@ def retrospecto(conferidas: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
     return {"acertos": acertos, "erros": erros, "julgadas": julgadas,
             "nao_verificaveis": len(conferidas) - julgadas,
             "taxa": round(acertos / julgadas, 3) if julgadas else None}
+
+
+# ── O placar do metodo ──────────────────────────────────────────────────────────────
+
+# Abaixo disto nao se conclui nada. O numero existe para a tela poder dizer "ainda nao
+# sei" em vez de mostrar uma taxa de 100% tirada de duas semanas.
+MINIMO_PARA_CONCLUIR = 30
+
+
+def placar_do_metodo(semanas: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
+    """Quantas vezes cada alavanca do motor acertou a propria previsao.
+
+    Cada semana gravada e um experimento: condicao antes, intervencao, aposta, resultado.
+    Agregadas, elas respondem a pergunta que nunca foi feita ao FORGE: os limiares que
+    decidem tudo (`PASSO_CALORICO` de 8%, `QUEDA_DE_VOLUME` de 15%, as faixas de
+    `RITMO_ESPERADO`) estao certos? Hoje sao julgamento. Aqui eles passam a ter medida.
+
+    A funcao NAO propoe correcao, e isso e deliberado enquanto a amostra e pequena: uma
+    taxa calculada sobre cinco semanas convenceria alguem a mudar uma regra com base em
+    ruido. Ela conta, separa por alavanca e por objetivo, e diz quando ainda nao da para
+    concluir.
+
+    `visivel` entra na conta porque quem NUNCA VIU o conselho nunca pode te-lo aplicado:
+    esse grupo mede o que acontece sem intervencao, que e a unica base de comparacao
+    honesta para o grupo que aplicou.
+    """
+    total = len(semanas)
+    por_alavanca: Dict[str, Dict[str, Any]] = {}
+    por_objetivo: Dict[str, Dict[str, Any]] = {}
+    aplicadas = vistas = 0
+
+    for semana in semanas:
+        decisao = semana.get("decisao") or {}
+        alavanca = decisao.get("alavanca") or "desconhecida"
+        objetivo = decisao.get("objetivo") or "desconhecido"
+        conferido = semana.get("conferido") or {}
+        resultado = conferido.get("resultado")
+        if semana.get("visivel"):
+            vistas += 1
+        if (semana.get("aplicada") or {}).get("status") == "aplicada":
+            aplicadas += 1
+
+        for mapa, chave in ((por_alavanca, alavanca), (por_objetivo, objetivo)):
+            linha = mapa.setdefault(chave, {"semanas": 0, "acertos": 0, "erros": 0})
+            linha["semanas"] += 1
+            if resultado == ACERTOU:
+                linha["acertos"] += 1
+            elif resultado == ERROU:
+                linha["erros"] += 1
+
+    def fechar(mapa):
+        for linha in mapa.values():
+            julgadas = linha["acertos"] + linha["erros"]
+            linha["julgadas"] = julgadas
+            linha["taxa"] = round(linha["acertos"] / julgadas, 3) if julgadas else None
+            # A tela precisa saber a diferenca entre "errou muito" e "ainda nao sei".
+            linha["amostra_suficiente"] = julgadas >= MINIMO_PARA_CONCLUIR
+        return mapa
+
+    julgadas = sum(l["acertos"] + l["erros"] for l in por_alavanca.values())
+    acertos = sum(l["acertos"] for l in por_alavanca.values())
+    return {
+        "semanas": total,
+        "vistas": vistas,
+        "nao_vistas": total - vistas,
+        "aplicadas": aplicadas,
+        "julgadas": julgadas,
+        "acertos": acertos,
+        "taxa": round(acertos / julgadas, 3) if julgadas else None,
+        "amostra_suficiente": julgadas >= MINIMO_PARA_CONCLUIR,
+        "minimo_para_concluir": MINIMO_PARA_CONCLUIR,
+        "por_alavanca": fechar(por_alavanca),
+        "por_objetivo": fechar(por_objetivo),
+    }

@@ -166,6 +166,7 @@ on:
       - 'backend/conselho_routes.py'
       - 'backend/tests/test_conselho.py'
       - 'backend/tests/test_conselho_api.py'
+      - 'backend/tests/test_conselho_registro.py'
       - 'backend/tests/test_admin_planos.py'
       - 'backend/remocao_de_atleta.py'
       - 'backend/tests/test_admin_remocao.py'
@@ -346,6 +347,7 @@ on:
       - 'backend/conselho_routes.py'
       - 'backend/tests/test_conselho.py'
       - 'backend/tests/test_conselho_api.py'
+      - 'backend/tests/test_conselho_registro.py'
       - 'backend/tests/test_admin_planos.py'
       - 'backend/remocao_de_atleta.py'
       - 'backend/tests/test_admin_remocao.py'
@@ -491,6 +493,11 @@ jobs:
           pytest -q --noconftest tests/test_conselho.py
       - name: Run weekly council API and billing sweep
         run: pytest -q tests/test_conselho_api.py tests/test_billing_api.py
+      # A leitura semanal e gravada para TODO atleta, e uma vez so por semana. O indice
+      # unico (profile_id, semana) e o que impede a corrida do bootstrap de duplicar a
+      # serie em silencio — medido: dez aberturas rapidas gravavam tres linhas.
+      - name: Run weekly council recording suite
+        run: pytest -q tests/test_conselho_registro.py
       # O painel administrativo concede plano de verdade: cada caso termina batendo numa
       # rota paga com o token do atleta, porque "a rota devolveu 200" nao prova acesso.
       - name: Run admin plan grant suite
