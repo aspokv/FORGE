@@ -14,7 +14,8 @@ from external_food_catalog import search_external_foods, resolve_external_food
 import uuid, random
 
 from auth import get_current_user
-from billing_plans import ALIMENTACAO, PROTOCOLOS_AGRESSIVOS, plano, plano_minimo_com
+from billing_plans import (ALIMENTACAO, DIARIO_LIVRE, PROTOCOLOS_AGRESSIVOS, plano,
+                           plano_minimo_com)
 from entitlements import acesso_de, exigir_capacidade
 from escolha_humana import escolhas_da_refeicao
 import receitas as receitas_do_forge
@@ -71,11 +72,30 @@ class ConsumedFoodIn(BaseModel):
     grams: float = Field(gt=0, le=5000, allow_inf_nan=False)
 
 
+# As refeicoes do diario livre sao as MESMAS do motor de nutricao
+# (`_REFEICAO_PARA_TAGS`), e nao uma lista nova. Se um dia a leitura semanal for olhar o
+# que a pessoa comeu de verdade, os dois lados precisam falar a mesma lingua — duas
+# taxonomias de refeicao no mesmo produto viram dois relatorios que nao batem.
+REFEICOES_DO_DIARIO = {
+    "breakfast": "Café da manhã",
+    "morning_snack": "Lanche da manhã",
+    "pre_workout": "Pré-treino",
+    "post_workout": "Pós-treino",
+    "lunch": "Almoço",
+    "snack": "Lanche da tarde",
+    "dinner": "Jantar",
+    "supper": "Ceia",
+}
+
+
 class ConsumedMealIn(BaseModel):
     date: CalendarDate
     meal_index: Optional[int] = Field(default=None, ge=0, le=5)
     entry_id: uuid.UUID
     foods: List[ConsumedFoodIn] = Field(min_length=1, max_length=40)
+    # Presente = diario livre ("registrei meu almoco"), que e do Elite. Ausente = o extra
+    # anonimo de sempre, que o Pro continua tendo. Assim ninguem perde o que ja usava.
+    refeicao: Optional[str] = None
 
 
 class SubstituteFoodIn(BaseModel):
@@ -1648,6 +1668,16 @@ async def get_carb_cycle(request: Request, user=Depends(get_current_user)):
             **ciclo}
 
 
+@router.get("/refeicoes-do-diario")
+async def refeicoes_do_diario(_user=Depends(get_current_user)):
+    """As refeicoes que o diario livre aceita, na ordem do dia.
+
+    Vem do servidor para a tela nao manter uma segunda lista: duas taxonomias de refeicao
+    no mesmo produto viram dois relatorios que nao batem.
+    """
+    return {"refeicoes": [{"id": k, "nome": v} for k, v in REFEICOES_DO_DIARIO.items()]}
+
+
 @router.get("/consumed-foods")
 async def consumed_food_catalog(request: Request, user=Depends(get_current_user)):
     return {"foods": [{k: f.get(k) for k in ("id", "name", "aliases", "grams", "kcal", "protein_g", "carbs_g", "fat_g", "source", "source_url")} for f in DIARY_FOODS.values()]}
@@ -1662,6 +1692,10 @@ async def search_consumed_foods(q: str = Query(min_length=2, max_length=80), use
 async def save_consumed_meal(payload: ConsumedMealIn, request: Request, user=Depends(get_current_user)):
     db = request.app.state.db
     await exigir_capacidade(db, user, ALIMENTACAO)
+    if payload.refeicao is not None:
+        if payload.refeicao not in REFEICOES_DO_DIARIO:
+            raise HTTPException(422, "Refeição desconhecida.")
+        await exigir_capacidade(db, user, DIARIO_LIVRE)
     external_foods = {}
     for item in payload.foods:
         if item.food_id.startswith("off:"):
@@ -1684,6 +1718,9 @@ async def save_consumed_meal(payload: ConsumedMealIn, request: Request, user=Dep
         await db.nutrition_adherence.update_one({"_id": f"meal:{target}:{day}:{payload.meal_index}"}, {"$set": doc}, upsert=True)
     else:
         doc["entry_id"] = str(payload.entry_id)
+        if payload.refeicao:
+            doc["refeicao"] = payload.refeicao
+            doc["refeicao_nome"] = REFEICOES_DO_DIARIO[payload.refeicao]
         await db.nutrition_consumed_extras.update_one({"_id": f"extra:{target}:{payload.entry_id}"}, {"$set": doc}, upsert=True)
     return {"actual": actual}
 

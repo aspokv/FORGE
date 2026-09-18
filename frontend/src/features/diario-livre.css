@@ -1,0 +1,75 @@
+/* O diário livre: o que foi comido, separado do que estava planejado.
+ *
+ * Ele fica NO TOPO da nutrição, antes do plano, e por um motivo: quem abre esta tela
+ * num dia em que não seguiu o plano vem registrar, não vem conferir. Empilhado embaixo,
+ * como estava, ele parecia um apêndice do plano e ninguém achava. */
+
+.diario-livre{
+  background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--accent);
+  border-radius:12px;padding:17px 16px;margin-bottom:18px}
+.diario-topo{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.diario-etiqueta{display:inline-flex;align-items:center;gap:6px;
+  font:600 10px var(--fg-mono);letter-spacing:1.5px;text-transform:uppercase;color:var(--muted)}
+.diario-livre h3{margin:7px 0 0;font-size:18px;font-weight:600;color:var(--text);
+  letter-spacing:-.3px}
+.diario-total{font-size:22px;font-weight:650;color:var(--accent);white-space:nowrap;
+  font-variant-numeric:tabular-nums}
+.diario-total small{font-size:11px;color:var(--muted);font-weight:500}
+.diario-explicacao{margin:9px 0 0;font-size:12.5px;line-height:1.55;color:var(--muted);
+  max-width:56ch}
+
+/* As refeições como alvos de toque.
+ *
+ * O rótulo em cima e a caloria embaixo, e não lado a lado: com os dois na mesma linha,
+ * "Lanche da tarde · 154 kcal" passa de 160px e não cabem duas colunas num telefone de
+ * 390. Em coluna única as oito refeições davam 400px só de botões, e o cartão virava a
+ * tela inteira antes do plano aparecer. Empilhado, cabem duas colunas e o bloco cai pela
+ * metade. */
+.diario-refeicoes{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:14px}
+.diario-refeicao{display:flex;flex-direction:column;align-items:flex-start;gap:2px;
+  /* Espaço à direita para o "+" absoluto: sem ele, "Lanche da manhã" encosta no ícone. */
+  min-height:46px;padding:8px 26px 8px 11px;border-radius:10px;cursor:pointer;
+  background:var(--elevated);border:1px solid var(--line);color:#cfccc5;
+  font-size:12px;text-align:left;transition:border-color .16s,background .16s;
+  position:relative}
+.diario-refeicao:hover{border-color:var(--accent);background:#1c1a17}
+.diario-refeicao.tem{border-color:#5a4632;color:var(--text)}
+.diario-refeicao span{line-height:1.25}
+.diario-refeicao b{font-size:11px;color:var(--accent);white-space:nowrap;
+  font-variant-numeric:tabular-nums}
+/* O "+" fica no canto, sem ocupar linha: quem ainda nao registrou nada ve um alvo limpo. */
+.diario-refeicao i{position:absolute;right:9px;top:50%;transform:translateY(-50%);
+  display:grid;place-items:center;color:var(--muted)}
+
+.diario-registros{list-style:none;margin:14px 0 0;padding:0;display:grid;gap:1px;
+  border-top:1px solid var(--line)}
+.diario-registros li{display:flex;align-items:center;gap:12px;padding:11px 0;
+  border-bottom:1px solid var(--line)}
+.diario-registros li>div{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.diario-registros b{font-size:12.5px;color:var(--text)}
+.diario-registros span{font-size:11.5px;color:var(--muted);line-height:1.45}
+.diario-registros strong{font-size:13px;color:var(--text);white-space:nowrap;
+  font-variant-numeric:tabular-nums}
+.diario-registros li>button{width:34px;height:34px;flex:none;display:grid;place-items:center;
+  border-radius:8px;border:1px solid var(--line);background:transparent;color:#c96a58;
+  cursor:pointer}
+.diario-registros li>button:hover{background:#2a1a17;border-color:#6e4338}
+
+.diario-erro{margin:10px 0 0;font-size:12px;color:#e08a6a}
+
+.diario-editor{margin-top:14px;border:1px solid var(--line);border-radius:10px;
+  padding:13px;background:var(--elevated)}
+.diario-editor-topo{display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:10px}
+.diario-editor-topo b{font-size:13px;color:var(--text)}
+.diario-editor-topo button{width:32px;height:32px;display:grid;place-items:center;
+  border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--muted);
+  cursor:pointer}
+
+.diario-bloqueado{border-left-color:var(--accent)}
+.diario-bloqueado p{margin:9px 0 0;font-size:13px;line-height:1.6;color:#bdbab3;
+  max-width:60ch}
+
+@media(max-width:330px){
+  .diario-refeicoes{grid-template-columns:1fr}
+}

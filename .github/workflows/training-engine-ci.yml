@@ -167,6 +167,11 @@ on:
       - 'backend/tests/test_conselho.py'
       - 'backend/tests/test_conselho_api.py'
       - 'backend/tests/test_conselho_registro.py'
+      - 'backend/tests/test_diario_livre.py'
+      - 'frontend/src/features/DiarioLivre.jsx'
+      - 'frontend/src/features/DiarioLivre.test.js'
+      - 'frontend/src/features/diario-livre.css'
+      - 'frontend/src/features/FoodDiaryEditor.jsx'
       - 'backend/tests/test_admin_planos.py'
       - 'backend/remocao_de_atleta.py'
       - 'backend/tests/test_admin_remocao.py'
@@ -348,6 +353,11 @@ on:
       - 'backend/tests/test_conselho.py'
       - 'backend/tests/test_conselho_api.py'
       - 'backend/tests/test_conselho_registro.py'
+      - 'backend/tests/test_diario_livre.py'
+      - 'frontend/src/features/DiarioLivre.jsx'
+      - 'frontend/src/features/DiarioLivre.test.js'
+      - 'frontend/src/features/diario-livre.css'
+      - 'frontend/src/features/FoodDiaryEditor.jsx'
       - 'backend/tests/test_admin_planos.py'
       - 'backend/remocao_de_atleta.py'
       - 'backend/tests/test_admin_remocao.py'
@@ -498,6 +508,11 @@ jobs:
       # serie em silencio — medido: dez aberturas rapidas gravavam tres linhas.
       - name: Run weekly council recording suite
         run: pytest -q tests/test_conselho_registro.py
+      # O diario livre usa o MESMO vocabulario de refeicao do motor de nutricao. Duas
+      # taxonomias no mesmo produto viram dois relatorios que nao batem, e a suite cobra
+      # isso comparando as duas listas.
+      - name: Run free food diary suite
+        run: pytest -q tests/test_diario_livre.py
       # O painel administrativo concede plano de verdade: cada caso termina batendo numa
       # rota paga com o token do atleta, porque "a rota devolveu 200" nao prova acesso.
       - name: Run admin plan grant suite
