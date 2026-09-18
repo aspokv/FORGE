@@ -11,7 +11,9 @@ export const matchesFoodQuery=(food,query)=>{
   const text=clean([food.name,...(food.aliases||[])].join(" "));
   return terms.every(term=>text.includes(term));
 };
-export default function FoodDiaryEditor({API,mealIndex,mealName,onSaved,onClose}) {
+// `refeicao` so existe no diario livre (Elite): ela diz de QUE refeicao e o registro.
+// Sem ela o comportamento e o de sempre — o extra anonimo, que o Pro continua tendo.
+export default function FoodDiaryEditor({API,mealIndex,mealName,refeicao,onSaved,onClose}) {
   const [catalog,setCatalog]=useState([]),[query,setQuery]=useState(""),[items,setItems]=useState([]);
   const [external,setExternal]=useState([]),[searching,setSearching]=useState(false);
   const [error,setError]=useState(""),[busy,setBusy]=useState(false),[loading,setLoading]=useState(true);
@@ -86,7 +88,7 @@ export default function FoodDiaryEditor({API,mealIndex,mealName,onSaved,onClose}
     if(busy||!items.length)return;
     setBusy(true);setError("");
     try {
-      await axios.post(`${API}/nutrition/consumed-meal`,{date,meal_index:mealIndex,entry_id:entryId,foods:items.map(f=>({food_id:f.id,grams:Number(f.amount)}))});
+      await axios.post(`${API}/nutrition/consumed-meal`,{date,meal_index:mealIndex,entry_id:entryId,...(refeicao?{refeicao}:{}),foods:items.map(f=>({food_id:f.id,grams:Number(f.amount)}))});
       await onSaved();
       onClose();
     } catch {setError("Não foi possível confirmar o registro. Tente salvar novamente; o mesmo registro não será duplicado.");}

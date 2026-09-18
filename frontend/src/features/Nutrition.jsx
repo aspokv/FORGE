@@ -11,6 +11,7 @@ import TrocarObjetivo from "./TrocarObjetivo";
 import AcrescentarRefeicao from "./AcrescentarRefeicao";
 import NutritionImport from "./NutritionImport";
 import FoodDiaryEditor from "./FoodDiaryEditor";
+import DiarioLivre from "./DiarioLivre";
 import {localFoodDate, consumedTotals} from "./foodDiary";
 import { kcalDoItem, macrosDaRefeicao, textoDoMacro } from "./macrosDaRefeicao";
 import "./forge-nutricao.css";
@@ -661,6 +662,16 @@ export default function Nutrition({ API, profileId, db }) {
     <AstraPage screen={2} testId="astra-nutrition">
       <AstraIntro eyebrow={astraDate()} title="Nutrição." subtitle="Seu plano, refeição por refeição."/>
       <AstraNutritionSummary consumed={consumed} targets={t}/>
+      {/*
+        * O diario livre vem ANTES do plano, e nao depois.
+        *
+        * Sao duas perguntas diferentes: o plano responde "o que eu como hoje", o diario
+        * responde "o que eu comi". Quem abre esta tela num dia em que nao seguiu o plano
+        * vem registrar, nao vem conferir — e o registro estava no fim da pagina, chamado
+        * "Adicionar um extra", aparecendo depois como "Extra · 320 kcal", sem dizer de que
+        * refeicao era. Empilhado embaixo do plano, parecia um apendice dele.
+        */}
+      <DiarioLivre API={API} dia={localFoodDate()} diario={diary} aoMudar={refreshDiary}/>
       <div className="a6-section-title" style={{marginTop:8,marginBottom:4}}><h2>Suas refeições</h2><button type="button" className="a6-textbutton" onClick={()=>setDiaryEditor({mealIndex:null})}>+ Adicionar</button></div>
       {diaryEditor?.mealIndex===null&&<FoodDiaryEditor API={API} mealIndex={null} onSaved={refreshDiary} onClose={()=>setDiaryEditor(null)}/>}
       {importOpen && (

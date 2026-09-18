@@ -29,6 +29,10 @@ REGENERAR_ALIMENTACAO = "nutrition_regenerate"
 INTENSIDADES_PADRAO = "standard_intensities"
 PROTOCOLOS_AGRESSIVOS = "aggressive_protocols"
 ANALISES_AVANCADAS = "advanced_analytics"
+# Registrar o que se comeu DE VERDADE, por refeicao, fora do plano. O extra anonimo
+# continua no Pro; o que e do Elite e o diario nomeado, que soma por refeicao e um dia
+# vai alimentar a leitura semanal do Conselho.
+DIARIO_LIVRE = "free_food_log"
 VARIACOES_DE_TREINO = "workout_variations"
 
 CAPACIDADES_ESSENCIAL = {TREINO, PROGRESSAO, HISTORICO, SUBSTITUICAO_DE_EXERCICIO}
@@ -38,7 +42,7 @@ CAPACIDADES_ESSENCIAL = {TREINO, PROGRESSAO, HISTORICO, SUBSTITUICAO_DE_EXERCICI
 CAPACIDADES_PRO = CAPACIDADES_ESSENCIAL | {
     ALIMENTACAO, SUBSTITUICAO_DE_ALIMENTO, REGENERAR_ALIMENTACAO, INTENSIDADES_PADRAO,
     VARIACOES_DE_TREINO, PROTOCOLOS_AGRESSIVOS}
-CAPACIDADES_ELITE = CAPACIDADES_PRO | {ANALISES_AVANCADAS}
+CAPACIDADES_ELITE = CAPACIDADES_PRO | {ANALISES_AVANCADAS, DIARIO_LIVRE}
 
 ESSENCIAL, PRO, ELITE = "essential", "pro", "elite"
 
@@ -115,6 +119,7 @@ PLANOS: List[Dict[str, Any]] = [
             # deixar em "em breve" o que ja esta no ar esconde o motivo de assinar.
             "O Conselho: toda semana o FORGE lê seus números e decide um ajuste",
             "Previsão semanal conferida: o motor diz se acertou",
+            "Diário livre: registre o que você comeu de verdade, refeição por refeição",
             "Maior nível de personalização",
         ],
         # Separado de proposito: sao promessas, nao entregas.
