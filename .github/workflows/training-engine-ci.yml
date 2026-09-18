@@ -178,6 +178,8 @@ on:
       - 'backend/tests/test_billing_api.py'
       - 'frontend/src/features/Conselho.jsx'
       - 'frontend/src/features/Conselho.test.js'
+      - 'frontend/src/features/AstraProgress.jsx'
+      - 'frontend/src/features/AstraProgress.conselho.test.js'
       - 'frontend/src/features/conselho.css'
       - '.github/workflows/training-engine-ci.yml'
   pull_request:
@@ -354,6 +356,8 @@ on:
       - 'backend/tests/test_billing_api.py'
       - 'frontend/src/features/Conselho.jsx'
       - 'frontend/src/features/Conselho.test.js'
+      - 'frontend/src/features/AstraProgress.jsx'
+      - 'frontend/src/features/AstraProgress.conselho.test.js'
       - 'frontend/src/features/conselho.css'
       - '.github/workflows/training-engine-ci.yml'
 

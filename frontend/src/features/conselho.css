@@ -147,3 +147,51 @@
   .conselho-acoes{gap:8px}
   .conselho-principal,.conselho-secundario{flex:1 1 auto;justify-content:center}
 }
+
+/* ── Dentro da tela de Evolucao ───────────────────────────────────────────────────────
+ *
+ * O Conselho vive dentro do `.a6`, e la existe uma regra de normalizacao forte:
+ *
+ *   .forge-shell .a6 :is(h1,h2,h3,p,small,strong,span,button,summary){
+ *     font-family:Arial…; text-transform:none }
+ *
+ * Especificidade (0,2,1) contra os (0,1,0) das minhas classes: ela ganhava de tudo.
+ * Medido no navegador, o cartao saia com `text-transform:none` nas etiquetas, titulo de
+ * 15px em vez de 19 e botoes de 15px sem altura minima. O texto ficava sem a hierarquia
+ * que o cartao depende para ser lido de relance.
+ *
+ * O prefixo `.forge-shell .a6` e a mesma saida que `compact-evolution.css` ja usa para o
+ * cartao de exercicio. Nao e força bruta com `!important`: e igualar o terreno.
+ */
+.forge-shell .a6 .conselho{padding:17px 16px}
+.forge-shell .a6 .conselho .conselho-etiqueta,
+.forge-shell .a6 .conselho .conselho-numero-rotulo,
+.forge-shell .a6 .conselho .conselho-alavanca{text-transform:uppercase}
+
+.forge-shell .a6 .conselho h3{
+  font-size:19px;font-weight:600;line-height:1.22;letter-spacing:-.3px;
+  margin:0 0 9px;color:var(--text)}
+.forge-shell .a6 .conselho .conselho-motivo{font-size:13.5px;line-height:1.6}
+.forge-shell .a6 .conselho .conselho-previsao{font-size:12.5px;line-height:1.55}
+.forge-shell .a6 .conselho .conselho-troca .para{font-size:19px}
+.forge-shell .a6 .conselho .conselho-numero strong{font-size:16px}
+
+/* Os dois botoes na MESMA linha.
+ *
+ * O `flex:1 1 auto` era meu, e era ele que empilhava: com `flex-wrap`, dois botoes que
+ * crescem viram duas linhas de largura cheia, e "Agora nao" ficava do tamanho de
+ * "Aplicar". Agora eles tem a largura do proprio texto, lado a lado, e o primario
+ * continua sendo o unico preenchido. */
+.forge-shell .a6 .conselho .conselho-acoes{gap:9px;margin-top:16px;flex-wrap:nowrap}
+.forge-shell .a6 .conselho .conselho-principal,
+.forge-shell .a6 .conselho .conselho-secundario{
+  flex:0 1 auto;min-height:42px;font-size:12.5px;padding:0 14px;white-space:nowrap}
+
+/* A leitura fecha o cartao com quatro numeros, e nao precisa do mesmo respiro do corpo. */
+.forge-shell .a6 .conselho .conselho-leitura{margin-top:16px;padding-top:15px;gap:13px 12px}
+
+@media(max-width:359px){
+  .forge-shell .a6 .conselho .conselho-acoes{flex-wrap:wrap}
+  .forge-shell .a6 .conselho .conselho-principal,
+  .forge-shell .a6 .conselho .conselho-secundario{flex:1 1 auto;justify-content:center}
+}
