@@ -164,6 +164,13 @@ on:
       - 'frontend/src/home-hero-card.css'
       - 'backend/conselho.py'
       - 'backend/conselho_routes.py'
+      - 'backend/hybrid_metadata.py'
+      - 'backend/training_engine_hybrid.py'
+      - 'backend/tests/test_hybrid_metadata.py'
+      - 'backend/tests/test_hybrid_engine.py'
+      - 'backend/tests/test_hybrid_api.py'
+      - 'frontend/src/features/trainingSplits.js'
+      - 'frontend/src/features/trainingSplits.test.js'
       - 'backend/tests/test_cardio.py'
       - 'backend/tests/test_observacao_de_exercicio.py'
       - 'frontend/src/features/Cardio.jsx'
@@ -358,6 +365,13 @@ on:
       - 'frontend/src/home-hero-card.css'
       - 'backend/conselho.py'
       - 'backend/conselho_routes.py'
+      - 'backend/hybrid_metadata.py'
+      - 'backend/training_engine_hybrid.py'
+      - 'backend/tests/test_hybrid_metadata.py'
+      - 'backend/tests/test_hybrid_engine.py'
+      - 'backend/tests/test_hybrid_api.py'
+      - 'frontend/src/features/trainingSplits.js'
+      - 'frontend/src/features/trainingSplits.test.js'
       - 'backend/tests/test_cardio.py'
       - 'backend/tests/test_observacao_de_exercicio.py'
       - 'frontend/src/features/Cardio.jsx'
@@ -411,7 +425,7 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
       - name: Compile training engine, cardio, and custom library modules
-        run: python -m py_compile engine.py female_program_selector.py training_engine_v4.py training_engine_v5.py muscles.py cardio.py cardio_routes.py training_programs.py custom_training_programs.py runtime_server.py
+        run: python -m py_compile engine.py female_program_selector.py training_engine_v4.py training_engine_v5.py muscles.py cardio.py cardio_routes.py training_programs.py custom_training_programs.py runtime_server.py hybrid_metadata.py training_engine_hybrid.py
       - name: Run V5 training regression suite
         run: >-
           pytest -q --noconftest
@@ -554,6 +568,20 @@ jobs:
       # pessoa digita, e sem o indice unico cada toque viraria uma linha.
       - name: Run exercise note suite
         run: pytest -q tests/test_observacao_de_exercicio.py
+      # Hybrid Training Engine. O metadado e a decisao pura rodam sem banco: regiao,
+      # demanda de biceps e estresse articular sao DERIVADOS do catalogo em vez de
+      # cadastrados, e a suite cobra os 134 exercicios de uma vez — um exercicio sem
+      # regiao nunca entra numa rotacao de vetor e some da prescricao sem levantar erro.
+      - name: Run hybrid engine suites
+        run: >-
+          pytest -q --noconftest
+          tests/test_hybrid_metadata.py
+          tests/test_hybrid_engine.py
+      # De ponta a ponta, contra `runtime_server` — que e o modulo que o Dockerfile sobe e
+      # onde o hibrido e instalado. Testar contra `server:app` provaria que o motor
+      # funciona numa aplicacao que ninguem executa.
+      - name: Run hybrid end-to-end suite
+        run: pytest -q tests/test_hybrid_api.py
       - name: Run library program suite
         run: >-
           pytest -q --noconftest

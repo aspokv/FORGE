@@ -387,6 +387,10 @@ function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutC
           <div>
             <span className="exercise-index">0{i+1}</span><div className="exercise-photo-heading"><ExercisePhoto exercise={{...ex,exercise_id:x.exercise_id}}/><h3>{ex.name}</h3></div>
             <p className="muted">{x.reps} reps · RIR {x.rir} · {x.rest}</p>
+            {/* O role só existe nas arquiteturas híbridas. Sem esta etiqueta, uma
+                microdose de uma série parece exercício esquecido pela metade — e é
+                justamente ela que faz a frequência alta caber na recuperação. */}
+            {x.role_label&&x.role!=="primary"&&<span className={`role-tag role-${x.role}`}data-testid={`role-${x.exercise_id}`}>{x.role_label}</span>}
             {x.note&&<p className="muted" style={{marginTop:6}}>· {x.note}</p>}
             <button className={isAdv?"technique-badge":"technique-badge plain"}data-testid={`technique-badge-${x.exercise_id}-${i}`}onClick={()=>openTech(tech)}><Info size={12}/>{tech.name}</button>
           </div>
