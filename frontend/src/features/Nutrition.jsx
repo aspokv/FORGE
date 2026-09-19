@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import {Suspense, lazy, useEffect, useMemo, useRef, useState} from "react";
 import axios from "axios";
 import { ChevronRight, RefreshCw, Check, X, Utensils, ClipboardPaste } from "lucide-react";
 import NutritionDailyFooter from "./NutritionDailyFooter";
@@ -12,6 +12,7 @@ import AcrescentarRefeicao from "./AcrescentarRefeicao";
 import NutritionImport from "./NutritionImport";
 import FoodDiaryEditor from "./FoodDiaryEditor";
 import DiarioLivre from "./DiarioLivre";
+const ForgeFoodCard = lazy(() => import("./food-card/components/ForgeFoodCard"));
 import {localFoodDate, consumedTotals} from "./foodDiary";
 import { kcalDoItem, macrosDaRefeicao, textoDoMacro } from "./macrosDaRefeicao";
 import "./forge-nutricao.css";
@@ -104,6 +105,10 @@ export default function Nutrition({ API, profileId, db }) {
   const [error, setError] = useState("");
   const [mealStatus, setMealStatus] = useState({});
   const [diary, setDiary] = useState({meals:[],extras:[]});
+  // A refeição que virou Food Card, ou null. Fica aqui em cima com os outros hooks:
+  // declarado mais abaixo, ele cairia depois de um return antecipado e a ordem dos hooks
+  // mudaria entre renderizações.
+  const [foodCard, setFoodCard] = useState(null);
   const [diaryEditor, setDiaryEditor] = useState(null);
   const refreshDiary = async () => {
     const r = await axios.get(`${API}/nutrition/adherence/${localFoodDate()}`);
@@ -671,7 +676,17 @@ export default function Nutrition({ API, profileId, db }) {
         * "Adicionar um extra", aparecendo depois como "Extra · 320 kcal", sem dizer de que
         * refeicao era. Empilhado embaixo do plano, parecia um apendice dele.
         */}
-      <DiarioLivre API={API} dia={localFoodDate()} diario={diary} aoMudar={refreshDiary}/>
+      <DiarioLivre API={API} dia={localFoodDate()} diario={diary} aoMudar={refreshDiary}
+                   onFoodCard={entryId => setFoodCard({dia: localFoodDate(), entryId})}/>
+      {/* O Food Card entra como sobreposição, e não como rota: ele nasce de uma refeição
+          específica e volta para esta mesma tela. Uma rota exigiria carregar a refeição de
+          novo do zero e o atleta perderia a posição da página ao voltar. */}
+      {foodCard && (
+        <Suspense fallback={<p className="muted" role="status">Abrindo o Food Card…</p>}>
+          <ForgeFoodCard API={API} dia={foodCard.dia} entryId={foodCard.entryId}
+                         onFechar={() => setFoodCard(null)}/>
+        </Suspense>
+      )}
       <div className="a6-section-title" style={{marginTop:8,marginBottom:4}}><h2>Suas refeições</h2><button type="button" className="a6-textbutton" onClick={()=>setDiaryEditor({mealIndex:null})}>+ Adicionar</button></div>
       {diaryEditor?.mealIndex===null&&<FoodDiaryEditor API={API} mealIndex={null} onSaved={refreshDiary} onClose={()=>setDiaryEditor(null)}/>}
       {importOpen && (

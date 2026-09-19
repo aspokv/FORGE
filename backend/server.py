@@ -28,6 +28,7 @@ from nutrition_import_routes import router as nutrition_import_router
 from billing_routes import router as billing_router
 from password_reset_routes import router as password_reset_router
 from cardio_routes import router as cardio_router
+from food_card_routes import router as food_card_router
 from conselho_routes import router as conselho_router
 from preassessment_routes import router as preassessment_router
 from signup_routes import router as signup_router
@@ -1857,6 +1858,7 @@ app.include_router(preassessment_router)
 app.include_router(password_reset_router)
 app.include_router(conselho_router)
 app.include_router(cardio_router)
+app.include_router(food_card_router)
 app.include_router(api)
 def _origens_permitidas() -> List[str]:
     """Allowlist exata de origens.
@@ -1944,6 +1946,7 @@ async def startup():
     await db.users.create_index("invite_token")
     await db.set_logs.create_index([("profile_id", 1), ("created_at", -1)])
     await db.cardio_logs.create_index([("profile_id", 1), ("date", -1)])
+    await db.food_cards.create_index([("userId", 1), ("createdAt", -1)])
     # `client_token` e a idempotencia do finalizador: sem o indice, duas tentativas
     # da mesma gravacao viram duas sessoes de cardio no historico.
     await db.cardio_logs.create_index(
