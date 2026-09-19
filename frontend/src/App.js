@@ -15,6 +15,8 @@ import {exercicioConcluido,resumoDoExercicio,textoDoResumo} from "./features/exe
 import "./features/performance-os.css";
 import "./features/product-layout.css";
 const ProgramBuilder=lazy(()=>import("./features/ProgramBuilder"));
+const Cardio=lazy(()=>import("./features/Cardio"));
+import ObservacaoDoExercicio from "./features/ObservacaoDoExercicio";
 import MuscleSessionMap from "./features/MuscleSessionMap";
 import {findTechnique,TECHNIQUE_FALLBACK} from "./features/techniques";
 import {AuthProvider,useAuth} from "./features/AuthContext";
@@ -223,6 +225,7 @@ function TrainingViewTabs({view,onChange}){
   return <div className="training-view-tabs"role="tablist"aria-label="Área de treinos"data-testid="training-view-tabs">
     <button type="button"role="tab"aria-selected={view==="session"}className={view==="session"?"active":""}data-testid="training-current-tab"onClick={()=>onChange("session")}><Dumbbell size={17}/><span>Treino atual<small>Executar a sessão do seu plano</small></span></button>
     <button type="button"role="tab"aria-selected={view==="library"}className={view==="library"?"active":""}data-testid="training-library-tab"onClick={()=>onChange("library")}><BookOpen size={17}/><span>Biblioteca<small>Escolher sessões e programas manualmente</small></span></button>
+    <button type="button"role="tab"aria-selected={view==="cardio"}className={view==="cardio"?"active":""}data-testid="training-cardio-tab"onClick={()=>onChange("cardio")}><Activity size={17}/><span>Cardio<small>Registrar esteira, bike e escada</small></span></button>
   </div>
 }
 function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutCompleted,onLibraryBuild,onLibraryTemplateAdd}){
@@ -256,6 +259,9 @@ function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutC
   // nada: cada exercicio novo que termina recolhe sozinho.
   const[reabertos,setReabertos]=useState({});
   const[setErr,setSetErr]=useState({});
+  // As observacoes dos exercicios de hoje e a ultima de cada um, numa requisicao so.
+  // Uma por exercicio deixaria oito chamadas na abertura de cada treino.
+  const[observacoes,setObservacoes]=useState({hoje:{},anterior:{}});
   const[finishResult,setFinishResult]=useState(null);
   const[finishing,setFinishing]=useState(false);
   const[partialReason,setPartialReason]=useState("");
@@ -264,6 +270,16 @@ function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutC
   const finishLock=useRef(false);
   const[startedAt,setStartedAt]=useState(()=>Date.now());
   useEffect(()=>{setSessionStarted(false);setDone({});setFinishResult(null);setFinishing(false);setTimer(0);setRestingSet(null);finishLock.current=false;},[activeSession?.day,activeSession?.label,todayCompletion?.completed_at]);
+  const idsDaSessao=items.map(x=>x.exercise_id).filter(Boolean).join(",");
+  useEffect(()=>{
+    if(!idsDaSessao){setObservacoes({hoje:{},anterior:{}});return}
+    let vivo=true;
+    axios.get(`${API}/exercise-notes?ids=${encodeURIComponent(idsDaSessao)}`)
+      .then(r=>{if(vivo)setObservacoes({hoje:r.data?.hoje||{},anterior:r.data?.anterior||{}})})
+      // Observacao e acessoria: se falhar, o treino abre igual e o campo comeca vazio.
+      .catch(()=>{});
+    return()=>{vivo=false};
+  },[idsDaSessao]);
   useEffect(()=>{const init={};items.forEach(x=>{const hint=hints[x.exercise_id]||{};for(let n=0;n<x.sets;n++)init[`${x.exercise_id}-${n}`]={weight:hint.last_weight||x.load||0,reps:hint.last_reps||prescribedReps(x.reps,n),rir:String(x.rir||"2").match(/\d+/)?.[0]||"2"};});setSetInputs(init)},[items,!!Object.keys(hints).length]);
   const[draftState,setDraftState]=useState("idle");
   const draftTimer=useRef(null),draftReady=useRef(false),lastSaved=useRef("");
@@ -316,16 +332,20 @@ function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutC
     <div className="training-tabs-wrap">{viewTabs}</div>
     <WorkoutLibrary API={API}exercises={db.exercises||[]}profile={db.profile}program={db.program}initialCategory={sessionCategory(activeSession,p)}onBuild={onLibraryBuild}onTemplateAdd={onLibraryTemplateAdd}onApplied={()=>{setView("session");setSessionStarted(false)}}/>
   </AstraPage>;
-  if(todayCompletion)return <CompletedWorkout db={db} completion={todayCompletion} onLibrary={()=>setView("library")}/>;
+  if(view==="cardio")return <AstraPage screen={1}testId="training-cardio-view">
+    <div className="training-tabs-wrap">{viewTabs}</div>
+    <Cardio API={API}/>
+  </AstraPage>;
+  if(todayCompletion)return <CompletedWorkout db={db} completion={todayCompletion} onLibrary={()=>setView("library")}onCardio={()=>setView("cardio")}/>;
   if(completionStatus==="loading")return <div className="content workout-page">{viewTabs}<p role="status">Conferindo sua sessão…</p></div>;
   /* Aviso, e nao bloqueio: o treino continua na tela abaixo. */
   const avisoDeConferencia=completionStatus==="error"&&<div className="workout-aviso" role="status" data-testid="aviso-conferencia">
     <span>Não consegui confirmar no servidor se você já treinou hoje. Pode treinar normalmente — eu registro assim que a conexão voltar.</span>
     <button type="button" className="secondary-button" onClick={retryCompletion}>Tentar de novo</button>
   </div>;
-  if(p.rest_day)return <ReferenceWorkoutPreview db={{...db,program:p}} onLibrary={()=>setView("library")}/>;
+  if(p.rest_day)return <ReferenceWorkoutPreview db={{...db,program:p}} onLibrary={()=>setView("library")}onCardio={()=>setView("cardio")}/>;
   if(!items.length)return <div className="content workout-page">{viewTabs}<div className="empty-state"data-testid="workout-empty-state"><Dumbbell size={22}/><h3>Nenhuma sessão disponível</h3><p className="muted">Escolha um modelo na Biblioteca ou gere um programa para começar.</p><button className="primary-button"type="button"onClick={()=>setView("library")}>Abrir biblioteca</button></div></div>;
-  if(!sessionStarted)return <>{avisoDeConferencia}<ReferenceWorkoutPreview db={{...db,program:p}}activeSession={activeSession}items={items}onStart={()=>{if(p.rest_day||todayCompletion||completionStatus==="loading")return;setStartedAt(Date.now());setSessionStarted(true)}}onLibrary={()=>setView("library")}/></>;
+  if(!sessionStarted)return <>{avisoDeConferencia}<ReferenceWorkoutPreview db={{...db,program:p}}activeSession={activeSession}items={items}onStart={()=>{if(p.rest_day||todayCompletion||completionStatus==="loading")return;setStartedAt(Date.now());setSessionStarted(true)}}onLibrary={()=>setView("library")}onCardio={()=>setView("cardio")}/></>;
   return <div className="content workout-page workout-live-reference">
     {avisoDeConferencia}
     <div className="workout-head"><div><p className="eyebrow">EM EXECUÇÃO · {p.week}</p><h2>{activeSession?.label||p.session}</h2><p className="muted">Demanda {activeSession?.demand||"MODERATE"} · registre o trabalho real.</p></div>{draftState!=="idle"&&<span className={`autosave-pill ${draftState}`}data-testid="autosave-status">{draftState==="saving"?"salvando...":draftState==="saved"?"salvo automaticamente":"sem conexão — tentando salvar"}</span>}</div>
@@ -402,6 +422,10 @@ function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutC
             <button className="set-check" aria-label={done[x.exercise_id+n]?`Série ${n+1} concluída`:`Concluir série ${n+1}`} title={done[x.exercise_id+n]?"Série concluída":"Concluir série"} data-testid={`complete-set-${x.exercise_id}-${n+1}`}onClick={()=>mark(x.exercise_id,n,tech.name,x.rest,x.sets)}>{done[x.exercise_id+n]?<Check size={15}/>:<span/>}{setErr[x.exercise_id+n]&&<span style={{color:"var(--accent)",fontSize:9,marginLeft:4}}>!</span>}</button>
           </div>)}
         </div>
+        <ObservacaoDoExercicio API={API} exerciseId={x.exercise_id} sessionDay={activeSession?.day}
+          dia={new Date().toISOString().slice(0,10)}
+          inicial={observacoes.hoje[x.exercise_id]||""}
+          anterior={observacoes.anterior[x.exercise_id]||null}/>
       </section>
     })}
     </div>

@@ -5,7 +5,7 @@ import "./training-card-artwork.css";
 import {AstraPage,AstraIntro,AstraMeta,AstraAction,AstraIcon} from "./AstraUI";
 
 const asArray=value=>Array.isArray(value)?value:(value==null||value===""?[]:[value]);
-export default function ReferenceWorkoutPreview({db={},activeSession,items=[],onStart,onLibrary}){
+export default function ReferenceWorkoutPreview({db={},activeSession,items=[],onStart,onLibrary,onCardio}){
   const [warmupOpen,setWarmupOpen]=useState(false);
   const safeItems=Array.isArray(items)?items:[];
   const raw=activeSession?.label||db.program?.session||"Treino de hoje";
@@ -19,7 +19,7 @@ export default function ReferenceWorkoutPreview({db={},activeSession,items=[],on
   </AstraPage>;
   return <AstraPage screen={1} testId="reference-workout-preview" onLibrary={onLibrary}>
     <AstraIntro eyebrow="SEU PROGRAMA" title="Treino." subtitle="Um passo mais forte, a cada sessão."/>
-    <div className="a6-tabs" role="group" aria-label="Visualização do treino"><button type="button" className="a6-selected" aria-pressed="true">Sessão atual</button><button type="button" aria-pressed="false" onClick={onLibrary}>Biblioteca</button></div>
+    <div className="a6-tabs" role="group" aria-label="Visualização do treino"><button type="button" className="a6-selected" aria-pressed="true">Sessão atual</button><button type="button" aria-pressed="false" onClick={onLibrary}>Biblioteca</button>{onCardio&&<button type="button" aria-pressed="false" data-testid="a6-cardio-tab" onClick={onCardio}>Cardio</button>}</div>
     <section className="a6-panel a6-training-summary">
       <div className="a6-summary-copy"><div className="a6-eyebrow">{String(raw).split(/[—–]/)[0]}{db.program?.week?` · ${db.program.week}`:""}</div><h2>{name}</h2><p>{focus.join(" e ")||"Treino completo"}</p><AstraMeta duration={duration} sets={totalSets}/></div>
       <TrainingCardImage className="a6-anatomy a6-session-artwork" session={{...activeSession,label:raw}} program={db.program} profile={db.profile} focus={focus} loading="eager" width="95" height="140"/>

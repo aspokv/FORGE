@@ -50,6 +50,7 @@ from __future__ import annotations
 from datetime import date as CalendarDate, timedelta
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
+from cardio import cardio_step, frase_de_cardio
 from engine import classificar_recuperacao
 
 # ── Alavancas ───────────────────────────────────────────────────────────────────────
@@ -63,9 +64,13 @@ AJUSTAR_ADERENCIA = "aderencia"
 PROTEGER_O_TREINO = "treino"
 SEGURAR_A_PERDA = "perda_rapida"
 AJUSTAR_CALORIA = "caloria"
+# Cardio nao e credito de comida. E a alavanca de quando o resultado pede mais
+# deficit e a comida ja esta no piso, e a de quando a perda esta rapida demais e a
+# comida ja esta baixa. Os dois casos estao escritos em `cardio.py`.
+AJUSTAR_CARDIO = "cardio"
 MANTER = "manter"
 
-ALAVANCAS = (SEM_LEITURA, AJUSTAR_ADERENCIA, PROTEGER_O_TREINO,
+ALAVANCAS = (SEM_LEITURA, AJUSTAR_ADERENCIA, PROTEGER_O_TREINO, AJUSTAR_CARDIO,
              SEGURAR_A_PERDA, AJUSTAR_CALORIA, MANTER)
 
 # ── Limiares ────────────────────────────────────────────────────────────────────────
@@ -431,7 +436,8 @@ def observar(*, objetivo: Optional[str], dias_de_consumo: Sequence[Dict[str, Any
              pesagens: Sequence[Dict[str, Any]], series: Sequence[Dict[str, Any]],
              musculo_por_exercicio: Dict[str, str],
              checkins: Sequence[Dict[str, Any]],
-             nome_por_exercicio: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+             nome_por_exercicio: Optional[Dict[str, str]] = None,
+             cardio: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """As linhas cruas do banco viram UMA leitura do atleta.
 
     Existe para a rota e a suite percorrerem o mesmo caminho. Se o teste montasse o estado
@@ -445,6 +451,9 @@ def observar(*, objetivo: Optional[str], dias_de_consumo: Sequence[Dict[str, Any
         "volume": queda_de_volume(volume_por_semana(series, musculo_por_exercicio)),
         "falhas": falhas_recorrentes(series),
         "prontidao": prontidao_por_dia_da_semana(checkins),
+        # Ja vem lido de `cardio.leitura_de_cardio`, pelo MESMO caminho da tela, para os
+        # dois lados nunca mostrarem totais diferentes da mesma semana.
+        "cardio": dict(cardio or {}),
         "treino_lido": bool(series),
         # O atleta le "Agachamento", e nao "squat". O identificador serve ao banco; o
         # nome serve a frase, e vazar identificador para a tela e a marca de um texto
@@ -492,6 +501,7 @@ def decidir(estado: Dict[str, Any]) -> Dict[str, Any]:
     volume = estado.get("volume") or {}
     falhas = estado.get("falhas") or []
     prontidao = estado.get("prontidao") or {}
+    cardio = estado.get("cardio") or {}
     alvo_kcal = comida.get("alvo_kcal")
     peso_atual = peso.get("peso_atual")
 
@@ -553,6 +563,22 @@ def decidir(estado: Dict[str, Any]) -> Dict[str, Any]:
     if peso.get("suficiente") and peso_atual:
         fracao = (peso.get("kg_por_semana") or 0) / peso_atual
         if fracao < -PERDA_RAPIDA:
+            corte_de_cardio = (cardio_step(cardio.get("minutos_por_semana") or 0, -1)
+                               if cardio.get("faz_cardio") else None)
+            if corte_de_cardio:
+                return conselho(
+                    AJUSTAR_CARDIO, "Tira cardio antes de botar comida",
+                    f"Sua tendência é de {numero(abs(peso.get('kg_por_semana')))} kg por "
+                    f"semana, {numero(abs(fracao * 100), 1)}% do seu peso, e acima de "
+                    f"{int(PERDA_RAPIDA * 100)}% por semana a conta começa a sair de "
+                    f"músculo. Como {frase_de_cardio(cardio)}, o excesso de déficit tem "
+                    f"de onde sair sem você comer mais: é o cardio que desce primeiro.",
+                    mudanca=corte_de_cardio,
+                    previsao={"tipo": "ritmo_de_peso", "minimo": -PERDA_RAPIDA,
+                              "maximo": 0.0, "prazo_dias": 14,
+                              "frase": "sua queda volta para menos de "
+                                       f"{int(PERDA_RAPIDA * 100)}% por semana"},
+                    confianca="media")
             delta = passo_calorico(float(alvo_kcal), +1) if alvo_kcal else None
             return conselho(
                 SEGURAR_A_PERDA, "Você está descendo rápido demais",
@@ -597,6 +623,26 @@ def decidir(estado: Dict[str, Any]) -> Dict[str, Any]:
 
     if sentido:
         delta = passo_calorico(float(alvo_kcal), sentido) if alvo_kcal else None
+        mudanca = _mudanca_calorica(alvo_kcal, delta)
+
+        # A comida ja esta no piso e ainda falta deficit. Cortar mais nao e uma opcao, e
+        # sem isto o motor devolveria um veredito sem nenhuma mudanca junto.
+        if sentido < 0 and mudanca is None:
+            somar_cardio = cardio_step(cardio.get("minutos_por_semana") or 0, +1)
+            if somar_cardio:
+                return conselho(
+                    AJUSTAR_CARDIO, "A comida não desce mais. O cardio sobe",
+                    f"Leitura limpa: você registrou "
+                    f"{comida.get('dias_registrados')} de {comida.get('janela_dias')} "
+                    f"dias, o treino não caiu, e mesmo assim o peso não andou. O corte "
+                    f"seria o caminho, só que sua meta já está em "
+                    f"{int(alvo_kcal or 0)} kcal e abaixo de {int(PISO_KCAL)} eu não "
+                    f"desço. Como {frase_de_cardio(cardio)}, o déficit desta semana vem "
+                    f"do movimento, e não do prato.",
+                    mudanca=somar_cardio,
+                    previsao=_previsao_de_ritmo(objetivo, peso_atual),
+                    confianca="media")
+
         titulo = "Agora sim, o corte é seu" if sentido < 0 else "Agora sim, vamos somar"
         kg = peso.get("kg_por_semana") or 0
         andou = ("seu peso não saiu do lugar" if abs(kg) < 0.05
@@ -610,7 +656,7 @@ def decidir(estado: Dict[str, Any]) -> Dict[str, Any]:
             f"{comida.get('janela_dias')} dias, {comeu} e seu treino não caiu. "
             f"Mesmo assim {andou} em {peso.get('dias_cobertos')} dias, fora da faixa do "
             f"seu objetivo. Não foi você, foi a conta. Ela que muda.",
-            mudanca=_mudanca_calorica(alvo_kcal, delta),
+            mudanca=mudanca,
             previsao=_previsao_de_ritmo(objetivo, peso_atual),
             confianca="alta")
 

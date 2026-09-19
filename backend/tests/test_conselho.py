@@ -17,8 +17,10 @@ from datetime import date as CalendarDate, timedelta
 
 import pytest
 
+from cardio import TETO_SEMANAL, cardio_reading
 from conselho import (
-    ACERTOU, AJUSTAR_ADERENCIA, AJUSTAR_CALORIA, ALAVANCAS, DIAS_MINIMOS_DE_REGISTRO,
+    ACERTOU, AJUSTAR_ADERENCIA, AJUSTAR_CALORIA, AJUSTAR_CARDIO, ALAVANCAS,
+    DIAS_MINIMOS_DE_REGISTRO,
     ERROU, MANTER, NAO_VERIFICAVEL, PISO_KCAL, PROTEGER_O_TREINO, SEGURAR_A_PERDA,
     SEM_LEITURA, TETO_DO_PASSO_KCAL, aderencia_alimentar, conferir_previsao, decidir,
     falhas_recorrentes, observar, passo_calorico, prontidao_por_dia_da_semana, retrospecto,
@@ -100,8 +102,26 @@ def checkins(por_dia_da_semana):
     return saida
 
 
+def cardio(minutos_por_semana, semanas=4, modalidade="Esteira"):
+    """Sessoes de cardio lidas pelo MESMO leitor da tela, e nao um dicionario a mao.
+
+    Montar o resultado direto provaria que a alavanca funciona sobre um dicionario
+    inventado, e nao sobre o que `cardio_reading` realmente devolve.
+    """
+    if not minutos_por_semana:
+        return cardio_reading([], semanas * 7)
+    sessoes = []
+    for semana in range(semanas):
+        # Duas sessoes por semana, dividindo os minutos daquela semana.
+        for metade in range(2):
+            sessoes.append({"date": dia(semana * 7 + metade), "modality": modalidade,
+                            "minutes": minutos_por_semana // 2, "kcal_reported": 300})
+    return cardio_reading(sessoes, semanas * 7)
+
+
 def estado(objetivo="fat_loss", dias_registrados=7, kcal=2000, alvo=2000,
-           peso_inicial=90.0, kg_por_semana=-0.45, series=None, checks=None):
+           peso_inicial=90.0, kg_por_semana=-0.45, series=None, checks=None,
+           cardio_feito=None):
     return observar(
         objetivo=objetivo,
         dias_de_consumo=consumo(dias_registrados, kcal),
@@ -109,7 +129,8 @@ def estado(objetivo="fat_loss", dias_registrados=7, kcal=2000, alvo=2000,
         pesagens=pesagens(peso_inicial, kg_por_semana),
         series=series if series is not None else series_estaveis(),
         musculo_por_exercicio=MUSCULOS,
-        checkins=checks if checks is not None else [])
+        checkins=checks if checks is not None else [],
+        cardio=cardio_feito)
 
 
 # ── A leitura do peso ───────────────────────────────────────────────────────────────
@@ -617,3 +638,86 @@ def test_o_placar_de_base_vazia_nao_inventa_taxa():
     assert p["semanas"] == 0
     assert p["taxa"] is None
     assert p["amostra_suficiente"] is False
+
+
+# ── Cardio: alavanca, e nunca credito de comida ─────────────────────────────────────
+# O erro que todo aplicativo comete aqui e devolver a caloria da esteira como permissao
+# para comer mais. O alvo calorico ja nasce de um TDEE com fator de atividade, entao isso
+# conta o mesmo gasto duas vezes — e com um numero que o painel ja inflou. O cardio entra
+# como alavanca: quando a comida nao pode descer mais, ou quando ela nao deveria subir.
+
+
+def test_sem_cardio_registrado_a_decisao_e_exatamente_a_de_antes():
+    """A trava que protege todo mundo que ja usa o FORGE: quem nunca registrou cardio nao
+    pode ver o conselho dele mudar por causa de uma feature que ele nao usa."""
+    for caso in (dict(kg_por_semana=0.0), dict(kg_por_semana=-1.6),
+                 dict(dias_registrados=2), dict(objetivo="muscle_gain", kg_por_semana=0.0)):
+        sem = decidir(estado(**caso))
+        vazio = decidir(estado(cardio_feito=cardio(0), **caso))
+        assert sem["alavanca"] == vazio["alavanca"], caso
+        assert sem["mudanca"] == vazio["mudanca"], caso
+
+
+def test_com_a_comida_no_piso_o_motor_manda_cardio_em_vez_de_cortar():
+    """O buraco que existia: no piso de kcal, `_mudanca_calorica` devolve None e o atleta
+    lia "o corte e seu" sem mudanca nenhuma junto."""
+    decisao = decidir(estado(kcal=PISO_KCAL, alvo=PISO_KCAL, kg_por_semana=0.0,
+                             cardio_feito=cardio(40)))
+    assert decisao["alavanca"] == AJUSTAR_CARDIO
+    assert decisao["mudanca"]["tipo"] == "cardio"
+    assert decisao["mudanca"]["delta"] > 0
+    assert decisao["mudanca"]["trava"] == "sem mexer na comida"
+
+
+def test_no_piso_o_motor_nao_devolve_mais_um_corte_sem_mudanca():
+    """Regressao direta: antes, esta mesma leitura devolvia AJUSTAR_CALORIA com
+    `mudanca=None`, ou seja, um veredito sem instrucao."""
+    decisao = decidir(estado(kcal=PISO_KCAL, alvo=PISO_KCAL, kg_por_semana=0.0,
+                             cardio_feito=cardio(40)))
+    assert not (decisao["alavanca"] == AJUSTAR_CALORIA and decisao["mudanca"] is None)
+
+
+def test_no_piso_e_ja_no_teto_de_cardio_o_motor_nao_inventa_mudanca():
+    """Mandar mais cardio para quem ja faz quatro horas por semana e desgaste, nao
+    conselho: o custo de recuperacao come o treino, que e o que o motor protege."""
+    decisao = decidir(estado(kcal=PISO_KCAL, alvo=PISO_KCAL, kg_por_semana=0.0,
+                             cardio_feito=cardio(TETO_SEMANAL)))
+    assert decisao["alavanca"] != AJUSTAR_CARDIO
+
+
+def test_perdendo_rapido_demais_com_cardio_o_motor_TIRA_cardio_antes_de_botar_comida():
+    """Quem esta em corte e descendo rapido demais tem a comida ja baixa. O excesso de
+    deficit veio do cardio, e e de la que ele deve sair."""
+    decisao = decidir(estado(peso_inicial=90.0, kg_por_semana=-1.6,
+                             cardio_feito=cardio(120)))
+    assert decisao["alavanca"] == AJUSTAR_CARDIO
+    assert decisao["mudanca"]["tipo"] == "cardio"
+    assert decisao["mudanca"]["delta"] < 0
+
+
+def test_perdendo_rapido_demais_SEM_cardio_continua_somando_comida():
+    """Nao ha cardio de onde tirar: a unica alavanca honesta e a comida."""
+    decisao = decidir(estado(peso_inicial=90.0, kg_por_semana=-1.6,
+                             cardio_feito=cardio(0)))
+    assert decisao["alavanca"] == SEGURAR_A_PERDA
+    assert decisao["mudanca"]["tipo"] == "kcal"
+    assert decisao["mudanca"]["delta"] > 0
+
+
+def test_nenhuma_decisao_soma_caloria_por_causa_do_cardio():
+    """A regra do arquivo em um teste: a esteira nunca vira permissao para comer mais.
+
+    Varre as leituras em que alguem esperaria um "credito": muito cardio, pouco cardio,
+    com o peso parado, que e quando a tentacao de devolver caloria e maior.
+    """
+    for minutos in (0, 30, 90, 150, TETO_SEMANAL):
+        for kg in (0.0, -0.45, -0.2):
+            com = decidir(estado(kg_por_semana=kg, cardio_feito=cardio(minutos)))
+            sem = decidir(estado(kg_por_semana=kg, cardio_feito=cardio(0)))
+            mudanca = com.get("mudanca") or {}
+            if mudanca.get("tipo") != "kcal":
+                continue
+            delta_sem = (sem.get("mudanca") or {}).get("delta")
+            assert mudanca["delta"] == delta_sem, (
+                f"com {minutos} min de cardio a caloria mudou sozinha: "
+                f"{mudanca['delta']} contra {delta_sem}")

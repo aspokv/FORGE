@@ -32,6 +32,7 @@ router = APIRouter(prefix="/api/conselho", tags=["conselho"])
 JANELA_DE_CONSUMO = 7
 JANELA_DE_SERIES = 42          # seis semanas: tres de base, uma corrente, e folga
 JANELA_DE_CHECKINS = 28        # quatro amostras de cada dia da semana, no melhor caso
+JANELA_DE_CARDIO = 28          # quatro semanas: uma media semanal que nao oscila por um dia
 
 
 def _semana_de(momento: datetime) -> str:
@@ -109,6 +110,11 @@ async def _ler_atleta(db, perfil_id: str) -> Dict[str, Any]:
         {"profile_id": perfil_id, "local_date": {"$gte": desde_checkin}},
         {"_id": 0}).sort("created_at", 1).to_list(200)
 
+    # Pelo MESMO caminho da tela de cardio. Dois totais diferentes para o mesmo cardio
+    # destruiriam a confianca nos dois, como aconteceria com a comida.
+    from cardio_routes import ler_cardio
+    leitura_de_cardio = await ler_cardio(db, perfil_id, JANELA_DE_CARDIO)
+
     perfil = await db.profiles.find_one({"id": perfil_id},
                                         {"_id": 0, "goal": 1, "body_goal": 1, "latest_weight": 1})
     objetivo = plano.get("goal") or alvos.get("goal") or (perfil or {}).get("goal") \
@@ -124,6 +130,7 @@ async def _ler_atleta(db, perfil_id: str) -> Dict[str, Any]:
         musculo_por_exercicio=_musculo_por_exercicio(),
         checkins=checkins,
         nome_por_exercicio=_nome_por_exercicio(),
+        cardio=leitura_de_cardio,
     )
 
 

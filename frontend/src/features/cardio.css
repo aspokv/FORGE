@@ -1,0 +1,288 @@
+/* A aba de cardio.
+ *
+ * O peso visual e de propósito menor que o do treino: cardio no FORGE é o que apoia o
+ * resultado, não o que o produz. A média semanal fica em destaque porque é o único número
+ * que o Conselho realmente usa — o total da janela é contexto, a média é a alavanca.
+ *
+ * As cores saem dos TOKENS do aplicativo (`--accent` é #e0b685, o champanhe medido num
+ * navegador de verdade), e não de valores fixos, para a tela acompanhar a paleta se ela
+ * mudar em vez de virar uma segunda paleta dentro do mesmo produto.
+ */
+
+.cardio-aba{
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:12px;
+  padding:20px 22px;
+  margin-bottom:18px;
+}
+
+.cardio-topo{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:16px;
+}
+
+.cardio-etiqueta{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  font-size:10px;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  color:var(--accent);
+}
+
+.cardio-aba h3{
+  margin:6px 0 0;
+  font-size:19px;
+  line-height:1.2;
+  color:var(--text);
+}
+
+.cardio-semana{
+  flex:none;
+  font-size:26px;
+  font-weight:600;
+  line-height:1;
+  color:var(--accent);
+  font-variant-numeric:tabular-nums;
+}
+.cardio-semana small{
+  display:block;
+  margin-top:4px;
+  font-size:10px;
+  letter-spacing:.1em;
+  text-transform:uppercase;
+  color:var(--muted);
+}
+
+.cardio-resumo{
+  margin:12px 0 0;
+  font-size:13px;
+  line-height:1.5;
+  color:var(--muted);
+}
+
+/* ── Registrar ──────────────────────────────────────────────────────────────────── */
+
+.cardio-abrir{
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  margin-top:16px;
+  padding:10px 15px;
+  background:var(--elevated);
+  border:1px solid var(--line);
+  border-radius:9px;
+  color:var(--text);
+  font-size:13px;
+  cursor:pointer;
+}
+.cardio-abrir:hover{border-color:var(--accent)}
+
+.cardio-form{
+  margin-top:16px;
+  padding-top:16px;
+  border-top:1px solid var(--line);
+  display:flex;
+  flex-direction:column;
+  gap:13px;
+}
+
+.cardio-linha{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:12px;
+}
+
+.cardio-form label{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  min-width:0;
+}
+.cardio-form label > span{
+  font-size:10px;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+  color:var(--muted);
+}
+.cardio-form label > span i{
+  font-style:normal;
+  letter-spacing:0;
+  text-transform:none;
+  opacity:.7;
+}
+
+.cardio-form input,
+.cardio-form select{
+  width:100%;
+  padding:10px 12px;
+  background:var(--elevated);
+  border:1px solid var(--line);
+  border-radius:8px;
+  color:var(--text);
+  font-size:14px;
+  font-family:inherit;
+}
+.cardio-form input:focus-visible,
+.cardio-form select:focus-visible{
+  outline:2px solid var(--accent);
+  outline-offset:1px;
+}
+
+/* A unidade fica DENTRO do campo: "30" sozinho num retângulo não diz se é minuto ou
+ * quilômetro, e o rótulo em cima some assim que o teclado do celular abre. */
+.cardio-campo-com-unidade{position:relative}
+.cardio-campo-com-unidade input{padding-right:46px}
+.cardio-campo-com-unidade em{
+  position:absolute;
+  right:12px;
+  top:50%;
+  transform:translateY(-50%);
+  font-style:normal;
+  font-size:11px;
+  color:var(--muted);
+  pointer-events:none;
+}
+
+.cardio-aviso{
+  margin:0;
+  padding:11px 13px;
+  background:var(--elevated);
+  border-left:2px solid var(--accent);
+  border-radius:0 8px 8px 0;
+  font-size:12px;
+  line-height:1.55;
+  color:var(--muted);
+}
+
+.cardio-acoes{display:flex;gap:10px;flex-wrap:wrap}
+.cardio-salvar,.cardio-cancelar{
+  padding:11px 20px;
+  border-radius:9px;
+  font-size:13px;
+  font-family:inherit;
+  cursor:pointer;
+}
+.cardio-salvar{
+  background:var(--accent);
+  border:1px solid var(--accent);
+  color:#141210;
+  font-weight:600;
+}
+.cardio-salvar:disabled{opacity:.55;cursor:default}
+.cardio-cancelar{
+  background:transparent;
+  border:1px solid var(--line);
+  color:var(--muted);
+}
+
+.cardio-erro{
+  margin:13px 0 0;
+  padding:10px 13px;
+  background:color-mix(in srgb,var(--danger) 18%,transparent);
+  border:1px solid var(--danger);
+  border-radius:8px;
+  font-size:13px;
+  color:var(--text);
+}
+
+/* ── A lista ────────────────────────────────────────────────────────────────────── */
+
+.cardio-vazio{
+  margin:16px 0 0;
+  font-size:13px;
+  color:var(--muted);
+}
+
+.cardio-lista{margin:18px 0 0;padding:0;list-style:none}
+.cardio-lista > li{margin-bottom:16px}
+.cardio-lista > li > ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:7px}
+
+.cardio-dia{
+  display:block;
+  margin-bottom:7px;
+  font-size:10px;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+  color:var(--muted);
+}
+
+.cardio-lista li li{
+  display:flex;
+  align-items:center;
+  gap:11px;
+  padding:11px 13px;
+  background:var(--elevated);
+  border:1px solid var(--line);
+  border-radius:9px;
+}
+.cardio-item-icone{
+  flex:none;
+  display:grid;
+  place-items:center;
+  width:30px;
+  height:30px;
+  border-radius:8px;
+  background:color-mix(in srgb,var(--accent) 14%,transparent);
+  color:var(--accent);
+}
+.cardio-lista li li > div{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.cardio-lista li li b{font-size:14px;color:var(--text)}
+.cardio-lista li li small{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.cardio-item-nota{font-style:italic;overflow-wrap:anywhere}
+.cardio-lista li li > button{
+  flex:none;
+  display:grid;
+  place-items:center;
+  width:32px;
+  height:32px;
+  background:transparent;
+  border:1px solid var(--line);
+  border-radius:8px;
+  color:var(--muted);
+  cursor:pointer;
+}
+.cardio-lista li li > button:hover{border-color:var(--danger);color:var(--danger)}
+
+@media (max-width:420px){
+  .cardio-aba{padding:16px 15px}
+  .cardio-linha{grid-template-columns:1fr}
+}
+
+/* ── A normalização do a6 ───────────────────────────────────────────────────────────
+ *
+ * `astra6-exact.css` tem esta regra, com especificidade (0,2,1):
+ *
+ *   .forge-shell .a6 :is(h1,h2,h3,p,small,strong,span,button,summary){
+ *     font-family:Arial…; text-transform:none }
+ *
+ * Ela ganha de qualquer classe simples e apagaria as maiúsculas das etiquetas, o tamanho
+ * do número da semana e a tipografia dos botões. O prefixo `.forge-shell .a6` é a mesma
+ * saída que `conselho.css` e `compact-evolution.css` já usam.
+ */
+.forge-shell .a6 .cardio-aba{padding:17px 16px}
+.forge-shell .a6 .cardio-aba .cardio-etiqueta,
+.forge-shell .a6 .cardio-aba .cardio-dia,
+.forge-shell .a6 .cardio-aba .cardio-semana small,
+.forge-shell .a6 .cardio-aba .cardio-form label > span{
+  text-transform:uppercase;
+  letter-spacing:.12em;
+  font-size:10px;
+}
+.forge-shell .a6 .cardio-aba .cardio-form label > span i{
+  text-transform:none;
+  letter-spacing:0;
+}
+.forge-shell .a6 .cardio-aba h3{font-size:19px;line-height:1.2}
+.forge-shell .a6 .cardio-aba .cardio-semana{font-size:26px;line-height:1}
+.forge-shell .a6 .cardio-aba .cardio-resumo,
+.forge-shell .a6 .cardio-aba .cardio-vazio{font-size:13px}
+.forge-shell .a6 .cardio-aba .cardio-aviso{font-size:12px;line-height:1.55}
+.forge-shell .a6 .cardio-aba button{font-size:13px}
+.forge-shell .a6 .cardio-aba .cardio-lista li li b{font-size:14px}
+.forge-shell .a6 .cardio-aba .cardio-lista li li small{font-size:12px}
+.forge-shell .a6 .cardio-aba .cardio-campo-com-unidade em{font-size:11px}
