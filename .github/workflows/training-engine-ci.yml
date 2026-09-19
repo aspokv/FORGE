@@ -164,6 +164,14 @@ on:
       - 'frontend/src/home-hero-card.css'
       - 'backend/conselho.py'
       - 'backend/conselho_routes.py'
+      - 'backend/tests/test_cardio.py'
+      - 'backend/tests/test_observacao_de_exercicio.py'
+      - 'frontend/src/features/Cardio.jsx'
+      - 'frontend/src/features/Cardio.test.js'
+      - 'frontend/src/features/cardio.css'
+      - 'frontend/src/features/ObservacaoDoExercicio.jsx'
+      - 'frontend/src/features/ObservacaoDoExercicio.test.js'
+      - 'frontend/src/features/observacao-do-exercicio.css'
       - 'backend/tests/test_conselho.py'
       - 'backend/tests/test_conselho_api.py'
       - 'backend/tests/test_conselho_registro.py'
@@ -350,6 +358,14 @@ on:
       - 'frontend/src/home-hero-card.css'
       - 'backend/conselho.py'
       - 'backend/conselho_routes.py'
+      - 'backend/tests/test_cardio.py'
+      - 'backend/tests/test_observacao_de_exercicio.py'
+      - 'frontend/src/features/Cardio.jsx'
+      - 'frontend/src/features/Cardio.test.js'
+      - 'frontend/src/features/cardio.css'
+      - 'frontend/src/features/ObservacaoDoExercicio.jsx'
+      - 'frontend/src/features/ObservacaoDoExercicio.test.js'
+      - 'frontend/src/features/observacao-do-exercicio.css'
       - 'backend/tests/test_conselho.py'
       - 'backend/tests/test_conselho_api.py'
       - 'backend/tests/test_conselho_registro.py'
@@ -528,6 +544,16 @@ jobs:
       # roda em processo.
       - name: Run exercise substitution suite
         run: pytest -q tests/test_substituicao_exercicio.py
+      # Cardio e observacao por exercicio. A suite de cardio prende a regra que separa o
+      # FORGE de um contador de calorias: o numero do painel da esteira NUNCA vira credito
+      # de comida, porque o alvo calorico ja nasce de um TDEE com fator de atividade e
+      # somar de novo conta o mesmo gasto duas vezes, com um numero ja inflado.
+      - name: Run cardio suite
+        run: pytest -q tests/test_cardio.py
+      # A observacao e idempotente por (perfil, exercicio, dia): a tela salva enquanto a
+      # pessoa digita, e sem o indice unico cada toque viraria uma linha.
+      - name: Run exercise note suite
+        run: pytest -q tests/test_observacao_de_exercicio.py
       - name: Run library program suite
         run: >-
           pytest -q --noconftest

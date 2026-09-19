@@ -244,7 +244,9 @@
 
 .a6-screen-1 .training-view-tabs {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  /* Tres colunas desde que a terceira aba (Cardio) existe. Com `repeat(2, ...)` ela caia
+   * para uma segunda linha sozinha e parecia a aba selecionada. Medido em 390 px. */
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
   margin: 0;
   padding: 0;
@@ -268,8 +270,20 @@
   text-align: left;
 }
 
-/* A descricao longa sai: numa aba de duas opcoes, o rotulo ja diz tudo. */
+/* A descricao longa sai: o rotulo ja diz tudo. */
 .a6-screen-1 .training-view-tabs button small { display: none; }
+
+/* Em tela estreita o icone sai antes do texto: com tres colunas em 390 px sobram ~102 px
+ * por aba, e "Treino atual" com icone nao cabe sem cortar a palavra. */
+@media (max-width: 430px) {
+  .a6-screen-1 .training-view-tabs button {
+    padding: 0 6px;
+    font-size: 12px;
+    justify-content: center;
+    text-align: center;
+  }
+  .a6-screen-1 .training-view-tabs button svg { display: none; }
+}
 
 .a6-screen-1 .training-view-tabs button svg {
   width: 16px;

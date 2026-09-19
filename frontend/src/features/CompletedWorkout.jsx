@@ -2,7 +2,7 @@ import {AstraPage,AstraIntro,AstraMeta} from "./AstraUI";
 import {useScheduledProgram} from "./workoutCalendar";
 import TrainingCardImage from "./TrainingCardImage";
 import "./completed-workout.css";
-export default function CompletedWorkout({db,completion,onLibrary}){
+export default function CompletedWorkout({db,completion,onLibrary,onCardio}){
  const program=useScheduledProgram(db.program||{},true),sessions=program.sessions||[];
  const completed=completion.completed_session||null;
  const next=program.calendar?.next||sessions.find(s=>Number(s.day)===Number(program.active_day))||null,summary=completion.summary||{};
@@ -11,7 +11,7 @@ export default function CompletedWorkout({db,completion,onLibrary}){
  const nameOf=item=>exercises.find(e=>e.id===item.exercise_id)?.name||item.name||item.exercise_id;
  return <AstraPage screen={1} testId="workout-completed-today" onLibrary={onLibrary}>
   <AstraIntro eyebrow="SEU PROGRAMA" title="Treino." subtitle="Sessão registrada. Consulte seu resumo e o que vem depois."/>
-  <div className="a6-tabs" role="group" aria-label="Visualização do treino"><button type="button" className="a6-selected" aria-pressed="true">Sessão concluída</button><button type="button" onClick={onLibrary}>Biblioteca</button></div>
+  <div className="a6-tabs" role="group" aria-label="Visualização do treino"><button type="button" className="a6-selected" aria-pressed="true">Sessão concluída</button><button type="button" onClick={onLibrary}>Biblioteca</button>{onCardio&&<button type="button" data-testid="a6-cardio-tab" onClick={onCardio}>Cardio</button>}</div>
   <section className="a6-panel completed-workout-card">
    <p className="a6-eyebrow">CONCLUÍDO HOJE{time?" · "+time:""}</p>
    <h2>{completion.label||completed?.label||"Treino concluído"}</h2>

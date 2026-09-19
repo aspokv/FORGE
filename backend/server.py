@@ -27,6 +27,7 @@ from manual_workout_routes import router as manual_workout_router
 from nutrition_import_routes import router as nutrition_import_router
 from billing_routes import router as billing_router
 from password_reset_routes import router as password_reset_router
+from cardio_routes import router as cardio_router
 from conselho_routes import router as conselho_router
 from preassessment_routes import router as preassessment_router
 from signup_routes import router as signup_router
@@ -99,6 +100,19 @@ class SetLog(BaseModel):
     session_day: Optional[int] = None
     technique: str = "Straight Sets"
     note: str = ""
+
+class ExerciseNote(BaseModel):
+    """A observacao que o atleta escreve embaixo do exercicio, durante o treino.
+
+    `SetLog.note` ja existia e nunca foi usado: o frontend nunca mandou esse campo. Alem
+    disso ele e da SERIE, e a observacao que importa e do EXERCICIO naquele dia — "a
+    maquina X estava ocupada, usei a Y" vale para as quatro series, nao para a terceira.
+    """
+    exercise_id: str = Field(min_length=1, max_length=80)
+    date: str = ""
+    session_day: Optional[int] = None
+    texto: str = Field(default="", max_length=400)
+
 
 class Recovery(BaseModel):
     profile_id: str = "demo"
@@ -1272,6 +1286,69 @@ async def log_set(item: SetLog, user=Depends(get_current_user)):
     return {k: v for k, v in doc.items() if k != "_id"}
 
 
+@api.post("/exercise-note")
+async def save_exercise_note(item: ExerciseNote, user=Depends(get_current_user),
+                             profile_id: Optional[str] = None):
+    """Grava (ou apaga) a observacao de um exercicio num dia.
+
+    Idempotente por (perfil, exercicio, dia), com indice unico por tras: a tela salva
+    enquanto a pessoa digita, e sem isso cada toque viraria uma linha nova.
+    """
+    target = owned_profile_id(user, profile_id)
+    dia = (item.date or datetime.now(timezone.utc).date().isoformat()).strip()
+    try:
+        datetime.strptime(dia, "%Y-%m-%d")
+    except (TypeError, ValueError):
+        raise HTTPException(422, "Data inválida.")
+
+    chave = {"profile_id": target, "exercise_id": item.exercise_id, "date": dia}
+    texto = (item.texto or "").strip()
+    if not texto:
+        # Apagar o texto apaga a observacao. Guardar linha vazia so encheria o historico
+        # de nada e faria "ultima observacao" devolver um branco.
+        await db.exercise_notes.delete_one(chave)
+        return {"exercise_id": item.exercise_id, "date": dia, "texto": ""}
+
+    agora = datetime.now(timezone.utc).isoformat()
+    await db.exercise_notes.update_one(chave, {
+        "$set": {**chave, "texto": texto, "session_day": item.session_day,
+                 "updated_at": agora},
+        "$setOnInsert": {"id": str(uuid.uuid4()), "created_at": agora},
+    }, upsert=True)
+    return {"exercise_id": item.exercise_id, "date": dia, "texto": texto}
+
+
+@api.get("/exercise-notes")
+async def exercise_notes(ids: str = "", user=Depends(get_current_user),
+                         profile_id: Optional[str] = None, date: Optional[str] = None):
+    """A observacao de hoje e a ULTIMA anterior, por exercicio.
+
+    A anterior e o que faz alguem escrever a proxima: uma observacao que ninguem le de
+    volta e um diario, e diario a pessoa abandona na segunda semana. Voltando com "da
+    ultima vez voce anotou: usei a maquina do fundo", a anotacao vira instrucao.
+    """
+    target = owned_profile_id(user, profile_id)
+    hoje = (date or datetime.now(timezone.utc).date().isoformat()).strip()
+    wanted = [i for i in (ids or "").split(",") if i][:40]
+    if not wanted:
+        return {"hoje": {}, "anterior": {}}
+
+    linhas = await db.exercise_notes.find(
+        {"profile_id": target, "exercise_id": {"$in": wanted}},
+        {"_id": 0}).sort("date", -1).to_list(400)
+
+    hoje_por_ex, anterior_por_ex = {}, {}
+    for linha in linhas:
+        eid, dia = linha.get("exercise_id"), str(linha.get("date") or "")
+        if dia == hoje:
+            hoje_por_ex[eid] = linha.get("texto") or ""
+        elif dia < hoje and eid not in anterior_por_ex:
+            # Ordenado por data decrescente, entao o primeiro anterior que aparece e o
+            # mais recente.
+            anterior_por_ex[eid] = {"texto": linha.get("texto") or "", "date": dia}
+    return {"hoje": hoje_por_ex, "anterior": anterior_por_ex}
+
+
 def _valid_recovery_day(day: str) -> str:
     try:
         parsed = datetime.strptime(day, "%Y-%m-%d")
@@ -1779,6 +1856,7 @@ app.include_router(signup_router)
 app.include_router(preassessment_router)
 app.include_router(password_reset_router)
 app.include_router(conselho_router)
+app.include_router(cardio_router)
 app.include_router(api)
 def _origens_permitidas() -> List[str]:
     """Allowlist exata de origens.
@@ -1865,6 +1943,15 @@ async def startup():
     await db.users.create_index("email", unique=True)
     await db.users.create_index("invite_token")
     await db.set_logs.create_index([("profile_id", 1), ("created_at", -1)])
+    await db.cardio_logs.create_index([("profile_id", 1), ("date", -1)])
+    # `client_token` e a idempotencia do finalizador: sem o indice, duas tentativas
+    # da mesma gravacao viram duas sessoes de cardio no historico.
+    await db.cardio_logs.create_index(
+        [("profile_id", 1), ("client_token", 1)], unique=True)
+    # Uma observacao por exercicio por dia. O indice unico e a idempotencia: a tela
+    # salva enquanto a pessoa digita, e sem ele cada toque viraria uma linha nova.
+    await db.exercise_notes.create_index(
+        [("profile_id", 1), ("exercise_id", 1), ("date", 1)], unique=True)
     await db.profiles.create_index("user_id")
     await db.admin_audit_log.create_index([("created_at", -1)])
     await db.ai_usage.create_index([("user_id", 1), ("date", 1)])

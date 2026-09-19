@@ -1,0 +1,95 @@
+/* A observação embaixo do exercício, durante o treino.
+ *
+ * Tudo aqui é deliberadamente discreto. A pessoa está no meio de uma série: o campo não
+ * pode competir com os inputs de carga e repetição, que são o que ela veio fazer. Por
+ * isso o estado fechado é só um botão de texto, e o aberto não tem fundo próprio nem
+ * borda grossa — ele pertence ao card do exercício, não é um card novo.
+ */
+
+.obs-abrir{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  margin-top:10px;
+  padding:6px 10px;
+  background:transparent;
+  border:1px dashed var(--line);
+  border-radius:8px;
+  color:var(--muted);
+  font-size:12px;
+  font-family:inherit;
+  cursor:pointer;
+}
+.obs-abrir:hover{border-color:var(--accent);color:var(--accent)}
+
+.obs-exercicio{
+  margin-top:12px;
+  padding-top:12px;
+  border-top:1px solid var(--line);
+}
+
+/* A nota da última vez vem ANTES do campo: é ela que faz alguém escrever a próxima. */
+.obs-anterior{
+  margin:0 0 9px;
+  padding:8px 11px;
+  background:var(--elevated);
+  border-left:2px solid var(--accent);
+  border-radius:0 7px 7px 0;
+  font-size:12px;
+  line-height:1.5;
+  color:var(--muted);
+  overflow-wrap:anywhere;
+}
+.obs-anterior b{color:var(--text);font-weight:600}
+
+.obs-exercicio label{display:flex;flex-direction:column;gap:5px}
+
+.obs-rotulo{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-size:10px;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+  color:var(--muted);
+}
+.obs-rotulo i{
+  font-style:normal;
+  letter-spacing:0;
+  text-transform:none;
+  font-size:11px;
+  color:var(--success);
+}
+.obs-rotulo i.falhou{color:var(--warn)}
+
+.obs-exercicio textarea{
+  width:100%;
+  padding:9px 11px;
+  background:var(--elevated);
+  border:1px solid var(--line);
+  border-radius:8px;
+  color:var(--text);
+  font-size:13px;
+  font-family:inherit;
+  line-height:1.5;
+  resize:vertical;
+}
+.obs-exercicio textarea:focus-visible{
+  outline:2px solid var(--accent);
+  outline-offset:1px;
+}
+
+/* ── A normalização do a6 ───────────────────────────────────────────────────────────
+ *
+ * `astra6-exact.css` normaliza h1..span, button e summary dentro de `.forge-shell .a6`
+ * com especificidade (0,2,1), o que apagaria as maiúsculas do rótulo e a tipografia do
+ * botão. Mesmo prefixo que `conselho.css` e `cardio.css` já usam.
+ */
+.forge-shell .a6 .obs-abrir{font-size:12px}
+.forge-shell .a6 .obs-exercicio .obs-rotulo{
+  text-transform:uppercase;
+  letter-spacing:.12em;
+  font-size:10px;
+}
+.forge-shell .a6 .obs-exercicio .obs-rotulo i{text-transform:none;letter-spacing:0;font-size:11px}
+.forge-shell .a6 .obs-exercicio .obs-anterior{font-size:12px;line-height:1.5}
