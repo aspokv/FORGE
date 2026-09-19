@@ -3,14 +3,20 @@
 
 O defeito que esta suite existe para nunca deixar voltar
 --------------------------------------------------------
-`CardioFinisher.jsx` aparece depois do treino, deixa escolher modalidade, tempo e RPE, e
-faz `POST /api/cardio`. `cardio_routes.py` existia com essa rota. E `server.py` nunca
-chamou `include_router(cardio_router)`: a rota nao existia na aplicacao. Todo toque em
-"Registrar cardio" voltava 404 e a pessoa lia "Nao foi possivel registrar o cardio agora".
+O cardio era montado em UM lugar so: `runtime_server.py`, que e o que o Dockerfile sobe.
+`server.py`, que monta todos os outros routers do FORGE, nao montava esse.
 
-Um router que ninguem monta nao quebra nenhum teste de unidade: o modulo importa, o
-`APIRouter` se monta, as funcoes existem. So a aplicacao de pe mostra o buraco. Por isso o
-primeiro teste daqui e chato de proposito: ele bate na rota pela aplicacao real.
+Em producao a rota respondia. O estrago foi outro, e mais silencioso: `server:app` — a
+aplicacao que ESTA SUITE INTEIRA importa, e toda suite do repositorio junto com ela — nao
+tinha rota de cardio nenhuma. Uma feature inteira, com tela, modelo e duas rotas, sem um
+unico teste possivel.
+
+A prova de que isso importa: em 19/09/2026 eu apaguei `cardio.py` e `cardio_routes.py` e
+escrevi outros dois por cima, achando que os arquivos eram meus. Nenhum teste ficou
+vermelho, porque nao havia teste que pudesse ficar. O trabalho foi recuperado do git.
+
+Por isso o primeiro teste daqui e chato de proposito: ele bate na rota pela aplicacao que
+a suite importa.
 
 A regra que a suite prende
 --------------------------
@@ -100,11 +106,46 @@ def _ficha(**extra):
 # ── A rota existe na aplicacao ──────────────────────────────────────────────────────
 
 @asincrono
-async def test_a_rota_de_cardio_esta_montada_na_aplicacao():
-    """Regressao do defeito real: `cardio_routes` existia e `server.py` nunca o montava.
+async def test_a_aplicacao_de_PRODUCAO_continua_servindo_cardio():
+    """O Dockerfile sobe `runtime_server:app`, e nao `server:app`.
 
-    O finalizador de treino chamava essa rota desde sempre e recebia 404 em silencio, com
-    a pessoa lendo "nao foi possivel registrar o cardio agora" depois de cada treino.
+    O cardio era montado la, e so la. Ao mover a montagem para `server.py` eu podia ter
+    tirado a rota do ar sem nenhuma suite perceber, porque nenhuma delas importa o modulo
+    que producao realmente executa. Este teste importa.
+    """
+    import runtime_server
+    uid, h = await _atleta()
+    try:
+        async with httpx.AsyncClient(
+                transport=httpx.ASGITransport(app=runtime_server.app),
+                base_url="http://forge.test") as c:
+            r = await c.post("/api/cardio", headers=h, json=_ficha())
+        assert r.status_code == 200, f"producao perdeu a rota de cardio: {r.status_code}"
+    finally:
+        await _limpar(uid)
+
+
+def test_o_cardio_e_montado_uma_vez_so():
+    """Montar nos dois lugares registra a mesma rota duas vezes.
+
+    Funciona — a primeira correspondencia vence — e por isso ninguem percebe. Mas e sinal
+    de que a origem da montagem voltou a ser ambigua, que foi a causa de tudo isto.
+    """
+    import io as _io
+    from pathlib import Path as _Path
+    runtime = _io.open(_Path(__file__).parent.parent / "runtime_server.py",
+                       encoding="utf-8").read()
+    assert "include_router(cardio_router)" not in runtime, (
+        "cardio montado em runtime_server E em server: rota duplicada")
+
+
+@asincrono
+async def test_a_rota_de_cardio_esta_montada_na_aplicacao_que_a_suite_importa():
+    """Regressao do defeito real: o cardio so era montado em `runtime_server.py`.
+
+    Em producao respondia. Mas `server:app`, que e o que a suite importa, nao tinha rota
+    de cardio nenhuma — e por isso a feature ficou sem cobertura de teste desde que
+    nasceu.
     """
     uid, h = await _atleta()
     try:

@@ -13,7 +13,7 @@ install_v4(engine)
 install_v5(engine)
 install_custom_programs(training_programs)
 
+# `server.py` monta o cardio router junto com todos os outros. Ele ficava aqui, e so aqui,
+# o que deixava `server:app` — a aplicacao que a suite inteira importa — sem rota de
+# cardio. Montar nos dois lugares registraria a mesma rota duas vezes.
 from server import app  # noqa: E402,F401
-from cardio_routes import router as cardio_router  # noqa: E402
-
-app.include_router(cardio_router)
