@@ -52,3 +52,30 @@
    bloqueio que tirava o treino inteiro do ar quando a checagem de estado falhava. */
 .workout-aviso{display:flex;flex-direction:column;gap:10px;margin:0 0 16px;padding:12px 14px;border-left:2px solid var(--muted);border-radius:8px;background:var(--elevated);color:var(--muted);font-size:12px;line-height:1.5}
 .workout-aviso .secondary-button{align-self:flex-start;min-height:40px}
+
+/* Etiqueta de role das arquiteturas híbridas.
+ *
+ * Só aparece em SECONDARY e MICRODOSE: o principal é o padrão e não precisa de rótulo.
+ * A microdose leva o acento porque é a que precisa de explicação — uma série solta sem
+ * contexto parece exercício esquecido pela metade, quando é o que permite treinar o
+ * peitoral cinco vezes por semana sem estourar a recuperação. */
+.role-tag{
+  display:inline-block;
+  margin-top:5px;
+  padding:2px 8px;
+  border-radius:999px;
+  border:1px solid var(--line);
+  font-size:10px;
+  letter-spacing:.1em;
+  text-transform:uppercase;
+  color:var(--muted);
+}
+.role-tag.role-microdose{
+  border-color:color-mix(in srgb,var(--accent) 45%,transparent);
+  color:var(--accent);
+}
+.forge-shell .a6 .role-tag{
+  font-size:10px;
+  letter-spacing:.1em;
+  text-transform:uppercase;
+}
