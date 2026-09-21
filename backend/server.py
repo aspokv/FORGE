@@ -311,7 +311,7 @@ async def load_profile(profile_id: str) -> Dict[str, Any]:
 
 
 @api.get("/")
-async def root(): return {"message": "FORGE API online", "version": "2.0"}
+async def root(): return {"message": "FORGE API online", "version": "2.0.1"}
 
 
 async def _semana_em_segundo_plano(perfil_id: str, user: dict) -> None:

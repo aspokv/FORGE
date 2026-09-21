@@ -650,7 +650,8 @@ export default function Nutrition({ API, profileId, db }) {
   const tPlano = plan?.targets || targets || {};
   // Sem useMemo de proposito: este ponto do render fica DEPOIS de retornos antecipados, e
   // hook depois de retorno quebra a regra dos hooks. Montar o objeto custa nada.
-  const hojeCiclado = cicloCarbo?.ativo ? cicloCarbo.hoje : null;
+  const cicloDoPlano = plan?.source === "manual_import" ? null : cicloCarbo;
+  const hojeCiclado = cicloDoPlano?.ativo ? cicloDoPlano.hoje : null;
   const t = hojeCiclado
     ? {...tPlano, carbs_g: hojeCiclado.carbs_g, protein_g: hojeCiclado.protein_g,
        fat_g: hojeCiclado.fat_g, goal_calories: hojeCiclado.goal_calories}
@@ -810,7 +811,7 @@ export default function Nutrition({ API, profileId, db }) {
           inteiro, o que jogava fora o cardapio. */}
       <AcrescentarRefeicao API={API} refeicoes={plan?.meals||[]}
                            onAcrescentada={res=>{setPlan(res.plan);refreshDiary()}}/>
-      <CarboidratoDoDia ciclo={cicloCarbo} alvoDoPlano={tPlano}/>
+      <CarboidratoDoDia ciclo={cicloDoPlano} alvoDoPlano={tPlano}/>
       {/* Trocar de emagrecimento para ganho exigia refazer o questionario inteiro, para
           mudar dois campos. E objetivo e o que mais muda ao longo do ano. */}
       <TrocarObjetivo API={API} objetivoAtual={form.goal} intensidadeAtual={form.intensity}

@@ -11,7 +11,8 @@ Dois defeitos vistos em producao numa dieta feminina de seis refeicoes.
 2. A META do dia ficava em algumas centenas de kcal. Nao era erro de conta: numa dieta
    colada, `draft_to_plan` transforma o que foi LIDO na meta do dia, e linhas como
    "arroz a vontade" valem zero. O plano fica coerente consigo mesmo e absurdo para quem
-   vai comer.
+   vai comer. Linhas sem resolucao devem bloquear a ativacao; uma dieta confirmada
+   preserva seus totais, sem substitui-los pelos numeros do questionario.
 """
 import pytest
 
@@ -84,7 +85,7 @@ def test_o_plano_entrega_a_meta_em_qualquer_quantidade_de_refeicoes(n):
         f"{n} refeicoes entregaram {total:.0f} kcal de {alvos['goal_calories']:.0f}")
 
 
-# ── 2. A dieta importada nao redefine a meta ─────────────────────────────────
+# ── 2. Dieta importada confirmada preserva suas metas ─────────────────────────────────
 
 DIETA_COM_LINHAS_SOLTAS = """Cafe da manha
 2 fatias de pao integral
@@ -110,23 +111,18 @@ def _alvos_do_atleta():
         if k in ("goal_calories", "protein_g", "carbs_g", "fat_g")}
 
 
-def test_a_meta_vem_do_questionario_e_nao_da_dieta_colada():
-    """
-    O defeito relatado: uma dieta lida pela metade virava META de poucas centenas de kcal.
-
-    O plano importado passa a carregar DOIS numeros — o que a pessoa precisa (`targets`) e
-    o que a dieta entrega (`daily_totals`). A diferenca fica visivel em vez de sumir.
-    """
+def test_dieta_com_linhas_nao_resolvidas_e_bloqueada_antes_de_ativar():
     rascunho = recompute(parse_diet_text(DIETA_COM_LINHAS_SOLTAS))
+    assert validate_draft(rascunho)
+
+
+def test_questionario_nao_substitui_totais_da_dieta():
+    rascunho = recompute(parse_diet_text("Almoco\n150g de arroz branco\n120g de peito de frango"))
+    assert validate_draft(rascunho) == []
     plano = draft_to_plan(rascunho, _alvos_do_atleta())
-
-    entregue = plano["daily_totals"]["kcal"]
-    meta = plano["targets"]["goal_calories"]
-
-    assert meta == _alvos_do_atleta()["goal_calories"]
-    assert meta > 1500, "a meta de uma mulher de 62kg nao pode ser de centenas de kcal"
-    # A entrega segue sendo o que foi lido — e agora da para ver o buraco.
-    assert entregue < meta
+    assert plano["targets"]["goal_calories"] == round(plano["daily_totals"]["kcal"])
+    assert plano["targets"]["protein_g"] == plano["daily_totals"]["protein_g"]
+    assert plano["assessment_targets"] == _alvos_do_atleta()
 
 
 def test_sem_questionario_o_comportamento_antigo_e_preservado():
