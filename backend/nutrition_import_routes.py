@@ -23,7 +23,7 @@ from nutrition_engine import FOOD_INDEX, compute_macro_targets
 from nutrition_import import (
     MAX_IMPORT_CHARS, MAX_ITEMS_PER_MEAL, MAX_LABEL_CHARS, MAX_MEALS, MAX_GRAMS,
     REVIEW_AI_SUGGESTED, apply_resolution, draft_to_plan, parse_diet_text, recompute,
-    unmatched_names, validate_draft,
+    unmatched_names, validate_draft, restore_import_targets,
 )
 from nutrition_periodization import build_periodization, sanitize_edited_table
 from text_match import sanitize
@@ -268,6 +268,7 @@ async def activate_diet(payload: ActivateDietIn, request: Request, user=Depends(
     anterior = profile.get("nutrition_import_activation") or {}
     if anterior.get("token") and anterior["token"] == payload.activation_token:
         atual = await db.nutrition_plans.find_one({"profile_id": target}, {"_id": 0})
+        atual = await restore_import_targets(db, target, atual)
         return {"plan": (atual or {}).get("plan"), "already_applied": True,
                 "archived_version_id": anterior.get("archived_version_id")}
 
@@ -282,10 +283,7 @@ async def activate_diet(payload: ActivateDietIn, request: Request, user=Depends(
     if erros:
         raise HTTPException(422, {"message": "Revise a dieta antes de ativar.", "errors": erros})
 
-    # A dieta colada descreve o que a pessoa COME; a meta continua vindo do questionario.
-    # Sem isto, uma leitura parcial — linha sem gramatura, alimento fora do catalogo —
-    # virava o objetivo do dia, e foi assim que um plano feminino apareceu em producao
-    # anunciando algumas centenas de kcal como meta.
+    # A dieta confirmada define as metas; o questionario fica apenas como referencia.
     plan = draft_to_plan(draft, _targets_do_questionario(profile))
     agora = datetime.now(timezone.utc).isoformat()
 

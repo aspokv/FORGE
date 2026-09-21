@@ -85,6 +85,10 @@ on:
       - 'frontend/src/features/buscaDeAlimentos.js'
       - 'frontend/src/features/semanaDaDieta.js'
       - 'backend/nutrition_routes.py'
+      - 'backend/nutrition_import.py'
+      - 'backend/nutrition_import_routes.py'
+      - 'backend/tests/test_imported_targets_regression.py'
+      - 'frontend/src/features/Nutrition.importedTargets.test.js'
       - 'frontend/src/features/FoodDiaryEditor.jsx'
       - 'backend/tests/conftest.py'
       - 'backend/runtime_server.py'
@@ -288,6 +292,10 @@ on:
       - 'frontend/src/features/buscaDeAlimentos.js'
       - 'frontend/src/features/semanaDaDieta.js'
       - 'backend/nutrition_routes.py'
+      - 'backend/nutrition_import.py'
+      - 'backend/nutrition_import_routes.py'
+      - 'backend/tests/test_imported_targets_regression.py'
+      - 'frontend/src/features/Nutrition.importedTargets.test.js'
       - 'frontend/src/features/FoodDiaryEditor.jsx'
       - 'backend/tests/conftest.py'
       - 'backend/runtime_server.py'
@@ -612,6 +620,7 @@ jobs:
           tests/test_nutrition_import.py
           tests/test_nutrition_meal_type_and_import_guard.py
           tests/test_nutrition_meta_segue_questionario.py
+          tests/test_imported_targets_regression.py
           tests/test_nutrition_periodization.py
           tests/test_nutrition_portion_hierarchy.py
           tests/test_nutrition_real_meal_composition.py
