@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
 import { ChevronRight, RefreshCw, Check, X, Utensils, ClipboardPaste } from "lucide-react";
 import AsyncState from "./AsyncState";
+import MealFoodEditor from "./MealFoodEditor";
 import NutritionDailyFooter from "./NutritionDailyFooter";
 import ListaDeCompras from "./ListaDeCompras";
 import CarboidratoDoDia from "./CarboidratoDoDia";
@@ -88,6 +89,15 @@ function mealVisualKey(name = "") {
 
 export default function Nutrition({ API, profileId, db }) {
   const [step, setStep] = useState("loading");
+  const [editingMeal,setEditingMeal]=useState(null),[planEditAccess,setPlanEditAccess]=useState("loading"),[accessAttempt,setAccessAttempt]=useState(0);
+  const [planEditMessage,setPlanEditMessage]=useState("");
+  useEffect(()=>{
+    const controller=new AbortController();setPlanEditAccess("loading");
+    axios.get(`${API}/billing/me`,{signal:controller.signal})
+      .then(r=>{if(!controller.signal.aborted)setPlanEditAccess(r.data.capabilities?.includes("food_plan_search")?"allowed":"locked");})
+      .catch(()=>{if(!controller.signal.aborted)setPlanEditAccess("error");});
+    return()=>controller.abort();
+  },[API,accessAttempt]);
   const [view,setView]=useState("today"),[loadAttempt,setLoadAttempt]=useState(0);
   const [diaryState,setDiaryState]=useState("loading"),[marking,setMarking]=useState(null);
   const retryPlan=()=>{setError("");setStep("loading");setLoadAttempt(n=>n+1)};
@@ -685,6 +695,10 @@ export default function Nutrition({ API, profileId, db }) {
       {diaryState!=="ready"&&<AsyncState kind={diaryState==="error"?"error":"loading"} title={diaryState==="error"?"Não foi possível atualizar os registros de hoje":"Carregando registros de hoje…"} onRetry={diaryState==="error"?refreshDiary:undefined}/>}
       {importOpen && <NutritionImport API={API} onActivated={res=>{if(res?.plan){setPlan(res.plan);setTargets(res.plan.targets||null);refreshDiary();setView("today")}}} onClose={()=>setImportOpen(false)}/>}
       {error&&<AsyncState kind="error" title={error}/>}
+      {planEditMessage&&<AsyncState kind="success" title={planEditMessage}/>}
+      {planEditAccess==="error"&&<AsyncState kind="error" title="Não foi possível verificar o acesso à edição de alimentos" onRetry={()=>setAccessAttempt(n=>n+1)}/>}
+      {editingMeal!==null&&meals[editingMeal]&&<MealFoodEditor key={editingMeal} API={API} meal={meals[editingMeal]} mealIndex={editingMeal}
+        onClose={()=>setEditingMeal(null)} onSaved={updated=>{setPlan(updated);setSubResult(null);setPlanEditMessage("Troca salva no plano. Ela será mantida nos próximos dias.");}}/>}
       <div hidden={view!=="today"} className="forge-nutrition-today">
       {diaryState==="ready"&&<DiarioLivre API={API} dia={localFoodDate()} diario={diary} aoMudar={refreshDiary}/>}
       <div className="a6-section-title" style={{marginTop:8,marginBottom:4}}><h2>Suas refeições</h2><button type="button" className="a6-textbutton" disabled={diaryState!=="ready"} onClick={()=>setDiaryEditor({mealIndex:null})}>+ Adicionar</button></div>
@@ -710,6 +724,7 @@ export default function Nutrition({ API, profileId, db }) {
               <div>{i===nextMeal&&<div className="a6-eyebrow">PRÓXIMA REFEIÇÃO</div>}<h3>{meal.name}</h3><p>{status==="completed"?"Registrado":status==="skipped"?"Pulado":(meal.foods||[]).map(x=>x.food?.name||x.food_id).join(", ")}{status==="completed"?` · ${Math.round(recordedKcal)} kcal`:""}</p></div>
             </summary>
             <div className="a6-editor nutrition-page">
+            {planEditAccess==="allowed"&&<button type="button" className="fg-btn fg-btn-2 fg-btn-cheio" data-testid={`edit-meal-foods-${i}`} disabled={!meal.foods?.length} onClick={()=>{setPlanEditMessage("");setEditingMeal(i);}}>Editar alimentos · Elite</button>}
             {/* A foto carrega o titulo em vez de dividir a linha com ele: o nome desce
                 para o pe da imagem, sobre a sombra, onde o contraste e garantido. */}
             <div

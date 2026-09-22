@@ -600,6 +600,7 @@ jobs:
           tests/test_ciclagem_de_carboidrato.py
           tests/test_metodo_do_treinador.py
           tests/test_billing_plans.py
+          tests/test_food_plan_search.py
           tests/test_ritmo_bloqueado.py
           tests/test_prato_do_metodo.py
           tests/test_escolha_humana.py
