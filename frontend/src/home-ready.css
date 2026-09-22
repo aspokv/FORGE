@@ -611,9 +611,9 @@
 }
 
 /* Daily actions align with the same type scale as the rest of the application. */
-.forge-shell .a6.a6-screen-0 .forge-tile-action{display:flex;align-items:center;gap:10px;width:100%;padding:0;background:none;border:0;color:inherit;text-align:left;min-height:72px}
+.forge-shell .a6.a6-screen-0 .forge-tile-action{width:100%;background:none;border:0;color:inherit;text-align:left;font:inherit;border-radius:inherit;cursor:pointer}
 .forge-shell .a6.a6-screen-0 .forge-progress-card{min-width:0;overflow:visible}
-.forge-shell .a6.a6-screen-0 .forge-progress-card .forge-progress-copy{min-width:0;flex:1}
+.forge-shell .a6.a6-screen-0 .forge-progress-card .forge-progress-copy{min-width:0}
 .forge-shell .a6.a6-screen-0 .forge-progress-card strong{font-size:16px;line-height:1.4;white-space:normal}
 .forge-shell .a6.a6-screen-0 .forge-progress-card strong span{display:block;font-size:12px;line-height:1.5;color:var(--fg-texto-2)}
 .forge-shell .a6.a6-screen-0 :is(.a6-mini p,.forge-estado p){font-size:13px;color:var(--fg-texto-2)}

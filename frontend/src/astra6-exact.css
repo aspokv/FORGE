@@ -324,11 +324,17 @@
 .forge-shell .a6 .a6-meal.a6-next{min-height:80px}
 .forge-shell .a6 .a6-meal.a6-next img{width:56px;height:56px}
 .forge-shell .a6 .a6-gauge-panel{padding:var(--e-4);margin-bottom:var(--e-4)}
-.forge-shell .a6 .a6-gauge{height:138px}
-.forge-shell .a6 .a6-gauge svg{height:138px;width:170px;opacity:.65}
-.forge-shell .a6 .a6-gauge-label{top:26px}
-.forge-shell .a6 .a6-gauge-label strong{font-size:30px}
-.forge-shell .a6 .a6-gauge-label p{font-size:12px}
+.forge-shell .a6 .a6-gauge-header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:8px}
+.forge-shell .a6 .a6-gauge-header .a6-eyebrow{margin:0;font-size:11px;letter-spacing:1px}
+.forge-shell .a6 .a6-gauge-percent{position:static;flex:none;font-size:16px;line-height:1.3}
+.forge-shell .a6 .a6-gauge-percent small{font-size:11px;color:var(--fg-texto-2);margin-top:2px}
+/* Only the value shares the arc's grid cell. Heading and remaining total stay in flow. */
+.forge-shell .a6 .a6-gauge{height:auto;display:grid;grid-template-columns:minmax(0,1fr);place-items:center}
+.forge-shell .a6 .a6-gauge svg{grid-area:1/1;width:min(100%,220px);height:auto;aspect-ratio:252/215;display:block}
+.forge-shell .a6 .a6-gauge-label{position:static;grid-area:1/1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-width:0;max-width:100%;padding:0 28px 8px;text-align:center}
+.forge-shell .a6 .a6-gauge-label strong{font-size:clamp(30px,9vw,40px);line-height:1.1;font-variant-numeric:tabular-nums;letter-spacing:-1px}
+.forge-shell .a6 .a6-gauge-label p{font-size:13px;line-height:1.4;margin:0}
+.forge-shell .a6 .a6-gauge-remaining{display:grid;gap:4px;padding:4px 0 16px;text-align:center;font-size:13px;line-height:1.5;color:var(--fg-texto-2);overflow-wrap:break-word}
 .forge-shell .a6 .a6-macros{gap:var(--e-3);padding-top:var(--e-3);border-top:1px solid var(--fg-linha)}
 .forge-shell .a6 .a6-macro :is(p,.a6-goal){font-size:12px}
 .forge-shell .a6 :is(button,summary){touch-action:manipulation}
