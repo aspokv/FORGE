@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { ArrowRight, ChevronRight, Eye, EyeOff, KeyRound, Mail, LockKeyhole } from "lucide-react";
 import "./login-forge.css";
 import { API, useAuth } from "./AuthContext";
@@ -14,6 +14,7 @@ function formatError(detail) {
 }
 
 export function LoginScreen() {
+  const reduceMotion=useReducedMotion();
   const { signIn, navigate } = useAuth();
   // Quem chegou aqui porque a sessao venceu precisa saber disso. Sem a frase, a pessoa so
   // ve a tela de entrada de novo e conclui que o aplicativo a expulsou sem motivo — ou
@@ -27,6 +28,7 @@ export function LoginScreen() {
 
   const submit = async e => {
     e.preventDefault();
+    if(busy)return;
     setBusy(true); setErr("");
     try {
       const { data } = await axios.post(`${API}/auth/login`, { email: email.trim().toLowerCase(), password });
@@ -51,7 +53,7 @@ export function LoginScreen() {
         <p className="forge-login-subtitulo">Seu próximo nível começa aqui.</p>
       </header>
 
-      <motion.form className="forge-login-card" initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} onSubmit={submit}>
+      <motion.form className="forge-login-card" initial={reduceMotion ? false : { opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} onSubmit={submit}>
         <p className="forge-login-chamada">Entre para continuar seu plano.</p>
 
         {/* O rotulo fica sempre encaixado na borda, e nao flutuando ao foco: a moldura da
@@ -82,7 +84,7 @@ export function LoginScreen() {
           <div className="forge-login-aviso" data-testid="login-sessao-expirada" role="status">{AVISO}</div>}
         {err && <div className="forge-login-erro" data-testid="login-error" role="alert">{err}</div>}
 
-        <button className="forge-login-entrar" data-testid="login-submit" disabled={busy} type="submit">
+        <button className="forge-login-entrar" data-testid="login-submit" disabled={busy} aria-busy={busy} type="submit">
           <span>{busy ? "Entrando…" : "Entrar"}</span>
           <ArrowRight size={20} aria-hidden="true" />
         </button>
@@ -104,6 +106,7 @@ export function LoginScreen() {
 }
 
 export function InviteScreen({ token }) {
+  const reduceMotion=useReducedMotion();
   const { signIn, navigate } = useAuth();
   const [invite, setInvite] = useState(null);
   const [password, setPassword] = useState("");
@@ -136,7 +139,7 @@ export function InviteScreen({ token }) {
   return (
     <div className="auth-shell" data-testid="invite-screen">
       <div className="auth-brand"><span className="brand-mark">F</span><span>FORGE</span><small>NOVO ACESSO</small></div>
-      <motion.form className="auth-card" initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} onSubmit={submit}>
+      <motion.form className="auth-card" initial={reduceMotion ? false : { opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} onSubmit={submit}>
         <p className="eyebrow">CONVITE · {invite.plan}</p>
         <h1>Ative sua conta.</h1>
         <p className="muted">E-mail vinculado: <b>{invite.email}</b></p>

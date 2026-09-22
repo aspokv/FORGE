@@ -87,7 +87,7 @@ if (typeof document !== "undefined" && typeof window !== "undefined") {
     const trigger = event.target.closest?.(".program-card-grid .library-add");
     if (!trigger) return;
     requestAnimationFrame(() => {
-      document.querySelector('[data-testid="program-preview"]')?.scrollIntoView({ behavior: "smooth", block: "start" });
+      document.querySelector('[data-testid="program-preview"]')?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
     });
   });
 }

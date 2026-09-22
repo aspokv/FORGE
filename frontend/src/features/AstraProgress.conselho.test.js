@@ -68,16 +68,19 @@ test("ele fica dentro do unico container de rolagem, junto dos outros cartoes", 
   const conselho = alvo.querySelector('[data-testid="conselho-falso"]');
   const sessao = alvo.querySelector('[data-testid="falso-sessao"]');
   // Mesmo pai: se um sair do scroller, a tela ganha um segundo eixo de rolagem.
-  expect(conselho.parentElement).toBe(sessao.parentElement);
+  expect(conselho.closest(".a6-scroll")).toBe(sessao.closest(".a6-scroll"));
+  expect(conselho.closest("details").open).toBe(false);
 });
 
-test("ele abre a aba, antes da sessao do dia", async () => {
+test("a recomendação fica após o resumo e antes da sessão do dia", async () => {
   // O Conselho e o unico bloco que DECIDE: ele pede uma resposta, entao vem primeiro.
   const {alvo} = await montar();
   const conselho = alvo.querySelector('[data-testid="conselho-falso"]');
   const sessao = alvo.querySelector('[data-testid="falso-sessao"]');
   const ordem = conselho.compareDocumentPosition(sessao);
   expect(ordem & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  const resumo=alvo.querySelector("[data-testid=evolucao-resumo]");
+  expect(resumo.compareDocumentPosition(conselho) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 });
 
 test("ele vem depois do titulo e das abas, e nao antes", async () => {

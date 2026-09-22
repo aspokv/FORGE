@@ -1,4 +1,5 @@
 import {useId,useState} from "react";
+import AsyncState from "./AsyncState";
 import ExerciseEvolution from "./ExerciseEvolution";
 import SessaoEvolucao from "./SessaoEvolucao";
 import DietaEvolucao from "./DietaEvolucao";
@@ -20,7 +21,7 @@ export function AstraChart({points,unit="kg"}) {
     {points.map((p,i)=><g key={`${p.label}-${i}`}><circle cx={x(i)} cy={y(p.value)} r="3.8" fill="#FFD6AE"/><text x={x(i)} y={y(p.value)-11} textAnchor="middle" style={{fill:"#f7ddc5",fontSize:10}}>{numberBR(p.value)}</text><text x={x(i)} y="157" textAnchor="middle">{p.label}</text></g>)}
   </svg>;
 }
-export default function AstraProgress({analytics,conselho,weightPanel,photosPanel,details,API,profileId,exercises,program}) {
+export default function AstraProgress({analytics,error,onRetry,openAnalysis,conselho,weightPanel,photosPanel,details,API,profileId,exercises,program}) {
   const [tab,setTab]=useState("load");
   const records=(analytics?.prs||[]).filter(x=>Number(x.weight)>0);
   const calendar=analytics?.adherence_calendar||[],trained=calendar.filter(x=>x.trained).length;
@@ -33,25 +34,7 @@ export default function AstraProgress({analytics,conselho,weightPanel,photosPane
   return <AstraPage screen={3} testId="astra-progress">
     <AstraIntro eyebrow="CADA SESSÃO CONTA" title="Evolução." subtitle="Seu histórico, sessão por sessão."/>
     <div className="a6-tabs" role="group" aria-label="Métrica de evolução">{[["load","Desempenho"],["diet","Dieta"],["weight","Peso"],["photos","Fotos"]].map(([key,label])=><button type="button" key={key} aria-pressed={key===tab} className={key===tab?"a6-selected":""} onClick={()=>setTab(key)}>{label}</button>)}</div>
-    {!analytics?<p role="status">Carregando analytics…</p>:tab==="load"?<>
-      {/*
-        * A ordem da tela segue a ordem das perguntas. O Conselho abre porque e o unico
-        * bloco que DECIDE: ele responde "o que eu mudo esta semana?" e espera uma resposta.
-        * Depois vem a sessao do dia, que responde quanto se pegou da ultima vez NESTES
-        * exercicios; entao o veredito das quatro semanas, que responde "estou evoluindo?"
-        * sem controle nenhum. O grafico por exercicio, que exige escolher exercicio e
-        * periodo, ficou por ultimo: e a leitura mais fina, nao a de abertura.
-        *
-        * Ele precisa estar AQUI DENTRO, e nao antes da tela. Montado por fora, empurrava
-        * o `.a6` inteiro para baixo: medido num 390x844, o Conselho tinha 677px de altura,
-        * a tela passava a comecar em y=699, e o documento virava 1480px de altura numa
-        * janela de 844. Isso criava um SEGUNDO eixo de rolagem numa tela desenhada para ter
-        * um so, e o ultimo cartao ("Um exercicio de cada vez") so aparecia rolando as duas
-        * coisas juntas — o documento ate o fim E o container interno. Com o dedo isso nao
-        * acontece, e o cartao simplesmente nao era alcancavel.
-        */}
-      {conselho}
-      <SessaoEvolucao API={API} profileId={profileId} sessao={sessaoDoDia} catalogo={exercises} descanso={!!agenda.rest_day}/>
+    {(tab==="load"||tab==="weight")&&error?<AsyncState kind="error" title={error} onRetry={onRetry}/>:!analytics&&(tab==="load"||tab==="weight")?<AsyncState title="Carregando sua evolução…"/>:tab==="load"?<>
       <section className="a6-panel evolucao-resumo" data-testid="evolucao-resumo">
         <span className="a6-eyebrow">Últimas 4 semanas</span>
         <h2>{resumo.frase}</h2>
@@ -61,6 +44,9 @@ export default function AstraProgress({analytics,conselho,weightPanel,photosPane
           {salto&&<div><strong className="evolucao-alta">{salto}</strong><span>{resumo.salto.exercicio}</span></div>}
         </div>
       </section>
+      {conselho&&<details className="a6-details forge-council"><summary><span><strong>Conselho da semana</strong><small>Revisar recomendação</small></span></summary>{conselho}</details>}
+      {openAnalysis&&<button type="button" className="a6-textbutton" data-testid="open-analysis-button" onClick={openAnalysis}>Abrir análise da semana</button>}
+      <SessaoEvolucao API={API} profileId={profileId} sessao={sessaoDoDia} catalogo={exercises} descanso={!!agenda.rest_day}/>
       <div className="a6-section-title"><h2>Suas melhores marcas</h2></div>
       <div className="a6-pr-grid">{records.slice(0,4).map(p=><div className="a6-panel a6-pr" key={p.exercise}><p>{p.exercise}</p><strong>{numberBR(p.weight)} <small>kg</small></strong><div className="a6-delta">{p.delta_weight>0?`+${numberBR(p.delta_weight)} kg desde o início`:"Melhor série registrada"}</div></div>)}</div>
       {!records.length&&<p data-testid="prs-empty-state">Complete séries com carga para ver suas marcas.</p>}
