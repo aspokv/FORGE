@@ -1,11 +1,23 @@
 import {useEffect, useState} from "react";
+import {resumeDate} from "./workoutResume";
 
 const sections = {inicio:"Hoje", treino:"Treino", nutricao:"Alimentação", evolucao:"Progresso", perfil:"Perfil", analise:"Análise", planos:"Planos"};
 export const sectionFromLocation = () => sections[new URLSearchParams(window.location.search).get("view")] || "Hoje";
 
-// Keep browser Back and refresh aligned with navigation; no user data is stored here.
-export default function useAppSection() {
-  const [section,setSection]=useState(sectionFromLocation);
+function initialSection(userId) {
+  if(new URLSearchParams(window.location.search).has("view"))return sectionFromLocation();
+  if(userId)try {
+    const saved=JSON.parse(localStorage.getItem(`forge_last_section:${userId}`)||"null");
+    if(saved?.date===resumeDate()&&saved.section==="Treino")return "Treino";
+  }catch { /* A blocked or corrupt local cache is optional. */ }
+  return sectionFromLocation();
+}
+// The URL wins. A fresh browser entry can recover the last training tab for this user/day.
+export default function useAppSection(userId) {
+  const [section,setSection]=useState(()=>initialSection(userId));
+  useEffect(()=>{
+    if(userId)try{localStorage.setItem(`forge_last_section:${userId}`,JSON.stringify({date:resumeDate(),section}));}catch{}
+  },[userId,section]);
   useEffect(()=>{
     const onPop=()=>setSection(sectionFromLocation());
     window.addEventListener("popstate",onPop);

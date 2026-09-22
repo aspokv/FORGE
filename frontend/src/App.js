@@ -3,6 +3,7 @@ import {lazy,useEffect,useMemo,useRef,useState} from "react";
 import axios from "axios";
 import {motion,MotionConfig} from "framer-motion";
 import useAppSection from "./features/useAppSection";
+import {workoutResumeContext,readWorkoutResume,saveWorkoutResume,clearWorkoutResume} from "./features/workoutResume";
 import AsyncState from "./features/AsyncState";
 import ForgeDialog from "./features/ForgeDialog";
 import {Activity,BarChart3,Bell,BookOpen,Check,ChevronRight,CircleUserRound,Droplets,Dumbbell,FileUp,Home,Info,LineChart,LockKeyhole,LogOut,RotateCcw,ShieldCheck,Sliders,TimerReset,TrendingUp,Trophy,UserRound,Utensils,X} from "lucide-react";
@@ -73,7 +74,7 @@ const FALLBACK={profile:{id:"demo",name:"Rafael Mendes",goal:"Hipertrofia com es
 // deixava a tela de assinatura inalcancavel no celular.
 const navIcons={Hoje:Home,Treino:Dumbbell,"Alimentação":Utensils,Progresso:TrendingUp,Perfil:UserRound};
 const ABAS_FORA_DA_BARRA={"Análise":BarChart3,Planos:ShieldCheck};
-function AthleteShell(){const{user,signOut}=useAuth();const profileId=user?.id;const[db,setDb]=useState(null),[tab,setTab]=useAppSection(),[loading,setLoading]=useState(true),[assessment,setAssessment]=useState(false),[assessmentMode,setAssessmentMode]=useState(ASSESSMENT_MODE_RESUME),[analytics,setAnalytics]=useState(null),[report,setReport]=useState(null),[builder,setBuilder]=useState(false),[builderDraft,setBuilderDraft]=useState(null),[manualOpen,setManualOpen]=useState(false),[techDetail,setTechDetail]=useState(null),[previewData,setPreviewData]=useState(null);const [bootstrapAttempt,setBootstrapAttempt]=useState(0),[analyticsAttempt,setAnalyticsAttempt]=useState(0);
+function AthleteShell(){const{user,signOut}=useAuth();const profileId=user?.id;const[db,setDb]=useState(null),[tab,setTab]=useAppSection(profileId),[loading,setLoading]=useState(true),[assessment,setAssessment]=useState(false),[assessmentMode,setAssessmentMode]=useState(ASSESSMENT_MODE_RESUME),[analytics,setAnalytics]=useState(null),[report,setReport]=useState(null),[builder,setBuilder]=useState(false),[builderDraft,setBuilderDraft]=useState(null),[manualOpen,setManualOpen]=useState(false),[techDetail,setTechDetail]=useState(null),[previewData,setPreviewData]=useState(null);const [bootstrapAttempt,setBootstrapAttempt]=useState(0),[analyticsAttempt,setAnalyticsAttempt]=useState(0);
 const [analyticsError,setAnalyticsError]=useState(""),[reportError,setReportError]=useState("");
 useEffect(()=>{
   if(!user)return;
@@ -250,7 +251,7 @@ function TrainingViewTabs({view,onChange}){
     <button type="button"role="tab"aria-selected={view==="cardio"}className={view==="cardio"?"active":""}data-testid="training-cardio-tab"onClick={()=>onChange("cardio")}><Activity size={17}/><span>Cardio<small>Registrar esteira, bike e escada</small></span></button>
   </div>
 }
-function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutCompleted,onLibraryBuild,onLibraryTemplateAdd}){
+export function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutCompleted,onLibraryBuild,onLibraryTemplateAdd}){
   const p=useScheduledProgram(db.program||{});
   const activeSession=p.rest_day?null:(p.sessions?.find(s=>s.day===p.active_day)||p.sessions?.[0]);
   const items=useMemo(()=>activeSession?.exercises||(p.rest_day?[]:p.exercises)||[],[activeSession,p.rest_day,p.exercises]);
@@ -267,19 +268,25 @@ function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutC
    */
   const {completion:todayCompletion,status:completionStatus,retry:retryCompletion}=useWorkoutCompletion({userId:db.current_user?.id||db.profile?.user_id||db.profile?.id,program:p,recentSets:db.recent_sets,API});
   const hints=db.program?.progression_hints||{};
+  const resumeUser=db.current_user?.id||db.profile?.user_id||db.profile?.id;
+  const resumeContext=workoutResumeContext(resumeUser,p,activeSession,items);
+  const resume=useMemo(()=>readWorkoutResume(resumeUser,resumeContext,db.recent_sets||[]),[resumeUser,resumeContext,db.recent_sets]);
+  const [resumeOwner,setResumeOwner]=useState(resumeContext);
+  const confirmedSets=useRef(resume?.done||{}),resumeSnapshot=useRef(null),liveWorkoutRef=useRef(null);
+  const [resumeAnchor,setResumeAnchor]=useState(resume?.anchor||null);
   const[view,setView]=useState("session");
-  const[sessionStarted,setSessionStarted]=useState(false);
-  const[done,setDone]=useState({});
+  const[sessionStarted,setSessionStarted]=useState(Boolean(resume?.started));
+  const[done,setDone]=useState(resume?.done||{});
   const[timer,setTimer]=useState(0);
   const[timerTotal,setTimerTotal]=useState(0);
   const[restingSet,setRestingSet]=useState(null);
   const[timerRunning,setTimerRunning]=useState(true);
   const[swap,setSwap]=useState(null);
-  const[setInputs,setSetInputs]=useState({});
+  const[setInputs,setSetInputs]=useState(resume?.inputs||{});
   // Exercicios que a pessoa REABRIU depois de concluir. Guardar quem foi reaberto, e nao
   // quem esta recolhido, faz o padrao ser "recolhe ao terminar" sem precisar sincronizar
   // nada: cada exercicio novo que termina recolhe sozinho.
-  const[reabertos,setReabertos]=useState({});
+  const[reabertos,setReabertos]=useState(resume?.reopened||{});
   const[setErr,setSetErr]=useState({});
   // As observacoes dos exercicios de hoje e a ultima de cada um, numa requisicao so.
   // Uma por exercicio deixaria oito chamadas na abertura de cada treino.
@@ -290,8 +297,41 @@ function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutC
   const[showPartial,setShowPartial]=useState(false);
   const[discomfort,setDiscomfort]=useState("none");
   const finishLock=useRef(false);
-  const[startedAt,setStartedAt]=useState(()=>Date.now());
-  useEffect(()=>{setSessionStarted(false);setDone({});setFinishResult(null);setFinishing(false);setTimer(0);setRestingSet(null);finishLock.current=false;},[activeSession?.day,activeSession?.label,todayCompletion?.completed_at]);
+  const[startedAt,setStartedAt]=useState(()=>resume?.startedAt||Date.now());
+  const completionStamp=todayCompletion?.completed_at;
+  const recentSetsForResume=useRef(db.recent_sets);
+  recentSetsForResume.current=db.recent_sets;
+  const requestGeneration=useRef(0);
+  useEffect(()=>{requestGeneration.current+=1;return()=>{requestGeneration.current+=1;};},[resumeContext,completionStamp]);
+  useEffect(()=>{
+    const restored=completionStamp?null:readWorkoutResume(resumeUser,resumeContext,recentSetsForResume.current||[]);
+    if(completionStamp)clearWorkoutResume(resumeUser);
+    confirmedSets.current=restored?.done||{};
+    setSessionStarted(Boolean(restored?.started));setDone(restored?.done||{});
+    setReabertos(restored?.reopened||{});setResumeAnchor(restored?.anchor||null);
+    setStartedAt(restored?.startedAt||Date.now());setResumeOwner(resumeContext);
+    setFinishResult(null);setFinishing(false);setTimer(0);setRestingSet(null);finishLock.current=false;
+  },[resumeUser,resumeContext,completionStamp]);
+  resumeSnapshot.current={owner:resumeOwner,started:sessionStarted,startedAt,inputs:setInputs,
+    done:Object.fromEntries(Object.entries(done).filter(([key,value])=>value&&confirmedSets.current[key])),
+    reopened:reabertos,anchor:resumeAnchor};
+  useEffect(()=>{
+    if(!completionStamp&&resumeOwner===resumeContext)saveWorkoutResume(resumeUser,resumeContext,resumeSnapshot.current);
+  },[resumeUser,resumeContext,resumeOwner,completionStamp,sessionStarted,startedAt,setInputs,done,reabertos,resumeAnchor]);
+  useEffect(()=>{
+    const persist=()=>{if(!completionStamp&&resumeSnapshot.current?.owner===resumeContext)saveWorkoutResume(resumeUser,resumeContext,resumeSnapshot.current);};
+    window.addEventListener("pagehide",persist);document.addEventListener("visibilitychange",persist);
+    return()=>{persist();window.removeEventListener("pagehide",persist);document.removeEventListener("visibilitychange",persist);};
+  },[resumeUser,resumeContext,completionStamp]);
+  const restoredScroll=useRef(null);
+  useEffect(()=>{
+    if(!sessionStarted||completionStatus==="loading"||restoredScroll.current===resumeContext)return;
+    restoredScroll.current=resumeContext;
+    const anchor=resume?.anchor;
+    if(anchor)Array.from(liveWorkoutRef.current?.querySelectorAll('[data-exercise-id]')||[])
+      .find(el=>el.dataset.exerciseId===anchor)?.scrollIntoView?.({block:"start",behavior:"auto"});
+  },[sessionStarted,completionStatus,resumeContext,resume]);
+  const rememberExercise=event=>{const node=event.target.closest?.('[data-exercise-id]');if(node)setResumeAnchor(node.dataset.exerciseId);};
   const idsDaSessao=items.map(x=>x.exercise_id).filter(Boolean).join(",");
   useEffect(()=>{
     if(!idsDaSessao){setObservacoes({hoje:{},anterior:{}});return}
@@ -302,7 +342,7 @@ function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutC
       .catch(()=>{});
     return()=>{vivo=false};
   },[idsDaSessao]);
-  useEffect(()=>{const init={};items.forEach(x=>{const hint=hints[x.exercise_id]||{};for(let n=0;n<x.sets;n++)init[`${x.exercise_id}-${n}`]={weight:hint.last_weight||x.load||0,reps:hint.last_reps||prescribedReps(x.reps,n),rir:String(x.rir||"2").match(/\d+/)?.[0]||"2"};});setSetInputs(init)},[items,!!Object.keys(hints).length]);
+  useEffect(()=>{const init={};items.forEach(x=>{const hint=hints[x.exercise_id]||{};for(let n=0;n<x.sets;n++)init[`${x.exercise_id}-${n}`]={weight:hint.last_weight||x.load||0,reps:hint.last_reps||prescribedReps(x.reps,n),rir:String(x.rir||"2").match(/\d+/)?.[0]||"2"};});setSetInputs({...init,...(readWorkoutResume(resumeUser,resumeContext)?.inputs||{})})},[items,resumeUser,resumeContext,!!Object.keys(hints).length]);
   const[draftState,setDraftState]=useState("idle");
   const draftTimer=useRef(null),draftReady=useRef(false),lastSaved=useRef("");
   const draftDay=activeSession?.day;
@@ -315,14 +355,16 @@ function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutC
       if(!alive)return;
       const saved=r.data?.inputs||{};
       setSetInputs(prev=>{
-        const merged=Object.keys(saved).length?{...prev,...saved}:prev;
+        const local=readWorkoutResume(resumeUser,resumeContext);
+        const localNewer=local && local.updatedAt>new Date(r.data?.saved_at||0).getTime();
+        const merged={...prev,...saved,...(localNewer?local.inputs:{})};
         lastSaved.current=JSON.stringify(merged);
         return merged;
       });
       if(r.data?.saved_at&&Object.keys(saved).length)setDraftState("saved");
     }).catch(()=>{}).finally(()=>{if(alive)draftReady.current=true});
     return()=>{alive=false};
-  },[db.profile?.id,draftDay,items.length,todayCompletion,completionStatus]);
+  },[db.profile?.id,draftDay,items.length,todayCompletion,completionStatus,resumeUser,resumeContext]);
   // Autosave com debounce: salva 1,5 s depois da ultima alteracao, nao a cada tecla.
   useEffect(()=>{
     if(todayCompletion||completionStatus==="loading"||!draftReady.current||draftDay==null)return;
@@ -339,7 +381,7 @@ function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutC
   },[setInputs,draftDay,todayCompletion,completionStatus]);
   useEffect(()=>{if(!timer||!timerRunning)return;const i=setInterval(()=>setTimer(x=>Math.max(0,x-1)),1000);return()=>clearInterval(i)},[timer,timerRunning]);
   const parseRestSeconds=r=>{if(!r)return 90;const n=parseInt(r);if(!isNaN(n))return n<10?n*60:n;const m=r.match(/(\d+)/);return m?parseInt(m[1])*60:90};
-  const mark=(id,n,tech,rest,totalSets)=>{if(todayCompletion||completionStatus==="loading"||done[id+n])return;const v=setInputs[`${id}-${n}`]||{weight:0,reps:8,rir:2};if(!Number.isFinite(Number(v.reps))||Number(v.reps)<=0){setSetErr(x=>({...x,[id+n]:true}));return}const rir=Math.max(0,Math.min(5,Number(v.rir)));if(!Number.isFinite(rir)){setSetErr(x=>({...x,[id+n]:true}));return}setDone(x=>({...x,[id+n]:true}));if(n+1<totalSets){const secs=parseRestSeconds(rest);setTimer(secs);setTimerTotal(secs);setRestingSet({exerciseId:id,completed:n+1,next:n+2});setTimerRunning(true)}else{setTimer(0);setRestingSet(null)}axios.post(`${API}/sets`,{profile_id:db.profile.id,exercise_id:id,set_number:n+1,weight:Number(v.weight||0),reps:Number(v.reps||8),rir,session_day:activeSession?.day,technique:tech||"Straight Sets"}).catch(()=>{setDone(x=>({...x,[id+n]:false}));setSetErr(x=>({...x,[id+n]:true}))})};
+  const mark=(id,n,tech,rest,totalSets)=>{const generation=requestGeneration.current;if(todayCompletion||completionStatus==="loading"||done[id+n])return;const v=setInputs[`${id}-${n}`]||{weight:0,reps:8,rir:2};if(!Number.isFinite(Number(v.reps))||Number(v.reps)<=0){setSetErr(x=>({...x,[id+n]:true}));return}const rir=Math.max(0,Math.min(5,Number(v.rir)));if(!Number.isFinite(rir)){setSetErr(x=>({...x,[id+n]:true}));return}setDone(x=>({...x,[id+n]:true}));if(n+1<totalSets){const secs=parseRestSeconds(rest);setTimer(secs);setTimerTotal(secs);setRestingSet({exerciseId:id,completed:n+1,next:n+2});setTimerRunning(true)}else{setTimer(0);setRestingSet(null)}axios.post(`${API}/sets`,{profile_id:db.profile.id,exercise_id:id,set_number:n+1,weight:Number(v.weight||0),reps:Number(v.reps||8),rir,session_day:activeSession?.day,technique:tech||"Straight Sets"}).then(()=>{if(requestGeneration.current!==generation||resumeSnapshot.current?.owner!==resumeContext)return;confirmedSets.current={...confirmedSets.current,[id+n]:true};saveWorkoutResume(resumeUser,resumeContext,{...resumeSnapshot.current,done:confirmedSets.current});setDone(x=>({...x,[id+n]:true}));}).catch(()=>{if(requestGeneration.current!==generation)return;setDone(x=>({...x,[id+n]:false}));setSetErr(x=>({...x,[id+n]:true}))})};
   const completedEntries=useMemo(()=>items.flatMap(x=>Array.from({length:x.sets},(_,n)=>({key:x.exercise_id+n,value:setInputs[`${x.exercise_id}-${n}`]}))).filter(x=>done[x.key]),[items,setInputs,done]);
   const actualVolume=useMemo(()=>completedEntries.reduce((sum,x)=>sum+Number(x.value?.weight||0)*Number(x.value?.reps||0),0),[completedEntries]);
   const averageRir=useMemo(()=>completedEntries.length?completedEntries.reduce((sum,x)=>sum+Number(x.value?.rir||0),0)/completedEntries.length:null,[completedEntries]);
@@ -359,7 +401,7 @@ function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutC
     <Cardio API={API}/>
   </AstraPage>;
   if(todayCompletion)return <CompletedWorkout db={db} completion={todayCompletion} onLibrary={()=>setView("library")}onCardio={()=>setView("cardio")}/>;
-  if(completionStatus==="loading")return <div className="content workout-page">{viewTabs}<p role="status">Conferindo sua sessão…</p></div>;
+  if(completionStatus==="loading"&&!sessionStarted)return <div className="content workout-page">{viewTabs}<p role="status">Conferindo sua sessão…</p></div>;
   /* Aviso, e nao bloqueio: o treino continua na tela abaixo. */
   const avisoDeConferencia=completionStatus==="error"&&<div className="workout-aviso" role="status" data-testid="aviso-conferencia">
     <span>Não consegui confirmar no servidor se você já treinou hoje. Pode treinar normalmente — eu registro assim que a conexão voltar.</span>
@@ -368,7 +410,7 @@ function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutC
   if(p.rest_day)return <ReferenceWorkoutPreview db={{...db,program:p}} onLibrary={()=>setView("library")}onCardio={()=>setView("cardio")}/>;
   if(!items.length)return <div className="content workout-page">{viewTabs}<div className="empty-state"data-testid="workout-empty-state"><Dumbbell size={22}/><h3>Nenhuma sessão disponível</h3><p className="muted">Escolha um modelo na Biblioteca ou gere um programa para começar.</p><button className="primary-button"type="button"onClick={()=>setView("library")}>Abrir biblioteca</button></div></div>;
   if(!sessionStarted)return <>{avisoDeConferencia}<ReferenceWorkoutPreview db={{...db,program:p}}activeSession={activeSession}items={items}onStart={()=>{if(p.rest_day||todayCompletion||completionStatus==="loading")return;setStartedAt(Date.now());setSessionStarted(true)}}onLibrary={()=>setView("library")}onCardio={()=>setView("cardio")}/></>;
-  return <div className="content workout-page workout-live-reference">
+  return <div className="content workout-page workout-live-reference" ref={liveWorkoutRef} onFocusCapture={rememberExercise} onClickCapture={rememberExercise} data-testid="workout-resumable-session">
     {avisoDeConferencia}
     <div className="workout-head"><div><p className="eyebrow">EM EXECUÇÃO · {p.week}</p><h2>{activeSession?.label||p.session}</h2><p className="muted">Demanda {activeSession?.demand||"MODERATE"} · registre o trabalho real.</p></div>{draftState!=="idle"&&<span className={`autosave-pill ${draftState}`}data-testid="autosave-status">{draftState==="saving"?"salvando...":draftState==="saved"?"salvo automaticamente":"sem conexão — tentando salvar"}</span>}</div>
     <section className="workout-overview">
@@ -391,7 +433,7 @@ function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutC
       const terminado=exercicioConcluido(done,x.exercise_id,x.sets)&&!reabertos[x.exercise_id]&&!showRest;
       if(terminado){
         const resumo=textoDoResumo(resumoDoExercicio(setInputs,x.exercise_id,x.sets,x.load));
-        return <section className="exercise exercise-feito"key={x.exercise_id+i}>
+        return <section className="exercise exercise-feito" data-exercise-id={x.exercise_id} key={x.exercise_id+i}>
           <button type="button"className="exercise-feito-linha"aria-expanded="false"
             data-testid={`exercicio-concluido-${x.exercise_id}`}
             aria-label={`${ex.name} concluído. ${resumo}. Tocar para abrir e revisar.`}
@@ -404,7 +446,7 @@ function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutC
         </section>;
       }
 
-      return <section className={showRest?"exercise rest-active":"exercise"}key={x.exercise_id+i}>
+      return <section className={showRest?"exercise rest-active":"exercise"} data-exercise-id={x.exercise_id} key={x.exercise_id+i}>
         <div className="exercise-title">
           <div>
             <span className="exercise-index">0{i+1}</span><div className="exercise-photo-heading"><ExercisePhoto exercise={{...ex,exercise_id:x.exercise_id}}/><h3>{ex.name}</h3></div>
