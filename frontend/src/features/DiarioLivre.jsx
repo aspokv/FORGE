@@ -1,6 +1,7 @@
 import {useCallback, useEffect, useState} from "react";
 import axios from "axios";
 import {NotebookPen, Plus, Trash2, X} from "lucide-react";
+import AsyncState from "./AsyncState";
 import FoodDiaryEditor from "./FoodDiaryEditor";
 import {mensagemDeErro} from "./mensagemDeErro";
 import "./diario-livre.css";
@@ -28,8 +29,10 @@ export default function DiarioLivre({API, dia, diario, aoMudar, axiosCliente = a
   const [aberto, setAberto] = useState(null);      // id da refeição sendo registrada
   const [estado, setEstado] = useState("carregando");
   const [erro, setErro] = useState("");
+  const [removendo,setRemovendo]=useState(null);
 
   const carregar = useCallback(async () => {
+    setEstado("carregando");
     try {
       const r = await axiosCliente.get(`${API}/nutrition/refeicoes-do-diario`);
       setRefeicoes(r.data.refeicoes || []);
@@ -46,16 +49,17 @@ export default function DiarioLivre({API, dia, diario, aoMudar, axiosCliente = a
   const total = registros.reduce((soma, e) => soma + Number(e?.actual?.totals?.kcal || 0), 0);
 
   const remover = async entryId => {
-    setErro("");
+    if(removendo)return;setRemovendo(entryId);setErro("");
     try {
       await axiosCliente.delete(`${API}/nutrition/consumed-extra/${entryId}`);
       await aoMudar();
     } catch (e) {
       setErro(mensagemDeErro(e, "Não foi possível remover esse registro."));
-    }
+    } finally {setRemovendo(null)}
   };
 
-  if (estado === "carregando") return null;
+  if (estado === "carregando") return <AsyncState title="Carregando diário…"/>;
+  if (estado === "erro") return <AsyncState kind="error" title="Não foi possível carregar o diário" onRetry={carregar}/>;
 
   if (estado === "bloqueado") return (
     <section className="diario-livre diario-bloqueado" data-testid="diario-bloqueado">
@@ -74,7 +78,7 @@ export default function DiarioLivre({API, dia, diario, aoMudar, axiosCliente = a
       <header className="diario-topo">
         <div>
           <span className="diario-etiqueta"><NotebookPen size={13} /> Diário livre</span>
-          <h3>Registre o que você comeu</h3>
+          <h3>Seu diário de hoje</h3>
         </div>
         {registros.length > 0 && (
           <strong className="diario-total" data-testid="diario-total">
@@ -84,10 +88,10 @@ export default function DiarioLivre({API, dia, diario, aoMudar, axiosCliente = a
       </header>
 
       <p className="diario-explicacao">
-        Isto é separado do seu plano: aqui entra o que você comeu de verdade, mesmo que
-        não tenha sido o que estava previsto.
+        Registre refeições fora do plano sem alterar a dieta original.
       </p>
 
+      <details className="forge-diary-picker"><summary><Plus size={16} aria-hidden="true"/> Registrar refeição fora do plano</summary>
       <div className="diario-refeicoes" role="group" aria-label="Refeição a registrar">
         {refeicoes.map(r => {
           const doDia = registros.filter(e => e.refeicao === r.id);
@@ -103,6 +107,8 @@ export default function DiarioLivre({API, dia, diario, aoMudar, axiosCliente = a
         })}
       </div>
 
+      </details>
+
       {registros.length > 0 && (
         <ul className="diario-registros" data-testid="diario-registros">
           {registros.map(e => (
@@ -113,7 +119,7 @@ export default function DiarioLivre({API, dia, diario, aoMudar, axiosCliente = a
               </div>
               <strong>{Math.round(e.actual?.totals?.kcal || 0)} kcal</strong>
               <button type="button" aria-label={`Remover ${e.refeicao_nome}`}
-                      data-testid={`diario-remover-${e.entry_id}`} onClick={() => remover(e.entry_id)}>
+                      data-testid={`diario-remover-${e.entry_id}`} disabled={Boolean(removendo)} aria-busy={removendo===e.entry_id} onClick={() => remover(e.entry_id)}>
                 <Trash2 size={14} />
               </button>
             </li>

@@ -1,3 +1,4 @@
+import AsyncState from "./AsyncState";
 import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { BookOpen, Check, ChevronRight, Dumbbell, Layers3, Plus, ShieldAlert, Timer, X } from "lucide-react";
@@ -80,9 +81,10 @@ export default function WorkoutLibrary({ API, exercises = [], onBuild, onTemplat
   const [expertAccepted, setExpertAccepted] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [attempt,setAttempt]=useState(0);
 
   useEffect(() => {
-    let alive = true;
+    let alive = true;setLoading(true);setError("");
     axios.get(`${API}/workout-templates`).then(response => {
       if (!alive) return;
       const next = { ...emptyCatalog, ...response.data };
@@ -96,7 +98,7 @@ export default function WorkoutLibrary({ API, exercises = [], onBuild, onTemplat
       if (alive) setLoading(false);
     });
     return () => { alive = false; };
-  }, [API]);
+  }, [API,attempt]);
 
   const femaleProfile = isFemaleProfile(profile);
   useEffect(() => {
@@ -153,7 +155,7 @@ export default function WorkoutLibrary({ API, exercises = [], onBuild, onTemplat
     chooseProgram(item);
     if (typeof document !== "undefined") {
       requestAnimationFrame(() => {
-        document.querySelector('[data-testid="program-preview"]')?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+        document.querySelector('[data-testid="program-preview"]')?.scrollIntoView?.({ behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
       });
     }
   };
@@ -195,18 +197,18 @@ export default function WorkoutLibrary({ API, exercises = [], onBuild, onTemplat
     }
   };
 
-  if (loading) return <div className="workout-library"><div className="library-loading">Preparando os modelos FORGE...</div></div>;
-  if (error) return <div className="workout-library"><div className="library-error">{error}</div></div>;
+  if (loading) return <div className="workout-library"><AsyncState title="Carregando biblioteca…"/></div>;
+  if (error) return <div className="workout-library"><AsyncState kind="error" title={error} onRetry={()=>setAttempt(n=>n+1)}/></div>;
 
   return <div className="workout-library" data-testid="workout-library">
     <section className="library-intro">
       <div>
         <p className="eyebrow">FORGE / ARQUITETURAS DE TREINO</p>
         <h2>{femaleProfile ? "Escolha seu programa feminino." : "Escolha uma sessão ou um programa completo."}</h2>
-        <p className="muted">Modelos profissionais normalizados para o motor do FORGE. Veja todos os exercícios antes de aplicar uma sessão ao treino atual.</p>
+        <p className="muted">Consulte os exercícios e a organização de cada programa antes de escolher.</p>
       </div>
       <div className="library-intro-actions">
-        <div className="library-count"><strong>{catalog.templates.length + catalog.programs.length}</strong><span>arquiteturas<br/>curadas</span></div>
+        <div className="library-count"><strong>{catalog.templates.length + catalog.programs.length}</strong><span>opções na<br/>biblioteca</span></div>
         {onClose && <button className="icon-button" onClick={onClose} aria-label="Fechar biblioteca"><X size={19}/></button>}
       </div>
     </section>

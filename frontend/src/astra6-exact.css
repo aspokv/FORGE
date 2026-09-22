@@ -1,5 +1,5 @@
 /* Geometry and colors transcribed from FORGE-HTML-Static.html. Namespaced to avoid legacy skins. */
-.a6{height:100dvh;display:flex;flex-direction:column;background:radial-gradient(ellipse at 50% -100px,#33393960,transparent 42%),#080909;overflow:hidden}
+.a6{height:100dvh;display:flex;flex-direction:column;background:var(--fg-fundo);overflow:hidden}
 .a6-status{height:39px;flex:0 0 39px;display:flex;align-items:center;justify-content:space-between;padding:8px 25px 0;font-size:11px;font-weight:700;position:relative}
 .a6-island{position:absolute;left:50%;top:11px;transform:translateX(-50%);width:96px;height:23px;background:#000;border-radius:20px}
 .a6-status-right{display:flex;gap:6px;align-items:center}
@@ -8,15 +8,15 @@
 .a6-app-header{height:63px;flex:0 0 63px;padding:8px 22px;display:flex;align-items:center;justify-content:space-between}
 .a6-iconbutton{height:44px;width:44px;display:grid;place-items:center;color:var(--muted)}
 .a6-iconbutton .a6-ico{width:20px;height:20px}
-.a6-scroll{flex:1;overflow:auto;scrollbar-width:none;overscroll-behavior:contain;padding:8px 20px 20px}
-.a6-scroll::-webkit-scrollbar{display:none}
+.a6-scroll{flex:1;overflow:auto;scrollbar-width:thin;scrollbar-color:var(--fg-linha-forte) transparent;overscroll-behavior:contain;padding:8px 20px 20px}
+.a6-scroll::-webkit-scrollbar{width:5px}.a6-scroll::-webkit-scrollbar-thumb{background:var(--fg-linha-forte);border-radius:4px}
 .a6-eyebrow{font-size:10px;letter-spacing:1.65px;line-height:1.4;text-transform:uppercase;font-weight:700;color:#EFBA8D;margin:0 0 5px}
 .a6 h1{font-size:28px;line-height:1.12;letter-spacing:-.8px;margin:0 0 6px;font-weight:700}
 .a6 h2{font-size:18px;line-height:1.2;letter-spacing:-.3px;margin:0}
 .a6 h3{font-size:15px;line-height:1.3;margin:0}
 .a6 p{margin:0;font-size:12px;line-height:1.5;color:var(--muted)}
 .a6-intro{margin-bottom:17px}
-.a6-panel{background:linear-gradient(125deg,#24272788,#141616 48%,#111313);border:1px solid var(--line);border-radius:16px;box-shadow:inset 0 1px 1px #fff000,0 8px 20px #0004;overflow:hidden}
+.a6-panel{background:var(--fg-superficie);border:1px solid var(--line);border-radius:16px;box-shadow:none;overflow:hidden}
 .a6-hero{position:relative;height:181px;border:1px solid #95704f;border-radius:17px 17px 0 0;overflow:hidden;margin-bottom:-13px}
 .a6-hero img{width:100%;height:100%;object-fit:cover;object-position:50% 27%}
 .a6-hero:after{position:absolute;content:'';inset:0;background:linear-gradient(0deg,#080909e8,transparent 80%)}
@@ -27,7 +27,7 @@
 .a6-meta{display:flex;gap:20px;color:#d1d3d2;font-size:11px;align-items:center;margin:13px 0}
 .a6-meta span{display:flex;gap:6px;align-items:center}
 .a6-meta .a6-ico{color:var(--flame);width:16px;height:16px}
-.a6-primary{width:100%;min-height:48px;border:1px solid #ffb695;border-radius:10px;background:linear-gradient(115deg,#FF9C6D,#FF815C 65%,#F76C42);color:#21110B;display:flex;align-items:center;justify-content:center;gap:12px;font-size:13px;font-weight:700;box-shadow:inset 0 1px 1px #fff7,0 4px 18px #e963251b}
+.a6-primary{width:100%;min-height:48px;border:1px solid var(--fg-acao);border-radius:10px;background:var(--fg-acao);color:var(--fg-acao-tinta);display:flex;align-items:center;justify-content:center;gap:12px;font-size:13px;font-weight:700;box-shadow:none}
 .a6-primary .a6-ico{width:15px;height:15px}
 .a6-section-title{display:flex;align-items:center;justify-content:space-between;margin:18px 0 11px;gap:8px}
 .a6-section-title h2{font-size:16px}
@@ -44,9 +44,9 @@
 .a6-mini p{font-size:10px}
 .a6-mini strong{font-size:12px}
 .a6-water strong{color:var(--water)}
-.a6-tabs{display:flex;gap:3px;background:linear-gradient(#202222,#101212);border:1px solid #3b3d3c;border-radius:10px;padding:3px;margin:14px 0 12px}
+.a6-tabs{display:flex;gap:3px;background:var(--fg-superficie);border:1px solid #3b3d3c;border-radius:10px;padding:3px;margin:14px 0 12px}
 .a6-tabs button{flex:1;min-height:38px;font-size:11px;color:var(--muted);border-radius:7px}
-.a6-tabs .a6-selected{background:linear-gradient(#353737,#252726);box-shadow:inset 0 0 0 1px #71604f;color:#FFD1AC}
+.a6-tabs .a6-selected{background:var(--fg-superficie-toque);box-shadow:none;color:var(--fg-texto)}
 .a6-training-summary{padding:19px 15px;position:relative;min-height:166px}
 .a6-training-summary h2{font-size:24px;line-height:1.12;letter-spacing:-.6px;max-width:210px}
 .a6-training-summary p{margin-top:7px}
@@ -141,7 +141,7 @@
 .a6-toast{position:fixed;bottom:88px;left:20px;right:20px;padding:15px;background:#262c29;border:1px solid #74604d;border-radius:12px;font-size:12px;box-shadow:0 8px 20px #0009;z-index:20}
 .a6-toast[hidden]{display:none}
 
-.a6-panel{box-shadow:inset 0 1px 1px #ffffff0b,0 8px 20px #0004}
+.a6-panel{box-shadow:none}
 .a6-tabs button{min-height:44px}
 .a6.a6-screen-1 .a6-intro p{display:none}
 .a6.a6-screen-1 .a6-intro{margin-bottom:10px}
@@ -179,7 +179,7 @@
 .a6-screen-2 .a6-meal.a6-next{min-height:94px}
 .a6-screen-2 .a6-meal.a6-next img{width:72px;height:72px}
 .a6-screen-2 .a6-water-strip{margin-top:10px}
-.a6-screen-3 .a6-scroll>p:last-child{display:none}
+
 
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}
 }
@@ -189,22 +189,22 @@
 
 /* Host integration: the OS/browser owns its status bar. No fake clock or device frame. */
 .a6,.a6-bottom-nav{
- --mineral:#080909;--graphite:#161819;--raised:#202223;--line:#363838;
- --flame:#FF8A42;--action:#FF815C;--warm:#F7F3EC;--muted:#B9BDBE;
+ --mineral:var(--fg-fundo);--graphite:var(--fg-superficie);--raised:var(--fg-superficie-alta);--line:var(--fg-linha);
+ --flame:var(--fg-acao);--action:var(--fg-acao);--warm:var(--fg-texto);--muted:var(--fg-texto-2);
  --protein:#479DFF;--carb:#F4D34F;--fat:#BA8AFF;--water:#81CEFA;
  --excess:#FF747B;--done:#74DCAB;--bronze:#BD8962;--edge:rgba(255,220,180,.22);
- color:var(--warm);font-family:Arial,Helvetica,sans-serif;font-size:12px;
+ color:var(--warm);font-family:var(--fg-corpo);font-size:12px;
 }
 .forge-shell .a6 {height:calc(100dvh - 74px - env(safe-area-inset-bottom,0px));width:100%;min-height:0;padding-top:env(safe-area-inset-top,0px)}
 .a6 *{box-sizing:border-box}
-.forge-shell .a6 :is(h1,h2,h3,p,small,strong,span,button,summary){font-family:Arial,Helvetica,sans-serif;font-style:normal;text-transform:none}
+.forge-shell .a6 :is(h1,h2,h3,p,small,strong,span,button,summary){font-family:var(--fg-corpo);font-style:normal;text-transform:none}
 .forge-shell .a6 h1{font-size:28px;font-weight:700;line-height:1.12;letter-spacing:-.8px;margin:0 0 6px}
 .forge-shell .a6 h2{font-size:18px;font-weight:700;line-height:1.2;letter-spacing:-.3px;margin:0}
 .forge-shell .a6 h3{font-size:15px;font-weight:700;line-height:1.3;margin:0}
 .forge-shell .a6 p{font-size:12px;line-height:1.5;color:var(--muted);margin:0}
 :where(.a6) button{cursor:pointer;font:inherit}
 .a6 :is(.a6-iconbutton,.a6-profile-row,.a6-warmup,.a6-textbutton,.a6-tabs button,.a6-water-controls button){background:none}
-.a6 button:disabled{opacity:.5;cursor:wait}
+.a6 button:disabled{opacity:.55;cursor:not-allowed}
 .a6 :is(button,summary):focus-visible,.a6-bottom-nav button:focus-visible{outline:2px solid var(--water);outline-offset:3px}
 .a6 summary{cursor:pointer;list-style:none}
 .a6 summary::-webkit-details-marker{display:none}
@@ -216,7 +216,7 @@
 .forge-shell:has(.a6) .main>.topbar{display:none!important}
 .forge-shell:has(.a6) .mobile-nav{display:none!important}
 .forge-shell .a6 .a6-eyebrow{text-transform:uppercase;font-size:10px;font-weight:700;letter-spacing:1.65px;line-height:1.4;color:#EFBA8D;margin:0 0 5px}
-.forge-shell .a6 .a6-primary{width:100%;min-height:48px;border:1px solid #ffb695;border-radius:10px;background:linear-gradient(115deg,#FF9C6D,#FF815C 65%,#F76C42);color:#21110B;font-size:13px;font-weight:700}
+.forge-shell .a6 .a6-primary{width:100%;min-height:48px;border:1px solid var(--fg-acao);border-radius:10px;background:var(--fg-acao);color:var(--fg-acao-tinta);font-size:13px;font-weight:700}
 .forge-shell .a6 .a6-section-title h2{font-size:16px}
 .forge-shell .a6 .a6-section-title small{font-size:10px}
 .forge-shell .a6 .a6-training-summary h2{font-size:24px;line-height:1.12;max-width:210px}
@@ -229,7 +229,7 @@
 .forge-shell .a6 .a6-exercise .exercise-photo{width:55px;height:54px;min-width:55px;aspect-ratio:auto;border:1px solid #554739;border-radius:9px;flex:none}
 .forge-shell .a6 .a6-exercise .exercise-photo img{width:100%;height:100%;object-fit:contain;border:0;border-radius:8px}
 .forge-shell .a6 .a6-tabs button{min-height:44px;font-size:11px;border-radius:7px;color:var(--muted)}
-.forge-shell .a6 .a6-tabs .a6-selected{background:linear-gradient(#353737,#252726);box-shadow:inset 0 0 0 1px #71604f;color:#FFD1AC}
+.forge-shell .a6 .a6-tabs .a6-selected{background:var(--fg-superficie-toque);box-shadow:none;color:var(--fg-texto)}
 .forge-shell .a6 .a6-warmup b{font-size:12px}
 .a6-warmup-detail{padding:12px 0}
 .forge-shell .a6 .a6-mini p{font-size:10px}
@@ -239,7 +239,7 @@
 .a6-muted{color:var(--muted);font-weight:400}
 .a6-water-controls{padding:0 10px 10px;display:flex;flex-wrap:wrap;gap:4px}
 .a6-water-controls button{min-height:44px;min-width:44px;font-size:11px;color:var(--water)}
-.a6 .ref3-sheet{color:var(--warm);font-family:Arial,Helvetica,sans-serif}
+.a6 .ref3-sheet{color:var(--warm);font-family:var(--fg-corpo)}
 .a6 .ref3-sheet button{min-height:44px}
 .a6 .ref3-sheet .ref3-primary{background:var(--action);color:#21110b}
 .a6 .ref3-sheet .ref3-sheet-close{align-self:flex-end}
@@ -284,15 +284,15 @@
 .a6 .a6-profile-row .a6-copy{min-width:0}
 .a6 :is(.a6-pr-grid,.a6-mini-grid){grid-template-columns:repeat(2,minmax(0,1fr))}
 .a6 .a6-editor :is(input,select,textarea){max-width:100%;min-width:0}
-@media(max-width:800px){
+@media(max-width:1023px){
  .forge-shell .main{margin-left:0;width:100%}
  .forge-shell:has(.a6) .a6-bottom-nav{display:grid;position:fixed;bottom:0;left:0;right:0;z-index:5;height:calc(74px + env(safe-area-inset-bottom,0px));padding-bottom:calc(13px + env(safe-area-inset-bottom,0px))}
- .a6-bottom-nav button{border:0;background:none;font-family:Arial,Helvetica,sans-serif;cursor:pointer}
+ .a6-bottom-nav button{border:0;background:none;font-family:var(--fg-corpo);cursor:pointer}
  .a6-bottom-nav button[aria-current=page]{color:var(--flame)}
  .a6-bottom-nav button[aria-current=page]:before{content:'';position:absolute;width:20px;height:2px;top:-6px;background:var(--flame);box-shadow:0 0 10px #ff8a4277}
 }
-@media(min-width:801px){
- .forge-shell .a6{height:100dvh;max-width:760px;margin:auto}
+@media(min-width:1024px){
+ .forge-shell .a6{height:100dvh;max-width:1120px;margin:auto}
  .a6 .a6-app-header,.a6 .a6-scroll{padding-left:32px;padding-right:32px}
  .a6 .a6-scroll{padding-bottom:40px}
  .a6 .a6-logo{margin-left:0}
@@ -301,3 +301,61 @@
  .forge-shell .a6 h1{font-size:27px}
  .forge-shell .a6 .a6-training-summary h2{font-size:23px}
 }
+
+/* Shared application primitives. These refine the existing foundation in place. */
+.forge-shell .a6 :is(h1,h2,h3){font-family:var(--fg-display)}
+.forge-shell .a6 h1{font-size:var(--t-display);line-height:1.15}
+.forge-shell .a6 h2{font-size:var(--t-titulo);line-height:1.3}
+.forge-shell .a6 h3{font-size:var(--t-cartao);line-height:1.35}
+.forge-shell .a6 p{font-size:var(--t-corpo);line-height:var(--lh-corpo)}
+.forge-shell .a6 :is(.a6-exercise p,.a6-profile-row p,.a6-meal p,.a6-pr p,.a6-stats p,.a6-section-title small,.a6-tabs button,.a6-meta,.a6-textbutton,.a6-warmup p,.a6-warmup small){font-size:var(--t-apoio)}
+.forge-shell .a6 :is(.a6-exercise h3,.a6-profile-row h3,.a6-meal h3,.a6-warmup b){font-size:var(--t-corpo)}
+.forge-shell .a6 .a6-eyebrow{font-size:var(--t-etiqueta);color:var(--fg-metal)}
+.forge-shell .a6 :is(.a6-primary,.a6-water-controls button){font-size:var(--t-corpo)}
+.forge-shell .a6 .a6-profile-row{padding-block:var(--e-3);gap:var(--e-3)}
+.forge-shell .a6 .a6-panel{border-radius:var(--r-cartao)}
+.forge-shell .a6 .a6-iconbox{background:var(--fg-superficie);border-color:var(--fg-linha);color:var(--fg-metal)}
+.forge-shell .a6 .a6-exercise{padding-block:var(--e-3);min-height:80px}
+.forge-shell .a6 .a6-training-summary h2{max-width:none;font-size:24px;overflow-wrap:break-word}
+.forge-shell .a6 .a6-training-summary{min-height:156px}
+.forge-shell .a6 .a6-training-cta{position:sticky;bottom:0;background:var(--fg-fundo);padding-block:var(--e-3);z-index:2}
+.forge-shell .a6 .a6-meal :is(h3,p){white-space:normal;overflow:visible;text-overflow:clip}
+.forge-shell .a6 .a6-meal{padding:var(--e-3);gap:var(--e-3)}
+.forge-shell .a6 .a6-meal.a6-next{min-height:80px}
+.forge-shell .a6 .a6-meal.a6-next img{width:56px;height:56px}
+.forge-shell .a6 .a6-gauge-panel{padding:var(--e-4);margin-bottom:var(--e-4)}
+.forge-shell .a6 .a6-gauge{height:138px}
+.forge-shell .a6 .a6-gauge svg{height:138px;width:170px;opacity:.65}
+.forge-shell .a6 .a6-gauge-label{top:26px}
+.forge-shell .a6 .a6-gauge-label strong{font-size:30px}
+.forge-shell .a6 .a6-gauge-label p{font-size:12px}
+.forge-shell .a6 .a6-macros{gap:var(--e-3);padding-top:var(--e-3);border-top:1px solid var(--fg-linha)}
+.forge-shell .a6 .a6-macro :is(p,.a6-goal){font-size:12px}
+.forge-shell .a6 :is(button,summary){touch-action:manipulation}
+.forge-shell .a6 :is(button,summary,input,select,textarea):focus-visible,.forge-dialog :focus-visible,.forge-login :focus-visible{outline:2px solid var(--fg-metal);outline-offset:3px}
+.forge-shell [hidden]{display:none!important}
+.forge-shell button[aria-busy="true"]{cursor:progress}
+.forge-shell .a6-bottom-nav{background:var(--fg-superficie);border-color:var(--fg-linha);font-family:var(--fg-corpo)}
+.forge-shell .a6-bottom-nav button{font-family:var(--fg-corpo);font-size:11px}
+.forge-shell .a6-bottom-nav:after{display:none}
+.forge-shell .a6-bottom-nav button[aria-current=page]:before{box-shadow:none}
+.forge-shell .a6 .a6-scroll{padding:var(--e-3) var(--fg-margem) var(--e-5)}
+.forge-shell .a6 .a6-app-header{padding-inline:var(--fg-margem)}
+@media(max-width:1023px){
+ .forge-shell .rail,.forge-shell .mobile-nav{display:none!important}
+ .forge-shell .main{margin-left:0!important;width:100%;min-width:0;padding-bottom:90px}
+ .forge-shell .a6{max-width:none}
+ .forge-shell .a6-bottom-nav{display:grid;position:fixed;bottom:0;left:0;right:0;z-index:5;height:calc(74px + env(safe-area-inset-bottom,0px));padding-bottom:calc(13px + env(safe-area-inset-bottom,0px))}
+}
+@media(min-width:768px){.forge-shell .a6{--fg-margem:24px}.forge-shell .a6 .a6-pr-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(min-width:1024px){
+ .forge-shell .rail{display:flex!important;width:224px;min-width:224px;padding:32px 16px;background:var(--fg-superficie);border-right:1px solid var(--fg-linha)}
+ .forge-shell .main{margin-left:224px!important;width:calc(100% - 224px);min-width:0}
+ .forge-shell .a6{--fg-margem:32px}
+ .forge-shell .a6-bottom-nav,.forge-shell .mobile-nav{display:none!important}
+ .forge-shell .rail .nav-item{min-height:48px;font-size:15px;border-radius:var(--r-campo)}
+ .forge-shell .rail .nav-item.active{background:var(--fg-acao-fraca);color:var(--fg-acao)}
+ .forge-shell .rail .rail-caption{font-size:11px;letter-spacing:.08em}
+ .forge-shell .rail .rail-bottom{font:13px/1.6 var(--fg-corpo);color:var(--fg-texto-2)}
+}
+@media(prefers-reduced-motion:reduce){.forge-shell *,.forge-dialog *{animation:none!important;transition:none!important;scroll-behavior:auto!important}}

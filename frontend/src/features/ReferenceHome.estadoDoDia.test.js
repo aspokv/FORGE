@@ -16,7 +16,7 @@ const seriesEm=(dias,quantas=1,weight=60,reps=10)=>{
 test("o rodape do Inicio traz prontidao e volume da semana",()=>{
   const home=casa();
   expect(home.querySelector('[data-testid="home-estado-do-dia"]')).not.toBeNull();
-  expect(home.querySelector('[data-testid="home-prontidao"]')).not.toBeNull();
+  expect(home.textContent).toContain("Carregando check-in");
   expect(home.querySelector('[data-testid="home-volume-semana"]')).not.toBeNull();
 });
 
@@ -25,11 +25,10 @@ test("o rodape do Inicio traz prontidao e volume da semana",()=>{
  * treino, e `openPlan` retorna cedo no descanso. Quer dizer que no dia em que a recuperacao
  * mais importa ela era impossivel de registrar — e o motor decide serie e RIR com ela.
  */
-test("sem check-in de hoje, o card inteiro vira o caminho para faze-lo",()=>{
-  const card=casa().querySelector('[data-testid="home-prontidao"]');
-  expect(card.tagName).toBe("BUTTON");
-  expect(card.getAttribute("type")).toBe("button");
-  expect(card.textContent).toMatch(/check-in/i);
+test("antes da resposta do servidor, mostra carregamento sem sugerir um check-in novo",()=>{
+  const home=casa();
+  expect(home.querySelector('[data-testid="home-prontidao"]')).toBeNull();
+  expect(home.textContent).toContain("Carregando check-in");
 });
 
 /*
@@ -37,10 +36,10 @@ test("sem check-in de hoje, o card inteiro vira o caminho para faze-lo",()=>{
  * que a tela leia o nivel do MOTOR e nao recalcule: `renderToStaticMarkup` nao roda efeito,
  * entao o estado com check-in nao existe neste harness e nao adianta fingir que existe.
  */
-test("o descanso rotula os minutos e series como sendo de amanha",()=>{
+test("o descanso não presume que a próxima sessão seja amanhã",()=>{
   const home=casa({program:{rest_day:true}});
   const contexto=home.querySelector('[data-testid="home-cycle-context"]').textContent;
-  if(contexto.startsWith("DESCANSO")) expect(contexto).toBe("DESCANSO HOJE · AMANHÃ");
+  if(contexto.startsWith("DESCANSO")) expect(contexto).toBe("DESCANSO HOJE · PRÓXIMA SESSÃO");
 });
 
 test("a sequencia aparece junto da data a partir de dois dias",()=>{
