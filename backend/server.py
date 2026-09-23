@@ -311,8 +311,23 @@ async def load_profile(profile_id: str) -> Dict[str, Any]:
     return stored
 
 
+# Hora em que ESTE processo subiu, fixada no import.
+#
+# Existe para uma coisa so: provar de fora que um deploy de BACKEND entrou no ar. Deploy de
+# frontend se confere pelo pacote servido, que muda de hash; deploy de backend nao deixa
+# marca nenhuma na rede — todas as rotas novas exigem login, e `version` e uma string escrita
+# a mao que ninguem lembra de subir. Sem isto, "o backend subiu" seria uma afirmacao sem
+# prova, e a unica alternativa era acreditar que o merge basta.
+#
+# Nao e o SHA do commit de proposito. O SHA numa rota sem autenticacao e impressao digital da
+# versao do codigo, e a hora resolve o problema sem dizer nada: o Coolify troca o container a
+# cada deploy, entao `started_at` depois do horario do merge e o deploy daquele merge.
+SUBIU_EM = datetime.now(timezone.utc).isoformat()
+
+
 @api.get("/")
-async def root(): return {"message": "FORGE API online", "version": "2.0.1"}
+async def root():
+    return {"message": "FORGE API online", "version": "2.0.1", "started_at": SUBIU_EM}
 
 
 async def _semana_em_segundo_plano(perfil_id: str, user: dict) -> None:
