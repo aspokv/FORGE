@@ -124,6 +124,66 @@ def test_a_rota_de_upload_tem_teto_proprio_e_maior():
     assert "/api/visual-assessment" in server.ROTAS_COM_UPLOAD
 
 
+# ── Toda rota que recebe FOTO precisa do teto largo ──────────────────────────────────
+#
+# O Food Card entrou depois e ninguem lembrou desta lista. A foto do prato batia no teto de
+# 1 MB, o middleware devolvia 413 "Conteudo grande demais", e a rota — que tem a propria
+# checagem de 8 MB e uma mensagem clara — nunca chegava a rodar. O atleta importava a foto
+# e a peca ficava preta.
+#
+# Nao e caso raro: uma foto de celular reduzida para 1920px em qualidade 92 tem 1,55 MB.
+
+@pytest.mark.parametrize("caminho", [
+    "/api/visual-assessment",
+    "/api/food-card/9f1c2b3a-0000-4000-8000-000000000000/photo",
+])
+def test_toda_rota_que_recebe_foto_tem_o_teto_largo(caminho):
+    assert server._e_rota_de_foto(caminho), caminho
+
+
+# O caminho da foto e `/api/food-card/{id}/photo`. Casar so por prefixo daria 8 MB tambem
+# para as rotas de JSON do mesmo recurso, que nao precisam e nao devem: e justamente o
+# corpo JSON grande que o teto estreito existe para barrar.
+@pytest.mark.parametrize("caminho", [
+    "/api/food-card",
+    "/api/food-card/9f1c2b3a-0000-4000-8000-000000000000",
+    "/api/food-card/meal",
+    "/api/food-card/9f1c2b3a-0000-4000-8000-000000000000/photo-check",
+    "/api/assessment",
+    "/api/nutrition/plan",
+])
+def test_rota_sem_foto_continua_no_teto_estreito(caminho):
+    assert not server._e_rota_de_foto(caminho), caminho
+
+
+@asincrono
+async def test_a_foto_do_food_card_passa_acima_de_um_mega():
+    """O tamanho que reprovava antes: 1,2 MB, entre o teto estreito e o largo.
+
+    Nao chega a gravar nada — sem armazenamento configurado a rota recusa com 503, e o que
+    este teste mede e o middleware: o que NAO pode acontecer e 413.
+    """
+    _, h = await _atleta("seg.foodcard.foto@example.com")
+    # `bytes([...])` e `bytes(n)` em vez de escapes: assinatura de JPEG mais enchimento.
+    corpo = bytes([0xFF, 0xD8, 0xFF, 0xE0]) + bytes(1200 * 1024)
+    async with await _cliente() as c:
+        r = await c.post("/api/food-card/9f1c2b3a-0000-4000-8000-000000000000/photo",
+                         headers=h, files={"photo": ("prato.jpg", corpo, "image/jpeg")})
+    assert r.status_code != 413, "a foto do prato voltou a bater no teto de 1 MB"
+
+
+@asincrono
+async def test_a_foto_do_food_card_ainda_tem_teto():
+    """Teto largo nao e ausencia de teto."""
+    _, h = await _atleta("seg.foodcard.enorme@example.com")
+    corpo = bytes([0xFF, 0xD8, 0xFF, 0xE0]) + bytes(9 * 1024 * 1024)
+    async with await _cliente() as c:
+        r = await c.post("/api/food-card/9f1c2b3a-0000-4000-8000-000000000000/photo",
+                         headers=h, files={"photo": ("prato.jpg", corpo, "image/jpeg")})
+    assert r.status_code == 413
+    assert r.json()["detail"]["reason"] == "payload_too_large"
+
+
 # ── Upload ───────────────────────────────────────────────────────────────────────────
 
 @asincrono

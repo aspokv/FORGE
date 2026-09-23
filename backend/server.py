@@ -1907,6 +1907,24 @@ LIMITE_DE_UPLOAD = 8 * 1024 * 1024         # 8 MB onde ha foto de verdade
 ROTAS_COM_UPLOAD = ("/api/visual-assessment",)
 
 
+def _e_rota_de_foto(caminho: str) -> bool:
+    """A rota aceita uma FOTO, e por isso merece o teto de 8 MB em vez do de 1 MB.
+
+    O Food Card entrou depois e ninguem lembrou desta lista. Resultado: a foto do prato
+    batia no teto de 1 MB, o middleware devolvia 413 "Conteudo grande demais" e a rota —
+    que tem a propria checagem de 8 MB e uma mensagem clara — nunca chegava a rodar. Uma
+    foto de celular reduzida para 1920px passa de 1 MB com facilidade: a do teste, 1920 x
+    1440 em qualidade 92, tem 1,55 MB.
+
+    O caminho e `/api/food-card/{id}/photo`, entao nao da para casar so por prefixo:
+    `/api/food-card` daria 8 MB tambem para as rotas de JSON, que nao precisam e nao
+    devem. Prefixo MAIS sufixo mantem o teto largo so onde a foto entra.
+    """
+    if any(caminho.startswith(r) for r in ROTAS_COM_UPLOAD):
+        return True
+    return caminho.startswith("/api/food-card/") and caminho.endswith("/photo")
+
+
 @app.middleware("http")
 async def limitar_tamanho_do_corpo(request: Request, call_next):
     declarado = request.headers.get("content-length")
@@ -1919,8 +1937,7 @@ async def limitar_tamanho_do_corpo(request: Request, call_next):
         # roteador vai casar. `request.url.path` e reconstruido, e um caminho forjado
         # que parecesse a rota de upload renderia o teto de 8 MB em qualquer rota.
         caminho = request.scope.get("path") or request.url.path
-        teto = (LIMITE_DE_UPLOAD if any(caminho.startswith(r) for r in ROTAS_COM_UPLOAD)
-                else LIMITE_DE_CORPO)
+        teto = LIMITE_DE_UPLOAD if _e_rota_de_foto(caminho) else LIMITE_DE_CORPO
         if tamanho > teto:
             logger.warning("corpo recusado por tamanho: %s bytes em %s", tamanho, caminho)
             return JSONResponse(
