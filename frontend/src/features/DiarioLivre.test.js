@@ -47,14 +47,16 @@ function clienteFalso({status = 200} = {}) {
   };
 }
 
-async function montar({diario = {extras: []}, cliente = clienteFalso()} = {}) {
+async function montar({diario = {extras: []}, cliente = clienteFalso(),
+                       onFoodCard} = {}) {
   const alvo = document.createElement("div");
   document.body.appendChild(alvo);
   const root = createRoot(alvo);
   const aoMudar = jest.fn();
   await act(async () => {
     root.render(<DiarioLivre API="/api" dia="2026-09-18" diario={diario}
-                             aoMudar={aoMudar} axiosCliente={cliente} />);
+                             aoMudar={aoMudar} axiosCliente={cliente}
+                             onFoodCard={onFoodCard} />);
   });
   return {alvo, aoMudar, cliente};
 }
@@ -126,4 +128,60 @@ test("dia sem nada registrado não mostra total nem lista vazia", async () => {
   const {alvo} = await montar();
   expect(alvo.querySelector('[data-testid="diario-total"]')).toBeNull();
   expect(alvo.querySelector('[data-testid="diario-registros"]')).toBeNull();
+});
+
+
+/*
+ * A porta de entrada do Food Card.
+ *
+ * O Nicolas abriu o aplicativo e disse que não tinha achado o Food Card. Ele estava lá e
+ * funcionava inteiro — o que havia era um ícone mudo de 34×34 encostado na lixeira, com o
+ * mesmo contorno e a mesma cor dela. Ninguém adivinha que aquilo abre uma peça de Story, e
+ * errar o toque apagava a refeição registrada.
+ *
+ * A aposta anterior estava escrita no código: "quem quiser transformar a refeição numa
+ * peça vai procurar". Não se sustentou nem com quem construiu a funcionalidade.
+ */
+const click = node => node.dispatchEvent(new MouseEvent("click", {bubbles: true, cancelable: true}));
+
+test("o botão do Food Card diz o próprio nome", async () => {
+  const {alvo} = await montar({diario: DIARIO_COM_REGISTROS, onFoodCard: jest.fn()});
+  const botao = alvo.querySelector('[data-testid="diario-food-card-a"]');
+  expect(botao).not.toBeNull();
+  // Rótulo VISÍVEL, e não só `aria-label`: quem está olhando a tela precisa ler a palavra.
+  expect(botao.textContent).toContain("Food Card");
+});
+
+// Os dois eram DOIS ÍCONES MUDOS de 34px, com o mesmo contorno, separados por 12px. Era
+// isso que tornava um indistinguível do outro, e num celular tocar em "apagar" achando que
+// era "gerar a peça" apaga a refeição registrada.
+//
+// O que se pode medir aqui é a diferença de natureza: um tem texto, o outro é só ícone.
+// A distância entre eles é layout, e jsdom não faz layout — foi medida no navegador
+// (390×844: o botão passou de 34×34 para 324×44 e ficou a 298px da lixeira).
+test("o Food Card deixou de ser um ícone mudo como a lixeira", async () => {
+  const {alvo} = await montar({diario: DIARIO_COM_REGISTROS, onFoodCard: jest.fn()});
+  const card = alvo.querySelector('[data-testid="diario-food-card-a"]');
+  const lixeira = alvo.querySelector('[data-testid="diario-remover-a"]');
+  expect(card.textContent.trim()).not.toBe("");
+  expect(lixeira.textContent.trim()).toBe("");
+  // A classe é por onde o CSS o tira da linha dos ícones e o põe em linha própria.
+  expect(card.className).toContain("diario-food-card");
+  expect(lixeira.className).not.toContain("diario-food-card");
+});
+
+test("abre o Food Card daquele registro, e não de outro", async () => {
+  const onFoodCard = jest.fn();
+  const {alvo} = await montar({diario: DIARIO_COM_REGISTROS, onFoodCard});
+  await act(async () => { click(alvo.querySelector('[data-testid="diario-food-card-b"]')); });
+  expect(onFoodCard).toHaveBeenCalledWith("b");
+});
+
+// Sem `onFoodCard` a tela que hospeda o diário não sabe abrir a peça. Mostrar o botão ali
+// seria prometer uma coisa que não acontece ao tocar.
+test("sem quem abra o Food Card, o botão não aparece", async () => {
+  const {alvo} = await montar({diario: DIARIO_COM_REGISTROS});
+  expect(alvo.querySelector('[data-testid="diario-food-card-a"]')).toBeNull();
+  // E a lixeira continua onde estava: tirar o Food Card não pode levar o apagar junto.
+  expect(alvo.querySelector('[data-testid="diario-remover-a"]')).not.toBeNull();
 });

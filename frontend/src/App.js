@@ -53,6 +53,7 @@ import {useWorkoutCompletion} from "./features/workoutCompletionState";
 import {dataDoCabecalho,rotuloDoModo,rotuloDoPlano,rotuloDaSituacao} from "./features/rotulos";
 import ReferenceWorkoutPreview from "./features/ReferenceWorkoutPreview";
 import ExercisePhoto from "./features/ExercisePhoto";
+import {arteEmFaixa} from "./features/arteDoExercicio";
 import {sessionCategory} from "./features/WorkoutVariationsButton";
 import {prescribedReps} from "./features/prescribedReps";
 import {completeWorkout} from "./features/completeWorkout";
@@ -426,6 +427,8 @@ export function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onW
       const isAdv=tech.id!=="straight";
       const hint=hints[x.exercise_id];
       const showRest=timer>0&&restingSet?.exerciseId===x.exercise_id;
+      // Nenhuma serie registrada ainda: e o momento em que a foto serve para alguma coisa.
+      const naoComecou=arteEmFaixa(done,x.exercise_id,x.sets);
 
       // Terminou: o card vira uma linha com o visto, e a tela passa a mostrar o que falta.
       // O descanso em andamento segura o card aberto — recolher com o cronometro rodando
@@ -447,9 +450,18 @@ export function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onW
       }
 
       return <section className={showRest?"exercise rest-active":"exercise"} data-exercise-id={x.exercise_id} key={x.exercise_id+i}>
+        {/* A arte em faixa, e nao em miniatura. O arquivo tem 512x512 e era desenhado a
+            64px: uma foto escura, sobre fundo escuro, reduzida oito vezes, onde nao se
+            enxergava a execucao — a unica coisa para que a foto serve.
+            Ela some assim que a primeira serie e registrada, e o nome volta a levar a
+            miniatura. A faixa mede 262px de altura: mantida o treino inteiro, empurraria a
+            tabela de series para fora da primeira dobra a cada exercicio, e a tabela e o
+            que se usa DURANTE a serie. Antes de comecar, olha-se a execucao; depois de
+            comecar, olha-se a carga. */}
+        {naoComecou&&<ExercisePhoto className="exercise-art-faixa" exercise={{...ex,exercise_id:x.exercise_id}}/>}
         <div className="exercise-title">
           <div>
-            <span className="exercise-index">0{i+1}</span><div className="exercise-photo-heading"><ExercisePhoto exercise={{...ex,exercise_id:x.exercise_id}}/><h3>{ex.name}</h3></div>
+            <span className="exercise-index">0{i+1}</span><div className="exercise-photo-heading">{naoComecou?null:<ExercisePhoto exercise={{...ex,exercise_id:x.exercise_id}}/>}<h3>{ex.name}</h3></div>
             <p className="muted">{x.reps} reps · RIR {x.rir} · {x.rest}</p>
             {/* O role só existe nas arquiteturas híbridas. Sem esta etiqueta, uma
                 microdose de uma série parece exercício esquecido pela metade — e é
