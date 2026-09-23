@@ -179,7 +179,12 @@ async def _semear_tudo(uid: str, email: str):
     metade. Passar assim seria pior do que falhar.
 
     Cada documento leva `profile_id` E `user_id`, porque as duas convencoes convivem no
-    banco e a remocao so precisa acertar uma delas. Os campos unicos vao preenchidos:
+    banco e a remocao so precisa acertar uma delas — e leva TAMBEM o campo que a remocao
+    declara para aquela colecao, qualquer que seja o nome. Sem isso o teste mediria uma
+    convencao em vez do que a remocao faz: `food_cards` guarda o dono em `userId`, o
+    semeador nao escrevia esse campo, e a exclusao correta por `userId` reprovava.
+
+    Os campos unicos vao preenchidos:
     varias colecoes tem indice unico (`subscription_attempts.reference`) e dois documentos
     com `null` no mesmo campo derrubariam a semeadura por DuplicateKeyError, fazendo o
     teste falhar por um motivo que nada tem a ver com o que ele mede.
@@ -193,6 +198,9 @@ async def _semear_tudo(uid: str, email: str):
         doc = {"id": str(uuid.uuid4()), "reference": str(uuid.uuid4()),
                "event_key": str(uuid.uuid4()), "token_hash": str(uuid.uuid4()),
                "profile_id": uid, "user_id": uid, "email": email, "semeado": True}
+        for colecao, campo in COLECOES_DO_ATLETA:
+            if colecao == nome:
+                doc[campo] = uid
         if nome == "profiles":
             doc["id"] = uid            # aqui a chave e o proprio id
         await DB[nome].insert_one(doc)

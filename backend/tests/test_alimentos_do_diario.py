@@ -130,6 +130,15 @@ def test_albumina_aparece_na_busca():
     "agua de coco", "cafe", "leite de coco",
     "feijoada", "strogonoff", "coxinha", "tapioca com queijo", "marmita",
     "maionese", "mel", "cacau",
+    # A leva que o Nicolas pediu depois de procurar "moranga" e nao achar. A abobora estava
+    # no catalogo desde sempre com o id `pumpkin` — o que faltava era o apelido. Alimento que
+    # a pessoa nao acha e alimento que nao entra no diario, e dia sem registro e dia que o
+    # Conselho nao sabe ler.
+    "moranga", "jerimum", "cabotia", "jilo", "acelga", "rabanete", "couve chinesa", "nabo",
+    "escarola", "almeirao", "maxixe", "chuchu",
+    "bacon", "carne de sol", "charque", "fraldinha", "cupim", "contra file", "lagarto",
+    "cacao", "mignon", "alcatra", "coxao mole", "lombo", "sobrecoxa",
+    "aipim", "macaxeira", "mandioca", "pescada", "merluza", "peito de peru",
 ])
 def test_o_que_a_pessoa_digita_encontra_alimento(termo):
     assert _busca(termo), f"'{termo}' nao devolve nada no diario"

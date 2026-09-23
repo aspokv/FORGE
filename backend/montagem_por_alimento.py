@@ -15,7 +15,8 @@ tira a possibilidade de montar um prato absurdo sem perceber.
 Nada aqui calcula macro nem porcao. Isto e uma VITRINE: diz o que cabe em cada espaco, com
 o que ja existia no motor. Quem dimensiona continua sendo `calculate_meal_portions`.
 """
-from typing import Any, Dict, List, Optional
+import re
+from typing import Any, Dict, List, Optional, Tuple
 
 from nutrition_engine import (FOOD_FAMILIES, FOOD_INDEX, MEAL_TEMPLATES, _food_compatible,
                               _infer_meal_type, calculate_meal_portions)
@@ -281,6 +282,51 @@ def _chave_do_nome(nome: str) -> str:
     return " ".join(sorted(p for p in texto.split() if p))
 
 
+def _palavras_a_mais(termo: str, nome: str) -> int:
+    """Quantas palavras o nome tem alem do que foi digitado, ignorando o que nao descreve o
+    alimento: explicacao entre parenteses e sufixo de marca depois de travessao.
+
+    O alimento mais simples tem o nome mais curto, e esse e um bom desempate — mas medir o
+    nome cru premia a marca: "Albumina — Naturovos" e mais curto que "Albumina (clara de ovo
+    desidratada)", e a pessoa que digita "albumina" quer a albumina, nao a marca que alguem
+    cadastrou. Tirando os dois trechos, os dois viram "Albumina" e empatam.
+    """
+    limpo = re.sub(r"\([^)]*\)", " ", nome or "")
+    limpo = re.split(r"\s[—–-]\s", limpo)[0]
+    do_termo = set(termo.split())
+    return len([p for p in normalize(limpo).split() if p not in do_termo])
+
+
+def _precisao(termo: str, nome: str, apelidos) -> Tuple[int, int, int]:
+    """Quanto o texto digitado NOMEIA este alimento. Menor e melhor, em duas partes.
+
+    Serve para desempatar alimentos que casaram com a mesma pontuacao. Conter o termo em
+    algum lugar do texto e barato: "Creme de arroz com whey" contem "whey" tanto quanto o
+    proprio whey. O que separa os casos e se o termo esta no NOME da coisa, e onde.
+
+    A primeira parte e se o nome cita o termo. Um alimento que casou so por apelido fica
+    atras: "alcatra" deve trazer "Alcatra grelhada" antes de "Carne bovina grelhada
+    (patinho)", que lista alcatra como apelido e nao a nomeia.
+
+    A segunda e onde o termo aparece. Ela vem DEPOIS de `dimensionavel` na ordenacao, e nao
+    junto, porque comecar com a palavra nao quer dizer ser o alimento que a pessoa quis:
+    quem digita "frango" quer peito de frango, nao "Frango a parmegiana".
+
+    A terceira e o apelido exato, que e intencao declarada de quem montou o catalogo: "leite"
+    esta cadastrado como apelido do leite integral, e e isso que a palavra sozinha significa.
+    """
+    limpo = normalize(nome)
+    no_nome = 0 if termo in limpo else 1
+    if limpo == termo:
+        onde = 0
+    elif limpo.startswith(termo + " "):
+        onde = 1
+    else:
+        onde = 2
+    exato = 0 if any(normalize(a) == termo for a in apelidos) else 1
+    return no_nome, onde, exato
+
+
 def _macros_por_100(alimento: Dict[str, Any]) -> Dict[str, Any]:
     base = max(1, alimento.get("grams", 100))
     fator = 100.0 / base
@@ -391,10 +437,24 @@ def buscar_para_montagem(consulta: str, perfil: Dict[str, Any],
             "dimensionavel": dimensionavel,
             "metodo": fid in do_metodo,
             "_pontos": pontos,
+            "_precisao": _precisao(termo, nome, alimento.get("aliases") or []),
             **_macros_por_100(alimento),
         })
 
-    achados.sort(key=lambda a: (-a["_pontos"], not a["dimensionavel"], a["name"]))
+    # Antes o desempate era direto pelo nome, e quem digitava "ovo" recebia "Clara de ovo"
+    # na frente do ovo, quem digitava "whey" recebia "Creme de arroz com whey", e "acelga"
+    # trazia a acelga chinesa (que e outra verdura) antes da acelga. Todos empatavam em 2.0
+    # por conter o termo em algum lugar, e o alfabeto decidia.
+    #
+    # `dimensionavel` entre as duas partes da precisao nao e detalhe: e ele que sabe separar
+    # alimento-base de prato pronto, porque o motor so dimensiona sozinho o primeiro. Por
+    # isso "frango" cai em peito de frango e nao em frango a parmegiana.
+    #
+    # E por ultimo o nome mais enxuto, porque o alimento mais simples se descreve com menos
+    # palavras: "Acelga refogada" antes de "Acelga chinesa crua".
+    achados.sort(key=lambda a: (-a["_pontos"], a["_precisao"][0], not a["dimensionavel"],
+                                a["_precisao"][1], a["_precisao"][2],
+                                _palavras_a_mais(termo, a["name"]), a["name"]))
 
     # O mesmo alimento existe duas vezes no catalogo em dois casos conhecidos (batata-doce e
     # castanha-do-para): um registro no motor de plano e outro so no diario, com macro
@@ -413,5 +473,6 @@ def buscar_para_montagem(consulta: str, perfil: Dict[str, Any],
             continue
         vistos.add(chave)
         a.pop("_pontos", None)
+        a.pop("_precisao", None)
         unicos.append(a)
     return unicos[:limite]
