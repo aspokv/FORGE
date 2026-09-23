@@ -57,9 +57,19 @@ export default function useFoodCard({API, cardId, axiosCliente = axios}) {
    * requisição.
    */
   const refazendo = useRef(false);
+  const diagnosticado = useRef(false);
   const fotoFalhou = useCallback(async () => {
     if (refazendo.current) {
-      setErro("A foto do prato não carregou. Toque em \"Escolher da galeria\" para enviar de novo.");
+      // Segunda falha: não é prazo vencido, é outra coisa. Pergunta ao servidor o que ele
+      // enxerga, porque daqui os casos são indistinguíveis — objeto que sumiu, credencial
+      // caída e URL vencida dão exatamente o mesmo `<img>` quebrado e o mesmo fundo preto.
+      //
+      // Uma vez só, como a recuperação: a resposta não muda entre uma falha e a seguinte, e
+      // perguntar de novo é rede gasta para reescrever a mesma frase.
+      if (!diagnosticado.current) {
+        diagnosticado.current = true;
+        setErro(await diagnosticar(axiosCliente, API, cardId));
+      }
       return false;
     }
     refazendo.current = true;
@@ -155,6 +165,7 @@ export default function useFoodCard({API, cardId, axiosCliente = axios}) {
       const r = await axiosCliente.post(`${API}/food-card/${cardId}/photo`, corpo,
                                         {headers: {"Content-Type": "multipart/form-data"}});
       refazendo.current = false;   // foto nova, chance nova de recuperacao
+      diagnosticado.current = false;
       setCard(atual => (atual ? {...atual, imageUrl: r.data.imageUrl,
                                  imageKey: r.data.imageKey} : atual));
       return true;
@@ -201,4 +212,33 @@ function criarBitmap(arquivo) {
     img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Foto inválida.")); };
     img.src = url;
   });
+}
+
+
+/** Traduz o que o servidor enxerga da foto numa frase que diz o que fazer. */
+async function diagnosticar(axiosCliente, API, cardId) {
+  const generica = "A foto do prato não carregou. Toque em \"Escolher da galeria\" para enviar de novo.";
+  try {
+    const {data} = await axiosCliente.get(`${API}/food-card/${cardId}/photo-check`);
+    if (!data?.armazenamentoAtivo) {
+      return "O armazenamento de fotos está fora do ar. A peça continua salva; tente a foto mais tarde.";
+    }
+    if (!data.temChave || data.motivo === "sem_foto") {
+      return "A foto não chegou a ser guardada. Envie de novo por \"Escolher da galeria\".";
+    }
+    if (!data.existe) {
+      return "A foto não está mais no armazenamento. Envie de novo por \"Escolher da galeria\".";
+    }
+    if (!data.assinavel) {
+      return "A foto está guardada, mas o servidor não conseguiu liberar o acesso a ela. Tente de novo em alguns minutos.";
+    }
+    // O servidor acha a foto e consegue assinar: quem não conseguiu baixar foi o navegador.
+    // Quando a validade é curta, ela é a explicação — e é configuração, não defeito de uso.
+    const curta = Number(data.validade) > 0 && Number(data.validade) < 120;
+    return curta
+      ? `A foto está guardada, mas o endereço dela vence em ${data.validade}s e o aparelho não alcançou a tempo.`
+      : "A foto está guardada, mas este aparelho não conseguiu baixá-la. Tente de novo, ou por outra rede.";
+  } catch {
+    return generica;
+  }
 }

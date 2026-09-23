@@ -528,18 +528,23 @@ describe("a foto que não carrega", () => {
     expect(cliente.get).toHaveBeenCalledTimes(2);
   });
 
-  // Uma vez só. Um endereço que falha por outro motivo — objeto apagado, armazenamento
-  // fora do ar — repetiria para sempre, e cada tentativa é uma requisição de rede.
-  test("tenta uma vez só, e depois explica em vez de insistir", async () => {
+  // Uma vez só, cada coisa. Um endereço que falha por outro motivo — objeto apagado,
+  // armazenamento fora do ar — repetiria para sempre, e cada tentativa é rede gasta. O
+  // diagnóstico também: a resposta dele não muda entre uma falha e a seguinte.
+  test("tenta uma vez, diagnostica uma vez, e não insiste", async () => {
     const {alvo, cliente, clicar} = await montar([
       {id: "c1", items: [], imageUrl: "https://x/velha"},
       {id: "c1", items: [], imageUrl: "https://x/nova"},
+      {temChave: true, armazenamentoAtivo: true, existe: true, assinavel: true, validade: 300},
     ]);
     await clicar();
     await clicar();
     await clicar();
-    expect(cliente.get).toHaveBeenCalledTimes(2);   // a inicial e UMA recuperação
-    expect(alvo.querySelector('[data-testid="erro"]').textContent).toMatch(/galeria/i);
+    await clicar();
+    // a inicial, UMA recuperação e UM diagnóstico — por mais que a imagem falhe
+    expect(cliente.get).toHaveBeenCalledTimes(3);
+    expect(cliente.get.mock.calls.filter(([u]) => u.includes("photo-check"))).toHaveLength(1);
+    expect(alvo.querySelector('[data-testid="erro"]').textContent).toMatch(/não conseguiu baixá-la/i);
   });
 
   // O servidor responde, mas sem endereço: o objeto não está mais lá. Insistir não traz.
