@@ -25,10 +25,19 @@ import MacroSummary from "./MacroSummary";
 export default function FoodCardCanvas({
   imagem, imageTransform, items = [], summary, selecionado = null,
   onPointerDownCard, onPointerDownAncora, onFundoPressionado,
-  modoPreview = false, escalaRef,
+  modoPreview = false, escalaRef, onFotoFalhou,
 }) {
   const molduraRef = useRef(null);
   const [escala, setEscala] = useState(0.3);
+  // Conta as tentativas de carregar a foto, e serve de `key` da <img>.
+  //
+  // Sem isto a recuperacao nao funciona: pedir um endereco novo devolve a MESMA string
+  // quando a assinatura e gerada no mesmo segundo, e o navegador nao repete requisicao
+  // para um `src` que nao mudou. Trocar a `key` monta um elemento novo, que pede de novo.
+  //
+  // So sobe quando a recuperacao diz que vale a pena tentar: se subisse a cada `onError`,
+  // um endereco que falha sempre entraria em laco infinito de requisicoes.
+  const [tentativa, setTentativa] = useState(0);
 
   // A escala acompanha o contêiner real. `ResizeObserver` em vez de um evento de janela
   // porque o editor tem barras que abrem e fecham sem a janela mudar de tamanho.
@@ -76,7 +85,14 @@ export default function FoodCardCanvas({
         {/* Camada 1: a foto do atleta, intocada. Só enquadramento muda. */}
         <div className="fc-foto" data-testid="fc-foto">
           {imagem ? (
-            <img src={imagem} alt="" draggable="false" style={{
+            /* `onError` nao e enfeite: o endereco da foto e assinado e vale cinco minutos,
+               e montar uma peca leva mais que isso. Sem este aviso o `<img>` falha calado,
+               a peca fica com o fundo vazio e nada na tela explica por que. */
+            <img key={`${imagem}#${tentativa}`} src={imagem} alt="" draggable="false"
+                 data-testid="fc-foto-img"
+                 onError={async () => {
+                   if (await onFotoFalhou?.()) setTentativa(n => n + 1);
+                 }} style={{
               transform: `translate(${t.offsetX * LARGURA}px, ${t.offsetY * ALTURA}px) scale(${t.scale})`,
             }} />
           ) : (

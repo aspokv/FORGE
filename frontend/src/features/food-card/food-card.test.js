@@ -14,6 +14,7 @@ import {nomeDoArquivo} from "./lib/exportar";
 import FoodCardCanvas from "./components/FoodCardCanvas";
 import MacroSummary from "./components/MacroSummary";
 import FoodSelector from "./components/FoodSelector";
+import useFoodCard from "./hooks/useFoodCard";
 import ImageCropController from "./components/ImageCropController";
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -466,4 +467,89 @@ describe("a peça caber na tela", () => {
       expect(Number.isFinite(escala)).toBe(true);
       expect(escala).toBeGreaterThan(0);
     });
+});
+
+describe("a foto que não carrega", () => {
+  /*
+   * O Nicolas importou uma foto e ela não apareceu. A peça ficou com o fundo vazio e NADA
+   * na tela dizia o que tinha acontecido — nem que subiu, nem que falhou.
+   *
+   * O endereço da foto é assinado e vale cinco minutos, escolha deliberada: endereço de
+   * foto que dura horas vira link compartilhável sem querer. Só que montar um Food Card
+   * leva mais que cinco minutos — escolher alimentos, arrastar cards, enquadrar. Quando o
+   * prazo vence, o `<img>` falha calado.
+   *
+   * Reproduzido no navegador contra um armazenamento que recusa a primeira leitura, como o
+   * R2 faz com URL vencida. Antes: `naturalWidth=0` e nenhuma mensagem. Depois: uma segunda
+   * tentativa com endereço novo, e a foto aparece.
+   */
+  function Sonda({API, cardId, cliente}) {
+    const {card, erro, fotoFalhou} = useFoodCard({API, cardId, axiosCliente: cliente});
+    return (
+      <div>
+        <span data-testid="url">{card?.imageUrl || ""}</span>
+        <span data-testid="erro">{erro}</span>
+        <button data-testid="falhar" onClick={() => fotoFalhou()}>falhar</button>
+      </div>
+    );
+  }
+
+  async function montar(respostas) {
+    let i = 0;
+    const cliente = {
+      get: jest.fn(async () => ({data: respostas[Math.min(i++, respostas.length - 1)]})),
+      put: jest.fn(async () => ({data: {}})),
+      post: jest.fn(async () => ({data: {}})),
+    };
+    const alvo = document.createElement("div");
+    document.body.appendChild(alvo);
+    await act(async () => {
+      createRoot(alvo).render(<Sonda API="/api" cardId="c1" cliente={cliente} />);
+    });
+    const clicar = async () => {
+      await act(async () => {
+        alvo.querySelector('[data-testid="falhar"]')
+            .dispatchEvent(new MouseEvent("click", {bubbles: true}));
+      });
+    };
+    return {alvo, cliente, clicar};
+  }
+
+  afterEach(() => { document.body.innerHTML = ""; });
+
+  test("busca um endereço novo quando a foto falha", async () => {
+    const {alvo, cliente, clicar} = await montar([
+      {id: "c1", items: [], imageUrl: "https://x/velha"},
+      {id: "c1", items: [], imageUrl: "https://x/nova"},
+    ]);
+    expect(alvo.querySelector('[data-testid="url"]').textContent).toBe("https://x/velha");
+    await clicar();
+    expect(alvo.querySelector('[data-testid="url"]').textContent).toBe("https://x/nova");
+    expect(cliente.get).toHaveBeenCalledTimes(2);
+  });
+
+  // Uma vez só. Um endereço que falha por outro motivo — objeto apagado, armazenamento
+  // fora do ar — repetiria para sempre, e cada tentativa é uma requisição de rede.
+  test("tenta uma vez só, e depois explica em vez de insistir", async () => {
+    const {alvo, cliente, clicar} = await montar([
+      {id: "c1", items: [], imageUrl: "https://x/velha"},
+      {id: "c1", items: [], imageUrl: "https://x/nova"},
+    ]);
+    await clicar();
+    await clicar();
+    await clicar();
+    expect(cliente.get).toHaveBeenCalledTimes(2);   // a inicial e UMA recuperação
+    expect(alvo.querySelector('[data-testid="erro"]').textContent).toMatch(/galeria/i);
+  });
+
+  // O servidor responde, mas sem endereço: o objeto não está mais lá. Insistir não traz.
+  test("sem endereço novo, diz para enviar a foto de novo", async () => {
+    const {alvo, clicar} = await montar([
+      {id: "c1", items: [], imageUrl: "https://x/velha"},
+      {id: "c1", items: [], imageUrl: null},
+    ]);
+    await clicar();
+    expect(alvo.querySelector('[data-testid="erro"]').textContent)
+      .toMatch(/não está mais disponível/i);
+  });
 });
