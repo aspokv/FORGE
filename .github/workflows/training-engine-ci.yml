@@ -148,6 +148,7 @@ on:
       - 'frontend/src/features/exerciseArtworkLibrary.js'
       - 'frontend/src/features/reviewedExerciseArtwork.js'
       - 'frontend/src/features/exercisePhotoCatalog.json'
+      - 'scripts/gerar-markdown-exercicios.py'
       - 'frontend/src/features/ExercisePhoto.jsx'
       - 'frontend/src/features/ManualWorkout.jsx'
       - 'frontend/src/features/ProgramBuilder.jsx'
@@ -358,6 +359,7 @@ on:
       - 'frontend/src/features/exerciseArtworkLibrary.js'
       - 'frontend/src/features/reviewedExerciseArtwork.js'
       - 'frontend/src/features/exercisePhotoCatalog.json'
+      - 'scripts/gerar-markdown-exercicios.py'
       - 'frontend/src/features/ExercisePhoto.jsx'
       - 'frontend/src/features/ManualWorkout.jsx'
       - 'frontend/src/features/ProgramBuilder.jsx'
@@ -484,6 +486,26 @@ jobs:
       - name: Build landing
         working-directory: frontend/landing
         run: npm ci --no-audit --no-fund && npm run build
+      # O gerador do briefing de arte le o catalogo de exercicios e o de fotos. Roda aqui
+      # por um motivo so: ele PROMETE ser deterministico, e a promessa importa — uma
+      # regeneracao parcial que trocasse o sexo do modelo de exercicios que ja tem arte
+      # pronta desfaria a mistura masculino/feminino sem ninguem perceber. Duas execucoes
+      # e um diff provam isso; sem o passo, o script subiria sem check nenhum.
+      - name: Check the exercise art brief generator
+        working-directory: .
+        run: |
+          python3 scripts/gerar-markdown-exercicios.py /tmp/brief-a.md
+          python3 scripts/gerar-markdown-exercicios.py /tmp/brief-b.md
+          diff /tmp/brief-a.md /tmp/brief-b.md
+          python3 - <<'CONFERE'
+          import io, json
+          catalogo = json.load(io.open("backend/exercises.json", encoding="utf-8"))
+          md = io.open("/tmp/brief-a.md", encoding="utf-8").read()
+          fora = [e["id"] for e in catalogo if e["id"] not in md]
+          assert not fora, "exercicios fora do briefing: %s" % fora[:5]
+          assert "**%d exerc" % len(catalogo) in md, "o briefing nao declara os %d do catalogo" % len(catalogo)
+          print("briefing cobre os %d exercicios do catalogo" % len(catalogo))
+          CONFERE
       - name: Upload rendered training cards for visual review
         uses: actions/upload-artifact@v4
         with:
