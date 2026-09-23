@@ -6,6 +6,12 @@
 .exercise-photo-heading{display:flex;gap:12px;align-items:center;min-width:0}
 .exercise-photo-heading h3{min-width:0;overflow-wrap:anywhere}
 .exercise-photo-heading .exercise-photo{width:64px;height:64px;flex:0 0 64px}
+/* A arte do exercicio EM EXECUCAO, em faixa.
+   5:4 e nao 16:9: o arquivo e quadrado e o atleta ocupa o quadro inteiro, com a barra no
+   topo e os pes embaixo. Uma faixa panoramica cortaria as duas coisas que definem o
+   movimento. Nesta proporcao sai 7,6% de cada borda e nada essencial se perde. */
+.exercise-photo.exercise-art-faixa{width:100%;height:auto;aspect-ratio:5/4;flex:none;border-radius:12px;margin:0 0 14px}
+.exercise-photo.exercise-art-faixa>img.ref3-reviewed-art{object-fit:cover}
 .library-exercise-list>div,.library-mobile-exercise-list>div,.program-session-exercises>div{grid-template-columns:56px minmax(0,1fr) auto}
 .ref3-ex-art.library-photo{width:56px;height:56px;flex:0 0 56px;grid-column:1;grid-row:1 / span 2}
 @media(max-width:600px){.library-exercise-list>div,.library-mobile-exercise-list>div,.program-session-exercises>div{grid-template-columns:56px minmax(0,1fr)}.library-exercise-list em,.library-mobile-exercise-list em,.program-session-exercises em{grid-column:2}}

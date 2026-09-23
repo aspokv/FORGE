@@ -119,20 +119,22 @@ export default function DiarioLivre({API, dia, diario, aoMudar, axiosCliente = a
                 <span>{(e.actual?.foods || []).map(f => `${f.name} (${f.grams} g)`).join(" · ")}</span>
               </div>
               <strong>{Math.round(e.actual?.totals?.kcal || 0)} kcal</strong>
-              {/* Ação secundária, e não um convite agressivo a cada registro: quem quer
-                  transformar a refeição numa peça vai procurar; quem só quer anotar o
-                  que comeu não precisa desviar por um modal. */}
-              {onFoodCard ? (
-                <button type="button" aria-label={`Transformar ${e.refeicao_nome} em Food Card`}
-                        data-testid={`diario-food-card-${e.entry_id}`}
-                        onClick={() => onFoodCard(e.entry_id)}>
-                  <ImagePlus size={14} />
-                </button>
-              ) : null}
+              {/* "Quem quiser vai procurar" era a aposta, e ela nao se sustentou: o botao
+                  era um icone mudo de 34px encostado na lixeira, com o mesmo peso visual
+                  dela. Ninguem adivinha que aquilo abre uma peca de Story, e errar o toque
+                  apagava a refeicao. Agora ele diz o nome e sai de perto do apagar. */}
               <button type="button" aria-label={`Remover ${e.refeicao_nome}`}
                       data-testid={`diario-remover-${e.entry_id}`} disabled={Boolean(removendo)} aria-busy={removendo===e.entry_id} onClick={() => remover(e.entry_id)}>
                 <Trash2 size={14} />
               </button>
+              {onFoodCard ? (
+                <button type="button" className="diario-food-card"
+                        data-testid={`diario-food-card-${e.entry_id}`}
+                        onClick={() => onFoodCard(e.entry_id)}>
+                  <ImagePlus size={15} aria-hidden="true" />
+                  <span>Food Card</span>
+                </button>
+              ) : null}
             </li>
           ))}
         </ul>
