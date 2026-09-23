@@ -165,3 +165,22 @@ export function saidaDoConector(caixa, ancora) {
   }
   return { x: centroX, y: dy > 0 ? caixa.y + caixa.altura : caixa.y };
 }
+
+/**
+ * Quanto a peça precisa encolher para caber no espaço disponível.
+ *
+ * Mede as DUAS dimensões, e não só a largura. A peça é 9:16, e a versão que media só a
+ * largura fazia ela reivindicar 733px de altura num celular de 412px — as abas e o painel
+ * de controles iam para fora da tela. Em navegador de celular, com barra de endereço e
+ * barra de navegação, sobram por volta de 680px, e o painel inteiro ficava invisível sem
+ * nenhum indício de que havia algo abaixo. Foi assim que o botão de escolher a foto da
+ * galeria desapareceu para quem estava usando: ele existia, só nunca esteve na tela.
+ *
+ * Devolver a menor das duas razões é o que garante que a peça CABE inteira, em vez de
+ * caber na largura e transbordar na altura.
+ */
+export function escalaQueCabe(largura, altura) {
+  const l = Number(largura) > 0 ? Number(largura) : LARGURA;
+  const a = Number(altura) > 0 ? Number(altura) : ALTURA;
+  return Math.min(l / LARGURA, a / ALTURA);
+}

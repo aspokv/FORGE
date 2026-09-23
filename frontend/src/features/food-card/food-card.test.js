@@ -5,7 +5,8 @@ import {createRoot} from "react-dom/client";
 
 import {
   ALTURA, CARTAO, LARGURA, MARCA, RESUMO, ZONAS_PROIBIDAS,
-  alturaDoCartao, caixaDoCartao, paraNormalizado, paraPixel, prender, saidaDoConector,
+  alturaDoCartao, caixaDoCartao, escalaQueCabe, paraNormalizado, paraPixel, prender,
+  saidaDoConector,
 } from "./lib/layout";
 import {DESCRICOES, MACROS, ROTULO_DO_MACRO, descricaoDe, quantidadeDe, valorDoMacro} from "./lib/conteudo";
 import {ICONES_DE_ALIMENTO, ICONES_DE_MACRO, QUADRO, TRACO, caminhosDoAlimento} from "./lib/icones";
@@ -418,4 +419,51 @@ describe("de onde vem a foto do prato", () => {
     expect(texto).toContain("Tirar foto");
     expect(texto).toContain("galeria");
   });
+});
+
+
+describe("a peça caber na tela", () => {
+  /*
+   * O Nicolas abriu o Food Card e perguntou onde punha a foto. O botão existia; o que não
+   * existia era ele NA TELA.
+   *
+   * A peça é 9:16. A escala era calculada só pela largura, então num celular de 412px ela
+   * reivindicava 733px de altura, e a barra de abas caía em y=776 — fixa, independente da
+   * altura do aparelho. Em navegador de celular sobram por volta de 680px depois da barra
+   * de endereço e da de navegação: o painel inteiro ficava abaixo da dobra, sem nada na
+   * tela indicando que havia algo ali.
+   *
+   * Medido no navegador antes e depois, em 360×560, 360×640, 412×680, 412×740, 412×915 e
+   * 390×844: o botão da galeria saiu de 0 pixels visíveis para os 48 dele em todas.
+   */
+  test("cabe pela dimensão que aperta, e não só pela largura", () => {
+    // Espaço largo e baixo: quem manda é a altura.
+    expect(escalaQueCabe(1080, 960)).toBeCloseTo(0.5, 5);
+    // Espaço estreito e alto: quem manda é a largura.
+    expect(escalaQueCabe(540, 1920)).toBeCloseTo(0.5, 5);
+  });
+
+  // O caso real que quebrou: 412 de largura com 680 de altura util.
+  test("num celular de 412x680 a peça cabe inteira", () => {
+    const escala = escalaQueCabe(412, 680);
+    expect(LARGURA * escala).toBeLessThanOrEqual(412);
+    expect(ALTURA * escala).toBeLessThanOrEqual(680);
+  });
+
+  // A proporção não pode divergir: foi `aspect-ratio` com `max-height` que achatou a peça
+  // para 380x278 — razão 1.37 onde o certo é 0.563 — na primeira tentativa de correção.
+  test.each([[412, 680], [360, 560], [390, 844], [412, 915], [1080, 1920]])(
+    "em %ix%i a proporção continua 9:16", (l, a) => {
+      const escala = escalaQueCabe(l, a);
+      expect((LARGURA * escala) / (ALTURA * escala)).toBeCloseTo(LARGURA / ALTURA, 5);
+    });
+
+  // Medida zero acontece de verdade: o ResizeObserver dispara antes de o elemento ter
+  // caixa. Devolver 0 faria a peça sumir; devolver NaN quebraria o estilo inteiro.
+  test.each([[0, 0], [undefined, undefined], [null, 500], [NaN, NaN]])(
+    "medida ausente (%s, %s) não zera nem quebra a peça", (l, a) => {
+      const escala = escalaQueCabe(l, a);
+      expect(Number.isFinite(escala)).toBe(true);
+      expect(escala).toBeGreaterThan(0);
+    });
 });
