@@ -13,19 +13,19 @@ export default function ReferenceWorkoutPreview({db={},activeSession,items=[],on
   const focus=asArray(activeSession?.focus??db.program?.focus).slice(0,3);
   const duration=activeSession?.duration||db.program?.duration||"Duração não informada";
   const totalSets=safeItems.reduce((sum,x)=>sum+Number(x?.sets||0),0);
-  if(db.program?.rest_day)return <AstraPage screen={1} testId="workout-rest-day" onLibrary={onLibrary}>
+  if(db.program?.rest_day)return <AstraPage screen={1} testId="workout-rest-day">
     <AstraIntro eyebrow="SEU PROGRAMA" title="Treino." subtitle="Hoje é descanso no seu programa."/>
     <section className="a6-panel"><h2>Descanso programado</h2><p>A próxima sessão é {db.program.calendar?.next?.label||"a próxima do programa"}.</p><button type="button" onClick={onLibrary}>Ver programa na Biblioteca</button></section>
   </AstraPage>;
-  return <AstraPage screen={1} testId="reference-workout-preview" onLibrary={onLibrary}>
+  return <AstraPage screen={1} testId="reference-workout-preview">
     <AstraIntro eyebrow="SEU PROGRAMA" title="Treino." subtitle="Um passo mais forte, a cada sessão."/>
     <div className="a6-tabs" role="group" aria-label="Visualização do treino"><button type="button" className="a6-selected" aria-pressed="true">Sessão atual</button><button type="button" aria-pressed="false" onClick={onLibrary}>Biblioteca</button>{onCardio&&<button type="button" aria-pressed="false" data-testid="a6-cardio-tab" onClick={onCardio}>Cardio</button>}</div>
     <section className="a6-panel a6-training-summary">
       <div className="a6-summary-copy"><div className="a6-eyebrow">{String(raw).split(/[—–]/)[0]}{db.program?.week?` · ${db.program.week}`:""}</div><h2>{name}</h2><p>{focus.join(" e ")||"Treino completo"}</p><AstraMeta duration={duration} sets={totalSets}/></div>
       <TrainingCardImage className="a6-anatomy a6-session-artwork" session={{...activeSession,label:raw}} program={db.program} profile={db.profile} focus={focus} loading="eager" width="95" height="140"/>
     </section>
-    <button className="a6-warmup" type="button" aria-expanded={warmupOpen} onClick={()=>setWarmupOpen(x=>!x)}><span className="a6-iconbox"><AstraIcon name="training"/></span><span><b>Aquecimento</b><p>Mobilidade e ativação</p></span><small>8 min</small><AstraIcon name="chevron"/></button>
-    {warmupOpen&&<p className="a6-warmup-detail">Mobilidade + ativação antes da sessão. Respeite a amplitude confortável e a orientação do seu profissional.</p>}
+    <button className="a6-warmup" type="button" aria-expanded={warmupOpen} onClick={()=>setWarmupOpen(x=>!x)}><span className="a6-iconbox"><AstraIcon name="training"/></span><span><b>Aquecimento</b><p>Mobilidade e ativação</p></span><small>~8 min</small><AstraIcon name="chevron"/></button>
+    {warmupOpen&&<p className="a6-warmup-detail">Tempo sugerido: cerca de 8 minutos de mobilidade e ativação antes da sessão. Respeite a amplitude confortável e a orientação do seu profissional.</p>}
     <div className="a6-section-title"><h2>Exercícios</h2><small>{safeItems.length} no total · prévia</small></div>
     <section className="a6-exercises">{safeItems.map((item,i)=>{
       const x=item||{},ex=asArray(db.exercises).find(e=>e.id===x.exercise_id||e.exercise_id===x.exercise_id)||{};

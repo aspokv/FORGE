@@ -10,14 +10,14 @@
  */
 
 .forge-login {
-  --login-fundo: #040504;
-  --login-cartao: #111312;
-  --login-borda: #222625;
-  --login-campo: #141817;
+  --login-fundo: var(--fg-fundo);
+  --login-cartao: var(--fg-superficie);
+  --login-borda: var(--fg-linha);
+  --login-campo: var(--fg-superficie-alta);
   --login-campo-borda: #2d2f2e;
-  --login-laranja: #f1783f;
-  --login-laranja-claro: #fc8347;
-  --login-creme: #f6f0e6;
+  --login-laranja: var(--fg-acao);
+  --login-laranja-claro: var(--fg-acao-forte);
+  --login-creme: var(--fg-texto);
   --login-texto: #c3c3c4;
   --login-fraco: #a4a4a5;
   --login-tenue: #5d5f5f;
@@ -304,3 +304,14 @@
 @media (prefers-reduced-motion: reduce) {
   .forge-login * { transition: none !important; }
 }
+
+.forge-login .forge-campo input{font-family:var(--fg-corpo);font-size:16px}
+.forge-login .forge-login-card{border-radius:var(--r-folha)}
+.forge-login .forge-login-esqueci{min-height:44px}
+.forge-login .forge-login-entrar{font-size:15px;letter-spacing:.04em}
+.forge-login .forge-campo input:focus-visible{outline:2px solid var(--fg-metal);outline-offset:3px}
+[data-testid="password-reset"] .auth-card{background:var(--fg-superficie);border:1px solid var(--fg-linha);border-radius:var(--r-folha);box-shadow:var(--s-elevado);backdrop-filter:none}
+[data-testid="password-reset"] .auth-card :is(input,button){min-height:48px;font-family:var(--fg-corpo)}
+[data-testid="password-reset"] .auth-card input{font-size:16px}
+[data-testid="password-reset"] .auth-card :focus-visible{outline:2px solid var(--fg-metal);outline-offset:3px}
+@media(max-width:389px){[data-testid="password-reset"] .auth-card{padding:24px 16px}}

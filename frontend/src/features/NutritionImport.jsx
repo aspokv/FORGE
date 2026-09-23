@@ -131,7 +131,8 @@ export default function NutritionImport({ API, onActivated, onClose }) {
     setMessage(""); setBusy("check");
     const saved = await saveDraft(true);
     setBusy("");
-    if (saved?.blocking_errors?.length) { setMessage("Revise os pontos marcados antes de ativar."); return; }
+    if (!saved) return;
+    if (saved.blocking_errors?.length) { setMessage("Revise os pontos marcados antes de ativar."); return; }
     activationToken.current = `diet-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;
     setConfirming(true);
   };

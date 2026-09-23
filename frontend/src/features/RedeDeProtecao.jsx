@@ -37,12 +37,11 @@ export default class RedeDeProtecao extends Component {
     if (!this.state.quebrou) return this.props.children;
     return (
       <div className="rede-protecao" role="alert" data-testid="rede-de-protecao">
-        <h2>Algo quebrou nesta tela.</h2>
+        <h2>Não foi possível exibir esta tela.</h2>
         <p>
-          O seu plano, os seus treinos e o seu histórico estão salvos. Foi a tela que falhou,
-          e não os seus dados.
+          Os registros já salvos continuam na sua conta. Alterações sem confirmação de
+          salvamento podem precisar ser preenchidas novamente.
         </p>
-        {this.state.mensagem && <code>{this.state.mensagem}</code>}
         <button type="button" className="fg-btn fg-btn-cheio"
                 onClick={() => window.location.reload()}>
           Recarregar o FORGE

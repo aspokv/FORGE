@@ -1,5 +1,7 @@
 ﻿"""FORGE Nutrition API routes."""
 import logging
+import copy
+import unicodedata
 from fastapi import APIRouter, Depends, HTTPException, Request, Query
 from pydantic import BaseModel, Field
 from typing import List, Optional, Literal
@@ -14,11 +16,12 @@ from external_food_catalog import search_external_foods, resolve_external_food
 import uuid, random
 
 from auth import get_current_user
-from billing_plans import (ALIMENTACAO, DIARIO_LIVRE, PROTOCOLOS_AGRESSIVOS, plano,
+from billing_plans import (ALIMENTACAO, DIARIO_LIVRE, BUSCA_ALIMENTOS_PLANO, PROTOCOLOS_AGRESSIVOS, plano,
                            plano_minimo_com)
 from entitlements import acesso_de, exigir_capacidade
 from escolha_humana import escolhas_da_refeicao
 import receitas as receitas_do_forge
+from nutrition_import import restore_import_targets
 from nutrition_engine import _intensity_key
 
 logger = logging.getLogger(__name__)
@@ -103,6 +106,7 @@ class SubstituteFoodIn(BaseModel):
     food_id: str
     food_index: Optional[int] = Field(default=None, ge=0)
     substitute_food_id: Optional[str] = None
+    search: Optional[str] = Field(default=None, max_length=120)
 
 
 class WeightLogIn(BaseModel):
@@ -389,6 +393,8 @@ async def _atualizar_meta_do_plano(db, target: str, na: dict) -> bool:
     stored = await db.nutrition_plans.find_one({"profile_id": target}, {"_id": 0, "plan": 1})
     if not stored or not stored.get("plan"):
         return False
+    if stored["plan"].get("source") == "manual_import":
+        return False
     try:
         targets = compute_macro_targets(
             na["weight_kg"], na["height_cm"], na["age"], na.get("sex") or "male",
@@ -533,12 +539,16 @@ async def generate_plan(request: Request, user=Depends(get_current_user)):
 
 @router.get("/plan")
 async def get_plan(request: Request, user=Depends(get_current_user)):
+    """Plano ativo com metas preservadas da dieta importada confirmada."""
     db = request.app.state.db
     await exigir_capacidade(db, user, ALIMENTACAO)
     target = user["id"]
     stored = await db.nutrition_plans.find_one({"profile_id": target}, {"_id": 0})
     if not stored:
         raise HTTPException(404, "Plano nÃ£o encontrado. Gere primeiro via POST /api/nutrition/generate.")
+    stored = await restore_import_targets(db, target, stored)
+    if not stored:
+        raise HTTPException(404, "Plano não encontrado.")
     # O peso cru e etiqueta, nao dado do plano: entra na resposta e nao no que esta gravado.
     return anotar_peso_cru(stored["plan"])
 
@@ -634,6 +644,8 @@ async def substitute_food(payload: SubstituteFoodIn, request: Request, user=Depe
     # payload at all), which is what makes cross-athlete IDOR structurally impossible here.
     db = request.app.state.db
     await exigir_capacidade(db, user, ALIMENTACAO)
+    if payload.search is not None:
+        await exigir_capacidade(db, user, BUSCA_ALIMENTOS_PLANO)
     target = user["id"]
     profile = await db.profiles.find_one({"id": target}, {"_id": 0})
     na = (profile or {}).get("nutrition_assessment", {})
@@ -644,6 +656,7 @@ async def substitute_food(payload: SubstituteFoodIn, request: Request, user=Depe
     if not stored or not stored.get("plan", {}).get("meals"):
         raise HTTPException(404, "Plano nao encontrado")
     plan = stored["plan"]
+    original_meals = copy.deepcopy(plan.get("meals", []))
     meals = plan.get("meals", [])
     if meal_idx >= len(meals):
         raise HTTPException(400, "Indice de refeicao invalido")
@@ -672,7 +685,7 @@ async def substitute_food(payload: SubstituteFoodIn, request: Request, user=Depe
     # 6 e nao 3: o pedido e por 4 a 6 opcoes maduras para um alimento comum, e o pool
     # de candidatos agora comporta isso (ver _substitution_candidates).
     subs = find_substitutes(
-        food_id, na, current_foods, max_results=6, orig_grams=original.get("grams", 100),
+        food_id, na, current_foods, max_results=len(FOOD_INDEX) if payload.search is not None else 6, orig_grams=original.get("grams", 100),
         goal=na.get("goal", "maintenance"), meal=foods,
         daily_totals=plan.get("daily_totals", {}), targets=plan.get("targets", {}),
         meal_type=_infer_meal_type(meal.get("name", "")),
@@ -706,6 +719,11 @@ async def substitute_food(payload: SubstituteFoodIn, request: Request, user=Depe
         o["badge"] = _selo(o["food_id"], o["macros"], macros_orig,
                            mais_equiv is not None and o is mais_equiv)
 
+    if payload.search is not None and not payload.substitute_food_id:
+        def normalized(value):
+            return unicodedata.normalize("NFKD", str(value)).encode("ascii", "ignore").decode().casefold()
+        terms = normalized(payload.search).split()
+        options = [o for o in options if all(term in normalized(o.get("food", {}).get("name", o["food_id"])) for term in terms)]
     if not payload.substitute_food_id:
         return {"original": food_id, "original_macros": macros_orig,
                 "options": [{k: v for k, v in o.items() if k != "_sim"} for o in options]}
@@ -743,13 +761,19 @@ async def substitute_food(payload: SubstituteFoodIn, request: Request, user=Depe
 
     # Targeted, precise field update instead of replacing the whole document — a concurrent
     # request touching a different meal/food never gets clobbered by this write.
-    await db.nutrition_plans.update_one(
-        {"profile_id": target},
+    selection = {"profile_id": target}
+    if payload.search is not None:
+        selection["plan.meals"] = original_meals
+    result = await db.nutrition_plans.update_one(
+        selection,
         {"$set": {
             f"plan.meals.{meal_idx}.foods": new_foods,
             "plan.daily_totals": new_totals,
         }},
     )
+
+    if payload.search is not None and result.matched_count == 0:
+        raise HTTPException(409, "O plano mudou em outra tela. Reabra a refeicao e tente novamente.")
 
     return {
         "original": food_id, "options": options, "applied": True,
@@ -1624,6 +1648,10 @@ async def get_carb_cycle(request: Request, user=Depends(get_current_user)):
     db = request.app.state.db
     target = user["id"]
     await exigir_capacidade(db, user, ALIMENTACAO)
+
+    plano_salvo = await db.nutrition_plans.find_one({"profile_id": target}, {"_id": 0, "plan": 1})
+    if ((plano_salvo or {}).get("plan") or {}).get("source") == "manual_import":
+        return {"ativo": False, "motivo": "As metas seguem sua dieta importada."}
 
     perfil = await db.profiles.find_one({"id": target}, {"_id": 0}) or {}
     prioridades = perfil.get("priorities") or []

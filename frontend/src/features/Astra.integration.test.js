@@ -39,7 +39,7 @@ test("Home uses the active session, real week and saved recovery check-in",async
   expect(host.querySelector('[data-testid="home-training-week"]').textContent).toContain("Semana 2 de 6");
   await click(host.querySelector('[data-testid="start-workout-button"]'));
   expect(start).toHaveBeenCalledTimes(1);
-  expect(host.querySelector('[data-testid="today-checkin-modal"]')).toBeNull();
+  expect(document.querySelector('[data-testid="today-checkin-modal"]')).toBeNull();
 });
 
 test("Home preserves check-in submission and direct session entry",async()=>{
@@ -47,8 +47,8 @@ test("Home preserves check-in submission and direct session entry",async()=>{
   axios.post.mockResolvedValue({data:{checkin:{energy:4}}});
   await mount(<ReferenceHome db={db} start={start} onRecoveryCheckin={updated}/>);
   await click(host.querySelector('[data-testid="start-workout-button"]'));
-  expect(host.querySelector('[data-testid="today-checkin-modal"]')).not.toBeNull();
-  await click(host.querySelector('[data-testid="save-today-checkin"]'));
+  expect(document.querySelector('[data-testid="today-checkin-modal"]')).not.toBeNull();
+  await click(document.querySelector('[data-testid="save-today-checkin"]'));
   expect(axios.post).toHaveBeenCalledWith("/api/recovery",expect.objectContaining({profile_id:"athlete-test",energy:4}));
   expect(updated).toHaveBeenCalledWith({checkin:{energy:4}});
   await click(host.querySelector('[data-testid="start-workout-button"]'));
@@ -129,7 +129,8 @@ test("profile keeps editors behind the approved rows and preserves account actio
   await click(Array.from(host.querySelectorAll("button")).find(x=>x.querySelector("h3")?.textContent==="Avaliação física"));
   await click(host.querySelector('[data-testid="redo-assessment-button"]'));expect(redo).toHaveBeenCalledTimes(1);
   await click(host.querySelector('[data-testid="open-plans-button"]'));expect(plans).toHaveBeenCalledTimes(1);
-  await click(host.querySelector('[data-testid="open-analysis-button"]'));expect(analysis).toHaveBeenCalledTimes(1);
+  expect(host.querySelector('[data-testid="open-analysis-button"]')).toBeNull();
+  expect(analysis).not.toHaveBeenCalled();
 });
 
 test("all five bottom navigation destinations use the existing route keys",async()=>{

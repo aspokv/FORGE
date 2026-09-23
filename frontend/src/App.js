@@ -1,7 +1,11 @@
 /* eslint-disable react/no-unstable-nested-components */
 import {lazy,useEffect,useMemo,useRef,useState} from "react";
 import axios from "axios";
-import {motion} from "framer-motion";
+import {motion,MotionConfig} from "framer-motion";
+import useAppSection from "./features/useAppSection";
+import {workoutResumeContext,readWorkoutResume,saveWorkoutResume,clearWorkoutResume} from "./features/workoutResume";
+import AsyncState from "./features/AsyncState";
+import ForgeDialog from "./features/ForgeDialog";
 import {Activity,BarChart3,Bell,BookOpen,Check,ChevronRight,CircleUserRound,Droplets,Dumbbell,FileUp,Home,Info,LineChart,LockKeyhole,LogOut,RotateCcw,ShieldCheck,Sliders,TimerReset,TrendingUp,Trophy,UserRound,Utensils,X} from "lucide-react";
 import "./App.css";
 import "./features/builder.css";
@@ -70,9 +74,28 @@ const FALLBACK={profile:{id:"demo",name:"Rafael Mendes",goal:"Hipertrofia com es
 // deixava a tela de assinatura inalcancavel no celular.
 const navIcons={Hoje:Home,Treino:Dumbbell,"Alimentação":Utensils,Progresso:TrendingUp,Perfil:UserRound};
 const ABAS_FORA_DA_BARRA={"Análise":BarChart3,Planos:ShieldCheck};
-function AthleteShell(){const{user,signOut}=useAuth();const profileId=user?.id;const[db,setDb]=useState(null),[tab,setTab]=useState("Hoje"),[loading,setLoading]=useState(true),[assessment,setAssessment]=useState(false),[assessmentMode,setAssessmentMode]=useState(ASSESSMENT_MODE_RESUME),[analytics,setAnalytics]=useState(null),[report,setReport]=useState(null),[builder,setBuilder]=useState(false),[builderDraft,setBuilderDraft]=useState(null),[manualOpen,setManualOpen]=useState(false),[techDetail,setTechDetail]=useState(null),[previewData,setPreviewData]=useState(null);useEffect(()=>{if(!user)return;axios.get(`${API}/bootstrap`).then(r=>{const data=r.data;setDb(data);if(data.profile?.onboarding_required&&user?.role==="ATHLETE"){setAssessmentMode(ASSESSMENT_MODE_RESUME);setAssessment(true)}}).catch(()=>{setDb(null)}).finally(()=>setLoading(false))},[user?.id]);useEffect(()=>{if(!db)return;if(["Progresso","Análise"].includes(tab))axios.get(`${API}/analytics`).then(r=>setAnalytics(r.data));if(tab==="Análise")axios.get(`${API}/weekly-report`).then(r=>setReport(r.data))},[tab,!!db]);const finish=async form=>{if(deveMostrarPreview(form.automation_mode)){try{const r=await axios.post(`${API}/program/preview`,form);setPreviewData({form,program:r.data.program});setAssessment(false)}catch{window.alert("Não foi possível preparar sua avaliação. Tente novamente.");return}return}try{const payload={...form,profile_id:user?.id||form.profile_id};const r=await axios.post(`${API}/assessment`,payload);setDb(x=>({...x,profile:r.data.profile,program:r.data.program}));if(r.data.program?.program_selection_required)setTab("Treino")}catch{window.alert("Não foi possível salvar sua avaliação. Tente novamente.");return}setAssessment(false);setAssessmentMode(ASSESSMENT_MODE_RESUME);if(deveAbrirBuilderDepois(form.automation_mode)&&!["feminino","female"].includes(String(form.sex||"").toLowerCase()))setBuilder(true)};const approve=async()=>{if(!previewData)return;try{const payload={...previewData.form,profile_id:user?.id||previewData.form.profile_id};const r=await axios.post(`${API}/assessment`,payload);setDb(x=>({...x,profile:r.data.profile,program:r.data.program}));if(r.data.program?.program_selection_required)setTab("Treino")}catch{window.alert("Não foi possível salvar sua avaliação. Tente novamente.");return}setAssessmentMode(ASSESSMENT_MODE_RESUME);setPreviewData(null)};if(!db&&!loading)return <div className="auth-shell"><div className="auth-card"><p className="muted">Erro ao carregar dados do perfil. Tente novamente.</p></div></div>;if(assessment)return <DeepAssessment onDone={finish}initialForm={previewData?.form||respostasIniciais(db?.profile)}passos={passosDoAssessment(db?.profile,assessmentMode)}/>;if(previewData)return <ProgramPreview program={previewData.program}onApprove={approve}onBack={()=>setAssessment(true)}/>;if(!db)return <div className="auth-shell"><div className="auth-card"><p className="muted">Carregando seu perfil...</p></div></div>;const techniques=db.techniques||TECHNIQUE_FALLBACK;const openBuilder=()=>{setBuilderDraft(null);setBuilder(true)};const reviewLibraryProgram=draft=>{setBuilderDraft(draft);setBuilder(true)};const addLibraryTemplate=async template=>{const response=await axios.post(`${API}/workout-templates/apply`,{template_id:template.id});setDb(state=>({...state,program:response.data.program,profile:{...state.profile,custom_program:response.data.custom,automation_mode:"FORGE_PRO"}}));return response.data};const openManual=()=>setManualOpen(true);const manualActivated=res=>{setDb(x=>({...x,program:res.program,profile:{...x.profile,custom_program:res.custom||x.profile.custom_program,automation_mode:"FORGE_PRO",current_session_day:1,exercise_substitutions:{}}}));setManualOpen(false)};const savedProgram=res=>{setDb(x=>({...x,program:res.program,profile:{...x.profile,custom_program:res.custom||null,automation_mode:res.custom?"FORGE_PRO":x.profile.automation_mode}}));setBuilder(false);setBuilderDraft(null)};const onExerciseSubstituted=res=>{setDb(x=>({...x,program:res.program,profile:{...x.profile,exercise_substitutions:res.exercise_substitutions}}))};const onWorkoutCompleted=res=>{setDb(x=>({...x,program:res.program}))};const onRecoveryCheckin=res=>{if(res?.program)setDb(x=>({...x,program:res.program}))};return <AstraNavigation.Provider value={{profile:()=>setTab("Perfil")}}><div className="forge-shell"><aside className="rail"><div className="brand"><span className="brand-mark">F</span><span>FORGE</span></div><p className="rail-caption">ADVANCED TRAINING OS</p><Nav tab={tab}setTab={setTab}/><div className="rail-bottom"><div className="status-dot"/> Engine online<br/><span>{user?.role==="ATHLETE"?"Personal profile":"Admin mode"}</span></div></aside><main className="main"><header className="topbar"><div><p className="eyebrow">{tab.toUpperCase()} / {dataDoCabecalho()}</p><h1>{tab==="Hoje"?`Bom treino, ${(db.profile.name||"Atleta").split(" ")[0]}.`:tab==="Progresso"?"Evolução":tab}</h1></div><button className="icon-button"data-testid="profile-open-button"onClick={()=>setTab("Perfil")}><CircleUserRound size={20}/></button></header>{loading?<div className="loading"data-testid="loading-state">Carregando seu sistema...</div>:<RedeDeProtecao key={tab}><Page tab={tab}db={db}analytics={analytics}report={report}techniques={techniques}start={()=>setTab("Treino")}openAnalysis={()=>setTab("Análise")}openPlans={()=>setTab("Planos")}openBuilder={openBuilder}openManual={openManual}onLibraryBuild={reviewLibraryProgram}onLibraryTemplateAdd={addLibraryTemplate}openTech={setTechDetail}redo={()=>{setAssessmentMode(ASSESSMENT_MODE_FULL);setAssessment(true)}}signOut={signOut}user={user}goHome={()=>setTab("Hoje")}onExerciseSubstituted={onExerciseSubstituted}onWorkoutCompleted={onWorkoutCompleted}onRecoveryCheckin={onRecoveryCheckin}/></RedeDeProtecao>}</main><div className="mobile-nav"><Nav tab={tab}setTab={setTab}/></div><AstraBottomNav tab={tab} onChange={setTab}/>{builder&&<ProgramBuilder API={API}profile={db.profile}exercises={db.exercises}techniques={techniques}program={builderDraft||db.profile.custom_program||db.program}onSaved={savedProgram}onClose={()=>{setBuilder(false);setBuilderDraft(null)}}/>}{manualOpen&&<ManualWorkout API={API}profile={db.profile}exercises={db.exercises}onActivated={manualActivated}onOpenBuilder={()=>{setManualOpen(false);setBuilderDraft(null);setBuilder(true)}}onClose={()=>setManualOpen(false)}/>}{techDetail&&<TechniqueDetail t={techDetail}onClose={()=>setTechDetail(null)}/>}</div></AstraNavigation.Provider>}
-function Nav({tab,setTab}){return <nav>{Object.entries(navIcons).map(([name,Icon])=><button key={name}className={tab===name?"nav-item active":"nav-item"}data-testid={`nav-${name.toLowerCase()}`}onClick={()=>setTab(name)}><Icon size={18}/><span>{name==="Hoje"?"Início":name==="Treino"&&tab==="Hoje"?"Treinos":name==="Alimentação"?"Nutrição":name==="Progresso"?"Evolução":name}</span></button>)}</nav>}
-function Page({tab,db,analytics,report,techniques,start,openAnalysis,openPlans,openBuilder,openManual,onLibraryBuild,onLibraryTemplateAdd,openTech,redo,signOut,user,goHome,onExerciseSubstituted,onWorkoutCompleted,onRecoveryCheckin}){if(tab==="Treino")return <Workout db={db}techniques={techniques}openTech={openTech}goHome={goHome}onExerciseSubstituted={onExerciseSubstituted}onWorkoutCompleted={onWorkoutCompleted}onLibraryBuild={onLibraryBuild}onLibraryTemplateAdd={onLibraryTemplateAdd}/>;if(tab==="Planos")return <Billing API={API}/>;if(tab==="Progresso")return <Progress analytics={analytics}profileId={db?.profile?.id} exercises={db.exercises||[]} program={db.program||{}}/>;if(tab==="Análise")return <Analysis db={db}analytics={analytics}report={report}/>;if(tab==="Perfil")return <Profile db={db}redo={redo}openBuilder={openBuilder}openManual={openManual}signOut={signOut}user={user}openAnalysis={openAnalysis}openPlans={openPlans}/>;if(tab==="Alimentação")return <Nutrition db={db}API={API}profileId={db?.profile?.id}/>;return <ReferenceHome db={db}start={start}onRecoveryCheckin={onRecoveryCheckin}/>}
+function AthleteShell(){const{user,signOut}=useAuth();const profileId=user?.id;const[db,setDb]=useState(null),[tab,setTab]=useAppSection(profileId),[loading,setLoading]=useState(true),[assessment,setAssessment]=useState(false),[assessmentMode,setAssessmentMode]=useState(ASSESSMENT_MODE_RESUME),[analytics,setAnalytics]=useState(null),[report,setReport]=useState(null),[builder,setBuilder]=useState(false),[builderDraft,setBuilderDraft]=useState(null),[manualOpen,setManualOpen]=useState(false),[techDetail,setTechDetail]=useState(null),[previewData,setPreviewData]=useState(null);const [bootstrapAttempt,setBootstrapAttempt]=useState(0),[analyticsAttempt,setAnalyticsAttempt]=useState(0);
+const [analyticsError,setAnalyticsError]=useState(""),[reportError,setReportError]=useState("");
+useEffect(()=>{
+  if(!user)return;
+  let alive=true;setLoading(true);setDb(null);setAnalytics(null);setReport(null);
+  axios.get(`${API}/bootstrap`).then(r=>{
+    if(!alive)return;const data=r.data;setDb(data);
+    if(data.profile?.onboarding_required&&user?.role==="ATHLETE"){setAssessmentMode(ASSESSMENT_MODE_RESUME);setAssessment(true)}
+  }).catch(()=>{if(alive)setDb(null)}).finally(()=>{if(alive)setLoading(false)});
+  return()=>{alive=false};
+},[user?.id,bootstrapAttempt]);
+useEffect(()=>{
+  if(!db||!["Progresso","Análise"].includes(tab))return;
+  let alive=true;setAnalyticsError("");setReportError("");
+  axios.get(`${API}/analytics`).then(r=>{if(alive)setAnalytics(r.data)}).catch(()=>{if(alive)setAnalyticsError("Não foi possível carregar sua evolução.")});
+  if(tab==="Análise")axios.get(`${API}/weekly-report`).then(r=>{if(alive)setReport(r.data)}).catch(()=>{if(alive)setReportError("Não foi possível carregar a análise semanal.")});
+  return()=>{alive=false};
+},[tab,!!db,analyticsAttempt]);
+const retryAnalytics=()=>setAnalyticsAttempt(n=>n+1);
+const finish=async form=>{if(deveMostrarPreview(form.automation_mode)){try{const r=await axios.post(`${API}/program/preview`,form);setPreviewData({form,program:r.data.program});setAssessment(false)}catch{window.alert("Não foi possível preparar sua avaliação. Tente novamente.");return}return}try{const payload={...form,profile_id:user?.id||form.profile_id};const r=await axios.post(`${API}/assessment`,payload);setDb(x=>({...x,profile:r.data.profile,program:r.data.program}));if(r.data.program?.program_selection_required)setTab("Treino")}catch{window.alert("Não foi possível salvar sua avaliação. Tente novamente.");return}setAssessment(false);setAssessmentMode(ASSESSMENT_MODE_RESUME);if(deveAbrirBuilderDepois(form.automation_mode)&&!["feminino","female"].includes(String(form.sex||"").toLowerCase()))setBuilder(true)};const approve=async()=>{if(!previewData)return;try{const payload={...previewData.form,profile_id:user?.id||previewData.form.profile_id};const r=await axios.post(`${API}/assessment`,payload);setDb(x=>({...x,profile:r.data.profile,program:r.data.program}));if(r.data.program?.program_selection_required)setTab("Treino")}catch{window.alert("Não foi possível salvar sua avaliação. Tente novamente.");return}setAssessmentMode(ASSESSMENT_MODE_RESUME);setPreviewData(null)};if(!db&&!loading)return <div className="auth-shell"><div className="auth-card"><AsyncState kind="error" title="Não foi possível carregar seu perfil" onRetry={()=>setBootstrapAttempt(n=>n+1)}>Verifique sua conexão e tente novamente.</AsyncState></div></div>;if(assessment)return <DeepAssessment onDone={finish}initialForm={previewData?.form||respostasIniciais(db?.profile)}passos={passosDoAssessment(db?.profile,assessmentMode)}/>;if(previewData)return <ProgramPreview program={previewData.program}onApprove={approve}onBack={()=>setAssessment(true)}/>;if(!db)return <div className="auth-shell"><div className="auth-card"><AsyncState title="Carregando seu perfil…"/></div></div>;const techniques=db.techniques||TECHNIQUE_FALLBACK;const openBuilder=()=>{setBuilderDraft(null);setBuilder(true)};const reviewLibraryProgram=draft=>{setBuilderDraft(draft);setBuilder(true)};const addLibraryTemplate=async template=>{const response=await axios.post(`${API}/workout-templates/apply`,{template_id:template.id});setDb(state=>({...state,program:response.data.program,profile:{...state.profile,custom_program:response.data.custom,automation_mode:"FORGE_PRO"}}));return response.data};const openManual=()=>setManualOpen(true);const manualActivated=res=>{setDb(x=>({...x,program:res.program,profile:{...x.profile,custom_program:res.custom||x.profile.custom_program,automation_mode:"FORGE_PRO",current_session_day:1,exercise_substitutions:{}}}));setManualOpen(false)};const savedProgram=res=>{setDb(x=>({...x,program:res.program,profile:{...x.profile,custom_program:res.custom||null,automation_mode:res.custom?"FORGE_PRO":x.profile.automation_mode}}));setBuilder(false);setBuilderDraft(null)};const onExerciseSubstituted=res=>{setDb(x=>({...x,program:res.program,profile:{...x.profile,exercise_substitutions:res.exercise_substitutions}}))};const onWorkoutCompleted=res=>{setDb(x=>({...x,program:res.program}))};const onRecoveryCheckin=res=>{if(res?.program)setDb(x=>({...x,program:res.program}))};return <AstraNavigation.Provider value={{profile:()=>setTab("Perfil"),nutrition:()=>setTab("Alimentação")}}><div className="forge-shell"><aside className="rail"><div className="brand"><span className="brand-mark">F</span><span>FORGE</span></div><p className="rail-caption">SEU PLANO. SUA ROTINA.</p><Nav tab={tab}setTab={setTab}/><div className="rail-bottom"><div className="status-dot"/> Sua conta<br/><span>{db.profile.name||"Atleta"}</span></div></aside><main className="main"><header className="topbar"><div><p className="eyebrow">{tab.toUpperCase()} / {dataDoCabecalho()}</p><h1>{tab==="Hoje"?`Bom treino, ${(db.profile.name||"Atleta").split(" ")[0]}.`:tab==="Progresso"?"Evolução":tab}</h1></div><button className="icon-button"data-testid="profile-open-button"aria-label="Abrir perfil"onClick={()=>setTab("Perfil")}><CircleUserRound size={20}/></button></header>{loading?<div className="loading"data-testid="loading-state">Carregando seu sistema...</div>:<RedeDeProtecao key={tab}><Page tab={tab}db={db}analytics={analytics}analyticsError={analyticsError}reportError={reportError}onRetryAnalytics={retryAnalytics}openProgress={()=>setTab("Progresso")}report={report}techniques={techniques}start={()=>setTab("Treino")}openAnalysis={()=>setTab("Análise")}openPlans={()=>setTab("Planos")}openBuilder={openBuilder}openManual={openManual}onLibraryBuild={reviewLibraryProgram}onLibraryTemplateAdd={addLibraryTemplate}openTech={setTechDetail}redo={()=>{setAssessmentMode(ASSESSMENT_MODE_FULL);setAssessment(true)}}signOut={signOut}user={user}goHome={()=>setTab("Hoje")}onExerciseSubstituted={onExerciseSubstituted}onWorkoutCompleted={onWorkoutCompleted}onRecoveryCheckin={onRecoveryCheckin}/></RedeDeProtecao>}</main><div className="mobile-nav"><Nav tab={tab}setTab={setTab}/></div><AstraBottomNav tab={tab} onChange={setTab}/>{builder&&<ProgramBuilder API={API}profile={db.profile}exercises={db.exercises}techniques={techniques}program={builderDraft||db.profile.custom_program||db.program}onSaved={savedProgram}onClose={()=>{setBuilder(false);setBuilderDraft(null)}}/>}{manualOpen&&<ManualWorkout API={API}profile={db.profile}exercises={db.exercises}onActivated={manualActivated}onOpenBuilder={()=>{setManualOpen(false);setBuilderDraft(null);setBuilder(true)}}onClose={()=>setManualOpen(false)}/>}{techDetail&&<TechniqueDetail t={techDetail}onClose={()=>setTechDetail(null)}/>}</div></AstraNavigation.Provider>}
+function Nav({tab,setTab}){return <nav aria-label="Navegação principal">{Object.entries(navIcons).map(([name,Icon])=><button type="button" aria-current={tab===name?"page":undefined} key={name}className={tab===name?"nav-item active":"nav-item"}data-testid={`nav-${name.toLowerCase()}`}onClick={()=>setTab(name)}><Icon size={18}/><span>{name==="Hoje"?"Início":name==="Alimentação"?"Nutrição":name==="Progresso"?"Evolução":name}</span></button>)}</nav>}
+function Page({tab,db,analytics,analyticsError,reportError,onRetryAnalytics,openProgress,report,techniques,start,openAnalysis,openPlans,openBuilder,openManual,onLibraryBuild,onLibraryTemplateAdd,openTech,redo,signOut,user,goHome,onExerciseSubstituted,onWorkoutCompleted,onRecoveryCheckin}){if(tab==="Treino")return <Workout db={db}techniques={techniques}openTech={openTech}goHome={goHome}onExerciseSubstituted={onExerciseSubstituted}onWorkoutCompleted={onWorkoutCompleted}onLibraryBuild={onLibraryBuild}onLibraryTemplateAdd={onLibraryTemplateAdd}/>;if(tab==="Planos")return <Billing API={API}/>;if(tab==="Progresso")return <Progress analytics={analytics}error={analyticsError}onRetry={onRetryAnalytics}openAnalysis={openAnalysis}profileId={db?.profile?.id} exercises={db.exercises||[]} program={db.program||{}}/>;if(tab==="Análise")return <AstraPage screen={3} testId="weekly-analysis"><button className="a6-textbutton" onClick={openProgress}>Voltar para Evolução</button>{(analyticsError||reportError)&&<AsyncState kind="error" title={analyticsError||reportError} onRetry={onRetryAnalytics}/>}<Analysis db={db}analytics={analytics}report={report}/></AstraPage>;if(tab==="Perfil")return <Profile db={db}redo={redo}openBuilder={openBuilder}openManual={openManual}signOut={signOut}user={user}openAnalysis={openAnalysis}openPlans={openPlans}/>;if(tab==="Alimentação")return <Nutrition db={db}API={API}profileId={db?.profile?.id}/>;return <ReferenceHome db={db}start={start}onRecoveryCheckin={onRecoveryCheckin}/>}
 function MacroRail({label,value,goal,unit="g"}){
   const pct=goal?Math.min(100,Math.round(value/goal*100)):0;
   return <div className="macro-rail">
@@ -228,7 +251,7 @@ function TrainingViewTabs({view,onChange}){
     <button type="button"role="tab"aria-selected={view==="cardio"}className={view==="cardio"?"active":""}data-testid="training-cardio-tab"onClick={()=>onChange("cardio")}><Activity size={17}/><span>Cardio<small>Registrar esteira, bike e escada</small></span></button>
   </div>
 }
-function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutCompleted,onLibraryBuild,onLibraryTemplateAdd}){
+export function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutCompleted,onLibraryBuild,onLibraryTemplateAdd}){
   const p=useScheduledProgram(db.program||{});
   const activeSession=p.rest_day?null:(p.sessions?.find(s=>s.day===p.active_day)||p.sessions?.[0]);
   const items=useMemo(()=>activeSession?.exercises||(p.rest_day?[]:p.exercises)||[],[activeSession,p.rest_day,p.exercises]);
@@ -245,19 +268,25 @@ function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutC
    */
   const {completion:todayCompletion,status:completionStatus,retry:retryCompletion}=useWorkoutCompletion({userId:db.current_user?.id||db.profile?.user_id||db.profile?.id,program:p,recentSets:db.recent_sets,API});
   const hints=db.program?.progression_hints||{};
+  const resumeUser=db.current_user?.id||db.profile?.user_id||db.profile?.id;
+  const resumeContext=workoutResumeContext(resumeUser,p,activeSession,items);
+  const resume=useMemo(()=>readWorkoutResume(resumeUser,resumeContext,db.recent_sets||[]),[resumeUser,resumeContext,db.recent_sets]);
+  const [resumeOwner,setResumeOwner]=useState(resumeContext);
+  const confirmedSets=useRef(resume?.done||{}),resumeSnapshot=useRef(null),liveWorkoutRef=useRef(null);
+  const [resumeAnchor,setResumeAnchor]=useState(resume?.anchor||null);
   const[view,setView]=useState("session");
-  const[sessionStarted,setSessionStarted]=useState(false);
-  const[done,setDone]=useState({});
+  const[sessionStarted,setSessionStarted]=useState(Boolean(resume?.started));
+  const[done,setDone]=useState(resume?.done||{});
   const[timer,setTimer]=useState(0);
   const[timerTotal,setTimerTotal]=useState(0);
   const[restingSet,setRestingSet]=useState(null);
   const[timerRunning,setTimerRunning]=useState(true);
   const[swap,setSwap]=useState(null);
-  const[setInputs,setSetInputs]=useState({});
+  const[setInputs,setSetInputs]=useState(resume?.inputs||{});
   // Exercicios que a pessoa REABRIU depois de concluir. Guardar quem foi reaberto, e nao
   // quem esta recolhido, faz o padrao ser "recolhe ao terminar" sem precisar sincronizar
   // nada: cada exercicio novo que termina recolhe sozinho.
-  const[reabertos,setReabertos]=useState({});
+  const[reabertos,setReabertos]=useState(resume?.reopened||{});
   const[setErr,setSetErr]=useState({});
   // As observacoes dos exercicios de hoje e a ultima de cada um, numa requisicao so.
   // Uma por exercicio deixaria oito chamadas na abertura de cada treino.
@@ -268,8 +297,41 @@ function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutC
   const[showPartial,setShowPartial]=useState(false);
   const[discomfort,setDiscomfort]=useState("none");
   const finishLock=useRef(false);
-  const[startedAt,setStartedAt]=useState(()=>Date.now());
-  useEffect(()=>{setSessionStarted(false);setDone({});setFinishResult(null);setFinishing(false);setTimer(0);setRestingSet(null);finishLock.current=false;},[activeSession?.day,activeSession?.label,todayCompletion?.completed_at]);
+  const[startedAt,setStartedAt]=useState(()=>resume?.startedAt||Date.now());
+  const completionStamp=todayCompletion?.completed_at;
+  const recentSetsForResume=useRef(db.recent_sets);
+  recentSetsForResume.current=db.recent_sets;
+  const requestGeneration=useRef(0);
+  useEffect(()=>{requestGeneration.current+=1;return()=>{requestGeneration.current+=1;};},[resumeContext,completionStamp]);
+  useEffect(()=>{
+    const restored=completionStamp?null:readWorkoutResume(resumeUser,resumeContext,recentSetsForResume.current||[]);
+    if(completionStamp)clearWorkoutResume(resumeUser);
+    confirmedSets.current=restored?.done||{};
+    setSessionStarted(Boolean(restored?.started));setDone(restored?.done||{});
+    setReabertos(restored?.reopened||{});setResumeAnchor(restored?.anchor||null);
+    setStartedAt(restored?.startedAt||Date.now());setResumeOwner(resumeContext);
+    setFinishResult(null);setFinishing(false);setTimer(0);setRestingSet(null);finishLock.current=false;
+  },[resumeUser,resumeContext,completionStamp]);
+  resumeSnapshot.current={owner:resumeOwner,started:sessionStarted,startedAt,inputs:setInputs,
+    done:Object.fromEntries(Object.entries(done).filter(([key,value])=>value&&confirmedSets.current[key])),
+    reopened:reabertos,anchor:resumeAnchor};
+  useEffect(()=>{
+    if(!completionStamp&&resumeOwner===resumeContext)saveWorkoutResume(resumeUser,resumeContext,resumeSnapshot.current);
+  },[resumeUser,resumeContext,resumeOwner,completionStamp,sessionStarted,startedAt,setInputs,done,reabertos,resumeAnchor]);
+  useEffect(()=>{
+    const persist=()=>{if(!completionStamp&&resumeSnapshot.current?.owner===resumeContext)saveWorkoutResume(resumeUser,resumeContext,resumeSnapshot.current);};
+    window.addEventListener("pagehide",persist);document.addEventListener("visibilitychange",persist);
+    return()=>{persist();window.removeEventListener("pagehide",persist);document.removeEventListener("visibilitychange",persist);};
+  },[resumeUser,resumeContext,completionStamp]);
+  const restoredScroll=useRef(null);
+  useEffect(()=>{
+    if(!sessionStarted||completionStatus==="loading"||restoredScroll.current===resumeContext)return;
+    restoredScroll.current=resumeContext;
+    const anchor=resume?.anchor;
+    if(anchor)Array.from(liveWorkoutRef.current?.querySelectorAll('[data-exercise-id]')||[])
+      .find(el=>el.dataset.exerciseId===anchor)?.scrollIntoView?.({block:"start",behavior:"auto"});
+  },[sessionStarted,completionStatus,resumeContext,resume]);
+  const rememberExercise=event=>{const node=event.target.closest?.('[data-exercise-id]');if(node)setResumeAnchor(node.dataset.exerciseId);};
   const idsDaSessao=items.map(x=>x.exercise_id).filter(Boolean).join(",");
   useEffect(()=>{
     if(!idsDaSessao){setObservacoes({hoje:{},anterior:{}});return}
@@ -280,7 +342,7 @@ function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutC
       .catch(()=>{});
     return()=>{vivo=false};
   },[idsDaSessao]);
-  useEffect(()=>{const init={};items.forEach(x=>{const hint=hints[x.exercise_id]||{};for(let n=0;n<x.sets;n++)init[`${x.exercise_id}-${n}`]={weight:hint.last_weight||x.load||0,reps:hint.last_reps||prescribedReps(x.reps,n),rir:String(x.rir||"2").match(/\d+/)?.[0]||"2"};});setSetInputs(init)},[items,!!Object.keys(hints).length]);
+  useEffect(()=>{const init={};items.forEach(x=>{const hint=hints[x.exercise_id]||{};for(let n=0;n<x.sets;n++)init[`${x.exercise_id}-${n}`]={weight:hint.last_weight||x.load||0,reps:hint.last_reps||prescribedReps(x.reps,n),rir:String(x.rir||"2").match(/\d+/)?.[0]||"2"};});setSetInputs({...init,...(readWorkoutResume(resumeUser,resumeContext)?.inputs||{})})},[items,resumeUser,resumeContext,!!Object.keys(hints).length]);
   const[draftState,setDraftState]=useState("idle");
   const draftTimer=useRef(null),draftReady=useRef(false),lastSaved=useRef("");
   const draftDay=activeSession?.day;
@@ -293,14 +355,16 @@ function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutC
       if(!alive)return;
       const saved=r.data?.inputs||{};
       setSetInputs(prev=>{
-        const merged=Object.keys(saved).length?{...prev,...saved}:prev;
+        const local=readWorkoutResume(resumeUser,resumeContext);
+        const localNewer=local && local.updatedAt>new Date(r.data?.saved_at||0).getTime();
+        const merged={...prev,...saved,...(localNewer?local.inputs:{})};
         lastSaved.current=JSON.stringify(merged);
         return merged;
       });
       if(r.data?.saved_at&&Object.keys(saved).length)setDraftState("saved");
     }).catch(()=>{}).finally(()=>{if(alive)draftReady.current=true});
     return()=>{alive=false};
-  },[db.profile?.id,draftDay,items.length,todayCompletion,completionStatus]);
+  },[db.profile?.id,draftDay,items.length,todayCompletion,completionStatus,resumeUser,resumeContext]);
   // Autosave com debounce: salva 1,5 s depois da ultima alteracao, nao a cada tecla.
   useEffect(()=>{
     if(todayCompletion||completionStatus==="loading"||!draftReady.current||draftDay==null)return;
@@ -317,7 +381,7 @@ function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutC
   },[setInputs,draftDay,todayCompletion,completionStatus]);
   useEffect(()=>{if(!timer||!timerRunning)return;const i=setInterval(()=>setTimer(x=>Math.max(0,x-1)),1000);return()=>clearInterval(i)},[timer,timerRunning]);
   const parseRestSeconds=r=>{if(!r)return 90;const n=parseInt(r);if(!isNaN(n))return n<10?n*60:n;const m=r.match(/(\d+)/);return m?parseInt(m[1])*60:90};
-  const mark=(id,n,tech,rest,totalSets)=>{if(todayCompletion||completionStatus==="loading"||done[id+n])return;const v=setInputs[`${id}-${n}`]||{weight:0,reps:8,rir:2};if(!Number.isFinite(Number(v.reps))||Number(v.reps)<=0){setSetErr(x=>({...x,[id+n]:true}));return}const rir=Math.max(0,Math.min(5,Number(v.rir)));if(!Number.isFinite(rir)){setSetErr(x=>({...x,[id+n]:true}));return}setDone(x=>({...x,[id+n]:true}));if(n+1<totalSets){const secs=parseRestSeconds(rest);setTimer(secs);setTimerTotal(secs);setRestingSet({exerciseId:id,completed:n+1,next:n+2});setTimerRunning(true)}else{setTimer(0);setRestingSet(null)}axios.post(`${API}/sets`,{profile_id:db.profile.id,exercise_id:id,set_number:n+1,weight:Number(v.weight||0),reps:Number(v.reps||8),rir,session_day:activeSession?.day,technique:tech||"Straight Sets"}).catch(()=>{setDone(x=>({...x,[id+n]:false}));setSetErr(x=>({...x,[id+n]:true}))})};
+  const mark=(id,n,tech,rest,totalSets)=>{const generation=requestGeneration.current;if(todayCompletion||completionStatus==="loading"||done[id+n])return;const v=setInputs[`${id}-${n}`]||{weight:0,reps:8,rir:2};if(!Number.isFinite(Number(v.reps))||Number(v.reps)<=0){setSetErr(x=>({...x,[id+n]:true}));return}const rir=Math.max(0,Math.min(5,Number(v.rir)));if(!Number.isFinite(rir)){setSetErr(x=>({...x,[id+n]:true}));return}setDone(x=>({...x,[id+n]:true}));if(n+1<totalSets){const secs=parseRestSeconds(rest);setTimer(secs);setTimerTotal(secs);setRestingSet({exerciseId:id,completed:n+1,next:n+2});setTimerRunning(true)}else{setTimer(0);setRestingSet(null)}axios.post(`${API}/sets`,{profile_id:db.profile.id,exercise_id:id,set_number:n+1,weight:Number(v.weight||0),reps:Number(v.reps||8),rir,session_day:activeSession?.day,technique:tech||"Straight Sets"}).then(()=>{if(requestGeneration.current!==generation||resumeSnapshot.current?.owner!==resumeContext)return;confirmedSets.current={...confirmedSets.current,[id+n]:true};saveWorkoutResume(resumeUser,resumeContext,{...resumeSnapshot.current,done:confirmedSets.current});setDone(x=>({...x,[id+n]:true}));}).catch(()=>{if(requestGeneration.current!==generation)return;setDone(x=>({...x,[id+n]:false}));setSetErr(x=>({...x,[id+n]:true}))})};
   const completedEntries=useMemo(()=>items.flatMap(x=>Array.from({length:x.sets},(_,n)=>({key:x.exercise_id+n,value:setInputs[`${x.exercise_id}-${n}`]}))).filter(x=>done[x.key]),[items,setInputs,done]);
   const actualVolume=useMemo(()=>completedEntries.reduce((sum,x)=>sum+Number(x.value?.weight||0)*Number(x.value?.reps||0),0),[completedEntries]);
   const averageRir=useMemo(()=>completedEntries.length?completedEntries.reduce((sum,x)=>sum+Number(x.value?.rir||0),0)/completedEntries.length:null,[completedEntries]);
@@ -337,7 +401,7 @@ function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutC
     <Cardio API={API}/>
   </AstraPage>;
   if(todayCompletion)return <CompletedWorkout db={db} completion={todayCompletion} onLibrary={()=>setView("library")}onCardio={()=>setView("cardio")}/>;
-  if(completionStatus==="loading")return <div className="content workout-page">{viewTabs}<p role="status">Conferindo sua sessão…</p></div>;
+  if(completionStatus==="loading"&&!sessionStarted)return <div className="content workout-page">{viewTabs}<p role="status">Conferindo sua sessão…</p></div>;
   /* Aviso, e nao bloqueio: o treino continua na tela abaixo. */
   const avisoDeConferencia=completionStatus==="error"&&<div className="workout-aviso" role="status" data-testid="aviso-conferencia">
     <span>Não consegui confirmar no servidor se você já treinou hoje. Pode treinar normalmente — eu registro assim que a conexão voltar.</span>
@@ -346,7 +410,7 @@ function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutC
   if(p.rest_day)return <ReferenceWorkoutPreview db={{...db,program:p}} onLibrary={()=>setView("library")}onCardio={()=>setView("cardio")}/>;
   if(!items.length)return <div className="content workout-page">{viewTabs}<div className="empty-state"data-testid="workout-empty-state"><Dumbbell size={22}/><h3>Nenhuma sessão disponível</h3><p className="muted">Escolha um modelo na Biblioteca ou gere um programa para começar.</p><button className="primary-button"type="button"onClick={()=>setView("library")}>Abrir biblioteca</button></div></div>;
   if(!sessionStarted)return <>{avisoDeConferencia}<ReferenceWorkoutPreview db={{...db,program:p}}activeSession={activeSession}items={items}onStart={()=>{if(p.rest_day||todayCompletion||completionStatus==="loading")return;setStartedAt(Date.now());setSessionStarted(true)}}onLibrary={()=>setView("library")}onCardio={()=>setView("cardio")}/></>;
-  return <div className="content workout-page workout-live-reference">
+  return <div className="content workout-page workout-live-reference" ref={liveWorkoutRef} onFocusCapture={rememberExercise} onClickCapture={rememberExercise} data-testid="workout-resumable-session">
     {avisoDeConferencia}
     <div className="workout-head"><div><p className="eyebrow">EM EXECUÇÃO · {p.week}</p><h2>{activeSession?.label||p.session}</h2><p className="muted">Demanda {activeSession?.demand||"MODERATE"} · registre o trabalho real.</p></div>{draftState!=="idle"&&<span className={`autosave-pill ${draftState}`}data-testid="autosave-status">{draftState==="saving"?"salvando...":draftState==="saved"?"salvo automaticamente":"sem conexão — tentando salvar"}</span>}</div>
     <section className="workout-overview">
@@ -369,7 +433,7 @@ function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutC
       const terminado=exercicioConcluido(done,x.exercise_id,x.sets)&&!reabertos[x.exercise_id]&&!showRest;
       if(terminado){
         const resumo=textoDoResumo(resumoDoExercicio(setInputs,x.exercise_id,x.sets,x.load));
-        return <section className="exercise exercise-feito"key={x.exercise_id+i}>
+        return <section className="exercise exercise-feito" data-exercise-id={x.exercise_id} key={x.exercise_id+i}>
           <button type="button"className="exercise-feito-linha"aria-expanded="false"
             data-testid={`exercicio-concluido-${x.exercise_id}`}
             aria-label={`${ex.name} concluído. ${resumo}. Tocar para abrir e revisar.`}
@@ -382,7 +446,7 @@ function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onWorkoutC
         </section>;
       }
 
-      return <section className={showRest?"exercise rest-active":"exercise"}key={x.exercise_id+i}>
+      return <section className={showRest?"exercise rest-active":"exercise"} data-exercise-id={x.exercise_id} key={x.exercise_id+i}>
         <div className="exercise-title">
           <div>
             <span className="exercise-index">0{i+1}</span><div className="exercise-photo-heading"><ExercisePhoto exercise={{...ex,exercise_id:x.exercise_id}}/><h3>{ex.name}</h3></div>
@@ -477,7 +541,7 @@ function WeightTracker({profileId}){
     </>}
   </section>
 }
-function Progress({analytics,profileId,exercises,program}){return <AstraProgress API={API} profileId={profileId} exercises={exercises} program={program} analytics={analytics} conselho={<Conselho API={API}/>} weightPanel={<WeightTracker profileId={profileId}/>} photosPanel={<ProgressPhotos API={API} profileId={profileId}/>} details={<ProgressDetails analytics={analytics} profileId={profileId}/>}/>}
+function Progress({analytics,error,onRetry,openAnalysis,profileId,exercises,program}){return <AstraProgress error={error} onRetry={onRetry} openAnalysis={openAnalysis} API={API} profileId={profileId} exercises={exercises} program={program} analytics={analytics} conselho={<Conselho API={API}/>} weightPanel={<WeightTracker profileId={profileId}/>} photosPanel={<ProgressPhotos API={API} profileId={profileId}/>} details={<ProgressDetails analytics={analytics} profileId={profileId}/>}/>}
 function ProgressDetails({analytics,profileId}){
   if(!analytics)return <div className="content"><div className="skeleton-block"style={{height:88}}/><div className="skeleton-block"style={{height:160,marginTop:16}}/></div>;
   const points=(analytics.trend||[]).filter(x=>Number(x.load)>0);
@@ -510,16 +574,17 @@ function ProgressDetails({analytics,profileId}){
     {milestones.length>0&&<section className="panel milestone-line"><p className="eyebrow">MARCOS</p>{milestones.map(x=><div key={`${x.date}-${x.title}`}><Trophy size={14}/><span>{x.date}</span><b>{x.title}</b><em>{x.detail}</em></div>)}</section>}
   </div>
 }
-function Analysis({db,analytics,report}){const[rows,setRows]=useState([]),[explain,setExplain]=useState(false);useEffect(()=>{axios.get(`${API}/muscle-map/${db.profile.id}`).then(r=>setRows(r.data.rows))},[db.profile.id]);return <div className="content"><div className="section-intro"><p className="eyebrow">MEU FÍSICO / MUSCLE MAP</p><h2>Leitura do seu bloco.</h2><p className="muted">Desenvolvimento × prioridade × volume × frequência.</p></div><section className="panel"><div className="panel-top"><div><p className="eyebrow">MUSCLE MAP</p><h3>Regiões que orientam o engine</h3></div><Activity size={20}/></div><div className="muscle-grid">{rows.filter(x=>x.priority!=="normal"||x.score>3).slice(0,14).map(r=><div className="muscle-row"key={r.muscle}data-testid={`muscle-row-${r.muscle}`}><div><b>{r.muscle}</b><p>{r.development} · {r.status}</p></div><span>{r.volume} séries · {r.frequency}x</span><strong>{r.priority}</strong></div>)}</div></section><div className="analysis-grid"><section className="panel"><p className="eyebrow">VOLUME POR REGIÃO</p>{(analytics?.volume||[]).map(v=><div className="volume-line"key={v.name}><div><span>{v.name}</span><strong>{v.value} <em>/ {v.target}</em></strong></div><div className="bar"><b style={{width:`${Math.min(100,v.value/v.target*100)}%`}}/></div></div>)}</section><section className="panel recovery-panel"><p className="eyebrow">RECOVERY SIGNAL</p><div className="recovery-score">3.8 <span>/ 5</span></div><p className="muted">Sobreposição indireta e sono entram no ajuste.</p></section></div>{report&&<section className="panel report"><p className="eyebrow">WEEKLY TRAINING REPORT</p><h3>{report.headline}</h3>{report.signals.map(s=><p className="report-line"key={s}><Check size={15}/>{s}</p>)}</section>}<div className="action-row"><button className="secondary-button"data-testid="explain-program-button"onClick={()=>setExplain(!explain)}>Por que meu treino é assim?</button></div>{explain&&<section className="panel explanation"data-testid="program-explanation"><p className="eyebrow">EXPLAINABLE PROGRAMMING</p><p>Prioridades manuais têm peso elevado. O engine aumenta frequência ou posição na sessão sem inflar séries indefinidamente; pontos fortes recebem manutenção e a distribuição considera recuperação, sobreposição e disponibilidade.</p></section>}</div>}
+function Analysis({db,analytics,report}){const[rows,setRows]=useState([]),[explain,setExplain]=useState(false),[mapError,setMapError]=useState(false),[mapLoading,setMapLoading]=useState(true),[mapAttempt,setMapAttempt]=useState(0);useEffect(()=>{let alive=true;setMapLoading(true);setMapError(false);axios.get(`${API}/muscle-map/${db.profile.id}`).then(r=>{if(alive)setRows(r.data.rows||[])}).catch(()=>{if(alive)setMapError(true)}).finally(()=>{if(alive)setMapLoading(false)});return()=>{alive=false}},[db.profile.id,mapAttempt]);return <div className="content"><div className="section-intro"><p className="eyebrow">MEU FÍSICO / MUSCLE MAP</p><h2>Leitura do seu bloco.</h2><p className="muted">Desenvolvimento × prioridade × volume × frequência.</p></div><section className="panel"><div className="panel-top"><div><p className="eyebrow">MUSCLE MAP</p><h3>Regiões que orientam o engine</h3></div><Activity size={20}/></div><div className="muscle-grid">{mapLoading?<AsyncState title="Carregando regiões…"/>:mapError?<AsyncState kind="error" title="Não foi possível carregar as regiões" onRetry={()=>setMapAttempt(n=>n+1)}/>:!rows.length?<p>A análise aparece após os primeiros registros.</p>:null}{rows.filter(x=>x.priority!=="normal"||x.score>3).slice(0,14).map(r=><div className="muscle-row"key={r.muscle}data-testid={`muscle-row-${r.muscle}`}><div><b>{r.muscle}</b><p>{r.development} · {r.status}</p></div><span>{r.volume} séries · {r.frequency}x</span><strong>{r.priority}</strong></div>)}</div></section><div className="analysis-grid"><section className="panel"><p className="eyebrow">VOLUME POR REGIÃO</p>{(analytics?.volume||[]).map(v=><div className="volume-line"key={v.name}><div><span>{v.name}</span><strong>{v.value} <em>/ {v.target}</em></strong></div><div className="bar"><b style={{width:`${Math.min(100,v.value/v.target*100)}%`}}/></div></div>)}</section><section className="panel recovery-panel"><p className="eyebrow">RECUPERAÇÃO</p><h3>Seu check-in orienta os ajustes</h3><p className="muted">Consulte a prontidão e registre como você está na tela Início.</p></section></div>{report&&<section className="panel report"><p className="eyebrow">WEEKLY TRAINING REPORT</p><h3>{report.headline}</h3>{report.signals.map(s=><p className="report-line"key={s}><Check size={15}/>{s}</p>)}</section>}<div className="action-row"><button className="secondary-button"data-testid="explain-program-button"onClick={()=>setExplain(!explain)}>Por que meu treino é assim?</button></div>{explain&&<section className="panel explanation"data-testid="program-explanation"><p className="eyebrow">EXPLAINABLE PROGRAMMING</p><p>Prioridades manuais têm peso elevado. O engine aumenta frequência ou posição na sessão sem inflar séries indefinidamente; pontos fortes recebem manutenção e a distribuição considera recuperação, sobreposição e disponibilidade.</p></section>}</div>}
 export function Profile({db,redo,openBuilder,openManual,signOut,user,openAnalysis,openPlans}){
   const[visual,setVisual]=useState(false),[file,setFile]=useState(null),[notice,setNotice]=useState(false),[visionResult,setVisionResult]=useState(null),[visionLoading,setVisionLoading]=useState(false);
   const [profileSection,setProfileSection]=useState(null);
+  const [confirmTraining,setConfirmTraining]=useState(false);
   const manual=db.program?.logic?.manual;
   const splits=splitOptions(db.profile.days,db.profile.experience);
   const[split,setSplit]=useState(db.program?.logic?.split_id||db.profile.split_preference||splits[0]?.id||"full_body");
   const[method,setMethod]=useState(db.profile.training_method||db.program?.logic?.quality_gate?.method_profile?.id||"balanced_hypertrophy");
   const[savingTraining,setSavingTraining]=useState(false),[trainingNotice,setTrainingNotice]=useState("");
-  const saveTraining=async()=>{setSavingTraining(true);setTrainingNotice("");try{const r=await axios.put(`${API}/training/preferences`,{split_preference:split,training_method:method});setTrainingNotice(r.data.manual_program_active?"Preferência salva. Ela será aplicada quando você voltar ao programa automático.":"Método salvo. Recalculando seu programa…");setTimeout(()=>window.location.reload(),650)}catch(e){setTrainingNotice(mensagemDeErro(e,"Não foi possível salvar agora."))}finally{setSavingTraining(false)}};
+  const saveTraining=async()=>{if(savingTraining)return;setSavingTraining(true);setTrainingNotice("");try{const r=await axios.put(`${API}/training/preferences`,{split_preference:split,training_method:method});setTrainingNotice(r.data.manual_program_active?"Preferência salva. Ela será aplicada quando você voltar ao programa automático.":"Método salvo. Recalculando seu programa…");setTimeout(()=>window.location.reload(),650)}catch(e){setTrainingNotice(mensagemDeErro(e,"Não foi possível salvar agora."))}finally{setSavingTraining(false)}};
   const send=async()=>{
     if(!file||visionLoading)return;
     setVisionLoading(true);setNotice(false);setVisionResult(null);
@@ -538,7 +603,7 @@ export function Profile({db,redo,openBuilder,openManual,signOut,user,openAnalysi
     {profileSection==="preferences"&&<div className="a6-editor profile-page">    <section className="panel training-preferences"data-testid="training-preferences"><div className="panel-top"><div><p className="eyebrow">ARQUITETURA DO TREINO</p><h3>Divisão e método FORGE</h3></div><span className="live-pill"><i/> AJUSTE AUTOMÁTICO</span></div><p className="muted">Você escolhe a preferência; o FORGE limita as opções ao que cabe nos seus dias e na sua recuperação.</p>
       <div className="training-setting"><p className="eyebrow">DIVISÃO · {db.profile.days} DIAS</p><div className="training-option-grid">{splits.map(x=><button type="button"key={x.id}className={split===x.id?"active":""}data-testid={`split-${x.id}`}onClick={()=>setSplit(x.id)}><b>{x.label}</b><small>{x.recommended?"Recomendação FORGE":"Opção compatível"}</small></button>)}</div></div>
       <div className="training-setting"><p className="eyebrow">MÉTODO DE PROGRESSÃO</p><div className="training-option-grid methods">{TRAINING_METHODS.map(x=><button type="button"key={x.id}className={method===x.id?"active":""}data-testid={`method-${x.id}`}onClick={()=>setMethod(x.id)}><b>{x.label}</b><small>{x.description}</small></button>)}</div></div>
-      {manual&&<p className="notice">Seu programa manual permanece intocado. Esta preferência vale quando o modo automático for reativado.</p>}{trainingNotice&&<p className="notice"data-testid="training-preferences-notice">{trainingNotice}</p>}<button className="fg-btn fg-btn-cheio"data-testid="save-training-preferences"disabled={savingTraining}onClick={saveTraining}>{savingTraining?"Salvando…":"Aplicar divisão e recalcular"}</button>
+      {manual&&<p className="notice">Seu programa manual permanece intocado. Esta preferência vale quando o modo automático for reativado.</p>}{trainingNotice&&<p className="notice"data-testid="training-preferences-notice">{trainingNotice}</p>}<button className="fg-btn fg-btn-cheio"data-testid="save-training-preferences"disabled={savingTraining}onClick={()=>setConfirmTraining(true)}>{savingTraining?"Salvando…":"Aplicar divisão e recalcular"}</button>
     </section>
 <section><h3>Prioridades manuais</h3>
 {/* Era uma LISTA somente leitura: a pessoa via o que escolheu no questionario e nao tinha
@@ -547,13 +612,19 @@ export function Profile({db,redo,openBuilder,openManual,signOut,user,openAnalysi
 <PrioridadesMusculares API={API} profileId={db.profile.id} iniciais={db.profile.priorities||[]}/></section></div>}
     <AstraRow icon="training" title="Meu programa" subtitle="Criar, importar ou editar" expanded={profileSection==="program"} onClick={()=>setProfileSection(x=>x==="program"?null:"program")}/>
     {profileSection==="program"&&<div className="a6-editor"><AstraRow icon="settings" title={manual?"Editar programa manual":"Montar programa avançado"} testId="open-builder-button" onClick={openBuilder}/><AstraRow icon="book" title="Criar meu próprio treino" subtitle="Importar ou montar manualmente" testId="open-manual-button" onClick={openManual}/></div>}
+    <div className="a6-group-label">AVALIAÇÃO</div>
     <AstraRow icon="camera" title="Avaliação física" subtitle="Refazer avaliação ou analisar fotos" expanded={profileSection==="assessment"} onClick={()=>setProfileSection(x=>x==="assessment"?null:"assessment")}/>
     {profileSection==="assessment"&&<div className="a6-editor"><AstraRow icon="settings" title="Refazer avaliação" testId="redo-assessment-button" onClick={redo}/><AstraRow icon="camera" title="Analisar meu físico" testId="visual-assessment-button" onClick={()=>setVisual(x=>!x)}/>
       {visual&&<div className="visual-upload"><p className="muted">Análise visual estimada. Pose, luz, ângulo e roupa alteram a interpretação; não mede composição nem diagnostica condições médicas.</p><VisualPhotoUpload API={API}profileId={db?.profile?.id}onConcluido={r=>{setVisionResult(r);setNotice(true)}}/>{notice&&<VisualAssessmentResult resultado={visionResult}/>}</div>}
     </div>}
+    <ForgeDialog open={confirmTraining} onOpenChange={setConfirmTraining} title="Aplicar preferências de treino?" description={manual?"Seu programa manual será mantido. As preferências serão usadas quando o programa automático for reativado.":"O programa automático será recalculado com a divisão e o método selecionados. Seus registros anteriores serão mantidos."} busy={savingTraining}>
+      {trainingNotice&&<p role="status">{trainingNotice}</p>}
+      <button className="fg-btn fg-btn-cheio" disabled={savingTraining} onClick={saveTraining}>{savingTraining?"Salvando…":"Confirmar alteração"}</button>
+      <button className="fg-btn fg-btn-2" disabled={savingTraining} onClick={()=>setConfirmTraining(false)}>Voltar às preferências</button>
+    </ForgeDialog>
     <div className="a6-group-label">SUA CONTA</div>
     {openPlans&&<AstraRow icon="shield" title="Plano e assinatura" subtitle={planLabel||"Consultar assinatura"} testId="open-plans-button" onClick={openPlans}/>}
-    {openAnalysis&&<AstraRow icon="progress" title="Análise da semana" subtitle="Seu ritmo, seus próximos passos" testId="open-analysis-button" onClick={openAnalysis}/>}
+
     {signOut&&<details className="a6-details"><summary>Opções da conta</summary><p>{user?.email}</p><button className="a6-textbutton" type="button" data-testid="signout-button" onClick={signOut}>Sair da conta</button></details>}
   </AstraPage>;
 }
@@ -592,5 +663,5 @@ function Router(){const{user,ready,route,navigate,signIn,signOut,reload}=useAuth
   if(user.role==="SUPER_ADMIN"&&route.startsWith("/admin"))return <AdminPanel/>;return <AthleteShell/>}
 // A rede fica por fora de TUDO, inclusive do AuthProvider: uma excecao dentro do
 // provedor derrubaria a arvore da mesma forma, e a tela preta e a tela preta.
-function App(){return <RedeDeProtecao><AuthProvider><Router/></AuthProvider></RedeDeProtecao>}
+function App(){return <MotionConfig reducedMotion="user"><RedeDeProtecao><AuthProvider><Router/></AuthProvider></RedeDeProtecao></MotionConfig>}
 export default App;

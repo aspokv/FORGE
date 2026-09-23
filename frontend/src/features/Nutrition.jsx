@@ -1,6 +1,8 @@
 import {Suspense, lazy, useEffect, useMemo, useRef, useState} from "react";
 import axios from "axios";
 import { ChevronRight, RefreshCw, Check, X, Utensils, ClipboardPaste } from "lucide-react";
+import AsyncState from "./AsyncState";
+import MealFoodEditor from "./MealFoodEditor";
 import NutritionDailyFooter from "./NutritionDailyFooter";
 import ListaDeCompras from "./ListaDeCompras";
 import CarboidratoDoDia from "./CarboidratoDoDia";
@@ -88,6 +90,18 @@ function mealVisualKey(name = "") {
 
 export default function Nutrition({ API, profileId, db }) {
   const [step, setStep] = useState("loading");
+  const [editingMeal,setEditingMeal]=useState(null),[planEditAccess,setPlanEditAccess]=useState("loading"),[accessAttempt,setAccessAttempt]=useState(0);
+  const [planEditMessage,setPlanEditMessage]=useState("");
+  useEffect(()=>{
+    const controller=new AbortController();setPlanEditAccess("loading");
+    axios.get(`${API}/billing/me`,{signal:controller.signal})
+      .then(r=>{if(!controller.signal.aborted)setPlanEditAccess(r.data.capabilities?.includes("food_plan_search")?"allowed":"locked");})
+      .catch(()=>{if(!controller.signal.aborted)setPlanEditAccess("error");});
+    return()=>controller.abort();
+  },[API,accessAttempt]);
+  const [view,setView]=useState("today"),[loadAttempt,setLoadAttempt]=useState(0);
+  const [diaryState,setDiaryState]=useState("loading"),[marking,setMarking]=useState(null);
+  const retryPlan=()=>{setError("");setStep("loading");setLoadAttempt(n=>n+1)};
   const [plan, setPlan] = useState(null);
   const [targets, setTargets] = useState(null);
   const [form, setForm] = useState({
@@ -111,9 +125,13 @@ export default function Nutrition({ API, profileId, db }) {
   const [foodCard, setFoodCard] = useState(null);
   const [diaryEditor, setDiaryEditor] = useState(null);
   const refreshDiary = async () => {
-    const r = await axios.get(`${API}/nutrition/adherence/${localFoodDate()}`);
-    setDiary(r.data);
-    setMealStatus(Object.fromEntries((r.data.meals||[]).map(row=>[row.meal_index,row.status])));
+    setDiaryState("loading");
+    try {
+      const r = await axios.get(`${API}/nutrition/adherence/${localFoodDate()}`);
+      setDiary(r.data);
+      setMealStatus(Object.fromEntries((r.data.meals||[]).map(row=>[row.meal_index,row.status])));
+      setDiaryState("ready");
+    } catch { setDiaryState("error"); }
   };
   const [subResult, setSubResult] = useState(null);
 
@@ -170,15 +188,17 @@ export default function Nutrition({ API, profileId, db }) {
       setPlan(r.data); setTargets(r.data.targets || r.data.daily_totals); setStep("plan");
       axios.get(`${API}/nutrition/adherence/${localFoodDate()}`, {signal: controller.signal}).then(r2 => {
         if (controller.signal.aborted) return;
-        const m = {}; r2.data.meals.forEach(x => m[x.meal_index] = x.status);
+        const m = {}; (r2.data.meals||[]).forEach(x => m[x.meal_index] = x.status);
         setMealStatus(m);
-        setDiary(r2.data);
-      }).catch(() => {});
-    }).catch(() => {
-      if (!controller.signal.aborted) setStep(current => current === "loading" ? "assessment" : current);
+        setDiary(r2.data);setDiaryState("ready");
+      }).catch(() => {if(!controller.signal.aborted)setDiaryState("error")});
+    }).catch(e => {
+      if (controller.signal.aborted) return;
+      if(e.response?.status===404)setStep(current=>current==="loading"?"assessment":current);
+      else {setError(explicarErro(e,"carregar seu plano","Não foi possível carregar seu plano alimentar."));setStep("error")}
     });
     return () => controller.abort();
-  }, [API]);
+  }, [API,loadAttempt]);
 
   useEffect(() => {
     let vivo = true;
@@ -207,7 +227,7 @@ export default function Nutrition({ API, profileId, db }) {
           : (form.allergies || [])
       });
       const r = await axios.post(`${API}/nutrition/generate`);
-      setPlan(r.data.plan); setTargets(r.data.targets); setStep("plan");
+      setPlan(r.data.plan); setTargets(r.data.targets); setStep("plan");refreshDiary();
     } catch (e) {
       // FastAPI validation errors (422) return detail as an array of error objects,
       // not a string — rendering that array directly crashes React.
@@ -309,16 +329,18 @@ export default function Nutrition({ API, profileId, db }) {
     try {
       const r = await axios.post(`${API}/nutrition/plan/draft/confirm`);
       setPlan(r.data.plan); setTargets(r.data.targets);
-      setGuidedDraft(null); setStep("plan");
+      setGuidedDraft(null); setStep("plan");refreshDiary();
     } catch (e) { setError(explicarErro(e, "confirmar plano", "Não foi possível confirmar o plano agora.")); }
     finally { setBusy(false); }
   };
 
   const markMeal = async (idx, status) => {
+    if(marking!==null)return;setMarking(idx);setError("");
     try {
       await axios.post(`${API}/nutrition/meal-status`, { meal_index: idx, status, date: localFoodDate() });
       await refreshDiary();
-    } catch { setError("Não foi possível registrar a refeição."); }
+    } catch { setError("Não foi possível registrar a refeição. Tente novamente."); }
+    finally {setMarking(null)}
   };
 
   const doSubstitute = async (mealIdx, foodId) => {
@@ -359,6 +381,8 @@ export default function Nutrition({ API, profileId, db }) {
       </select> : <input type={type} inputMode={type === "number" ? "decimal" : undefined} value={formRef.current[k]} onChange={e => setForm(s => ({ ...s, [k]: e.target.value }))} />}
     </label>
   ), []);
+
+  if(step==="error")return <AstraPage screen={2}><AstraIntro title="Nutrição."/><AsyncState kind="error" title={error} onRetry={retryPlan}>Seu plano não foi alterado. Tente carregar novamente.</AsyncState></AstraPage>;
 
   if (step === "loading") return (
     <div className="content">
@@ -655,7 +679,8 @@ export default function Nutrition({ API, profileId, db }) {
   const tPlano = plan?.targets || targets || {};
   // Sem useMemo de proposito: este ponto do render fica DEPOIS de retornos antecipados, e
   // hook depois de retorno quebra a regra dos hooks. Montar o objeto custa nada.
-  const hojeCiclado = cicloCarbo?.ativo ? cicloCarbo.hoje : null;
+  const cicloDoPlano = plan?.source === "manual_import" ? null : cicloCarbo;
+  const hojeCiclado = cicloDoPlano?.ativo ? cicloDoPlano.hoje : null;
   const t = hojeCiclado
     ? {...tPlano, carbs_g: hojeCiclado.carbs_g, protein_g: hojeCiclado.protein_g,
        fat_g: hojeCiclado.fat_g, goal_calories: hojeCiclado.goal_calories}
@@ -666,39 +691,35 @@ export default function Nutrition({ API, profileId, db }) {
   return (
     <AstraPage screen={2} testId="astra-nutrition">
       <AstraIntro eyebrow={astraDate()} title="Nutrição." subtitle="Seu plano, refeição por refeição."/>
-      <AstraNutritionSummary consumed={consumed} targets={t}/>
-      {/*
-        * O diario livre vem ANTES do plano, e nao depois.
-        *
-        * Sao duas perguntas diferentes: o plano responde "o que eu como hoje", o diario
-        * responde "o que eu comi". Quem abre esta tela num dia em que nao seguiu o plano
-        * vem registrar, nao vem conferir — e o registro estava no fim da pagina, chamado
-        * "Adicionar um extra", aparecendo depois como "Extra · 320 kcal", sem dizer de que
-        * refeicao era. Empilhado embaixo do plano, parecia um apendice dele.
-        */}
-      <DiarioLivre API={API} dia={localFoodDate()} diario={diary} aoMudar={refreshDiary}
-                   onFoodCard={entryId => setFoodCard({dia: localFoodDate(), entryId})}/>
+      {diaryState==="ready"&&<AstraNutritionSummary consumed={consumed} targets={t}/>}
+      <div className="a6-tabs" role="group" aria-label="Área da nutrição">
+        <button type="button" className={view==="today"?"a6-selected":""} aria-pressed={view==="today"} onClick={()=>setView("today")}>Hoje</button>
+        <button type="button" className={view==="plan"?"a6-selected":""} aria-pressed={view==="plan"} onClick={()=>setView("plan")}>Meu plano</button>
+      </div>
+      <p className="forge-plan-origin" data-testid="nutrition-plan-origin">{plan?.source==="manual_import"?"Dieta importada · plano ativo":hojeCiclado?"Plano calculado · programação de hoje":"Plano calculado · plano ativo"}</p>
+      {diaryState!=="ready"&&<AsyncState kind={diaryState==="error"?"error":"loading"} title={diaryState==="error"?"Não foi possível atualizar os registros de hoje":"Carregando registros de hoje…"} onRetry={diaryState==="error"?refreshDiary:undefined}/>}
+      {importOpen && <NutritionImport API={API} onActivated={res=>{if(res?.plan){setPlan(res.plan);setTargets(res.plan.targets||null);refreshDiary();setView("today")}}} onClose={()=>setImportOpen(false)}/>}
+      {error&&<AsyncState kind="error" title={error}/>}
+      {planEditMessage&&<AsyncState kind="success" title={planEditMessage}/>}
+      {planEditAccess==="error"&&<AsyncState kind="error" title="Não foi possível verificar o acesso à edição de alimentos" onRetry={()=>setAccessAttempt(n=>n+1)}/>}
+      {editingMeal!==null&&meals[editingMeal]&&<MealFoodEditor key={editingMeal} API={API} meal={meals[editingMeal]} mealIndex={editingMeal}
+        onClose={()=>setEditingMeal(null)} onSaved={updated=>{setPlan(updated);setSubResult(null);setPlanEditMessage("Troca salva no plano. Ela será mantida nos próximos dias.");}}/>}
       {/* O Food Card entra como sobreposição, e não como rota: ele nasce de uma refeição
-          específica e volta para esta mesma tela. Uma rota exigiria carregar a refeição de
-          novo do zero e o atleta perderia a posição da página ao voltar. */}
+          específica e volta para esta mesma tela. Uma rota exigiria carregar a refeição do
+          zero e o atleta perderia a posição da página ao voltar.
+          Fica FORA da aba "Hoje": o editor cobre a tela inteira, e escondê-lo com
+          `hidden` junto do resto sumiria com ele se alguém trocasse de aba. */}
       {foodCard && (
         <Suspense fallback={<p className="muted" role="status">Abrindo o Food Card…</p>}>
           <ForgeFoodCard API={API} dia={foodCard.dia} entryId={foodCard.entryId}
                          onFechar={() => setFoodCard(null)}/>
         </Suspense>
       )}
-      <div className="a6-section-title" style={{marginTop:8,marginBottom:4}}><h2>Suas refeições</h2><button type="button" className="a6-textbutton" onClick={()=>setDiaryEditor({mealIndex:null})}>+ Adicionar</button></div>
+      <div hidden={view!=="today"} className="forge-nutrition-today">
+      {diaryState==="ready"&&<DiarioLivre API={API} dia={localFoodDate()} diario={diary} aoMudar={refreshDiary}
+                   onFoodCard={entryId => setFoodCard({dia: localFoodDate(), entryId})}/>}
+      <div className="a6-section-title" style={{marginTop:8,marginBottom:4}}><h2>Suas refeições</h2><button type="button" className="a6-textbutton" disabled={diaryState!=="ready"} onClick={()=>setDiaryEditor({mealIndex:null})}>+ Adicionar</button></div>
       {diaryEditor?.mealIndex===null&&<FoodDiaryEditor API={API} mealIndex={null} onSaved={refreshDiary} onClose={()=>setDiaryEditor(null)}/>}
-      {importOpen && (
-        <NutritionImport
-          API={API}
-          onActivated={res => { if (res?.plan) { setPlan(res.plan); setTargets(res.plan.targets || null); } }}
-          onClose={() => setImportOpen(false)}
-        />
-      )}
-
-      {error && <div className="auth-error" style={{ marginTop: 14 }}>{error}</div>}
-
       {meals.length === 0 && (
         <div className="empty-state" data-testid="nutrition-empty-state">
           <Utensils size={22} />
@@ -720,6 +741,7 @@ export default function Nutrition({ API, profileId, db }) {
               <div>{i===nextMeal&&<div className="a6-eyebrow">PRÓXIMA REFEIÇÃO</div>}<h3>{meal.name}</h3><p>{status==="completed"?"Registrado":status==="skipped"?"Pulado":(meal.foods||[]).map(x=>x.food?.name||x.food_id).join(", ")}{status==="completed"?` · ${Math.round(recordedKcal)} kcal`:""}</p></div>
             </summary>
             <div className="a6-editor nutrition-page">
+            {planEditAccess==="allowed"&&<button type="button" className="fg-btn fg-btn-2 fg-btn-cheio" data-testid={`edit-meal-foods-${i}`} disabled={!meal.foods?.length} onClick={()=>{setPlanEditMessage("");setEditingMeal(i);}}>Editar alimentos · Elite</button>}
             {/* A foto carrega o titulo em vez de dividir a linha com ele: o nome desce
                 para o pe da imagem, sobre a sombra, onde o contraste e garantido. */}
             <div
@@ -730,14 +752,14 @@ export default function Nutrition({ API, profileId, db }) {
                 <button
                   className={status === "completed" ? "marcado-ok" : ""}
                   aria-label={`Concluir ${meal.name}`}
-                  data-testid={`meal-complete-${i}`}
+                  data-testid={`meal-complete-${i}`} disabled={marking!==null||diaryState!=="ready"} aria-busy={marking===i}
                   onClick={() => markMeal(i, "completed")}>
                   <Check size={18} />
                 </button>
                 <button
                   className={status === "skipped" ? "marcado-pular" : ""}
                   aria-label={`Pular ${meal.name}`}
-                  data-testid={`meal-skip-${i}`}
+                  data-testid={`meal-skip-${i}`} disabled={marking!==null||diaryState!=="ready"}
                   onClick={() => markMeal(i, "skipped")}>
                   <X size={18} />
                 </button>
@@ -810,7 +832,7 @@ export default function Nutrition({ API, profileId, db }) {
               })}
             </div>
             {/* Uma acao evidente por cartao. */}
-            <button type="button" className="fg-btn fg-btn-2 fg-btn-cheio" onClick={()=>setDiaryEditor({mealIndex:i})}>Registrar o que comi</button>
+            <button type="button" className="fg-btn fg-btn-2 fg-btn-cheio" disabled={diaryState!=="ready"} onClick={()=>setDiaryEditor({mealIndex:i})}>Registrar o que comi</button>
             {diary.meals?.find(row=>row.meal_index===i)?.actual&&<div className="food-diary-actual"><strong>Consumo registrado no lugar desta refeição</strong><p>{diary.meals.find(row=>row.meal_index===i).actual.foods.map(f=>`${f.name} (${f.grams} g)`).join(" · ")}</p><p>A lista acima continua sendo seu plano original. Marcar “Concluir” volta a contar o planejado; “Pular” retira esta refeição do consumo.</p></div>}
             {diaryEditor?.mealIndex===i&&<FoodDiaryEditor key={i} API={API} mealIndex={i} mealName={meal.name} onSaved={refreshDiary} onClose={()=>setDiaryEditor(null)}/>}
             </div>
@@ -820,12 +842,17 @@ export default function Nutrition({ API, profileId, db }) {
       })}
       </div>
 
-      <NutritionDailyFooter API={API} compact consumed={consumed} goalCalories={t?.goal_calories||t?.kcal||0}/>
+      {diaryState==="ready"&&<NutritionDailyFooter API={API} compact consumed={consumed} goalCalories={t?.goal_calories||t?.kcal||0}/>}
+      </div>
+      <div hidden={view!=="plan"} className="forge-nutrition-plan">
+      <div className="a6-section-title"><h2>Organize seu plano</h2></div>
+      <p>Importe sua dieta ou ajuste as refeições do plano ativo.</p>
+      <button type="button" className="fg-btn fg-btn-cheio" data-testid="open-diet-import" onClick={()=>setImportOpen(true)}><ClipboardPaste size={16}/> Colar minha dieta</button>
       {/* Acrescentar um pre-treino antes do cafe da manha exigia refazer o questionario
           inteiro, o que jogava fora o cardapio. */}
       <AcrescentarRefeicao API={API} refeicoes={plan?.meals||[]}
                            onAcrescentada={res=>{setPlan(res.plan);refreshDiary()}}/>
-      <CarboidratoDoDia ciclo={cicloCarbo} alvoDoPlano={tPlano}/>
+      <CarboidratoDoDia ciclo={cicloDoPlano} alvoDoPlano={tPlano}/>
       {/* Trocar de emagrecimento para ganho exigia refazer o questionario inteiro, para
           mudar dois campos. E objetivo e o que mais muda ao longo do ano. */}
       <TrocarObjetivo API={API} objetivoAtual={form.goal} intensidadeAtual={form.intensity}
@@ -860,10 +887,8 @@ export default function Nutrition({ API, profileId, db }) {
       <ListaDeCompras API={API}/>
       <details className="a6-details"><summary>Gerenciar plano alimentar</summary><div className="a6-editor nutrition-page">
       <div className="fg-acoes-linha">
-        <button type="button" className="fg-btn fg-btn-2" onClick={()=>setDiaryEditor({mealIndex:null})}>Adicionar um extra</button>
-        <button type="button" className="fg-btn fg-btn-2" data-testid="open-diet-import" onClick={() => setImportOpen(true)}>
-          <ClipboardPaste size={16} /> Colar minha dieta
-        </button>
+        <button type="button" className="fg-btn fg-btn-2" onClick={()=>{setView("today");setDiaryEditor({mealIndex:null})}}>Registrar fora do plano</button>
+
       </div>
       <p className="fg-consumo-hoje" aria-live="polite">Consumido hoje: {Math.round(consumed.kcal)} kcal · Proteínas {Math.round(consumed.protein_g)} g · Carboidratos {Math.round(consumed.carbs_g)} g · Gorduras {Math.round(consumed.fat_g)} g</p>
       {(diary.extras||[]).map(extra=><div className="food-diary-actual" key={extra.entry_id}><strong>Extra · {Math.round(extra.actual.totals.kcal)} kcal</strong><p>{extra.actual.foods.map(f=>`${f.name} (${f.grams} g)`).join(" · ")}</p><button type="button" className="fg-btn fg-btn-2" onClick={async()=>{try{await axios.delete(`${API}/nutrition/consumed-extra/${extra.entry_id}`);await refreshDiary()}catch{setError("Não foi possível remover o extra.")}}}>Remover extra</button></div>)}
@@ -876,6 +901,7 @@ export default function Nutrition({ API, profileId, db }) {
         <small>{plan.coach_guidance.hydration_note}</small>
       </section>}
       </div></details>
+      </div>
     </AstraPage>
   );
 }

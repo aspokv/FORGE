@@ -34,7 +34,7 @@ test("header usa wordmark FORGE limpo e hero continua inclusivo",()=>{
 
 test("ritmo, nutricao e hidratacao continuam no Inicio",()=>{
   const home=casa();
-  ["home-training-week","home-acoes-rapidas","home-nutrition-progress","home-hydration"]
+  ["home-training-week","home-acoes-rapidas","home-nutrition-progress"]
     .forEach(id=>expect(home.querySelector(`[data-testid="${id}"]`)).not.toBeNull());
 });
 
@@ -42,17 +42,17 @@ test("comecar treino continua uma acao visivel",()=>{
   const botao=casa().querySelector('[data-testid="start-workout-button"]');
   expect(botao).not.toBeNull();
   expect(botao.tagName).toBe("BUTTON");
-  expect(botao.textContent).toContain("Começar treino");
+  expect(botao.textContent).toContain("Ver treino de hoje");
 });
 
-test("nutricao e hidratacao expõem indicadores de progresso acessíveis",()=>{
+test("antes de carregar, não apresenta progresso zero como dado confirmado",()=>{
   const home=casa();
   const nutrition=home.querySelector('[role="progressbar"][aria-label="Progresso de nutrição"]');
   const hydration=home.querySelector('[role="progressbar"][aria-label="Progresso de hidratação"]');
-  expect(nutrition).not.toBeNull();
-  expect(hydration).not.toBeNull();
-  expect(nutrition.getAttribute("aria-valuenow")).toBe("0");
-  expect(hydration.getAttribute("aria-valuenow")).toBe("0");
+  expect(nutrition).toBeNull();
+  expect(hydration).toBeNull();
+  expect(home.textContent).toContain("Carregando alimentação");
+  expect(home.textContent).toContain("Carregando água");
 });
 
 test("nenhum valor interno aparece na tela",()=>{

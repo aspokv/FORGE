@@ -45,9 +45,11 @@ test("quebrou embaixo dela: a tela NAO fica preta",()=>{
   expect(botoes.some(t=>/recarregar/i.test(t))).toBe(true);
 });
 
-test("diz que os dados estao salvos — e o que a pessoa quer saber primeiro",()=>{
+test("diferencia registros salvos de alterações sem confirmação",()=>{
   montar(true);
-  expect(rede().textContent).toMatch(/salvos/i);
+  expect(rede().textContent).toMatch(/já salvos/i);
+  expect(rede().textContent).toContain("sem confirmação");
+  expect(rede().textContent).not.toContain("Objects are not valid");
 });
 
 test("a excecao vai para o console, com a pilha, para quem for investigar",()=>{

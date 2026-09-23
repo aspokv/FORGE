@@ -37,11 +37,11 @@ test("Home and workout preview show Friday, not Monday",()=>{
  expect(preview.querySelector("h2").textContent).toBe("Sexta · Upper C");
  expect(home.querySelector('[data-testid="start-workout-button"]').disabled).toBe(false);
 });
-test("rest day has no start action on Home or workout preview",()=>{
+test("rest day offers consultation without a session start action",()=>{
  jest.setSystemTime(new Date(2026,8,10,5,10));
  const p=scheduledProgram(program),db={profile:{id:"calendar-athlete"},program:p};
  const home=html(<ReferenceHome db={db}/>);
- expect(home.querySelector('[data-testid="start-workout-button"]').disabled).toBe(true);
+ expect(home.querySelector('[data-testid="start-workout-button"]').textContent).toContain("Consultar próximo treino");
  expect(home.body.textContent).toContain("DESCANSO HOJE");
  const preview=html(<ReferenceWorkoutPreview db={db}/>);
  expect(preview.querySelector('[data-testid="workout-rest-day"]')).not.toBeNull();

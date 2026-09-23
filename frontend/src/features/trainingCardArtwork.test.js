@@ -73,7 +73,7 @@ test("completed home artwork stays with the completed session instead of the nex
   ]},recent_sets:[{session_day:1,exercise_id:"press",set_number:1,created_at:new Date().toISOString()}]};
   const doc=new DOMParser().parseFromString(renderToStaticMarkup(<ReferenceHome db={db} start={()=>{}}/>),"text/html");
   expect(doc.querySelector("[data-training-category]").dataset.trainingCategory).toBe("push");
-  expect(doc.querySelector('[data-testid="start-workout-button"]').disabled).toBe(true);
+  expect(doc.querySelector('[data-testid="start-workout-button"]').textContent).toContain("Ver resumo do treino");
   expect(doc.body.textContent).toContain("TREINO CONCLUÍDO HOJE");
 });
 

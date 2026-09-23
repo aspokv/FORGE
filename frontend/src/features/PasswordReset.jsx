@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import axios from "axios";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { ArrowLeft, Check, KeyRound, Mail, ShieldCheck } from "lucide-react";
 
 import { API, useAuth } from "./AuthContext";
@@ -31,6 +31,7 @@ import {
  */
 
 export default function PasswordReset() {
+  const reduceMotion=useReducedMotion();
   const { navigate, route } = useAuth();
   const [passo, setPasso] = useState(() => passoInicial(route));
   const [email, setEmail] = useState("");
@@ -117,7 +118,7 @@ export default function PasswordReset() {
 
       <motion.div
         className="auth-card"
-        initial={{ opacity: 0, y: 14 }}
+        initial={reduceMotion ? false : { opacity: 0, y: 14 }}
         animate={{ opacity: 1, y: 0 }}
       >
         {passo === PASSO_PEDIR && (

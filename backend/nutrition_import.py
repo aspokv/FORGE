@@ -8,6 +8,7 @@ O resultado sai no MESMO formato que generate_daily_plan já produz
 (`meals[].foods[]` construídos por build_food_item), então o plano importado passa por
 /api/nutrition/plan, /substitute e /meal-status sem mudança nenhuma nesses caminhos.
 """
+import math
 import re
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -339,21 +340,11 @@ def apply_resolution(draft: Dict[str, Any], resolved: Dict[str, str],
 
 def draft_to_plan(draft: Dict[str, Any],
                   targets_do_atleta: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-    """Rascunho -> o MESMO formato que generate_daily_plan produz, para o plano
-    importado circular pelos endpoints que já existem sem adaptação.
+    """Preserva os totais da dieta confirmada como metas do plano importado.
 
-    `targets_do_atleta` e a meta calculada a partir do questionario. Quando ela existe, e
-    ELA que vai em `targets` — a dieta colada descreve o que a pessoa COME, e nunca o que
-    ela PRECISA.
-
-    Antes, a meta do dia virava o total lido da dieta. Numa leitura parcial — linha sem
-    gramatura, alimento fora do catalogo, "arroz a vontade" — os itens perdidos valem zero,
-    e o que sobrava virava o objetivo. Foi assim que uma dieta feminina de seis refeicoes
-    apareceu em producao anunciando META de algumas centenas de kcal: o numero era coerente
-    com o que o motor conseguiu ler, e absurdo para quem ia comer.
-
-    Agora os dois numeros convivem e a diferenca fica VISIVEL: `targets` e a necessidade,
-    `daily_totals` e a entrega. Uma dieta curta demais deixa de se disfarcar de meta."""
+    O questionario pode ser mantido como referencia, nunca substituir a dieta que
+    o usuario acabou de revisar. Itens pendentes sao bloqueados na ativacao.
+    """
     meals = []
     for meal in draft.get("meals") or []:
         foods = []
@@ -372,18 +363,47 @@ def draft_to_plan(draft: Dict[str, Any],
             "coherence_score": None,
         })
     dia = draft.get("daily_totals") or {}
-    # Sem questionario nao ha necessidade calculada para comparar; o comportamento antigo
-    # continua sendo o unico possivel.
-    alvos = dict(targets_do_atleta) if targets_do_atleta else {
-        "goal_calories": round(dia.get("kcal", 0)),
-        "protein_g": round(dia.get("protein_g", 0), 1),
-        "carbs_g": round(dia.get("carbs_g", 0), 1),
-        "fat_g": round(dia.get("fat_g", 0), 1),
-    }
+    alvos = targets_from_import_totals(dia)
     return {
         "meals": meals,
         "daily_totals": dia,
         "targets": alvos,
+        "targets_source": "manual_import",
+        "assessment_targets": dict(targets_do_atleta or {}),
         "source": "manual_import",
         "name": sanitize(draft.get("name") or "Dieta importada", MAX_LABEL_CHARS),
     }
+
+
+def targets_from_import_totals(totals: Dict[str, Any]) -> Dict[str, float]:
+    """Mesmo arredondamento da previa; kcal vem do catalogo, nao de 4/4/9."""
+    return {
+        "goal_calories": round(totals.get("kcal", 0)),
+        **{key: round(totals.get(key, 0), 1)
+           for key in ("protein_g", "carbs_g", "fat_g")},
+    }
+
+
+async def restore_import_targets(db, profile_id: str, stored):
+    """Corrige importacoes antigas uma vez, sem alterar refeicoes ou historico.
+
+    Compare-and-set impede uma leitura atrasada de sobrescrever um plano novo.
+    O marcador preserva ajustes explicitos posteriores ao reparo.
+    """
+    plan = (stored or {}).get("plan") or {}
+    if plan.get("source") != "manual_import" or plan.get("targets_source"):
+        return stored
+    totals = plan.get("daily_totals") or {}
+    keys = ("kcal", "protein_g", "carbs_g", "fat_g")
+    if not all(isinstance(totals.get(k), (int, float))
+               and math.isfinite(totals[k]) and totals[k] >= 0 for k in keys):
+        return stored
+    if totals["kcal"] <= 0:
+        return stored
+    targets = targets_from_import_totals(totals)
+    result = await db.nutrition_plans.update_one(
+        {"profile_id": profile_id, "plan": plan},
+        {"$set": {"plan.targets": targets, "plan.targets_source": "manual_import"}})
+    if not result.matched_count:
+        return await db.nutrition_plans.find_one({"profile_id": profile_id}, {"_id": 0})
+    return {**stored, "plan": {**plan, "targets": targets, "targets_source": "manual_import"}}
