@@ -10,7 +10,7 @@ EXCLUIR apaga a pessoa e TODO o rastro dela. Nao tem volta, entao tem trava.
 
 Por que este modulo existe separado da rota
 -------------------------------------------
-Excluir um atleta e deletar de 30 colecoes. A lista foi levantada LENDO O BANCO, e nao
+Excluir um atleta e deletar de 33 colecoes. A lista foi levantada LENDO O BANCO, e nao
 o codigo: uma varredura por `db.<colecao>.<metodo>({"profile_id"` encontrava 16, e o
 banco tem 30. Ficavam de fora, entre outras, `sets`, `weight_logs`,
 `nutrition_assessments`, `hydration_logs`, `weekly_reviews` e `conselho_semanal` — parte
@@ -58,6 +58,16 @@ COLECOES_DO_ATLETA: Tuple[Tuple[str, str], ...] = (
     ("pix_attempts", "user_id"),
     ("password_resets", "user_id"),
     ("ai_usage", "user_id"),
+    # As tres colecoes das features mais novas. Nenhuma delas entrou aqui quando foi criada,
+    # e a varredura da suite denunciou as tres de uma vez — que e exatamente o que o
+    # comentario la em cima promete que acontece com colecao nova.
+    #
+    # `food_cards` guarda `userId` em camelCase, e nao `profile_id`: o resto do payload do
+    # Food Card vai para o frontend nessa forma, e a rota LE por esse campo. A regra deste
+    # modulo e usar o campo pelo qual o codigo le.
+    ("cardio_logs", "profile_id"),
+    ("exercise_notes", "profile_id"),
+    ("food_cards", "userId"),
     ("users", "id"),
 )
 
@@ -120,7 +130,10 @@ async def orfaos(db, atleta_id: str, email: str = "") -> List[str]:
     nova, criada por outra funcionalidade daqui a seis meses, aparece aqui sem ninguem
     precisar lembrar de atualizar nada.
     """
-    chaves = ("profile_id", "user_id", "athlete_id", "id")
+    # `userId` em camelCase esta aqui porque `food_cards` guarda o dono assim. Sem ele, um
+    # card de verdade — que nao tem `profile_id` nenhum — ficaria orfao sem a varredura
+    # reclamar, e o teste so pegaria o esquecimento por causa do campo extra do semeador.
+    chaves = ("profile_id", "user_id", "userId", "athlete_id", "id")
     achados: List[str] = []
     for nome in await db.list_collection_names():
         if nome in COLECOES_PRESERVADAS:

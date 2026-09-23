@@ -524,3 +524,67 @@ class TestOsAlvosDeMacroDaRefeicao:
 
     def test_refeicao_sem_alvo_nao_quebra(self):
         assert self._alvos(0, 0, 0) == {"protein_g": 0, "carbs_g": 0, "fat_g": 0}
+
+
+class TestAOrdemDaBusca:
+    """O primeiro resultado e o que a pessoa vai clicar.
+
+    Achar o alimento nao basta: a busca devolve ate vinte linhas numa tela de celular, e o que
+    esta na primeira e o que entra na refeicao. Enquanto o desempate entre alimentos com a
+    mesma pontuacao era o ALFABETO, quem digitava "ovo" recebia "Clara de ovo" na frente do
+    ovo, quem digitava "whey" recebia "Creme de arroz com whey", e "acelga" trazia a acelga
+    chinesa — que e outra verdura, com outro macro — antes da acelga. Todos empatavam por
+    conter o termo em algum lugar do texto.
+
+    Cada caso abaixo e um que estava errado de verdade, medido no catalogo real.
+    """
+
+    def _buscar(self, q, perfil=None, limite=20):
+        from montagem_por_alimento import buscar_para_montagem
+        return buscar_para_montagem(q, perfil or SEM_RESTRICAO, limite)
+
+    @pytest.mark.parametrize("digitado,esperado,errado", [
+        # O termo e o nome da coisa, nao uma palavra que aparece nela.
+        ("ovo", "ovo", "clara"),
+        ("whey", "whey", "creme de arroz"),
+        ("tomate", "tomate", "molho"),
+        # Alimento-base antes de prato pronto: o motor dimensiona o primeiro sozinho, e quem
+        # digita "frango" quer peito de frango, nao frango a parmegiana.
+        ("frango", "frango", "parmegiana"),
+        # O nome vale mais que o apelido. "Carne bovina grelhada (patinho)" lista alcatra como
+        # apelido e nao a nomeia.
+        ("alcatra", "alcatra", "carne bovina"),
+        ("acelga", "acelga", "chinesa"),
+        # O generico antes da marca: "Albumina — Naturovos" tem nome mais curto que "Albumina
+        # (clara de ovo desidratada)", e nao e o que a palavra sozinha significa.
+        ("albumina", "albumina", "naturovos"),
+        # Apelido exato e intencao declarada de quem montou o catalogo: "leite" esta
+        # cadastrado no integral, "feijao" no carioca.
+        ("leite", "integral", "desnatado"),
+        ("feijao", "carioca", "preto"),
+        # O caso que originou a leva de alimentos novos: o Nicolas procurou "moranga".
+        ("moranga", "abobora", "pure"),
+    ])
+    def test_o_primeiro_resultado_e_o_alimento_que_o_termo_nomeia(self, digitado, esperado, errado):
+        from manual_workout import normalize
+        achados = self._buscar(digitado)
+        assert achados, f"'{digitado}' nao devolve nada"
+        primeiro = normalize(achados[0]["name"])
+        assert esperado in primeiro, f"'{digitado}' -> '{achados[0]['name']}'"
+        assert errado not in primeiro, f"'{digitado}' -> '{achados[0]['name']}'"
+
+    # Existe "Banana", "Banana prata" e "Banana nanica". Quem digita "banana" nao esta
+    # escolhendo variedade, e o nome exato nao pode perder para uma variedade qualquer.
+    @pytest.mark.parametrize("digitado", ["banana", "tomate", "creatina", "albumina"])
+    def test_o_nome_igual_ao_termo_vem_primeiro_quando_existe(self, digitado):
+        from manual_workout import normalize
+        achados = self._buscar(digitado)
+        if any(normalize(a["name"]) == normalize(digitado) for a in achados):
+            assert normalize(achados[0]["name"]) == normalize(digitado), \
+                [a["name"] for a in achados[:3]]
+
+    # A marca existe no catalogo e tem de continuar achavel — o que ela nao pode e vir na
+    # frente do alimento generico de quem digitou so a palavra.
+    def test_a_marca_continua_na_lista(self):
+        nomes = [a["name"] for a in self._buscar("albumina")]
+        assert any("—" in n for n in nomes), nomes

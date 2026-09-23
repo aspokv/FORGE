@@ -80,6 +80,17 @@ VERDURAS_E_LEGUMES = [
     ("diary-veg-mushroom", "Champignon", 22, 3.1, 3.3, 0.3, ["champignon", "cogumelo"]),
     ("diary-veg-asparagus", "Aspargo cozido", 20, 2.2, 3.9, 0.1, ["aspargo"]),
     ("diary-veg-cassava-leaf", "Maxixe cozido", 16, 1.0, 3.5, 0.1, ["maxixe"]),
+    ("diary-veg-jilo", "Jiló cozido", 26, 1.4, 5.4, 0.2, ["jilo", "jiló"]),
+    ("diary-veg-chard", "Acelga refogada", 24, 1.8, 4.1, 0.2, ["acelga"]),
+    ("diary-veg-radish", "Rabanete cru", 14, 0.8, 2.7, 0.1, ["rabanete"]),
+    ("diary-veg-napa", "Acelga chinesa crua", 13, 1.2, 2.2, 0.2, ["couve chinesa", "acelga chinesa", "napa"]),
+    ("diary-veg-turnip", "Nabo cozido", 18, 0.7, 4.1, 0.1, ["nabo"]),
+    ("diary-veg-endive", "Escarola crua", 17, 1.3, 3.4, 0.2, ["escarola", "chicoria"]),
+    ("diary-veg-dandelion", "Almeirão cru", 23, 1.7, 4.7, 0.3, ["almeirao", "almeirão"]),
+    ("diary-veg-zucchini-saute", "Abobrinha refogada", 48, 1.1, 4.0, 3.3, ["abobrinha refogada"]),
+    ("diary-veg-eggplant-roast", "Berinjela assada", 38, 1.0, 6.5, 1.2, ["berinjela assada"]),
+    ("diary-veg-pumpkin-puree", "Purê de abóbora", 44, 1.1, 9.0, 0.5, ["pure de abobora", "pure de moranga", "moranga amassada"]),
+    ("diary-veg-carrot-cooked", "Cenoura cozida", 35, 0.8, 8.2, 0.2, ["cenoura cozida"]),
 ]
 
 CARBOIDRATOS = [
@@ -114,7 +125,7 @@ PROTEINAS = [
     ("diary-prot-beef-ground-lean", "Carne moída magra refogada", 190, 30.0, 0.0, 7.0, ["carne moida", "carne moída"]),
     ("diary-prot-beef-alcatra", "Alcatra grelhada", 241, 32.0, 0.0, 11.8, ["alcatra"]),
     ("diary-prot-beef-coxao", "Coxão mole cozido", 219, 31.9, 0.0, 9.2, ["coxao mole", "coxão mole"]),
-    ("diary-prot-beef-filet", "Filé mignon grelhado", 220, 32.8, 0.0, 8.8, ["file mignon", "filé mignon"]),
+    ("diary-prot-beef-filet", "Filé mignon grelhado", 220, 32.8, 0.0, 8.8, ["file mignon", "filé mignon", "mignon"]),
     ("diary-prot-beef-picanha", "Picanha assada", 267, 26.4, 0.0, 17.4, ["picanha"]),
     ("diary-prot-pork-loin", "Lombo suíno assado", 210, 35.7, 0.0, 6.4, ["lombo", "lombo suino"]),
     ("diary-prot-turkey-breast", "Peito de peru defumado", 95, 17.0, 2.0, 2.0, ["peito de peru", "peru"]),
@@ -126,6 +137,13 @@ PROTEINAS = [
     ("diary-prot-tofu", "Tofu", 76, 8.1, 1.9, 4.8, ["tofu", "queijo de soja"]),
     ("diary-prot-soy-textured", "Proteína de soja texturizada seca", 336, 50.0, 30.0, 1.0, ["pts", "carne de soja", "proteina de soja"]),
     ("diary-prot-cod", "Bacalhau dessalgado cozido", 135, 29.0, 0.0, 1.5, ["bacalhau"]),
+    ("diary-prot-fraldinha", "Fraldinha grelhada", 219, 27.0, 0.0, 12.2, ["fraldinha", "vazio bovino"]),
+    ("diary-prot-carne-de-sol", "Carne de sol assada", 250, 31.0, 0.0, 13.8, ["carne de sol", "carne seca", "charque"]),
+    ("diary-prot-bacon", "Bacon frito", 541, 37.0, 1.4, 42.0, ["bacon", "toucinho defumado"]),
+    ("diary-prot-cupim", "Cupim assado", 289, 26.0, 0.0, 20.5, ["cupim"]),
+    ("diary-prot-contra-file", "Contrafilé grelhado", 219, 28.0, 0.0, 11.5, ["contra file", "contrafilé", "bife de chorizo"]),
+    ("diary-prot-lagarto", "Lagarto cozido", 158, 31.5, 0.0, 3.3, ["lagarto", "tatu bovino"]),
+    ("diary-prot-fish-cacao", "Cação grelhado", 118, 24.0, 0.0, 2.1, ["cacao", "cação"]),
 ]
 
 LATICINIOS = [
@@ -314,4 +332,17 @@ APELIDOS_EXTRA = {
     "beans-carioca": ["feijao", "feijão"],
     "green-beans": ["feijao vagem"],
     "yogurt-greek": ["grego"],
+    # O caso que motivou esta leva: a abobora estava no catalogo desde sempre, e quem
+    # procura por "moranga" — que e como metade do pais chama — nao achava nada e
+    # desistia de registrar a refeicao.
+    "pumpkin": ["moranga", "abobora cabotia", "cabotia", "jerimum"],
+    "sweet-potato": ["batata doce", "jetica"],
+    "cassava": ["aipim", "macaxeira", "mandioca"],
+    "chicken-breast": ["file de frango", "peito de frango", "frango grelhado"],
+    "eggs-whole": ["ovo", "ovo inteiro"],
+    "oats": ["aveia em flocos", "farelo de aveia"],
+    "rice-white": ["arroz", "arroz branco"],
+    "tomato": ["tomate"],
+    "broccoli": ["brocolis", "brócolis"],
+    "banana": ["banana"],
 }
