@@ -1,5 +1,5 @@
 import {useEffect, useRef, useState} from "react";
-import {ALTURA, LARGURA, MARCA, TIPO} from "../lib/layout";
+import {ALTURA, LARGURA, MARCA, TIPO, escalaQueCabe} from "../lib/layout";
 import FoodCalloutCard from "./FoodCalloutCard";
 import FoodConnector from "./FoodConnector";
 import MacroSummary from "./MacroSummary";
@@ -25,34 +25,56 @@ import MacroSummary from "./MacroSummary";
 export default function FoodCardCanvas({
   imagem, imageTransform, items = [], summary, selecionado = null,
   onPointerDownCard, onPointerDownAncora, onFundoPressionado,
-  modoPreview = false, escalaRef,
+  modoPreview = false, escalaRef, onFotoFalhou,
 }) {
   const molduraRef = useRef(null);
   const [escala, setEscala] = useState(0.3);
+  // Conta as tentativas de carregar a foto, e serve de `key` da <img>.
+  //
+  // Sem isto a recuperacao nao funciona: pedir um endereco novo devolve a MESMA string
+  // quando a assinatura e gerada no mesmo segundo, e o navegador nao repete requisicao
+  // para um `src` que nao mudou. Trocar a `key` monta um elemento novo, que pede de novo.
+  //
+  // So sobe quando a recuperacao diz que vale a pena tentar: se subisse a cada `onError`,
+  // um endereco que falha sempre entraria em laco infinito de requisicoes.
+  const [tentativa, setTentativa] = useState(0);
 
-  // A escala acompanha a largura real do contêiner. `ResizeObserver` em vez de um evento
-  // de janela porque o editor tem barras que abrem e fecham sem a janela mudar de tamanho.
+  // A escala acompanha o contêiner real. `ResizeObserver` em vez de um evento de janela
+  // porque o editor tem barras que abrem e fecham sem a janela mudar de tamanho.
+  //
+  // Mede as DUAS dimensões, e não só a largura. A peça é 9:16; medindo só a largura, num
+  // celular de 412px ela reivindicava 733px de altura e empurrava as abas e o painel de
+  // controles para fora da tela — em navegador de celular, com barra de endereço, sobram
+  // por volta de 680px, e o painel inteiro ficava invisível sem nenhum indício. Foi assim
+  // que o botão de escolher a foto da galeria sumiu para quem estava usando.
   useEffect(() => {
     const alvo = molduraRef.current;
     if (!alvo) return undefined;
+    // Mede o ESPACO DISPONIVEL (o pai), e nao a propria moldura: medir a si mesma criaria
+    // um laco, porque e a medida que define o tamanho dela.
+    const espaco = alvo.parentElement;
     const medir = () => {
-      const largura = alvo.clientWidth || LARGURA;
-      const nova = largura / LARGURA;
+      const nova = escalaQueCabe(espaco?.clientWidth || alvo.clientWidth,
+                                 espaco?.clientHeight);
       setEscala(nova);
       if (escalaRef) escalaRef.current = nova;
     };
     medir();
     if (typeof ResizeObserver === "undefined") return undefined;
     const observador = new ResizeObserver(medir);
-    observador.observe(alvo);
+    observador.observe(espaco || alvo);
     return () => observador.disconnect();
   }, [escalaRef]);
 
   const t = imageTransform || {scale: 1, offsetX: 0, offsetY: 0};
 
+  // Largura e altura saem da escala ja calculada, e nao de `aspect-ratio` com
+  // `max-height`: aquela combinacao encolhia so a altura e achatava a peca — medido em
+  // 412x680, saia 380x278, proporcao 1.37 onde o certo e 0.563. Aqui as duas dimensoes
+  // vem do mesmo numero, entao a proporcao nao tem como divergir.
   return (
     <div className="fc-moldura" ref={molduraRef} data-testid="fc-moldura"
-         style={{aspectRatio: `${LARGURA} / ${ALTURA}`}}>
+         style={{width: LARGURA * escala, height: ALTURA * escala}}>
       <div className="fc-canvas" data-testid="fc-canvas"
            style={{
              width: LARGURA, height: ALTURA,
@@ -63,7 +85,14 @@ export default function FoodCardCanvas({
         {/* Camada 1: a foto do atleta, intocada. Só enquadramento muda. */}
         <div className="fc-foto" data-testid="fc-foto">
           {imagem ? (
-            <img src={imagem} alt="" draggable="false" style={{
+            /* `onError` nao e enfeite: o endereco da foto e assinado e vale cinco minutos,
+               e montar uma peca leva mais que isso. Sem este aviso o `<img>` falha calado,
+               a peca fica com o fundo vazio e nada na tela explica por que. */
+            <img key={`${imagem}#${tentativa}`} src={imagem} alt="" draggable="false"
+                 data-testid="fc-foto-img"
+                 onError={async () => {
+                   if (await onFotoFalhou?.()) setTentativa(n => n + 1);
+                 }} style={{
               transform: `translate(${t.offsetX * LARGURA}px, ${t.offsetY * ALTURA}px) scale(${t.scale})`,
             }} />
           ) : (

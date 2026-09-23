@@ -5,7 +5,8 @@ import {createRoot} from "react-dom/client";
 
 import {
   ALTURA, CARTAO, LARGURA, MARCA, RESUMO, ZONAS_PROIBIDAS,
-  alturaDoCartao, caixaDoCartao, paraNormalizado, paraPixel, prender, saidaDoConector,
+  alturaDoCartao, caixaDoCartao, escalaQueCabe, paraNormalizado, paraPixel, prender,
+  saidaDoConector,
 } from "./lib/layout";
 import {DESCRICOES, MACROS, ROTULO_DO_MACRO, descricaoDe, quantidadeDe, valorDoMacro} from "./lib/conteudo";
 import {ICONES_DE_ALIMENTO, ICONES_DE_MACRO, QUADRO, TRACO, caminhosDoAlimento} from "./lib/icones";
@@ -13,6 +14,8 @@ import {nomeDoArquivo} from "./lib/exportar";
 import FoodCardCanvas from "./components/FoodCardCanvas";
 import MacroSummary from "./components/MacroSummary";
 import FoodSelector from "./components/FoodSelector";
+import useFoodCard from "./hooks/useFoodCard";
+import ImageCropController from "./components/ImageCropController";
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -355,5 +358,198 @@ describe("a exportação", () => {
   test("o nome do arquivo tem carimbo de tempo, para não sobrescrever o anterior", () => {
     const nome = nomeDoArquivo();
     expect(nome).toMatch(/^forge-food-card-\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}\.png$/);
+  });
+});
+
+
+describe("de onde vem a foto do prato", () => {
+  /*
+   * O Nicolas montou um Food Card, chegou na hora da foto e perguntou onde adicionava uma
+   * da galeria: "aqui não tem um botão adicionar a foto da galeria".
+   *
+   * O botão existia. O que não existia era ELE NA TELA: "Escolher da galeria" é mais largo
+   * que "Tirar foto" (225px contra 149px), os dois somados passavam da linha, o
+   * `flex-wrap` mandava o segundo para baixo, e num Samsung de 915px de altura ele
+   * começava em y=909 — seis pixels visíveis. Quem abria o Food Card via só "Tirar foto" e
+   * concluía que precisava tirar a foto na hora.
+   *
+   * A largura é CSS, e jsdom não faz layout: foi medida no navegador, em 412×915, 390×844
+   * e 360×800. O que se prende AQUI é que as duas origens continuam existindo, com os
+   * atributos que fazem cada uma abrir a coisa certa no celular.
+   */
+  function montar() {
+    const alvo = document.createElement("div");
+    document.body.appendChild(alvo);
+    const onEscolherFoto = jest.fn();
+    act(() => {
+      createRoot(alvo).render(
+        <ImageCropController transform={{scale: 1, offsetX: 0, offsetY: 0}} temFoto={false}
+                             onMudar={() => {}} onEscolherFoto={onEscolherFoto} />);
+    });
+    return {alvo, onEscolherFoto};
+  }
+
+  afterEach(() => { document.body.innerHTML = ""; });
+
+  test("as duas origens existem: câmera e galeria", () => {
+    const {alvo} = montar();
+    expect(alvo.querySelector('[data-testid="fc-crop-camera"]')).not.toBeNull();
+    expect(alvo.querySelector('[data-testid="fc-crop-galeria"]')).not.toBeNull();
+  });
+
+  // `capture="environment"` é o que faz o celular abrir a câmera traseira direto. A
+  // galeria NÃO pode ter o atributo: com ele, o Android abre a câmera e a pessoa não
+  // consegue escolher uma foto que já tirou — que é exatamente o que foi pedido.
+  test("a galeria abre a galeria, e não a câmera", () => {
+    const {alvo} = montar();
+    expect(alvo.querySelector('[data-testid="fc-crop-camera"]').getAttribute("capture")).toBe("environment");
+    expect(alvo.querySelector('[data-testid="fc-crop-galeria"]').hasAttribute("capture")).toBe(false);
+  });
+
+  test("as duas aceitam imagem", () => {
+    const {alvo} = montar();
+    for (const id of ["fc-crop-camera", "fc-crop-galeria"]) {
+      expect(alvo.querySelector(`[data-testid="${id}"]`).getAttribute("accept")).toBe("image/*");
+    }
+  });
+
+  // Rótulo visível em cada uma: dois ícones sem palavra não dizem qual é qual.
+  test("cada origem diz o que é", () => {
+    const {alvo} = montar();
+    const texto = alvo.querySelector('[data-testid="fc-crop"]').textContent;
+    expect(texto).toContain("Tirar foto");
+    expect(texto).toContain("galeria");
+  });
+});
+
+
+describe("a peça caber na tela", () => {
+  /*
+   * O Nicolas abriu o Food Card e perguntou onde punha a foto. O botão existia; o que não
+   * existia era ele NA TELA.
+   *
+   * A peça é 9:16. A escala era calculada só pela largura, então num celular de 412px ela
+   * reivindicava 733px de altura, e a barra de abas caía em y=776 — fixa, independente da
+   * altura do aparelho. Em navegador de celular sobram por volta de 680px depois da barra
+   * de endereço e da de navegação: o painel inteiro ficava abaixo da dobra, sem nada na
+   * tela indicando que havia algo ali.
+   *
+   * Medido no navegador antes e depois, em 360×560, 360×640, 412×680, 412×740, 412×915 e
+   * 390×844: o botão da galeria saiu de 0 pixels visíveis para os 48 dele em todas.
+   */
+  test("cabe pela dimensão que aperta, e não só pela largura", () => {
+    // Espaço largo e baixo: quem manda é a altura.
+    expect(escalaQueCabe(1080, 960)).toBeCloseTo(0.5, 5);
+    // Espaço estreito e alto: quem manda é a largura.
+    expect(escalaQueCabe(540, 1920)).toBeCloseTo(0.5, 5);
+  });
+
+  // O caso real que quebrou: 412 de largura com 680 de altura util.
+  test("num celular de 412x680 a peça cabe inteira", () => {
+    const escala = escalaQueCabe(412, 680);
+    expect(LARGURA * escala).toBeLessThanOrEqual(412);
+    expect(ALTURA * escala).toBeLessThanOrEqual(680);
+  });
+
+  // A proporção não pode divergir: foi `aspect-ratio` com `max-height` que achatou a peça
+  // para 380x278 — razão 1.37 onde o certo é 0.563 — na primeira tentativa de correção.
+  test.each([[412, 680], [360, 560], [390, 844], [412, 915], [1080, 1920]])(
+    "em %ix%i a proporção continua 9:16", (l, a) => {
+      const escala = escalaQueCabe(l, a);
+      expect((LARGURA * escala) / (ALTURA * escala)).toBeCloseTo(LARGURA / ALTURA, 5);
+    });
+
+  // Medida zero acontece de verdade: o ResizeObserver dispara antes de o elemento ter
+  // caixa. Devolver 0 faria a peça sumir; devolver NaN quebraria o estilo inteiro.
+  test.each([[0, 0], [undefined, undefined], [null, 500], [NaN, NaN]])(
+    "medida ausente (%s, %s) não zera nem quebra a peça", (l, a) => {
+      const escala = escalaQueCabe(l, a);
+      expect(Number.isFinite(escala)).toBe(true);
+      expect(escala).toBeGreaterThan(0);
+    });
+});
+
+describe("a foto que não carrega", () => {
+  /*
+   * O Nicolas importou uma foto e ela não apareceu. A peça ficou com o fundo vazio e NADA
+   * na tela dizia o que tinha acontecido — nem que subiu, nem que falhou.
+   *
+   * O endereço da foto é assinado e vale cinco minutos, escolha deliberada: endereço de
+   * foto que dura horas vira link compartilhável sem querer. Só que montar um Food Card
+   * leva mais que cinco minutos — escolher alimentos, arrastar cards, enquadrar. Quando o
+   * prazo vence, o `<img>` falha calado.
+   *
+   * Reproduzido no navegador contra um armazenamento que recusa a primeira leitura, como o
+   * R2 faz com URL vencida. Antes: `naturalWidth=0` e nenhuma mensagem. Depois: uma segunda
+   * tentativa com endereço novo, e a foto aparece.
+   */
+  function Sonda({API, cardId, cliente}) {
+    const {card, erro, fotoFalhou} = useFoodCard({API, cardId, axiosCliente: cliente});
+    return (
+      <div>
+        <span data-testid="url">{card?.imageUrl || ""}</span>
+        <span data-testid="erro">{erro}</span>
+        <button data-testid="falhar" onClick={() => fotoFalhou()}>falhar</button>
+      </div>
+    );
+  }
+
+  async function montar(respostas) {
+    let i = 0;
+    const cliente = {
+      get: jest.fn(async () => ({data: respostas[Math.min(i++, respostas.length - 1)]})),
+      put: jest.fn(async () => ({data: {}})),
+      post: jest.fn(async () => ({data: {}})),
+    };
+    const alvo = document.createElement("div");
+    document.body.appendChild(alvo);
+    await act(async () => {
+      createRoot(alvo).render(<Sonda API="/api" cardId="c1" cliente={cliente} />);
+    });
+    const clicar = async () => {
+      await act(async () => {
+        alvo.querySelector('[data-testid="falhar"]')
+            .dispatchEvent(new MouseEvent("click", {bubbles: true}));
+      });
+    };
+    return {alvo, cliente, clicar};
+  }
+
+  afterEach(() => { document.body.innerHTML = ""; });
+
+  test("busca um endereço novo quando a foto falha", async () => {
+    const {alvo, cliente, clicar} = await montar([
+      {id: "c1", items: [], imageUrl: "https://x/velha"},
+      {id: "c1", items: [], imageUrl: "https://x/nova"},
+    ]);
+    expect(alvo.querySelector('[data-testid="url"]').textContent).toBe("https://x/velha");
+    await clicar();
+    expect(alvo.querySelector('[data-testid="url"]').textContent).toBe("https://x/nova");
+    expect(cliente.get).toHaveBeenCalledTimes(2);
+  });
+
+  // Uma vez só. Um endereço que falha por outro motivo — objeto apagado, armazenamento
+  // fora do ar — repetiria para sempre, e cada tentativa é uma requisição de rede.
+  test("tenta uma vez só, e depois explica em vez de insistir", async () => {
+    const {alvo, cliente, clicar} = await montar([
+      {id: "c1", items: [], imageUrl: "https://x/velha"},
+      {id: "c1", items: [], imageUrl: "https://x/nova"},
+    ]);
+    await clicar();
+    await clicar();
+    await clicar();
+    expect(cliente.get).toHaveBeenCalledTimes(2);   // a inicial e UMA recuperação
+    expect(alvo.querySelector('[data-testid="erro"]').textContent).toMatch(/galeria/i);
+  });
+
+  // O servidor responde, mas sem endereço: o objeto não está mais lá. Insistir não traz.
+  test("sem endereço novo, diz para enviar a foto de novo", async () => {
+    const {alvo, clicar} = await montar([
+      {id: "c1", items: [], imageUrl: "https://x/velha"},
+      {id: "c1", items: [], imageUrl: null},
+    ]);
+    await clicar();
+    expect(alvo.querySelector('[data-testid="erro"]').textContent)
+      .toMatch(/não está mais disponível/i);
   });
 });

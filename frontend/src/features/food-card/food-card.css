@@ -14,7 +14,10 @@
 
 .fc-moldura {
   position: relative;
-  width: 100%;
+  /* Sem largura aqui: quem dimensiona e o componente, pela escala que ele ja calcula a
+     partir do espaco disponivel. A peca e 9:16 e, ocupando 100% da largura de um celular
+     de 412px, reivindicava 733px de altura e empurrava as abas e o painel para fora da
+     tela. */
   overflow: hidden;
   border-radius: 14px;
   background: #08090a;
@@ -141,7 +144,9 @@
   gap: 14px;
   padding: max(8px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
   background: var(--bg, #050506);
-  overflow-y: auto;
+  /* A coluna inteira cabe na tela em vez de rolar. Rolando, os controles existiam mas
+     ficavam fora do quadro, e nada na tela dizia que havia algo abaixo. */
+  overflow: hidden;
   overscroll-behavior: contain;
 }
 .fc-editor-carregando {
@@ -167,7 +172,17 @@
 }
 .fc-editor-topo button.fc-preview-ativo { border-color: var(--accent); color: var(--accent); }
 
-.fc-editor-palco { touch-action: none; }
+/* O palco toma a sobra da coluna e nada mais: `min-height:0` porque item de flex nao
+   encolhe abaixo do conteudo sem isso, e era essa a regra que faltava para a peca parar
+   de empurrar os controles para baixo da dobra. */
+.fc-editor-palco {
+  touch-action: none;
+  flex: 1 1 auto; min-height: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+/* Cabecalho, abas e painel nao encolhem: sao eles que a pessoa precisa alcancar. */
+.fc-editor > .fc-editor-topo, .fc-editor > .fc-abas, .fc-editor > .fc-painel,
+.fc-editor > .fc-editor-acoes { flex: 0 0 auto; }
 
 .fc-abas { display: flex; gap: 8px; }
 .fc-abas button {
@@ -186,7 +201,13 @@
 .fc-dica { margin: 0; font-size: 13px; line-height: 1.55; color: var(--muted); }
 
 .fc-crop { display: flex; flex-direction: column; gap: 14px; }
-.fc-crop-fonte { display: flex; gap: 10px; flex-wrap: wrap; }
+/* Os dois dividem a linha em partes iguais, e nao se acomodam por largura de texto.
+   "Escolher da galeria" e mais largo que "Tirar foto" (225px contra 149px); somados
+   passavam da linha, o `flex-wrap` mandava o segundo para baixo, e num Samsung de 915px de
+   altura ele comecava em y=909 — seis pixels visiveis. Quem abria o Food Card via apenas
+   "Tirar foto" e concluia que nao dava para usar uma foto ja tirada. */
+.fc-crop-fonte { display: flex; gap: 10px; }
+.fc-crop-fonte > label { flex: 1 1 0; min-width: 0; justify-content: center; text-align: center; }
 .fc-crop-linha { display: flex; flex-direction: column; gap: 8px; }
 .fc-crop-linha > span {
   font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted);

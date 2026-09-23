@@ -42,6 +42,43 @@ export default function useFoodCard({API, cardId, axiosCliente = axios}) {
     }
   }, [API, axiosCliente, cardId]);
 
+  /**
+   * A foto não carregou. Busca um endereço novo, UMA vez.
+   *
+   * O endereço da foto é assinado e vale cinco minutos — escolha deliberada, porque
+   * endereço de foto que dura horas vira link compartilhável sem querer. Montar um Food
+   * Card leva mais que cinco minutos: escolher alimentos, arrastar cards, ajustar o
+   * enquadramento. Quando o prazo vence, o `<img>` simplesmente falha, e antes disto a
+   * tela não dizia nada: a peça ficava com o fundo vazio e nenhuma explicação. Foi assim
+   * que o Nicolas importou uma foto e ficou sem saber se ela tinha subido.
+   *
+   * Uma vez só, e com trava: um endereço que falha por outro motivo — objeto que não
+   * existe, armazenamento fora do ar — repetiria para sempre, e cada tentativa é uma
+   * requisição.
+   */
+  const refazendo = useRef(false);
+  const fotoFalhou = useCallback(async () => {
+    if (refazendo.current) {
+      setErro("A foto do prato não carregou. Toque em \"Escolher da galeria\" para enviar de novo.");
+      return false;
+    }
+    refazendo.current = true;
+    try {
+      const r = await axiosCliente.get(`${API}/food-card/${cardId}`);
+      const nova = r.data?.imageUrl;
+      if (!nova) {
+        setErro("A foto do prato não está mais disponível. Envie a foto de novo.");
+        return false;
+      }
+      setCard(atual => (atual ? {...atual, imageUrl: nova} : atual));
+      setErro("");
+      return true;
+    } catch (e) {
+      setErro(mensagemDeErro(e, "A foto do prato não carregou."));
+      return false;
+    }
+  }, [API, axiosCliente, cardId]);
+
   useEffect(() => { carregar(); }, [carregar]);
   useEffect(() => () => clearTimeout(relogio.current), []);
 
@@ -117,6 +154,7 @@ export default function useFoodCard({API, cardId, axiosCliente = axios}) {
       corpo.append("photo", reduzida, "prato.jpg");
       const r = await axiosCliente.post(`${API}/food-card/${cardId}/photo`, corpo,
                                         {headers: {"Content-Type": "multipart/form-data"}});
+      refazendo.current = false;   // foto nova, chance nova de recuperacao
       setCard(atual => (atual ? {...atual, imageUrl: r.data.imageUrl,
                                  imageKey: r.data.imageKey} : atual));
       return true;
@@ -127,7 +165,7 @@ export default function useFoodCard({API, cardId, axiosCliente = axios}) {
   }, [API, axiosCliente, cardId]);
 
   return {card, estado, erro, salvando, mover, confirmarMovimento, ajustarFoto,
-          trocarMacro, enviarFoto, recarregar: carregar, setErro};
+          trocarMacro, enviarFoto, recarregar: carregar, fotoFalhou, setErro};
 }
 
 /**

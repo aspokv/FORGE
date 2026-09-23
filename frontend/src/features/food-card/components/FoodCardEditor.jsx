@@ -30,7 +30,7 @@ export default function FoodCardEditor({API, cardId, onVoltar, axiosCliente}) {
   const [preview, setPreview] = useState(false);
 
   const {card, estado, erro, salvando, mover, confirmarMovimento, ajustarFoto,
-         trocarMacro, enviarFoto, setErro} = useFoodCard({API, cardId, axiosCliente});
+         trocarMacro, enviarFoto, fotoFalhou, setErro} = useFoodCard({API, cardId, axiosCliente});
   const arrasto = useFoodCardDrag({
     items: card?.items || [], escalaRef: escalaRef.current,
     aoMover: mover, aoSoltar: confirmarMovimento,
@@ -82,6 +82,7 @@ export default function FoodCardEditor({API, cardId, onVoltar, axiosCliente}) {
           items={card.items} summary={card.summary}
           selecionado={arrasto.selecionado} modoPreview={preview}
           escalaRef={escalaRef.current}
+          onFotoFalhou={fotoFalhou}
           onPointerDownCard={arrasto.noCard}
           onPointerDownAncora={arrasto.naAncora}
           onFundoPressionado={arrasto.limparSelecao} />
