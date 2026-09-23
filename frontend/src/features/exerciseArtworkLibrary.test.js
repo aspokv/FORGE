@@ -23,7 +23,7 @@ describe("complete exercise photograph coverage",()=>{
       expect(host.querySelector('img')).toBeNull();
       expect(host.querySelector('.fallback')).not.toBeNull();
       await act(async()=>root.render(<ExercisePhoto exercise={{id:'db-rdl'}}/>));
-      expect(host.querySelector('img').getAttribute('src')).toBe('/images/exercises/db-rdl-v1.webp');
+      expect(host.querySelector('img').getAttribute('src')).toBe(reviewedArtworkForExercise({id:'db-rdl'}));
       expect(host.querySelector('.fallback')).toBeNull();
     }finally{
       await act(async()=>root.unmount());
@@ -37,7 +37,7 @@ describe("complete exercise photograph coverage",()=>{
 
   it.each(catalog)("ships a complete high resolution photo for $id",ex=>{
     const src=reviewedArtworkForExercise(ex);
-    expect(src).toMatch(/^\/images\/exercises\/[a-z0-9-]+-v1\.webp$/);
+    expect(src).toMatch(/^\/images\/exercises\/[a-z0-9-]+-v\d+\.webp$/);
     const bytes=fs.readFileSync(path.join(__dirname,"../../public",src));
     expect(bytes.subarray(0,4).toString()).toBe("RIFF");
     expect(bytes.subarray(8,12).toString()).toBe("WEBP");
@@ -77,7 +77,16 @@ describe("complete exercise photograph coverage",()=>{
   });
 
   it("resolves full names without fuzzy substring or muscle matching",()=>{
+    // Nome repetido no catalogo nao tem como ser desempatado por nome. Isso era teoria
+    // enquanto `leg-curl` e `seated-hamstring-curl` dividiam a MESMA imagem: a busca por
+    // nome devolvia a mesma resposta para os dois e o teste passava por acidente. Com
+    // arte propria para cada um, a ambiguidade virou visivel. O teste logo abaixo nomeia
+    // o par para o defeito nao voltar a ficar escondido.
+    const repetidos = new Set(
+      catalog.map(x => x.name).filter((n, i, t) => t.indexOf(n) !== i),
+    );
     for(const ex of catalog){
+      if (repetidos.has(ex.name)) continue;
       expect(reviewedArtworkForExercise({name:ex.name.toUpperCase()})).toBe(reviewedArtworkForExercise(ex));
     }
     expect(reviewedArtworkForExercise({id:"standing-calf",name:"Panturrilha sentado"})).toBe(REVIEWED_EXERCISE_ARTWORK["standing-calf"]);
@@ -92,5 +101,43 @@ describe("complete exercise photograph coverage",()=>{
     expect(unknown.querySelector(".fallback")).not.toBeNull();
     expect(()=>render(<ReferenceWorkoutPreview db={{program:{focus:"Costas"}}} activeSession={{label:"Pull",focus:"Costas"}} items={[{exercise_id:"custom",name:"Custom",equipment:"cable"}]}/>)).not.toThrow();
     expect(()=>render(<ReferenceWorkoutPreview db={{}} items={undefined}/>)).not.toThrow();
+  });
+
+  it("usa UMA versao de arte na colecao inteira", () => {
+    // O que a versao fixa nos testes protegia de verdade era isto: meia troca deixaria
+    // parte da lista com a arte nova e parte com a velha, e ninguem percebe olhando uma
+    // tela de cada vez. Prender a versao em si quebrava 142 testes a cada nova leva.
+    const versoes = new Set(
+      photos.map(x => (x.src.match(/-v(\d+)\.webp$/) || [])[1]),
+    );
+    expect(versoes.size).toBe(1);
+    expect([...versoes][0]).toBeTruthy();
+  });
+
+  it("cada exercicio tem um arquivo SO dele", () => {
+    // `leg-curl` e `seated-hamstring-curl` dividiam `leg-curl-v1.webp`: a mesma foto
+    // aparecia em duas linhas da mesma sessao. A v2 trouxe arte propria para cada um.
+    const srcs = photos.map(x => x.src);
+    expect(new Set(srcs).size).toBe(srcs.length);
+  });
+
+  it("expoe os nomes duplicados do catalogo em vez de escondê-los", () => {
+    // `leg-curl` e `seated-hamstring-curl` sao o MESMO exercicio cadastrado duas vezes:
+    // mesmo nome, mesmo musculo, mesma maquina, mesma faixa de repeticao. So mudam o
+    // descanso e a fadiga anotada.
+    //
+    // A consequencia visivel: a busca por nome nao consegue dizer qual dos dois e, e o
+    // atleta pode ver o mesmo exercicio duas vezes na mesma sessao. Quem precisa de
+    // conserto e o catalogo, nao a arte — e o conserto mexe em programa salvo, entao nao
+    // sai junto com uma troca de icone.
+    //
+    // Se alguem resolver isso um dia, este teste fica vermelho e avisa que o comentario
+    // acima envelheceu.
+    const porNome = {};
+    for (const ex of catalog) (porNome[ex.name] ||= []).push(ex.id);
+    const duplicados = Object.entries(porNome).filter(([, ids]) => ids.length > 1);
+    expect(duplicados).toEqual([
+      ["Flexão de joelho sentado", ["leg-curl", "seated-hamstring-curl"]],
+    ]);
   });
 });
