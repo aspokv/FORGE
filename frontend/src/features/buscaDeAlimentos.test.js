@@ -142,3 +142,87 @@ describe("buscarNoCatalogo",()=>{
     expect(buscarNoCatalogo(undefined,"").itens).toEqual([]);
   });
 });
+
+/*
+ * A ORDEM do resultado, que e o que a pessoa toca.
+ *
+ * A lista saia na ordem do catalogo, que nao tem relacao nenhuma com o que foi digitado.
+ * Medido contra o catalogo real de 314 alimentos, "arroz" devolvia "Biscoito de arroz",
+ * "Marmita de frango, arroz e brocolis" e "Proteina vegetal" — sem arroz nos tres
+ * primeiros. "leite" nao trazia leite. "frango" trazia coxa, asa e strogonoff antes do
+ * peito. Achar o alimento nao serve para nada se ele estiver em decimo numa coluna de
+ * celular.
+ *
+ * Cada caso abaixo e um que estava errado de verdade.
+ */
+describe("a ordem do resultado",()=>{
+  // `dimensionavel` e o campo que separa alimento-base de prato pronto e de marca. Vem do
+  // endpoint do catalogo; a tela nao tem como deduzir isso do id, porque as marcas de
+  // suplemento tambem nao levam o prefixo `diary-`.
+  const real=[
+    {id:"rice-white",name:"Arroz branco cozido",aliases:["arroz","arroz branco"],dimensionavel:true},
+    {id:"diary-rice-cracker",name:"Biscoito de arroz",aliases:["biscoito de arroz"],dimensionavel:false},
+    {id:"diary-marmita",name:"Marmita de frango, arroz e brócolis",aliases:["marmita"],dimensionavel:false},
+    {id:"milk-whole",name:"Leite integral",aliases:["leite"],dimensionavel:true},
+    {id:"diary-milk-powder",name:"Leite em pó integral",aliases:["leite em po"],dimensionavel:false},
+    {id:"chicken-breast",name:"Peito de frango grelhado",aliases:["frango","peito de frango"],dimensionavel:true},
+    {id:"diary-chicken-parm",name:"Frango à parmegiana",aliases:["parmegiana"],dimensionavel:false},
+    {id:"banana",name:"Banana",aliases:["banana"],dimensionavel:true},
+    {id:"diary-banana-prata",name:"Banana prata",aliases:["banana prata"],dimensionavel:false},
+    {id:"tomato",name:"Tomate",aliases:["tomate"],dimensionavel:true},
+    {id:"diary-tomato-sauce",name:"Molho de tomate",aliases:["molho de tomate"],dimensionavel:false},
+    {id:"pumpkin",name:"Abóbora cozida",aliases:["abobora","moranga","jerimum"],dimensionavel:true},
+    {id:"diary-pumpkin-puree",name:"Purê de abóbora",aliases:["pure de moranga"],dimensionavel:false},
+    {id:"diary-alcatra",name:"Alcatra grelhada",aliases:["alcatra"],dimensionavel:false},
+    {id:"beef-lean",name:"Carne bovina grelhada (patinho)",aliases:["patinho","alcatra"],dimensionavel:true},
+    {id:"diary-albumina",name:"Albumina (clara de ovo desidratada)",aliases:["albumina"],dimensionavel:false},
+    {id:"diary-albumina-marca",name:"Albumina — Naturovos",aliases:["albumina naturovos"],dimensionavel:false},
+  ];
+  // Cada caso roda com o catalogo NA ORDEM e INVERTIDO. Sem isso o teste passa de graca:
+  // se o alimento certo estiver listado antes do errado, a ordem de chegada ja da a resposta
+  // e a ordenacao nunca e exercitada. No catalogo real de producao "Biscoito de arroz" vem
+  // ANTES de "Arroz branco cozido", e era por isso que a tela devolvia biscoito.
+  const primeiros=termo=>[buscarNoCatalogo(real,termo).itens[0]?.name,
+                          buscarNoCatalogo([...real].reverse(),termo).itens[0]?.name];
+
+  test.each([
+    // O termo e o nome da coisa, nao uma palavra que aparece nela.
+    ["arroz","Arroz branco cozido"],
+    ["leite","Leite integral"],
+    ["tomate","Tomate"],
+    // Alimento-base antes de prato pronto: quem digita "frango" quer peito de frango.
+    ["frango","Peito de frango grelhado"],
+    // O nome exato ganha da variedade: quem digita "banana" nao esta escolhendo cultivar.
+    ["banana","Banana"],
+    // O caso que originou tudo: o Nicolas procurou "moranga" e nao achava nada.
+    ["moranga","Abóbora cozida"],
+    // O nome vale mais que o apelido — mesmo quando o outro e dimensionavel.
+    ["alcatra","Alcatra grelhada"],
+    // O generico antes da marca, apesar de a marca ter nome mais curto.
+    ["albumina","Albumina (clara de ovo desidratada)"],
+  ])("'%s' devolve '%s' em primeiro, em qualquer ordem de catalogo",(termo,esperado)=>{
+    expect(primeiros(termo)).toEqual([esperado,esperado]);
+  });
+
+  // Sem termo digitado nao existe "mais relevante": a lista inicial fica na ordem do
+  // catalogo, que e como a pessoa navega procurando algo que nao sabe nomear.
+  test("a lista sem busca nao e reordenada",()=>{
+    expect(buscarNoCatalogo(real,"").itens.map(f=>f.id)).toEqual(real.map(f=>f.id));
+  });
+
+  // Catalogo antigo em cache no navegador nao traz `dimensionavel`. A ordem piora, mas a
+  // busca nao pode quebrar nem devolver lista vazia.
+  test("catalogo sem dimensionavel continua funcionando",()=>{
+    const sem=real.map(({dimensionavel,...resto})=>resto);
+    expect(buscarNoCatalogo(sem,"arroz").itens[0].name).toBe("Arroz branco cozido");
+    expect(buscarNoCatalogo(sem,"tomate").itens[0].name).toBe("Tomate");
+  });
+
+  // Empate completo cai no alfabeto, e nao na ordem de chegada: a lista nao pode mudar de
+  // ordem entre duas renderizacoes do mesmo resultado.
+  test("a ordem e estavel",()=>{
+    const a=buscarNoCatalogo(real,"albumina").itens.map(f=>f.id);
+    const b=buscarNoCatalogo([...real].reverse(),"albumina").itens.map(f=>f.id);
+    expect(a).toEqual(b);
+  });
+});

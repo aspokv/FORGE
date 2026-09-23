@@ -259,3 +259,64 @@ async def test_um_atleta_nao_ve_o_diario_do_outro():
     finally:
         await _limpar(meu)
         await _limpar(outro)
+
+
+# ── O catalogo que a busca da tela consome ──────────────────────────────────────────
+#
+# `/nutrition/consumed-foods` nao tinha teste nenhum, e e ele que alimenta a busca INTEIRA
+# do diario: a tela baixa o catalogo uma vez e filtra localmente a cada tecla. Um campo que
+# some daqui nao derruba nada — so degrada a busca em silencio.
+
+@asincrono
+async def test_o_catalogo_do_diario_diz_quais_o_motor_dimensiona():
+    """`dimensionavel` e o que a tela usa para ORDENAR o resultado.
+
+    Sem ele, "arroz" devolvia "Biscoito de arroz" antes do arroz e "frango" devolvia coxa e
+    strogonoff antes do peito, porque a lista saia na ordem do catalogo.
+
+    A tela NAO tem como deduzir isso do id. Os alimentos so-do-diario comecam com `diary-`,
+    o que sugere que o resto e dimensionavel — mas as marcas de suplemento
+    (`dux-whey-concentrado`) tambem nao levam prefixo e tambem nao estao no motor. Inferir
+    pelo prefixo poria toda marca na frente do generico.
+    """
+    from nutrition_engine import FOOD_INDEX
+    uid, h = await _atleta()
+    try:
+        async with await _cliente() as c:
+            r = await c.get("/api/nutrition/consumed-foods", headers=h)
+        assert r.status_code == 200
+        foods = r.json()["foods"]
+        assert foods, "catalogo vazio"
+        for f in foods:
+            assert "dimensionavel" in f, f"{f['id']} sem dimensionavel"
+            assert f["dimensionavel"] == (f["id"] in FOOD_INDEX), f["id"]
+        # Os dois lados existem: se todos fossem iguais, o campo nao ordenaria nada.
+        assert any(f["dimensionavel"] for f in foods)
+        assert any(not f["dimensionavel"] for f in foods)
+    finally:
+        await _limpar(uid)
+
+
+@asincrono
+async def test_o_catalogo_do_diario_manda_os_apelidos():
+    """A busca da tela casa contra nome + apelidos.
+
+    Foi um apelido que faltava — "moranga" para a abobora — que fez o Nicolas concluir que o
+    alimento nao existia. Se o catalogo parar de mandar `aliases`, todo apelido do produto
+    vira invisivel de uma vez, e a busca volta a exigir o nome exato.
+    """
+    uid, h = await _atleta()
+    try:
+        async with await _cliente() as c:
+            r = await c.get("/api/nutrition/consumed-foods", headers=h)
+        foods = {f["id"]: f for f in r.json()["foods"]}
+        assert sum(1 for f in foods.values() if f.get("aliases")) > 200
+        assert "moranga" in [a.lower() for a in foods["pumpkin"]["aliases"]]
+    finally:
+        await _limpar(uid)
+
+
+@asincrono
+async def test_o_catalogo_do_diario_exige_login():
+    async with await _cliente() as c:
+        assert (await c.get("/api/nutrition/consumed-foods")).status_code == 401

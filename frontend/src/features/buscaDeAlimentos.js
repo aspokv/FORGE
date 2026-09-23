@@ -109,6 +109,66 @@ export function casaAproximado(alimento, consulta) {
 }
 
 /**
+ * Quantas palavras o nome tem alem do que foi digitado.
+ *
+ * Ignora explicacao entre parenteses e sufixo de marca depois de travessao, porque medir o
+ * nome cru premia a marca: "Albumina — Naturovos" e mais curto que "Albumina (clara de ovo
+ * desidratada)", e quem digita "albumina" quer a albumina, nao a marca que alguem cadastrou.
+ */
+export function palavrasAMais(termo, nome) {
+  const limpo = String(nome || "").replace(/\([^)]*\)/g, " ").split(/\s[—–-]\s/)[0];
+  const doTermo = new Set(normalizar(termo).split(/\s+/).filter(Boolean));
+  return normalizar(limpo).split(/\s+/).filter((p) => p && !doTermo.has(p)).length;
+}
+
+/**
+ * A ordem entre alimentos que casaram igual. Menor vem primeiro.
+ *
+ * Por que isto existe: a lista saia na ORDEM DO CATALOGO, que nao tem relacao com o que a
+ * pessoa digitou. "arroz" devolvia "Biscoito de arroz", "Marmita de frango, arroz e
+ * brocolis" e "Proteina vegetal" — sem arroz nos tres primeiros. "leite" nao trazia leite,
+ * "frango" trazia coxa e strogonoff antes do peito, "tomate" trazia molho antes do tomate.
+ *
+ * A tela mostra os resultados numa coluna de celular, e o primeiro e o que a pessoa toca.
+ * Achar o alimento nao serve para nada se ele estiver em decimo.
+ *
+ * A ordem dos critérios espelha `_precisao` + o desempate de `buscar_para_montagem` no
+ * backend, para a mesma busca nao dar respostas diferentes em duas telas do mesmo app.
+ */
+function ordem(alimento, termo) {
+  const nome = normalizar(alimento?.name);
+  const apelidos = (alimento?.aliases || []).map(normalizar);
+  return [
+    // 1. O nome cita o termo? Apelido casa menos que nome: "alcatra" deve trazer "Alcatra
+    //    grelhada" antes de "Carne bovina grelhada (patinho)", que so a lista como apelido.
+    nome.includes(termo) ? 0 : 1,
+    // 2. Alimento-base antes de prato pronto e de marca. O motor so dimensiona o primeiro
+    //    sozinho, e e por isso que "frango" tem de cair em peito de frango.
+    alimento?.dimensionavel ? 0 : 1,
+    // 3. Onde o termo aparece: o nome inteiro, o comeco, ou o meio.
+    nome === termo ? 0 : nome.startsWith(`${termo} `) ? 1 : 2,
+    // 4. Apelido exato e intencao de quem montou o catalogo: "leite" esta cadastrado no
+    //    integral, "feijao" no carioca.
+    apelidos.includes(termo) ? 0 : 1,
+    // 5. O alimento mais simples se descreve com menos palavras.
+    palavrasAMais(termo, alimento?.name),
+  ];
+}
+
+function ordenar(itens, termo) {
+  return itens
+    .map((alimento) => ({ alimento, chave: ordem(alimento, termo) }))
+    .sort((a, b) => {
+      for (let i = 0; i < a.chave.length; i += 1) {
+        if (a.chave[i] !== b.chave[i]) return a.chave[i] - b.chave[i];
+      }
+      // Empate completo: alfabeto, para a lista nao mudar de ordem entre renderizacoes.
+      return String(a.alimento?.name || "").localeCompare(String(b.alimento?.name || ""), "pt");
+    })
+    .map((x) => x.alimento);
+}
+
+/**
  * O resultado que a tela mostra.
  *
  * Exato primeiro e sozinho. So quando ele vem vazio a rede se abre, e ai os aproximados
@@ -119,9 +179,10 @@ export function buscarNoCatalogo(catalogo = [], consulta = "") {
   const termo = normalizar(consulta);
   // Sem busca, a tela lista o catalogo para a pessoa navegar. Devolver vazio aqui apagaria
   // a lista inicial do editor, que e como alguem que nao sabe o nome exato acha o alimento.
+  // Fica na ordem do catalogo de proposito: sem termo nao existe "mais relevante".
   if (!termo) return { itens: lista, aproximado: false };
   const exatos = lista.filter((alimento) => casaExato(alimento, consulta));
-  if (exatos.length) return { itens: exatos, aproximado: false };
+  if (exatos.length) return { itens: ordenar(exatos, termo), aproximado: false };
   const proximos = lista.filter((alimento) => casaAproximado(alimento, consulta));
-  return { itens: proximos, aproximado: proximos.length > 0 };
+  return { itens: ordenar(proximos, termo), aproximado: proximos.length > 0 };
 }
