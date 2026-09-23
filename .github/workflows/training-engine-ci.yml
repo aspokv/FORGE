@@ -92,6 +92,7 @@ on:
       - 'frontend/src/features/FoodDiaryEditor.jsx'
       - 'backend/tests/conftest.py'
       - 'backend/runtime_server.py'
+      - 'backend/tests/test_marcador_de_deploy.py'
       - 'backend/cardio.py'
       - 'backend/cardio_routes.py'
       - 'backend/test_cardio_unit.py'
@@ -305,6 +306,7 @@ on:
       - 'frontend/src/features/FoodDiaryEditor.jsx'
       - 'backend/tests/conftest.py'
       - 'backend/runtime_server.py'
+      - 'backend/tests/test_marcador_de_deploy.py'
       - 'backend/cardio.py'
       - 'backend/cardio_routes.py'
       - 'backend/test_cardio_unit.py'
@@ -565,6 +567,16 @@ jobs:
       # lista e toda troca de objetivo morria antes da requisicao.
       - name: Run CORS preflight suite
         run: pytest -q tests/test_cors_preflight.py
+      # O marcador de deploy do backend. Mora ao lado do CORS porque os dois medem a
+      # superficie PUBLICA da API: o que responde sem login, e o que sai na resposta.
+      #
+      # O teste que sustenta o marcador e o da estabilidade entre duas requisicoes. Trocar
+      # `SUBIU_EM` por `datetime.now()` dentro da rota deixaria o campo com a mesma
+      # aparencia e sem nenhum valor: mudaria a cada chamada, e comparar com o horario do
+      # merge nao provaria mais nada. A suite tambem cobra `runtime_server`, que e o modulo
+      # que o Dockerfile sobe.
+      - name: Run deploy marker suite
+        run: pytest -q tests/test_marcador_de_deploy.py
       # O Conselho: a decisao pura roda sem banco; a de ponta a ponta usa o Mongo deste
       # job. `test_billing_api` entra junto porque e ela que varre toda rota paga, e o
       # portao do Conselho e uma delas.
