@@ -1708,7 +1708,23 @@ async def refeicoes_do_diario(_user=Depends(get_current_user)):
 
 @router.get("/consumed-foods")
 async def consumed_food_catalog(request: Request, user=Depends(get_current_user)):
-    return {"foods": [{k: f.get(k) for k in ("id", "name", "aliases", "grams", "kcal", "protein_g", "carbs_g", "fat_g", "source", "source_url")} for f in DIARY_FOODS.values()]}
+    """O catalogo inteiro do diario, para a busca rodar na tela a cada tecla.
+
+    `dimensionavel` vai junto porque a busca da tela precisa dele para ORDENAR: e o campo que
+    separa alimento-base de prato pronto e de marca. Sem ele, "arroz" devolvia "Biscoito de
+    arroz" antes do arroz e "frango" devolvia coxa e strogonoff antes do peito.
+
+    Nao da para a tela deduzir isso do id. Os 236 alimentos so-do-diario comecam com
+    `diary-`, o que sugere que o resto e dimensionavel — mas as marcas de suplemento
+    (`dux-whey-concentrado`, `black-skull-whey-100-hd`) tambem nao tem prefixo e tambem nao
+    estao no motor. Inferir pelo prefixo poria toda marca na frente do generico, que e
+    exatamente o defeito que se quer evitar.
+    """
+    campos = ("id", "name", "aliases", "grams", "kcal", "protein_g", "carbs_g", "fat_g",
+              "source", "source_url")
+    return {"foods": [{**{k: f.get(k) for k in campos},
+                       "dimensionavel": fid in FOOD_INDEX}
+                      for fid, f in DIARY_FOODS.items()]}
 
 
 @router.get("/consumed-foods/search")
