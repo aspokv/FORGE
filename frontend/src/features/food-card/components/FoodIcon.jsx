@@ -1,4 +1,4 @@
-import {QUADRO, caminhosDoAlimento, caminhosDoMacro} from "../lib/icones";
+import {QUADRO, TRACO, caminhosDoAlimento, caminhosDoMacro} from "../lib/icones";
 
 /**
  * Um ícone da peça, em traço.
@@ -11,7 +11,7 @@ import {QUADRO, caminhosDoAlimento, caminhosDoMacro} from "../lib/icones";
  * em texto. Anunciá-lo de novo faria o leitor de tela dizer "imagem, carne, carne".
  */
 export default function FoodIcon({
-  chave, familia = "alimento", tamanho = 24, traco = 1.6, cor = "currentColor",
+  chave, familia = "alimento", tamanho = 24, traco = TRACO, cor = "currentColor",
   className = "",
 }) {
   const caminhos = familia === "macro" ? caminhosDoMacro(chave) : caminhosDoAlimento(chave);

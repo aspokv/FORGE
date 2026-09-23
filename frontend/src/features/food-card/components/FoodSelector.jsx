@@ -48,7 +48,7 @@ export default function FoodSelector({alimentos = [], maximo = 4, onConfirmar, o
                 <span className="fc-selector-caixa" aria-hidden="true">
                   {marcado ? <Check size={14} /> : null}
                 </span>
-                <FoodIcon chave={alimento.iconKey} tamanho={22} traco={1.5} />
+                <FoodIcon chave={alimento.iconKey} tamanho={22} />
                 <span className="fc-selector-nome">
                   <b>{alimento.name}</b>
                   <small>{quantidadeDe(alimento)}</small>

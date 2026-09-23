@@ -8,7 +8,7 @@ import {
   alturaDoCartao, caixaDoCartao, paraNormalizado, paraPixel, prender, saidaDoConector,
 } from "./lib/layout";
 import {DESCRICOES, MACROS, ROTULO_DO_MACRO, descricaoDe, quantidadeDe, valorDoMacro} from "./lib/conteudo";
-import {ICONES_DE_ALIMENTO, ICONES_DE_MACRO, caminhosDoAlimento} from "./lib/icones";
+import {ICONES_DE_ALIMENTO, ICONES_DE_MACRO, QUADRO, TRACO, caminhosDoAlimento} from "./lib/icones";
 import {nomeDoArquivo} from "./lib/exportar";
 import FoodCardCanvas from "./components/FoodCardCanvas";
 import MacroSummary from "./components/MacroSummary";
@@ -162,6 +162,27 @@ describe("o conteúdo de cada card", () => {
     for (const [chave, caminhos] of Object.entries(ICONES_DE_ALIMENTO)) {
       expect(caminhos.length).toBeGreaterThan(0);
       for (const d of caminhos) expect(d).toMatch(/^M/);
+    }
+  });
+
+  test("a espessura do traço é a do pacote aprovado, e uma só", () => {
+    // 0,85 é o valor do pacote do Nicolas. Desenhar com a espessura antiga (1,6 a 2)
+    // engrossaria o traço ao dobro do projetado e quebraria a família — o traço fino é
+    // parte da identidade destes ícones, não um detalhe de implementação.
+    expect(TRACO).toBe(0.85);
+    expect(QUADRO).toBe(24);
+  });
+
+  test("todo caminho cabe dentro do quadro de 24", () => {
+    // Um número acima de 24 num caminho significa desenho saindo pela borda: aparece
+    // cortado no círculo do card e no resumo.
+    const todos = [...Object.values(ICONES_DE_ALIMENTO), ...Object.values(ICONES_DE_MACRO)];
+    for (const caminhos of todos) {
+      for (const d of caminhos) {
+        const numeros = (d.match(/-?\d+\.?\d*/g) || []).map(Number);
+        const fora = numeros.filter(n => n < -1 || n > 25);
+        expect(fora).toEqual([]);
+      }
     }
   });
 

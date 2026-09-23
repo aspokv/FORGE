@@ -51,8 +51,7 @@ export default function FoodCalloutCard({
       <div className="fc-callout-topo">
         <span className="fc-callout-icone"
               style={{width: CARTAO.icone.tamanho, height: CARTAO.icone.tamanho}}>
-          <FoodIcon chave={item.iconKey} tamanho={CARTAO.icone.tamanho * 0.56}
-                    traco={CARTAO.icone.traco} />
+          <FoodIcon chave={item.iconKey} tamanho={CARTAO.icone.tamanho * 0.56} />
         </span>
         <div className="fc-callout-texto">
           <b className="fc-callout-nome" style={{
@@ -76,7 +75,7 @@ export default function FoodCalloutCard({
       <div className="fc-callout-divisor" style={{marginTop: CARTAO.divisorY}} />
 
       <div className="fc-callout-macro" style={{height: CARTAO.alturaDoBlocoDoMacro}}>
-        <FoodIcon chave={item.primaryMacro} familia="macro" tamanho={40} traco={1.7} />
+        <FoodIcon chave={item.primaryMacro} familia="macro" tamanho={40} />
         <div>
           <span className="fc-callout-macro-rotulo" style={{
             fontSize: TIPO.rotuloDoMacro.tamanho,

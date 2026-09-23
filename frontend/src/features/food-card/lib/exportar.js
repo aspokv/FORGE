@@ -28,7 +28,7 @@ import {
   alturaDoCartao, caixaDoCartao, saidaDoConector,
 } from "./layout";
 import {ROTULO_DO_MACRO, descricaoDe, quantidadeDe, valorDoMacro} from "./conteudo";
-import {QUADRO, caminhosDoAlimento, caminhosDoMacro} from "./icones";
+import {QUADRO, TRACO, caminhosDoAlimento, caminhosDoMacro} from "./icones";
 
 const COLUNAS_DO_RESUMO = [
   {chave: "protein", rotulo: "PROTEÍNA", unidade: "g"},
@@ -181,7 +181,7 @@ function desenharCartao(ctx, item, borrada) {
   ctx.lineWidth = CARTAO.icone.traco;
   ctx.stroke();
   desenharIcone(ctx, caminhosDoAlimento(item.iconKey), centroDoIcone,
-                CARTAO.icone.tamanho * 0.56, CARTAO.icone.traco);
+                CARTAO.icone.tamanho * 0.56);
 
   let y = caixa.y + CARTAO.padding;
 
@@ -216,7 +216,7 @@ function desenharCartao(ctx, item, borrada) {
 
   const macroY = divisorY + CARTAO.alturaDoBlocoDoMacro / 2;
   desenharIcone(ctx, caminhosDoMacro(item.primaryMacro),
-                {x: esquerda + 22, y: macroY}, 40, 1.7);
+                {x: esquerda + 22, y: macroY}, 40);
 
   const macroX = esquerda + 62;
   aplicarFonte(ctx, TIPO.rotuloDoMacro);
@@ -252,7 +252,7 @@ function desenharResumo(ctx, summary, borrada) {
       ctx.stroke();
     }
     desenharIcone(ctx, caminhosDoMacro(item.chave),
-                  {x: centro + 40, y: y + RESUMO.alturaDoBloco / 2}, RESUMO.icone, 1.7);
+                  {x: centro + 40, y: y + RESUMO.alturaDoBloco / 2}, RESUMO.icone);
 
     const textoX = centro + 72;
     aplicarFonte(ctx, TIPO.rotuloDoResumo);
@@ -297,15 +297,22 @@ function caminhoArredondado(ctx, x, y, largura, altura, raio) {
   ctx.closePath();
 }
 
-/** Um ícone do catálogo, centrado num ponto, no tamanho pedido. */
-function desenharIcone(ctx, caminhos, centro, tamanho, traco) {
+/** Um ícone do catálogo, centrado num ponto, no tamanho pedido.
+ *
+ * `lineWidth` fica em unidades do QUADRO, e não em pixels de tela. Isso não é detalhe:
+ * depois de `ctx.scale(fator)`, uma espessura L desenha `L * fator` pixels, que é
+ * exatamente como o SVG trata `stroke-width` dentro do `viewBox`. A primeira versão
+ * dividia pelo fator antes de atribuir, e o traço do PNG saía com 60% da espessura da
+ * prévia — o ícone ficava fino e apagado no arquivo que o atleta publica, e em lugar
+ * nenhum isso levantava erro. */
+function desenharIcone(ctx, caminhos, centro, tamanho, traco = TRACO) {
   if (typeof Path2D === "undefined") return;
   const fator = tamanho / QUADRO;
   ctx.save();
   ctx.translate(centro.x - tamanho / 2, centro.y - tamanho / 2);
   ctx.scale(fator, fator);
   ctx.strokeStyle = CORES.texto;
-  ctx.lineWidth = traco / fator;
+  ctx.lineWidth = traco;
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
   for (const d of caminhos) ctx.stroke(new Path2D(d));

@@ -26,7 +26,7 @@ export default function MacroSummary({summary}) {
       {COLUNAS.map((coluna, i) => (
         <div className="fc-resumo-item" key={coluna.chave}
              style={i ? {borderLeft: `1px solid ${CORES.divisor}`} : undefined}>
-          <FoodIcon chave={coluna.chave} familia="macro" tamanho={RESUMO.icone} traco={1.7} />
+          <FoodIcon chave={coluna.chave} familia="macro" tamanho={RESUMO.icone} />
           <div>
             <span style={{
               fontSize: TIPO.rotuloDoResumo.tamanho,
