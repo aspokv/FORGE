@@ -186,7 +186,13 @@
 .fc-dica { margin: 0; font-size: 13px; line-height: 1.55; color: var(--muted); }
 
 .fc-crop { display: flex; flex-direction: column; gap: 14px; }
-.fc-crop-fonte { display: flex; gap: 10px; flex-wrap: wrap; }
+/* Os dois dividem a linha em partes iguais, e nao se acomodam por largura de texto.
+   "Escolher da galeria" e mais largo que "Tirar foto" (225px contra 149px); somados
+   passavam da linha, o `flex-wrap` mandava o segundo para baixo, e num Samsung de 915px de
+   altura ele comecava em y=909 — seis pixels visiveis. Quem abria o Food Card via apenas
+   "Tirar foto" e concluia que nao dava para usar uma foto ja tirada. */
+.fc-crop-fonte { display: flex; gap: 10px; }
+.fc-crop-fonte > label { flex: 1 1 0; min-width: 0; justify-content: center; text-align: center; }
 .fc-crop-linha { display: flex; flex-direction: column; gap: 8px; }
 .fc-crop-linha > span {
   font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted);

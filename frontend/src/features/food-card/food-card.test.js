@@ -13,6 +13,7 @@ import {nomeDoArquivo} from "./lib/exportar";
 import FoodCardCanvas from "./components/FoodCardCanvas";
 import MacroSummary from "./components/MacroSummary";
 import FoodSelector from "./components/FoodSelector";
+import ImageCropController from "./components/ImageCropController";
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -355,5 +356,66 @@ describe("a exportação", () => {
   test("o nome do arquivo tem carimbo de tempo, para não sobrescrever o anterior", () => {
     const nome = nomeDoArquivo();
     expect(nome).toMatch(/^forge-food-card-\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}\.png$/);
+  });
+});
+
+
+describe("de onde vem a foto do prato", () => {
+  /*
+   * O Nicolas montou um Food Card, chegou na hora da foto e perguntou onde adicionava uma
+   * da galeria: "aqui não tem um botão adicionar a foto da galeria".
+   *
+   * O botão existia. O que não existia era ELE NA TELA: "Escolher da galeria" é mais largo
+   * que "Tirar foto" (225px contra 149px), os dois somados passavam da linha, o
+   * `flex-wrap` mandava o segundo para baixo, e num Samsung de 915px de altura ele
+   * começava em y=909 — seis pixels visíveis. Quem abria o Food Card via só "Tirar foto" e
+   * concluía que precisava tirar a foto na hora.
+   *
+   * A largura é CSS, e jsdom não faz layout: foi medida no navegador, em 412×915, 390×844
+   * e 360×800. O que se prende AQUI é que as duas origens continuam existindo, com os
+   * atributos que fazem cada uma abrir a coisa certa no celular.
+   */
+  function montar() {
+    const alvo = document.createElement("div");
+    document.body.appendChild(alvo);
+    const onEscolherFoto = jest.fn();
+    act(() => {
+      createRoot(alvo).render(
+        <ImageCropController transform={{scale: 1, offsetX: 0, offsetY: 0}} temFoto={false}
+                             onMudar={() => {}} onEscolherFoto={onEscolherFoto} />);
+    });
+    return {alvo, onEscolherFoto};
+  }
+
+  afterEach(() => { document.body.innerHTML = ""; });
+
+  test("as duas origens existem: câmera e galeria", () => {
+    const {alvo} = montar();
+    expect(alvo.querySelector('[data-testid="fc-crop-camera"]')).not.toBeNull();
+    expect(alvo.querySelector('[data-testid="fc-crop-galeria"]')).not.toBeNull();
+  });
+
+  // `capture="environment"` é o que faz o celular abrir a câmera traseira direto. A
+  // galeria NÃO pode ter o atributo: com ele, o Android abre a câmera e a pessoa não
+  // consegue escolher uma foto que já tirou — que é exatamente o que foi pedido.
+  test("a galeria abre a galeria, e não a câmera", () => {
+    const {alvo} = montar();
+    expect(alvo.querySelector('[data-testid="fc-crop-camera"]').getAttribute("capture")).toBe("environment");
+    expect(alvo.querySelector('[data-testid="fc-crop-galeria"]').hasAttribute("capture")).toBe(false);
+  });
+
+  test("as duas aceitam imagem", () => {
+    const {alvo} = montar();
+    for (const id of ["fc-crop-camera", "fc-crop-galeria"]) {
+      expect(alvo.querySelector(`[data-testid="${id}"]`).getAttribute("accept")).toBe("image/*");
+    }
+  });
+
+  // Rótulo visível em cada uma: dois ícones sem palavra não dizem qual é qual.
+  test("cada origem diz o que é", () => {
+    const {alvo} = montar();
+    const texto = alvo.querySelector('[data-testid="fc-crop"]').textContent;
+    expect(texto).toContain("Tirar foto");
+    expect(texto).toContain("galeria");
   });
 });
