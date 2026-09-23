@@ -29,6 +29,19 @@ export default function useFoodCard({API, cardId, axiosCliente = axios}) {
   const [salvando, setSalvando] = useState(false);
   const relogio = useRef(null);
   const pendente = useRef(null);
+  // Endereço local da última foto escolhida. `URL.createObjectURL` segura o arquivo na
+  // memória até alguém revogar; sem revogar, trocar de foto cinco vezes deixa cinco cópias
+  // presas — e foto de celular reduzida ainda tem centenas de KB.
+  const [previa, setPrevia] = useState(null);
+  const previaRef = useRef(null);
+  const guardarPrevia = useCallback(nova => {
+    if (previaRef.current && previaRef.current !== nova) URL.revokeObjectURL(previaRef.current);
+    previaRef.current = nova;
+    setPrevia(nova);
+  }, []);
+  useEffect(() => () => {
+    if (previaRef.current) URL.revokeObjectURL(previaRef.current);
+  }, []);
 
   const carregar = useCallback(async () => {
     if (!cardId) return;
@@ -160,6 +173,16 @@ export default function useFoodCard({API, cardId, axiosCliente = axios}) {
     setErro("");
     try {
       const reduzida = await reduzirFoto(arquivo);
+      // A RESERVA LOCAL: o arquivo que a pessoa acabou de escolher, exibido direto da
+      // memória desta sessão. É o mesmo padrão que as fotos de avaliação já usam, e existe
+      // porque a foto mais importante de mostrar é justamente a que acabou de ser enviada —
+      // e é nela que o endereço assinado tem mais chance de atrapalhar: enquanto o objeto
+      // se propaga no armazenamento, enquanto a URL é gerada, enquanto a rede do celular
+      // resolve o domínio da Cloudflare.
+      //
+      // Com ela, a foto aparece na hora e sem depender de rede nenhuma. O endereço assinado
+      // continua sendo a fonte de verdade ao reabrir a peça noutro dia.
+      guardarPrevia(URL.createObjectURL(reduzida));
       const corpo = new FormData();
       corpo.append("photo", reduzida, "prato.jpg");
       const r = await axiosCliente.post(`${API}/food-card/${cardId}/photo`, corpo,
@@ -176,7 +199,7 @@ export default function useFoodCard({API, cardId, axiosCliente = axios}) {
   }, [API, axiosCliente, cardId]);
 
   return {card, estado, erro, salvando, mover, confirmarMovimento, ajustarFoto,
-          trocarMacro, enviarFoto, recarregar: carregar, fotoFalhou, setErro};
+          trocarMacro, enviarFoto, recarregar: carregar, fotoFalhou, previa, setErro};
 }
 
 /**

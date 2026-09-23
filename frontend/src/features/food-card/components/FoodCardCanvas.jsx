@@ -25,7 +25,7 @@ import MacroSummary from "./MacroSummary";
 export default function FoodCardCanvas({
   imagem, imageTransform, items = [], summary, selecionado = null,
   onPointerDownCard, onPointerDownAncora, onFundoPressionado,
-  modoPreview = false, escalaRef, onFotoFalhou,
+  modoPreview = false, escalaRef, onFotoFalhou, reserva = null,
 }) {
   const molduraRef = useRef(null);
   const [escala, setEscala] = useState(0.3);
@@ -38,6 +38,10 @@ export default function FoodCardCanvas({
   // So sobe quando a recuperacao diz que vale a pena tentar: se subisse a cada `onError`,
   // um endereco que falha sempre entraria em laco infinito de requisicoes.
   const [tentativa, setTentativa] = useState(0);
+  // Quando o endereço assinado falha e existe a cópia local desta sessão, mostra a cópia.
+  // Melhor a foto certa vinda da memória do que um retângulo preto com uma explicação.
+  const [usandoReserva, setUsandoReserva] = useState(false);
+  const mostrada = usandoReserva && reserva ? reserva : imagem;
 
   // A escala acompanha o contêiner real. `ResizeObserver` em vez de um evento de janela
   // porque o editor tem barras que abrem e fecham sem a janela mudar de tamanho.
@@ -84,13 +88,18 @@ export default function FoodCardCanvas({
 
         {/* Camada 1: a foto do atleta, intocada. Só enquadramento muda. */}
         <div className="fc-foto" data-testid="fc-foto">
-          {imagem ? (
+          {mostrada ? (
             /* `onError` nao e enfeite: o endereco da foto e assinado e vale cinco minutos,
                e montar uma peca leva mais que isso. Sem este aviso o `<img>` falha calado,
                a peca fica com o fundo vazio e nada na tela explica por que. */
-            <img key={`${imagem}#${tentativa}`} src={imagem} alt="" draggable="false"
+            <img key={`${mostrada}#${tentativa}`} src={mostrada} alt="" draggable="false"
                  data-testid="fc-foto-img"
+                 data-fonte={usandoReserva && reserva ? "reserva" : "servidor"}
                  onError={async () => {
+                   // A reserva primeiro: ela não depende de rede nem de assinatura, então
+                   // resolve na hora. Só quando não há reserva vale gastar uma ida ao
+                   // servidor atrás de um endereço novo.
+                   if (reserva && !usandoReserva) { setUsandoReserva(true); return; }
                    if (await onFotoFalhou?.()) setTentativa(n => n + 1);
                  }} style={{
               transform: `translate(${t.offsetX * LARGURA}px, ${t.offsetY * ALTURA}px) scale(${t.scale})`,
