@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import {Suspense, lazy, useEffect, useMemo, useRef, useState} from "react";
 import axios from "axios";
 import { ChevronRight, RefreshCw, Check, X, Utensils, ClipboardPaste } from "lucide-react";
 import AsyncState from "./AsyncState";
@@ -14,6 +14,7 @@ import AcrescentarRefeicao from "./AcrescentarRefeicao";
 import NutritionImport from "./NutritionImport";
 import FoodDiaryEditor from "./FoodDiaryEditor";
 import DiarioLivre from "./DiarioLivre";
+const ForgeFoodCard = lazy(() => import("./food-card/components/ForgeFoodCard"));
 import {localFoodDate, consumedTotals} from "./foodDiary";
 import { kcalDoItem, macrosDaRefeicao, textoDoMacro } from "./macrosDaRefeicao";
 import "./forge-nutricao.css";
@@ -118,6 +119,10 @@ export default function Nutrition({ API, profileId, db }) {
   const [error, setError] = useState("");
   const [mealStatus, setMealStatus] = useState({});
   const [diary, setDiary] = useState({meals:[],extras:[]});
+  // A refeição que virou Food Card, ou null. Fica aqui em cima com os outros hooks:
+  // declarado mais abaixo, ele cairia depois de um return antecipado e a ordem dos hooks
+  // mudaria entre renderizações.
+  const [foodCard, setFoodCard] = useState(null);
   const [diaryEditor, setDiaryEditor] = useState(null);
   const refreshDiary = async () => {
     setDiaryState("loading");
@@ -699,8 +704,20 @@ export default function Nutrition({ API, profileId, db }) {
       {planEditAccess==="error"&&<AsyncState kind="error" title="Não foi possível verificar o acesso à edição de alimentos" onRetry={()=>setAccessAttempt(n=>n+1)}/>}
       {editingMeal!==null&&meals[editingMeal]&&<MealFoodEditor key={editingMeal} API={API} meal={meals[editingMeal]} mealIndex={editingMeal}
         onClose={()=>setEditingMeal(null)} onSaved={updated=>{setPlan(updated);setSubResult(null);setPlanEditMessage("Troca salva no plano. Ela será mantida nos próximos dias.");}}/>}
+      {/* O Food Card entra como sobreposição, e não como rota: ele nasce de uma refeição
+          específica e volta para esta mesma tela. Uma rota exigiria carregar a refeição do
+          zero e o atleta perderia a posição da página ao voltar.
+          Fica FORA da aba "Hoje": o editor cobre a tela inteira, e escondê-lo com
+          `hidden` junto do resto sumiria com ele se alguém trocasse de aba. */}
+      {foodCard && (
+        <Suspense fallback={<p className="muted" role="status">Abrindo o Food Card…</p>}>
+          <ForgeFoodCard API={API} dia={foodCard.dia} entryId={foodCard.entryId}
+                         onFechar={() => setFoodCard(null)}/>
+        </Suspense>
+      )}
       <div hidden={view!=="today"} className="forge-nutrition-today">
-      {diaryState==="ready"&&<DiarioLivre API={API} dia={localFoodDate()} diario={diary} aoMudar={refreshDiary}/>}
+      {diaryState==="ready"&&<DiarioLivre API={API} dia={localFoodDate()} diario={diary} aoMudar={refreshDiary}
+                   onFoodCard={entryId => setFoodCard({dia: localFoodDate(), entryId})}/>}
       <div className="a6-section-title" style={{marginTop:8,marginBottom:4}}><h2>Suas refeições</h2><button type="button" className="a6-textbutton" disabled={diaryState!=="ready"} onClick={()=>setDiaryEditor({mealIndex:null})}>+ Adicionar</button></div>
       {diaryEditor?.mealIndex===null&&<FoodDiaryEditor API={API} mealIndex={null} onSaved={refreshDiary} onClose={()=>setDiaryEditor(null)}/>}
       {meals.length === 0 && (

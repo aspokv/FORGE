@@ -168,6 +168,11 @@ on:
       - 'frontend/src/home-hero-card.css'
       - 'backend/conselho.py'
       - 'backend/conselho_routes.py'
+      - 'backend/food_card.py'
+      - 'backend/food_card_routes.py'
+      - 'backend/tests/test_food_card.py'
+      - 'backend/tests/test_food_card_api.py'
+      - 'frontend/src/features/food-card/**'
       - 'backend/hybrid_metadata.py'
       - 'backend/training_engine_hybrid.py'
       - 'backend/tests/test_hybrid_metadata.py'
@@ -373,6 +378,11 @@ on:
       - 'frontend/src/home-hero-card.css'
       - 'backend/conselho.py'
       - 'backend/conselho_routes.py'
+      - 'backend/food_card.py'
+      - 'backend/food_card_routes.py'
+      - 'backend/tests/test_food_card.py'
+      - 'backend/tests/test_food_card_api.py'
+      - 'frontend/src/features/food-card/**'
       - 'backend/hybrid_metadata.py'
       - 'backend/training_engine_hybrid.py'
       - 'backend/tests/test_hybrid_metadata.py'
@@ -433,7 +443,7 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
       - name: Compile training engine, cardio, and custom library modules
-        run: python -m py_compile engine.py female_program_selector.py training_engine_v4.py training_engine_v5.py muscles.py cardio.py cardio_routes.py training_programs.py custom_training_programs.py runtime_server.py hybrid_metadata.py training_engine_hybrid.py
+        run: python -m py_compile engine.py female_program_selector.py training_engine_v4.py training_engine_v5.py muscles.py cardio.py cardio_routes.py training_programs.py custom_training_programs.py runtime_server.py hybrid_metadata.py training_engine_hybrid.py food_card.py food_card_routes.py
       - name: Run V5 training regression suite
         run: >-
           pytest -q --noconftest
@@ -590,6 +600,14 @@ jobs:
       # funciona numa aplicacao que ninguem executa.
       - name: Run hybrid end-to-end suite
         run: pytest -q tests/test_hybrid_api.py
+      # Forge Food Card. A decisao pura (icone, macro principal, descricao, posicao) roda
+      # sem banco. O teste que importa aqui e o que compara o card com a refeicao de
+      # ORIGEM: a peca sai com o nome do FORGE e vai para o Instagram do atleta, e um
+      # numero recalculado no caminho seria uma peca publicada que nao bate com o diario.
+      - name: Run food card suite
+        run: pytest -q --noconftest tests/test_food_card.py
+      - name: Run food card API suite
+        run: pytest -q tests/test_food_card_api.py
       - name: Run library program suite
         run: >-
           pytest -q --noconftest

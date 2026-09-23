@@ -1,6 +1,6 @@
 import {useCallback, useEffect, useState} from "react";
 import axios from "axios";
-import {NotebookPen, Plus, Trash2, X} from "lucide-react";
+import {ImagePlus, NotebookPen, Plus, Trash2, X} from "lucide-react";
 import AsyncState from "./AsyncState";
 import FoodDiaryEditor from "./FoodDiaryEditor";
 import {mensagemDeErro} from "./mensagemDeErro";
@@ -24,7 +24,8 @@ import "./diario-livre.css";
  * sei" e para por ai.
  */
 
-export default function DiarioLivre({API, dia, diario, aoMudar, axiosCliente = axios}) {
+export default function DiarioLivre({API, dia, diario, aoMudar, axiosCliente = axios,
+                                    onFoodCard}) {
   const [refeicoes, setRefeicoes] = useState([]);
   const [aberto, setAberto] = useState(null);      // id da refeição sendo registrada
   const [estado, setEstado] = useState("carregando");
@@ -118,6 +119,16 @@ export default function DiarioLivre({API, dia, diario, aoMudar, axiosCliente = a
                 <span>{(e.actual?.foods || []).map(f => `${f.name} (${f.grams} g)`).join(" · ")}</span>
               </div>
               <strong>{Math.round(e.actual?.totals?.kcal || 0)} kcal</strong>
+              {/* Ação secundária, e não um convite agressivo a cada registro: quem quer
+                  transformar a refeição numa peça vai procurar; quem só quer anotar o
+                  que comeu não precisa desviar por um modal. */}
+              {onFoodCard ? (
+                <button type="button" aria-label={`Transformar ${e.refeicao_nome} em Food Card`}
+                        data-testid={`diario-food-card-${e.entry_id}`}
+                        onClick={() => onFoodCard(e.entry_id)}>
+                  <ImagePlus size={14} />
+                </button>
+              ) : null}
               <button type="button" aria-label={`Remover ${e.refeicao_nome}`}
                       data-testid={`diario-remover-${e.entry_id}`} disabled={Boolean(removendo)} aria-busy={removendo===e.entry_id} onClick={() => remover(e.entry_id)}>
                 <Trash2 size={14} />

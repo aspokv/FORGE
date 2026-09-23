@@ -1,0 +1,286 @@
+/* Forge Food Card.
+ *
+ * Duas regiões com naturezas diferentes:
+ *
+ *   A PEÇA (tudo sob `.fc-canvas`) é desenhada em pixels LÓGICOS de 1080 x 1920 e
+ *   encolhida por `transform: scale()`. Nada aqui dentro usa unidade relativa, media
+ *   query ou tamanho de tela — se usasse, a prévia deixaria de ser a exportação vista de
+ *   longe e as duas divergiriam.
+ *
+ *   O EDITOR em volta é interface normal do FORGE, com as medidas do aplicativo.
+ */
+
+/* ── A peça ─────────────────────────────────────────────────────────────────────── */
+
+.fc-moldura {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 14px;
+  background: #08090a;
+  /* O canvas encolhido continua ocupando 1080 x 1920 no fluxo; isolar o contexto evita
+   * que ele empurre o resto do editor. */
+  contain: paint;
+}
+
+.fc-canvas {
+  position: absolute;
+  inset: 0;
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: #fff;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.fc-foto { position: absolute; inset: 0; overflow: hidden; }
+.fc-foto img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  transform-origin: center;
+  /* A fotografia do atleta não é alterada: nem filtro, nem saturação, nem contraste. */
+}
+.fc-foto-vazia {
+  width: 100%; height: 100%;
+  display: grid; place-items: center;
+  background: repeating-linear-gradient(45deg, #131416 0 28px, #0e0f11 28px 56px);
+  color: rgba(255,255,255,.5);
+  font-size: 34px;
+}
+
+/* Escurecimento no topo e na base: dá contraste ao texto branco sem sombra dura em cada
+ * peça de texto, que é o que deixa esse tipo de arte com cara de template. */
+.fc-veu {
+  position: absolute; inset: 0; pointer-events: none;
+  background:
+    linear-gradient(to bottom, rgba(0,0,0,.58) 0%, rgba(0,0,0,0) 30%),
+    linear-gradient(to top, rgba(0,0,0,.62) 0%, rgba(0,0,0,0) 28%);
+}
+
+.fc-marca { position: absolute; display: flex; flex-direction: column; }
+.fc-marca-nome { color: #fff; line-height: 1; }
+.fc-marca-assinatura {
+  display: flex; flex-direction: column;
+  margin-top: 26px;
+  color: rgba(255,255,255,.66);
+}
+
+.fc-conectores { position: absolute; inset: 0; pointer-events: none; }
+.fc-conectores circle[data-testid] { pointer-events: all; }
+
+.fc-callout {
+  position: absolute;
+  background: rgba(12, 12, 13, .72);
+  border: 1.5px solid rgba(255,255,255,.16);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  color: #fff;
+  /* `touch-action: none` é o que impede a página de rolar enquanto o dedo arrasta o
+   * card. Sem isso, arrastar para baixo no celular rola o editor e o card fica parado. */
+  touch-action: none;
+  cursor: grab;
+}
+.fc-callout-selecionado { border-color: rgba(255,255,255,.55); }
+.fc-callout-arrastando { cursor: grabbing; }
+
+.fc-callout-topo { display: flex; gap: 20px; align-items: flex-start; }
+.fc-callout-icone {
+  flex: none;
+  display: grid; place-items: center;
+  border: 2px solid rgba(255,255,255,.16);
+  border-radius: 50%;
+}
+.fc-callout-texto { display: flex; flex-direction: column; min-width: 0; }
+.fc-callout-nome { line-height: 1.1; }
+.fc-callout-quantidade { margin-top: 12px; line-height: 1; }
+.fc-callout-descricao { margin-top: 14px; color: rgba(255,255,255,.66); }
+
+.fc-callout-divisor { height: 1px; background: rgba(255,255,255,.14); }
+
+.fc-callout-macro {
+  display: flex; align-items: center; gap: 22px;
+  padding-top: 8px;
+}
+.fc-callout-macro > div { display: flex; flex-direction: column; }
+.fc-callout-macro-rotulo { color: rgba(255,255,255,.66); }
+.fc-callout-macro-valor { margin-top: 6px; line-height: 1; }
+.fc-callout-porcao { margin-top: 6px; color: rgba(255,255,255,.42); }
+
+.fc-resumo {
+  position: absolute;
+  display: flex; align-items: stretch;
+  background: rgba(12, 12, 13, .72);
+  border: 1.5px solid rgba(255,255,255,.16);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+.fc-resumo-item {
+  flex: 1;
+  display: flex; align-items: center; justify-content: center; gap: 16px;
+}
+.fc-resumo-item > div { display: flex; flex-direction: column; }
+.fc-resumo-item span { color: rgba(255,255,255,.66); }
+.fc-resumo-item b { margin-top: 6px; line-height: 1; color: #fff; }
+
+/* ── O editor ───────────────────────────────────────────────────────────────────── */
+
+/* O editor é uma SOBREPOSIÇÃO de tela cheia, e não uma seção dentro da Nutrição.
+ *
+ * Medido num navegador: com o editor inline, a barra de navegação inferior do aplicativo
+ * ficava POR CIMA da peça. `elementsFromPoint` no âncora de baixo devolvia
+ * `button[nav-alimentação]` como primeiro elemento — ou seja, num celular de 844 px de
+ * altura, qualquer âncora na metade de baixo era impossível de arrastar. O dedo acertava
+ * a navegação.
+ *
+ * Cobrir a tela também é o que a especificação descreve: cabeçalho próprio com voltar e
+ * concluir. Editar a peça é uma tarefa de atenção inteira, não um cartão na página. */
+.fc-editor {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex; flex-direction: column;
+  gap: 14px;
+  padding: max(8px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+  background: var(--bg, #050506);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.fc-editor-carregando {
+  padding: 40px 18px; text-align: center; color: var(--muted);
+  justify-content: center; align-items: center;
+}
+
+.fc-editor-topo {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 4px;
+}
+.fc-editor-topo > div { flex: 1; display: flex; flex-direction: column; }
+.fc-editor-etiqueta {
+  font-size: 11px; letter-spacing: .16em; text-transform: uppercase;
+  color: var(--accent);
+}
+.fc-editor-topo small { font-size: 11px; color: var(--muted); }
+.fc-editor-topo button {
+  display: inline-flex; align-items: center; gap: 6px;
+  min-height: 40px; padding: 0 12px;
+  background: var(--elevated); border: 1px solid var(--line); border-radius: 9px;
+  color: var(--text); font-size: 13px; font-family: inherit; cursor: pointer;
+}
+.fc-editor-topo button.fc-preview-ativo { border-color: var(--accent); color: var(--accent); }
+
+.fc-editor-palco { touch-action: none; }
+
+.fc-abas { display: flex; gap: 8px; }
+.fc-abas button {
+  flex: 1;
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  min-height: 44px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+  color: var(--muted); font-size: 12.5px; font-family: inherit; cursor: pointer;
+}
+.fc-abas button.ativa { border-color: var(--accent); color: var(--text); }
+
+.fc-painel {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: 12px; padding: 16px;
+}
+.fc-dica { margin: 0; font-size: 13px; line-height: 1.55; color: var(--muted); }
+
+.fc-crop { display: flex; flex-direction: column; gap: 14px; }
+.fc-crop-fonte { display: flex; gap: 10px; flex-wrap: wrap; }
+.fc-crop-linha { display: flex; flex-direction: column; gap: 8px; }
+.fc-crop-linha > span {
+  font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted);
+}
+.fc-crop-botoes { display: flex; align-items: center; gap: 10px; }
+.fc-crop-botoes input[type="range"] { flex: 1; accent-color: var(--accent); }
+.fc-crop-botoes button,
+.fc-crop-direcional button {
+  display: grid; place-items: center;
+  width: 44px; height: 44px;
+  background: var(--elevated); border: 1px solid var(--line); border-radius: 9px;
+  color: var(--text); font-size: 15px; font-family: inherit; cursor: pointer;
+}
+.fc-crop-direcional { display: flex; gap: 8px; }
+.fc-crop-vazio { margin: 0; font-size: 13px; line-height: 1.55; color: var(--muted); }
+
+.fc-lista-de-itens { margin: 0; padding: 0; list-style: none;
+  display: flex; flex-direction: column; gap: 14px; }
+.fc-lista-de-itens li { display: flex; flex-direction: column; gap: 8px; }
+.fc-lista-de-itens b { font-size: 14px; color: var(--text); }
+.fc-lista-de-itens div { display: flex; gap: 8px; flex-wrap: wrap; }
+.fc-lista-de-itens div button {
+  min-height: 38px; padding: 0 12px;
+  background: var(--elevated); border: 1px solid var(--line); border-radius: 999px;
+  color: var(--muted); font-size: 11px; letter-spacing: .08em;
+  font-family: inherit; cursor: pointer;
+}
+.fc-lista-de-itens div button.ativo { border-color: var(--accent); color: var(--accent); }
+
+.fc-editor-acoes { display: flex; gap: 10px; }
+
+.fc-acao-principal, .fc-acao-secundaria {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 48px; padding: 0 20px;
+  border-radius: 11px; font-size: 14px; font-family: inherit; cursor: pointer;
+}
+.fc-acao-principal {
+  flex: 1;
+  background: var(--accent); border: 1px solid var(--accent);
+  color: #141210; font-weight: 600;
+}
+.fc-acao-principal:disabled { opacity: .55; cursor: default; }
+.fc-acao-secundaria {
+  background: transparent; border: 1px solid var(--line); color: var(--text);
+}
+
+.fc-erro {
+  margin: 0;
+  padding: 11px 14px;
+  background: color-mix(in srgb, var(--danger) 18%, transparent);
+  border: 1px solid var(--danger); border-radius: 9px;
+  font-size: 13px; line-height: 1.5; color: var(--text);
+}
+
+/* ── A entrada e a escolha ──────────────────────────────────────────────────────── */
+
+.fc-entrada { padding: 18px 0; display: flex; flex-direction: column; gap: 16px; }
+.fc-vazio { text-align: center; align-items: center; }
+.fc-vazio h3 { margin: 0; font-size: 18px; color: var(--text); }
+.fc-vazio p { margin: 0; font-size: 13.5px; line-height: 1.6; color: var(--muted); max-width: 42ch; }
+
+.fc-selector { display: flex; flex-direction: column; gap: 16px; }
+.fc-selector header h3 { margin: 0; font-size: 17px; color: var(--text); }
+.fc-selector header p { margin: 6px 0 0; font-size: 13px; color: var(--muted); }
+.fc-selector-lista { margin: 0; padding: 0; list-style: none;
+  display: flex; flex-direction: column; gap: 8px; }
+.fc-selector-lista button {
+  width: 100%;
+  display: flex; align-items: center; gap: 12px;
+  min-height: 56px; padding: 0 14px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 11px;
+  color: var(--text); font-family: inherit; text-align: left; cursor: pointer;
+}
+.fc-selector-lista button.marcado { border-color: var(--accent); }
+.fc-selector-lista button:disabled { opacity: .45; cursor: default; }
+.fc-selector-caixa {
+  flex: none; display: grid; place-items: center;
+  width: 22px; height: 22px;
+  border: 1px solid var(--line); border-radius: 6px; color: var(--accent);
+}
+.fc-selector-lista button.marcado .fc-selector-caixa { border-color: var(--accent); }
+.fc-selector-nome { display: flex; flex-direction: column; min-width: 0; }
+.fc-selector-nome b { font-size: 14px; }
+.fc-selector-nome small { font-size: 12px; color: var(--muted); }
+.fc-selector-acoes { display: flex; gap: 10px; }
+
+/* A normalização do a6 apaga maiúsculas e tamanhos de classes simples; o mesmo prefixo
+ * que `conselho.css` e `cardio.css` usam devolve o controle. A peça em si fica de fora
+ * porque `.fc-canvas` define tudo por estilo embutido, que vence a normalização. */
+.forge-shell .a6 .fc-editor-etiqueta,
+.forge-shell .a6 .fc-crop-linha > span {
+  font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
+}
+.forge-shell .a6 .fc-abas button { font-size: 12.5px; }
+.forge-shell .a6 .fc-acao-principal,
+.forge-shell .a6 .fc-acao-secundaria { font-size: 14px; }
+.forge-shell .a6 .fc-vazio h3 { font-size: 18px; }
