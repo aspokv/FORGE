@@ -21,6 +21,7 @@ on:
       - 'backend/admin_routes.py'
       - 'backend/tests/test_seguranca.py'
       - 'backend/tests/test_analise_visual_resiliente.py'
+      - 'backend/tests/test_prazo_da_analise_visual.py'
       - 'backend/tests/test_session_last_performance.py'
       - 'backend/alimentos_do_diario.py'
       - 'backend/food_diary.py'
@@ -249,6 +250,7 @@ on:
       - 'backend/admin_routes.py'
       - 'backend/tests/test_seguranca.py'
       - 'backend/tests/test_analise_visual_resiliente.py'
+      - 'backend/tests/test_prazo_da_analise_visual.py'
       - 'backend/tests/test_session_last_performance.py'
       - 'backend/alimentos_do_diario.py'
       - 'backend/food_diary.py'
@@ -586,6 +588,11 @@ jobs:
       # `server`, e `server` exige MONGO_URL no import. Este job ja sobe o Mongo.
       - name: Run vision resilience suite
         run: pytest -q tests/test_analise_visual_resiliente.py
+      # O prazo da analise visual. A foto de corpo sobe, o servidor chama o modelo de visao,
+      # e sem teto o atleta fica em "Lendo a foto..." ate o provedor responder — que pode ser
+      # nunca. A suite prova que a espera tem fim e que o envio nao vira perda.
+      - name: Run visual analysis deadline suite
+        run: pytest -q --noconftest tests/test_prazo_da_analise_visual.py
       # Mesma razao do de cima: usa o app em processo, que exige MONGO_URL no import. Cobre
       # a rota que alimenta a Evolucao com a ultima carga de cada exercicio, incluindo o
       # isolamento entre atletas.

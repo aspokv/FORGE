@@ -10,7 +10,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field
 from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional
-import asyncio, os, uuid, json, logging, base64
+import asyncio, os, uuid, json, logging, base64, time
 from google import genai as google_genai
 
 from llm_providers import deepseek_model, get_coach_provider, FORGE_COACH_SYSTEM
@@ -929,6 +929,22 @@ MODELOS_DE_VISAO_PADRAO = (
 TENTATIVAS_POR_MODELO = 3
 ESPERA_ENTRE_TENTATIVAS = (1.5, 4.0)
 
+# Prazo TOTAL da analise visual, em segundos.
+#
+# Sem ele, o atleta envia a foto e a tela fica em "Lendo a foto..." sem fim. A cadeia tenta
+# varios modelos, 3 vezes cada, com espera entre as tentativas — e a chamada do SDK nao tem
+# prazo proprio. Provedor lento vira minutos; provedor pendurado vira para sempre, e do lado
+# de ca nao ha nada a fazer alem de esperar.
+#
+# O que acontece ao estourar nao e perder o envio: a foto JA foi guardada no bucket antes da
+# analise, e a avaliacao e gravada com `status: unavailable` — que a tela ja sabe mostrar.
+# O atleta fica com a foto no historico e sem a leitura automatica, que e infinitamente
+# melhor que uma tela girando.
+#
+# 45 segundos porque uma analise que presta leva de 5 a 20; o resto e fila do provedor, e
+# fila nao melhora esperando mais.
+PRAZO_DA_ANALISE_VISUAL = float(os.environ.get("FORGE_PRAZO_ANALISE_VISUAL", "45") or 45)
+
 
 def _e_transitorio(erro) -> bool:
     t = str(erro).upper()
@@ -985,15 +1001,44 @@ async def analyze_physique(image_bytes: bytes, mime_type: str, views: list) -> d
 
     ultimo_erro = None
     cadeia = _cadeia_de_modelos_de_visao()
+    # Relogio unico para a cadeia inteira. Contar por tentativa deixaria o total crescer com
+    # o numero de modelos, que e justamente o que fazia a espera virar minutos.
+    limite = time.monotonic() + PRAZO_DA_ANALISE_VISUAL
     for modelo in cadeia:
         for tentativa in range(1, TENTATIVAS_POR_MODELO + 1):
+            restante = limite - time.monotonic()
+            if restante <= 0:
+                logger.warning("analise visual desistiu: prazo de %ss esgotado",
+                               PRAZO_DA_ANALISE_VISUAL)
+                return {"status": "unavailable", "reason": "prazo_esgotado",
+                        "message": "A leitura da foto demorou demais. Sua foto foi salva.",
+                        "observations": {}, "suggested_priorities": []}
             try:
                 # A chamada do SDK e sincrona. Dentro de uma rota async ela travaria o laco
                 # de eventos do servidor inteiro enquanto o provedor pensa — e com repeticao
                 # e espera isso passaria de segundos. Em uma thread, o resto do FORGE
                 # continua respondendo.
-                response = await asyncio.to_thread(
-                    client.models.generate_content, model=modelo, contents=parts, config=config)
+                # `asyncio.wait`, e NAO `wait_for`.
+                #
+                # `wait_for` cancela a tarefa e entao ESPERA o cancelamento acontecer. Uma
+                # thread em execucao nao cancela — logo ele espera a thread terminar, e o
+                # prazo nao limita nada. Medido: com prazo de 0,35s e um provedor de 3s, a
+                # chamada gastou os 3s inteiros.
+                #
+                # `asyncio.wait` com `timeout` apenas devolve o que terminou e deixa o resto
+                # pendente. A thread segue viva ate o SDK responder — nao da para matar
+                # thread em Python — mas o atleta nao fica preso a ela: a requisicao volta,
+                # a foto ja esta no bucket, e a thread morre sozinha depois.
+                tarefa = asyncio.ensure_future(
+                    asyncio.to_thread(client.models.generate_content,
+                                      model=modelo, contents=parts, config=config))
+                concluidas, _ = await asyncio.wait({tarefa}, timeout=restante)
+                if not concluidas:
+                    # Sem isto, a excecao que a thread levantar depois vira
+                    # "exception was never retrieved" no log, sem ninguem para ler.
+                    tarefa.add_done_callback(lambda t: t.cancelled() or t.exception())
+                    raise asyncio.TimeoutError()
+                response = tarefa.result()
                 raw = _texto_da_resposta(response)
                 if raw.startswith("```"):
                     raw = raw.split(chr(10), 1)[1].rsplit("```", 1)[0]
@@ -1008,6 +1053,15 @@ async def analyze_physique(image_bytes: bytes, mime_type: str, views: list) -> d
                     logger.warning("analise visual concluida em %s na tentativa %d",
                                    modelo, tentativa)
                 return result
+            except asyncio.TimeoutError:
+                # Estourou o prazo da CADEIA. Cair para o proximo modelo aqui seria gastar
+                # o que nao ha e terminar com "modelo indisponivel" — mensagem que nao diz
+                # ao atleta o que importa: que a foto dele foi salva.
+                logger.warning("analise visual desistiu no modelo %s: prazo de %ss esgotado",
+                               modelo, PRAZO_DA_ANALISE_VISUAL)
+                return {"status": "unavailable", "reason": "prazo_esgotado",
+                        "message": "A leitura da foto demorou demais. Sua foto foi salva.",
+                        "observations": {}, "suggested_priorities": []}
             except Exception as e:
                 ultimo_erro = e
                 transitorio = _e_transitorio(e)
@@ -1017,8 +1071,10 @@ async def analyze_physique(image_bytes: bytes, mime_type: str, views: list) -> d
                     # Modelo que nao existe nao passa a existir esperando: vai para o
                     # proximo da cadeia na hora.
                     break
-                await asyncio.sleep(ESPERA_ENTRE_TENTATIVAS[min(tentativa - 1,
-                                    len(ESPERA_ENTRE_TENTATIVAS) - 1)])
+                # Nao dormir alem do prazo: esperar para depois desistir e o pior dos dois.
+                espera = ESPERA_ENTRE_TENTATIVAS[min(tentativa - 1,
+                                                     len(ESPERA_ENTRE_TENTATIVAS) - 1)]
+                await asyncio.sleep(min(espera, max(0.0, limite - time.monotonic())))
 
     # A cadeia inteira falhou. O motivo tecnico vai para o log do servidor, onde o suporte
     # o alcanca; para o cliente vai um codigo curto e nao sensivel, sem nome de variavel,
