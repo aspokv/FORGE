@@ -17,6 +17,7 @@ from llm_providers import deepseek_model, get_coach_provider, FORGE_COACH_SYSTEM
 import visual_storage
 from workout_calendar import browser_offset, calendar_selection, calendar_today
 import troca_de_dia
+import escolha_da_sessao
 
 from auth import router as auth_router, get_current_user, seed_super_admin
 from admin_routes import router as admin_router
@@ -1510,6 +1511,63 @@ async def desfazer_trocas(profile_id: Optional[str] = None, user=Depends(get_cur
     return {"trocas": [], "program": await build_program(await load_profile(target))}
 
 
+class EscolherSessaoIn(BaseModel):
+    """Qual sessão do programa treinar hoje."""
+    day: int
+    profile_id: Optional[str] = None
+
+
+@api.get("/workout/sessoes-do-dia")
+async def sessoes_do_dia(profile_id: Optional[str] = None, user=Depends(get_current_user)):
+    """As sessões que dá para escolher, e qual está selecionada.
+
+    Devolve o programa INTEIRO, e não só a de hoje: a tela precisa mostrar as opções para
+    a pessoa escolher, que é justamente o que faltava.
+    """
+    target = owned_profile_id(user, profile_id)
+    profile = await load_profile(target)
+    program = await build_program(profile)
+    sessions = program.get("sessions") or []
+    dias = sorted(s["day"] for s in sessions)
+    escolhido = escolha_da_sessao.dia_escolhido(
+        profile.get("sessao_do_dia"), calendar_today(), dias)
+    return {
+        "escolhida": escolhido,
+        "ativa": program.get("active_day"),
+        "sessoes": [{"day": s["day"], "label": s.get("label") or f"Sessão {s['day']}",
+                     "demand": s.get("demand"),
+                     "exercicios": len(s.get("exercises") or [])} for s in sessions],
+    }
+
+
+@api.post("/workout/escolher-sessao")
+async def escolher_sessao(payload: EscolherSessaoIn, user=Depends(get_current_user)):
+    """Fixa a sessão de hoje. Vence sozinha no fim do dia.
+
+    Não move o ponteiro: escolher e não treinar é comum, e adiantar a rotação por um treino
+    que não aconteceu seria pior que não ter a escolha.
+    """
+    target = owned_profile_id(user, payload.profile_id)
+    profile = await load_profile(target)
+    program = await build_program(profile)
+    dias = sorted(s["day"] for s in (program.get("sessions") or []))
+    try:
+        dia = escolha_da_sessao.validar(payload.day, dias)
+    except ValueError as erro:
+        raise HTTPException(422, str(erro))
+    escolha = {"data": calendar_today().isoformat(), "day": dia}
+    await db.profiles.update_one({"id": target}, {"$set": {"sessao_do_dia": escolha}})
+    return {"escolhida": dia, "program": await build_program(await load_profile(target))}
+
+
+@api.delete("/workout/escolher-sessao")
+async def desfazer_escolha(profile_id: Optional[str] = None, user=Depends(get_current_user)):
+    """Volta para o que o programa indica hoje."""
+    target = owned_profile_id(user, profile_id)
+    await db.profiles.update_one({"id": target}, {"$set": {"sessao_do_dia": None}})
+    return {"escolhida": None, "program": await build_program(await load_profile(target))}
+
+
 @api.post("/workout/complete")
 async def complete_workout(payload: WorkoutCompleteIn, user=Depends(get_current_user)):
     """Complete once per local day, preserving sequential and weekly programs."""
@@ -1534,15 +1592,28 @@ async def complete_workout(payload: WorkoutCompleteIn, user=Depends(get_current_
                                   after_today=True, trocas=profile.get("trocas_de_dia"))
     if calendar is not None:
         scheduled = calendar["today"]
-        if not scheduled or payload.day not in (None, scheduled["day"]):
+        # A escolha explícita do atleta passa por cima da agenda. Sem isto, quem escolheu
+        # outra sessão treinaria e seria barrado na hora de CONCLUIR — depois do treino
+        # feito, que é o pior lugar para descobrir.
+        dias_do_programa = sorted(s["day"] for s in sessions)
+        escolhido_hoje = escolha_da_sessao.dia_escolhido(
+            profile.get("sessao_do_dia"), calendar_today(), dias_do_programa)
+        if escolhido_hoje is None and (not scheduled or payload.day not in (None, scheduled["day"])):
             raise HTTPException(409, "A sessão não corresponde ao calendário deste dia. Atualize o treino.")
+        if escolhido_hoje is not None and payload.day not in (None, escolhido_hoje):
+            raise HTTPException(409, "A sessão não corresponde à que você escolheu para hoje.")
     day_values = sorted(s["day"] for s in sessions)
-    completed_day = calendar["today"]["day"] if calendar else (payload.day if payload.day in day_values else program.get("active_day", day_values[0]))
+    escolhido = escolha_da_sessao.dia_escolhido(
+        profile.get("sessao_do_dia"), calendar_today(), day_values)
+    if escolhido is not None:
+        completed_day = escolhido
+    else:
+        completed_day = calendar["today"]["day"] if calendar else (payload.day if payload.day in day_values else program.get("active_day", day_values[0]))
     completed_session = next(s for s in sessions if s["day"] == completed_day)
     idx = day_values.index(completed_day)
     next_day = day_values[(idx + 1) % len(day_values)]
     next_session = next(s for s in sessions if s["day"] == next_day)
-    if calendar is not None:
+    if calendar is not None and escolhido is None:
         next_session = calendar["next"]
         next_day = next_session["day"]
 
@@ -1579,7 +1650,16 @@ async def complete_workout(payload: WorkoutCompleteIn, user=Depends(get_current_
     # already falls back to the first day when that happens, so without this arm the CAS
     # would match nothing and the athlete could never complete a workout again.
     # Weekly sessions compare the observed pointer; daily and operation guards remain.
-    expected_pointer = profile.get("current_session_day") if calendar is not None else completed_day
+    # O CAS existe para impedir conclusão dupla — aba repetida, toque duplo, segundo
+    # aparelho. Quando o atleta ESCOLHEU a sessão, o ponteiro está legitimamente noutro
+    # lugar, e exigir que ele esteja na sessão concluída recusaria o treino que acabou de
+    # acontecer. As outras duas travas do mesmo filtro (`last_workout_operation` e
+    # `last_workout_completion_day`) continuam impedindo a duplicata, que é o que o CAS
+    # existe para proteger.
+    if escolhido is not None:
+        expected_pointer = profile.get("current_session_day")
+    else:
+        expected_pointer = profile.get("current_session_day") if calendar is not None else completed_day
     operation_key = payload.started_at or now
     advanced = await db.profiles.update_one(
         {"id": target, "last_workout_operation": {"$ne": operation_key}, "last_workout_completion_day": {"$ne": completion_day}, "$or": [{"current_session_day": expected_pointer},

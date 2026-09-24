@@ -106,6 +106,11 @@ on:
       - 'backend/tests/test_female_program_selection.py'
       - 'backend/workout_calendar.py'
       - 'backend/troca_de_dia.py'
+      - 'backend/escolha_da_sessao.py'
+      - 'backend/tests/test_escolha_da_sessao_api.py'
+      - 'frontend/src/features/EscolherSessao.jsx'
+      - 'frontend/src/features/EscolherSessao.test.js'
+      - 'frontend/src/features/escolher-sessao.css'
       - 'backend/tests/test_troca_de_dia.py'
       - 'backend/tests/test_troca_de_dia_api.py'
       - 'frontend/src/features/TrocarDiaDeTreino.jsx'
@@ -327,6 +332,11 @@ on:
       - 'backend/tests/test_female_program_selection.py'
       - 'backend/workout_calendar.py'
       - 'backend/troca_de_dia.py'
+      - 'backend/escolha_da_sessao.py'
+      - 'backend/tests/test_escolha_da_sessao_api.py'
+      - 'frontend/src/features/EscolherSessao.jsx'
+      - 'frontend/src/features/EscolherSessao.test.js'
+      - 'frontend/src/features/escolher-sessao.css'
       - 'backend/tests/test_troca_de_dia.py'
       - 'backend/tests/test_troca_de_dia_api.py'
       - 'frontend/src/features/TrocarDiaDeTreino.jsx'
@@ -602,6 +612,12 @@ jobs:
       # atleta treinaria no dia adiantado e seria impedido de concluir.
       - name: Run day swap suite
         run: pytest -q tests/test_troca_de_dia_api.py
+      # Escolher qual sessao treinar hoje. Tambem precisa de Mongo pelo mesmo motivo: o
+      # teste que importa e o da CONCLUSAO da sessao escolhida — o compare-and-swap do
+      # ponteiro so deixa concluir quem o tem parado na sessao concluida, e quem escolheu
+      # outra tem o ponteiro legitimamente noutro lugar.
+      - name: Run session choice suite
+        run: pytest -q tests/test_escolha_da_sessao_api.py
       # O Conselho: a decisao pura roda sem banco; a de ponta a ponta usa o Mongo deste
       # job. `test_billing_api` entra junto porque e ela que varre toda rota paga, e o
       # portao do Conselho e uma delas.

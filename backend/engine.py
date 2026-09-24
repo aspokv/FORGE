@@ -2,7 +2,8 @@
 FORGE Training Engine v3.0 — periodization + progression + deload + readiness integration.
 """
 import json
-from workout_calendar import calendar_selection
+from workout_calendar import calendar_selection, calendar_today
+import escolha_da_sessao
 from female_program_selector import (
     build_female_library_program, is_female_profile,
     FEMALE_LIBRARY_AUTO_SOURCES, is_female_library_source,
@@ -980,13 +981,23 @@ def _apply_exercise_substitutions(sessions: List[Dict[str, Any]], profile: dict)
 
 def _resolve_active_day(sessions: List[Dict[str, Any]], profile: dict) -> Optional[int]:
     """Weekly labels use the local calendar; unlabelled programs keep their pointer."""
-    calendar = calendar_selection(sessions, trocas=(profile or {}).get("trocas_de_dia"))
-    if calendar is not None:
-        return calendar["today"]["day"] if calendar["today"] else None
     if not sessions:
         return None
+    perfil = profile or {}
     day_values = sorted(s["day"] for s in sessions)
-    current = profile.get("current_session_day")
+
+    # A escolha do atleta vem PRIMEIRO, e vale para os dois tipos de programa: ela é uma
+    # decisao explicita para hoje, e nenhuma regra automatica deve passar por cima dela.
+    # Quem escolheu treinar o B hoje quer o B, tenha o programa dia da semana fixo ou nao.
+    escolhido = escolha_da_sessao.dia_escolhido(
+        perfil.get("sessao_do_dia"), calendar_today(), day_values)
+    if escolhido is not None:
+        return escolhido
+
+    calendar = calendar_selection(sessions, trocas=perfil.get("trocas_de_dia"))
+    if calendar is not None:
+        return calendar["today"]["day"] if calendar["today"] else None
+    current = perfil.get("current_session_day")
     return current if current in day_values else day_values[0]
 
 
