@@ -52,3 +52,68 @@ test("completed Friday preserves history and previews Saturday",()=>{
  expect(doc.querySelector(".completed-workout-card h2").textContent).toBe("Sexta · Upper C");
  expect(doc.querySelector('[data-testid="saved-program-preview"] h2').textContent).toBe("Sábado · Full Body B");
 });
+
+/*
+ * As trocas de dia, no recálculo do cliente.
+ *
+ * Este recálculo existe para o aplicativo aberto atravessar a meia-noite e virar o dia
+ * sozinho — e é por isso que é ELE, e não o servidor, quem decide `rest_day` na tela.
+ *
+ * Quando a troca de dia foi implementada, isso virou uma armadilha silenciosa: o servidor
+ * respondia `rest_day:false` com a sessão adiantada, e esta função escrevia "descanso" por
+ * cima, porque decidia pelo dia da SEMANA e a troca fala de DATA. Medido no navegador: a
+ * troca ficava gravada, a tela escrevia "Dia trocado", e o treino não aparecia.
+ */
+describe("trocar o dia de treino", () => {
+  // Quinta 24/09/2026 é descanso neste programa; sábado 26/09 tem a Full Body B.
+  const comTroca = {...program, calendar: {...program.calendar,
+    trocas: [{treinar_em: "2026-09-24", descansar_em: "2026-09-26"}]}};
+  const quinta = new Date(2026, 8, 24, 9, 0);
+  const sabado = new Date(2026, 8, 26, 9, 0);
+
+  test("sem troca, a quinta continua sendo descanso", () => {
+    expect(scheduledProgram(program, quinta).rest_day).toBe(true);
+  });
+
+  test("a quinta recebe a sessão do sábado", () => {
+    const r = scheduledProgram(comTroca, quinta);
+    expect(r.rest_day).toBe(false);
+    expect(r.session).toBe("Sábado · Full Body B");
+    expect(r.active_day).toBe(5);
+  });
+
+  // A outra ponta. Sem ela o atleta faria a mesma sessão duas vezes na semana.
+  test("e o sábado vira descanso", () => {
+    const r = scheduledProgram(comTroca, sabado);
+    expect(r.rest_day).toBe(true);
+    expect(r.session).toBe("Descanso");
+  });
+
+  test("os outros dias não se mexem", () => {
+    expect(scheduledProgram(comTroca, new Date(2026, 8, 25, 9, 0)).session)
+      .toBe("Sexta · Upper C");
+    expect(scheduledProgram(comTroca, new Date(2026, 8, 27, 9, 0)).session)
+      .toBe("Domingo · Upper D");
+  });
+
+  // Uma troca vale para as duas datas dela e mais nada: a quinta da semana seguinte
+  // continua sendo descanso, senão a exceção viraria um programa paralelo.
+  test("a troca não se repete na semana seguinte", () => {
+    expect(scheduledProgram(comTroca, new Date(2026, 9, 1, 9, 0)).rest_day).toBe(true);
+  });
+
+  // A próxima sessão precisa pular o dia que cedeu o treino, senão a tela de descanso
+  // anuncia um treino que não vai acontecer naquele dia.
+  test("a próxima sessão pula o dia que virou descanso", () => {
+    const r = scheduledProgram(comTroca, sabado);
+    expect(r.calendar.next.label).toBe("Domingo · Upper D");
+    expect(r.calendar.next_date).toBe("2026-09-27");
+  });
+
+  test.each([
+    ["ausente", undefined], ["vazia", []], ["com lixo", [null, {}, {treinar_em: "2026-09-24"}]],
+  ])("lista de trocas %s não quebra o programa", (_r, trocas) => {
+    const p = {...program, calendar: {...program.calendar, trocas}};
+    expect(scheduledProgram(p, quinta).rest_day).toBe(true);
+  });
+});

@@ -3,9 +3,11 @@ import ExercisePhoto from "./ExercisePhoto";
 import TrainingCardImage from "./TrainingCardImage";
 import "./training-card-artwork.css";
 import {AstraPage,AstraIntro,AstraMeta,AstraAction,AstraIcon} from "./AstraUI";
+import TrocarDiaDeTreino from "./TrocarDiaDeTreino";
+import EscolherSessao from "./EscolherSessao";
 
 const asArray=value=>Array.isArray(value)?value:(value==null||value===""?[]:[value]);
-export default function ReferenceWorkoutPreview({db={},activeSession,items=[],onStart,onLibrary,onCardio}){
+export default function ReferenceWorkoutPreview({db={},activeSession,items=[],onStart,onLibrary,onCardio,onTrocarDia,onEscolherSessao,API}){
   const [warmupOpen,setWarmupOpen]=useState(false);
   const safeItems=Array.isArray(items)?items:[];
   const raw=activeSession?.label||db.program?.session||"Treino de hoje";
@@ -15,11 +17,20 @@ export default function ReferenceWorkoutPreview({db={},activeSession,items=[],on
   const totalSets=safeItems.reduce((sum,x)=>sum+Number(x?.sets||0),0);
   if(db.program?.rest_day)return <AstraPage screen={1} testId="workout-rest-day">
     <AstraIntro eyebrow="SEU PROGRAMA" title="Treino." subtitle="Hoje é descanso no seu programa."/>
-    <section className="a6-panel"><h2>Descanso programado</h2><p>A próxima sessão é {db.program.calendar?.next?.label||"a próxima do programa"}.</p><button type="button" onClick={onLibrary}>Ver programa na Biblioteca</button></section>
+    <section className="a6-panel"><h2>Descanso programado</h2><p>A próxima sessão é {db.program.calendar?.next?.label||"a próxima do programa"}.</p><button type="button" onClick={onLibrary}>Ver programa na Biblioteca</button>
+      {/* A semana atípica — viagem, plantão, imprevisto — resolvida sem reescrever o
+          programa. Fica aqui dentro, e não como ação de destaque: num dia de descanso a
+          resposta certa quase sempre é descansar. */}
+      {onTrocarDia&&<TrocarDiaDeTreino API={API} aoTrocar={onTrocarDia}/>}
+    </section>
   </AstraPage>;
   return <AstraPage screen={1} testId="reference-workout-preview">
     <AstraIntro eyebrow="SEU PROGRAMA" title="Treino." subtitle="Um passo mais forte, a cada sessão."/>
     <div className="a6-tabs" role="group" aria-label="Visualização do treino"><button type="button" className="a6-selected" aria-pressed="true">Sessão atual</button><button type="button" aria-pressed="false" onClick={onLibrary}>Biblioteca</button>{onCardio&&<button type="button" aria-pressed="false" data-testid="a6-cardio-tab" onClick={onCardio}>Cardio</button>}</div>
+    {/* Escolher qual sessão treinar hoje. A rotação acerta na maioria dos dias; quando ela
+        erra — treino adiantado, semana fora do lugar — sem isto não havia como corrigir, e
+        o atleta ficava sem registrar carga. */}
+    {onEscolherSessao&&<EscolherSessao API={API} aoEscolher={onEscolherSessao}/>}
     <section className="a6-panel a6-training-summary">
       <div className="a6-summary-copy"><div className="a6-eyebrow">{String(raw).split(/[—–]/)[0]}{db.program?.week?` · ${db.program.week}`:""}</div><h2>{name}</h2><p>{focus.join(" e ")||"Treino completo"}</p><AstraMeta duration={duration} sets={totalSets}/></div>
       <TrainingCardImage className="a6-anatomy a6-session-artwork" session={{...activeSession,label:raw}} program={db.program} profile={db.profile} focus={focus} loading="eager" width="95" height="140"/>

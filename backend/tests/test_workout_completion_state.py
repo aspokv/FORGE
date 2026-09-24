@@ -7,7 +7,8 @@ from datetime import datetime, timezone
 from typing import Optional
 from unittest.mock import AsyncMock
 import uuid
-from workout_calendar import calendar_selection
+from workout_calendar import calendar_selection, calendar_today
+import escolha_da_sessao
 
 def endpoints():
     source = ast.parse((Path(__file__).parents[1] / "server.py").read_text())
@@ -15,9 +16,13 @@ def endpoints():
     nodes = [n for n in source.body if isinstance(n, ast.AsyncFunctionDef) and n.name in names]
     for node in nodes:
         node.decorator_list = []
+    # O namespace precisa acompanhar o que a função REALMENTE usa: ela é extraída do
+    # `server.py` por AST, então um módulo novo referenciado lá dentro vira `NameError`
+    # aqui — que foi o que aconteceu quando a escolha de sessão entrou.
     ns = dict(Depends=lambda f: None, get_current_user=lambda: None,
               Optional=Optional, WorkoutCompleteIn=object,
               datetime=datetime, timezone=timezone, uuid=uuid, calendar_selection=calendar_selection,
+              calendar_today=calendar_today, escolha_da_sessao=escolha_da_sessao,
               HTTPException=lambda *a: RuntimeError(a))
     exec(compile(ast.Module(body=nodes, type_ignores=[]), "server.py", "exec"), ns)
     return ns
