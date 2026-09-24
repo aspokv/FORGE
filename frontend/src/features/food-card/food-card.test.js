@@ -528,18 +528,23 @@ describe("a foto que não carrega", () => {
     expect(cliente.get).toHaveBeenCalledTimes(2);
   });
 
-  // Uma vez só. Um endereço que falha por outro motivo — objeto apagado, armazenamento
-  // fora do ar — repetiria para sempre, e cada tentativa é uma requisição de rede.
-  test("tenta uma vez só, e depois explica em vez de insistir", async () => {
+  // Uma vez só, cada coisa. Um endereço que falha por outro motivo — objeto apagado,
+  // armazenamento fora do ar — repetiria para sempre, e cada tentativa é rede gasta. O
+  // diagnóstico também: a resposta dele não muda entre uma falha e a seguinte.
+  test("tenta uma vez, diagnostica uma vez, e não insiste", async () => {
     const {alvo, cliente, clicar} = await montar([
       {id: "c1", items: [], imageUrl: "https://x/velha"},
       {id: "c1", items: [], imageUrl: "https://x/nova"},
+      {temChave: true, armazenamentoAtivo: true, existe: true, assinavel: true, validade: 300},
     ]);
     await clicar();
     await clicar();
     await clicar();
-    expect(cliente.get).toHaveBeenCalledTimes(2);   // a inicial e UMA recuperação
-    expect(alvo.querySelector('[data-testid="erro"]').textContent).toMatch(/galeria/i);
+    await clicar();
+    // a inicial, UMA recuperação e UM diagnóstico — por mais que a imagem falhe
+    expect(cliente.get).toHaveBeenCalledTimes(3);
+    expect(cliente.get.mock.calls.filter(([u]) => u.includes("photo-check"))).toHaveLength(1);
+    expect(alvo.querySelector('[data-testid="erro"]').textContent).toMatch(/não conseguiu baixá-la/i);
   });
 
   // O servidor responde, mas sem endereço: o objeto não está mais lá. Insistir não traz.
@@ -551,5 +556,72 @@ describe("a foto que não carrega", () => {
     await clicar();
     expect(alvo.querySelector('[data-testid="erro"]').textContent)
       .toMatch(/não está mais disponível/i);
+  });
+});
+
+describe("a reserva local da foto", () => {
+  /*
+   * O Nicolas importou uma foto três vezes e a peça ficou preta nas três.
+   *
+   * O `ProgressPhotos` já resolvia isto para as fotos de avaliação, e o comentário de lá
+   * explica: "a URL assinada vale poucos minutos; quando ela falha e a pessoa acabou de
+   * enviar a foto, o arquivo ainda está na memória desta sessão". O Food Card não tinha
+   * essa reserva — dependia inteiramente do endereço assinado, e quando ele falhava
+   * sobrava o fundo `#08090a` da moldura. Preto, sem explicação.
+   *
+   * Medido no navegador com o armazenamento recusando TUDO: antes, nada. Depois, a foto
+   * aparece em 1920px vinda da reserva, com uma única requisição falha e nenhum erro.
+   */
+  function desenhar({imagem, reserva, onFotoFalhou = jest.fn()}) {
+    const alvo = document.createElement("div");
+    document.body.appendChild(alvo);
+    act(() => {
+      createRoot(alvo).render(
+        <FoodCardCanvas imagem={imagem} reserva={reserva} items={[]} summary={{}}
+                        onFotoFalhou={onFotoFalhou} />);
+    });
+    const img = () => alvo.querySelector('[data-testid="fc-foto-img"]');
+    const falhar = () => act(() => { img().dispatchEvent(new Event("error", {bubbles: false})); });
+    return {alvo, img, falhar, onFotoFalhou};
+  }
+
+  afterEach(() => { document.body.innerHTML = ""; });
+
+  test("com reserva, a falha do endereço assinado mostra a cópia local", () => {
+    const {img, falhar} = desenhar({imagem: "https://x/assinada", reserva: "blob:local"});
+    expect(img().getAttribute("data-fonte")).toBe("servidor");
+    falhar();
+    expect(img().getAttribute("src")).toBe("blob:local");
+    expect(img().getAttribute("data-fonte")).toBe("reserva");
+  });
+
+  // A reserva não depende de rede nem de assinatura: resolve na hora. Ir ao servidor antes
+  // seria gastar uma requisição para chegar ao mesmo lugar, mais devagar.
+  test("com reserva, não gasta requisição pedindo endereço novo", () => {
+    const {falhar, onFotoFalhou} = desenhar({imagem: "https://x/assinada", reserva: "blob:local"});
+    falhar();
+    expect(onFotoFalhou).not.toHaveBeenCalled();
+  });
+
+  // Reabrir a peça noutro dia: a sessão é nova e não existe cópia local. Aí sim vale pedir
+  // um endereço novo ao servidor.
+  test("sem reserva, pede endereço novo ao servidor", () => {
+    const {falhar, onFotoFalhou} = desenhar({imagem: "https://x/assinada", reserva: null});
+    falhar();
+    expect(onFotoFalhou).toHaveBeenCalled();
+  });
+
+  // Se a reserva TAMBÉM falhar, não dá para ficar alternando entre as duas para sempre.
+  test("a reserva que também falha não entra em laço", () => {
+    const {falhar, onFotoFalhou} = desenhar({imagem: "https://x/assinada", reserva: "blob:local"});
+    falhar();
+    falhar();
+    falhar();
+    expect(onFotoFalhou).toHaveBeenCalledTimes(2);   // uma por falha DEPOIS de trocar
+  });
+
+  test("sem endereço nenhum, mostra o convite a enviar a foto", () => {
+    const {alvo} = desenhar({imagem: null, reserva: null});
+    expect(alvo.querySelector('[data-testid="fc-foto-vazia"]')).not.toBeNull();
   });
 });

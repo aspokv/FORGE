@@ -411,3 +411,97 @@ async def test_sem_armazenamento_configurado_a_foto_recusa_com_mensagem_clara():
             assert "armazenamento" in r.json()["detail"].lower()
     finally:
         await _limpar(uid)
+
+
+# ── Por que a foto do prato não aparece ─────────────────────────────────────────────
+#
+# O Nicolas importou uma foto três vezes e a peça ficou preta. Do navegador, "a foto sumiu
+# do armazenamento", "a credencial caiu" e "o endereço venceu" são INDISTINGUÍVEIS: o
+# `<img>` falha igual nos três, e o que aparece é o fundo `#08090a` da moldura — preto.
+#
+# Esta rota existe para encurtar esse diagnóstico. Sem ela, a única saída é pedir para a
+# pessoa tentar de novo e torcer.
+
+async def _card_com_foto(uid, chave="avaliacoes/x/y/prato.jpg"):
+    entry = await _refeicao_registrada(uid)
+    async with await _cliente() as c:
+        r = await c.post("/api/food-card", json={"date": _hoje(), "entry_id": entry},
+                         headers={"Authorization": f"Bearer {create_token(uid, 'ATHLETE')}"})
+    card_id = r.json()["id"]
+    if chave:
+        await DB.food_cards.update_one({"id": card_id}, {"$set": {"imageKey": chave}})
+    return card_id
+
+
+@asincrono
+async def test_card_sem_foto_diz_que_nao_tem_foto():
+    uid, h = await _atleta()
+    try:
+        card_id = await _card_com_foto(uid, chave=None)
+        async with await _cliente() as c:
+            r = await c.get(f"/api/food-card/{card_id}/photo-check", headers=h)
+        assert r.status_code == 200, r.text
+        assert r.json()["temChave"] is False
+        assert r.json()["motivo"] == "sem_foto"
+    finally:
+        await _limpar(uid)
+
+
+@asincrono
+async def test_sem_armazenamento_configurado_a_rota_diz_isso():
+    """Sem credencial, `carregar_configuracao` devolve um dataclass DESLIGADO — e ele é
+    sempre verdadeiro. Quem responde é `cfg.ativo`, e já houve bug por testar só o objeto."""
+    uid, h = await _atleta()
+    guardado = {k: os.environ.pop(k, None) for k in
+                ("FORGE_FOTOS_BUCKET", "FORGE_FOTOS_KEY_ID", "FORGE_FOTOS_KEY_SECRET")}
+    try:
+        card_id = await _card_com_foto(uid)
+        async with await _cliente() as c:
+            r = await c.get(f"/api/food-card/{card_id}/photo-check", headers=h)
+        assert r.status_code == 200, r.text
+        corpo = r.json()
+        assert corpo["armazenamentoAtivo"] is False
+        assert corpo["motivo"] == "armazenamento_desligado"
+        assert corpo["existe"] is False
+    finally:
+        for k, v in guardado.items():
+            if v is not None:
+                os.environ[k] = v
+        await _limpar(uid)
+
+
+@asincrono
+async def test_a_rota_nunca_devolve_bucket_credencial_nem_caminho():
+    """Ela existe para diagnosticar, e diagnóstico que vaza segredo não pode ir para a tela.
+
+    O texto da exceção do boto3 traz bucket e chave; por isso só o TIPO dela é registrado, e
+    nada do armazenamento sai na resposta.
+    """
+    uid, h = await _atleta()
+    try:
+        card_id = await _card_com_foto(uid, chave="avaliacoes/segredo/xyz/prato.jpg")
+        async with await _cliente() as c:
+            r = await c.get(f"/api/food-card/{card_id}/photo-check", headers=h)
+        texto = r.text
+        assert set(r.json()) == {"temChave", "armazenamentoAtivo", "existe", "assinavel",
+                                 "validade", "motivo"}
+        for proibido in ("avaliacoes/", "segredo", "prato.jpg", "Bucket", "AccessKey",
+                         "amazonaws", "r2.cloudflare", "Traceback"):
+            assert proibido not in texto, proibido
+    finally:
+        await _limpar(uid)
+
+
+@asincrono
+async def test_a_rota_exige_login_e_e_do_dono():
+    uid, h = await _atleta()
+    outro, h2 = await _atleta()
+    try:
+        card_id = await _card_com_foto(uid)
+        async with await _cliente() as c:
+            assert (await c.get(f"/api/food-card/{card_id}/photo-check")).status_code == 401
+            # O Food Card do vizinho não existe para quem não é dono.
+            assert (await c.get(f"/api/food-card/{card_id}/photo-check",
+                                headers=h2)).status_code == 404
+    finally:
+        await _limpar(uid, outro)

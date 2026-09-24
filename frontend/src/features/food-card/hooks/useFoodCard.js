@@ -29,6 +29,19 @@ export default function useFoodCard({API, cardId, axiosCliente = axios}) {
   const [salvando, setSalvando] = useState(false);
   const relogio = useRef(null);
   const pendente = useRef(null);
+  // Endereço local da última foto escolhida. `URL.createObjectURL` segura o arquivo na
+  // memória até alguém revogar; sem revogar, trocar de foto cinco vezes deixa cinco cópias
+  // presas — e foto de celular reduzida ainda tem centenas de KB.
+  const [previa, setPrevia] = useState(null);
+  const previaRef = useRef(null);
+  const guardarPrevia = useCallback(nova => {
+    if (previaRef.current && previaRef.current !== nova) URL.revokeObjectURL(previaRef.current);
+    previaRef.current = nova;
+    setPrevia(nova);
+  }, []);
+  useEffect(() => () => {
+    if (previaRef.current) URL.revokeObjectURL(previaRef.current);
+  }, []);
 
   const carregar = useCallback(async () => {
     if (!cardId) return;
@@ -57,9 +70,19 @@ export default function useFoodCard({API, cardId, axiosCliente = axios}) {
    * requisição.
    */
   const refazendo = useRef(false);
+  const diagnosticado = useRef(false);
   const fotoFalhou = useCallback(async () => {
     if (refazendo.current) {
-      setErro("A foto do prato não carregou. Toque em \"Escolher da galeria\" para enviar de novo.");
+      // Segunda falha: não é prazo vencido, é outra coisa. Pergunta ao servidor o que ele
+      // enxerga, porque daqui os casos são indistinguíveis — objeto que sumiu, credencial
+      // caída e URL vencida dão exatamente o mesmo `<img>` quebrado e o mesmo fundo preto.
+      //
+      // Uma vez só, como a recuperação: a resposta não muda entre uma falha e a seguinte, e
+      // perguntar de novo é rede gasta para reescrever a mesma frase.
+      if (!diagnosticado.current) {
+        diagnosticado.current = true;
+        setErro(await diagnosticar(axiosCliente, API, cardId));
+      }
       return false;
     }
     refazendo.current = true;
@@ -150,11 +173,22 @@ export default function useFoodCard({API, cardId, axiosCliente = axios}) {
     setErro("");
     try {
       const reduzida = await reduzirFoto(arquivo);
+      // A RESERVA LOCAL: o arquivo que a pessoa acabou de escolher, exibido direto da
+      // memória desta sessão. É o mesmo padrão que as fotos de avaliação já usam, e existe
+      // porque a foto mais importante de mostrar é justamente a que acabou de ser enviada —
+      // e é nela que o endereço assinado tem mais chance de atrapalhar: enquanto o objeto
+      // se propaga no armazenamento, enquanto a URL é gerada, enquanto a rede do celular
+      // resolve o domínio da Cloudflare.
+      //
+      // Com ela, a foto aparece na hora e sem depender de rede nenhuma. O endereço assinado
+      // continua sendo a fonte de verdade ao reabrir a peça noutro dia.
+      guardarPrevia(URL.createObjectURL(reduzida));
       const corpo = new FormData();
       corpo.append("photo", reduzida, "prato.jpg");
       const r = await axiosCliente.post(`${API}/food-card/${cardId}/photo`, corpo,
                                         {headers: {"Content-Type": "multipart/form-data"}});
       refazendo.current = false;   // foto nova, chance nova de recuperacao
+      diagnosticado.current = false;
       setCard(atual => (atual ? {...atual, imageUrl: r.data.imageUrl,
                                  imageKey: r.data.imageKey} : atual));
       return true;
@@ -165,7 +199,7 @@ export default function useFoodCard({API, cardId, axiosCliente = axios}) {
   }, [API, axiosCliente, cardId]);
 
   return {card, estado, erro, salvando, mover, confirmarMovimento, ajustarFoto,
-          trocarMacro, enviarFoto, recarregar: carregar, fotoFalhou, setErro};
+          trocarMacro, enviarFoto, recarregar: carregar, fotoFalhou, previa, setErro};
 }
 
 /**
@@ -201,4 +235,33 @@ function criarBitmap(arquivo) {
     img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Foto inválida.")); };
     img.src = url;
   });
+}
+
+
+/** Traduz o que o servidor enxerga da foto numa frase que diz o que fazer. */
+async function diagnosticar(axiosCliente, API, cardId) {
+  const generica = "A foto do prato não carregou. Toque em \"Escolher da galeria\" para enviar de novo.";
+  try {
+    const {data} = await axiosCliente.get(`${API}/food-card/${cardId}/photo-check`);
+    if (!data?.armazenamentoAtivo) {
+      return "O armazenamento de fotos está fora do ar. A peça continua salva; tente a foto mais tarde.";
+    }
+    if (!data.temChave || data.motivo === "sem_foto") {
+      return "A foto não chegou a ser guardada. Envie de novo por \"Escolher da galeria\".";
+    }
+    if (!data.existe) {
+      return "A foto não está mais no armazenamento. Envie de novo por \"Escolher da galeria\".";
+    }
+    if (!data.assinavel) {
+      return "A foto está guardada, mas o servidor não conseguiu liberar o acesso a ela. Tente de novo em alguns minutos.";
+    }
+    // O servidor acha a foto e consegue assinar: quem não conseguiu baixar foi o navegador.
+    // Quando a validade é curta, ela é a explicação — e é configuração, não defeito de uso.
+    const curta = Number(data.validade) > 0 && Number(data.validade) < 120;
+    return curta
+      ? `A foto está guardada, mas o endereço dela vence em ${data.validade}s e o aparelho não alcançou a tempo.`
+      : "A foto está guardada, mas este aparelho não conseguiu baixá-la. Tente de novo, ou por outra rede.";
+  } catch {
+    return generica;
+  }
 }

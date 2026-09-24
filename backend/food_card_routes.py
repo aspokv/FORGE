@@ -274,6 +274,64 @@ async def enviar_foto(card_id: str, request: Request, user=Depends(get_current_u
     return {"imageKey": chave, "imageUrl": _url_da_foto(chave)}
 
 
+@router.get("/{card_id}/photo-check")
+async def conferir_foto(card_id: str, request: Request, user=Depends(get_current_user)):
+    """Por que a foto do prato não aparece. Perguntas que só o servidor sabe responder.
+
+    Existe para encurtar um diagnóstico que, sem isto, é impossível: do navegador, uma foto
+    que não carrega é indistinguível de uma foto que nunca subiu — o `<img>` falha igual nos
+    dois casos, e o fundo preto da moldura é o mesmo. O atleta relata "fica tudo preto" e
+    não há como saber se o objeto sumiu, se a credencial caiu ou se o prazo da URL venceu.
+
+    Não devolve credencial, endereço do bucket nem caminho do objeto. Só o que ajuda a
+    decidir onde procurar:
+
+      `temChave`    o documento sabe onde a foto deveria estar;
+      `existe`      o armazenamento confirma que o objeto está lá;
+      `assinavel`   dá para gerar um endereço de leitura;
+      `validade`    por quantos segundos esse endereço vale.
+
+    `validade` é o que fecha o caso mais provável de todos. O padrão é 300 segundos, e
+    montar um Food Card leva mais que isso; se alguém configurou um valor pequeno, a URL
+    vence antes de a tela terminar de carregar e nada na interface conseguiria explicar.
+    """
+    db = request.app.state.db
+    await exigir_capacidade(db, user, ALIMENTACAO)
+    doc = await db.food_cards.find_one({"id": card_id, "userId": user["id"]},
+                                       {"_id": 0, "imageKey": 1})
+    if not doc:
+        raise HTTPException(404, "Esse Food Card não existe.")
+
+    chave = doc.get("imageKey")
+    cfg = visual_storage.carregar_configuracao()
+    resposta = {"temChave": bool(chave), "armazenamentoAtivo": bool(cfg and cfg.ativo),
+                "existe": False, "assinavel": False, "validade": None, "motivo": None}
+    if not chave:
+        resposta["motivo"] = "sem_foto"
+        return resposta
+    if not cfg or not cfg.ativo:
+        resposta["motivo"] = "armazenamento_desligado"
+        return resposta
+
+    resposta["validade"] = cfg.url_segundos
+    try:
+        cli = visual_storage.cliente(cfg)
+        cli.head_object(Bucket=cfg.bucket, Key=chave)
+        resposta["existe"] = True
+    except Exception as erro:
+        # O texto da exceção pode trazer o bucket e a chave. Só o tipo sai daqui.
+        logger.warning("foto do food card %s nao encontrada no armazenamento: %s",
+                       card_id, type(erro).__name__)
+        resposta["motivo"] = "objeto_ausente"
+        return resposta
+
+    if _url_da_foto(chave):
+        resposta["assinavel"] = True
+    else:
+        resposta["motivo"] = "falha_ao_assinar"
+    return resposta
+
+
 @router.delete("/{card_id}")
 async def remover(card_id: str, request: Request, user=Depends(get_current_user)):
     db = request.app.state.db
