@@ -487,7 +487,11 @@ TRAINING_PROGRAMS.extend(build_female_reference_programs(ex, session, phase, pro
 from male_reference_programs import build_male_reference_programs
 TRAINING_PROGRAMS.extend(build_male_reference_programs(ex, session, phase, program))
 from programa_hibrido_6x import build_programas_hibridos_6x
+from programas_hibridos_clavicular import build_programas_hibridos_clavicular
 TRAINING_PROGRAMS.extend(build_programas_hibridos_6x(ex, session, phase, program))
+# Os quatro hibridos com prioridade clavicular entram AO LADO dos de cima, e nao no lugar
+# deles: a instrucao foi nao apagar nada da biblioteca.
+TRAINING_PROGRAMS.extend(build_programas_hibridos_clavicular(ex, session, phase, program))
 
 
 def public_program_catalog():

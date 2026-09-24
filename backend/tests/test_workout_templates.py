@@ -53,11 +53,14 @@ def test_complete_program_library_covers_every_supported_split():
     assert [item["id"] for item in PROGRAM_CATEGORIES] == [
         "abc", "abcd", "abcde", "abcdef", "upper_lower", "hibrido", "periodized"
     ]
-    assert len(TRAINING_PROGRAMS) == 23
+    # A contagem e um alarme de "confirme que foi de proposito", e nao uma regra: subiu de
+    # 23 para 27 quando os quatro hibridos de prioridade clavicular foram ACRESCENTADOS aos
+    # quatro que ja existiam. Quem mexer aqui tem de saber o que esta somando.
+    assert len(TRAINING_PROGRAMS) == 27
     assert {item["category"] for item in TRAINING_PROGRAMS} >= {
         "abc", "abcd", "abcde", "abcdef", "upper_lower", "hibrido"
     }
-    assert sum(len(item["phases"]) for item in TRAINING_PROGRAMS) == 26
+    assert sum(len(item["phases"]) for item in TRAINING_PROGRAMS) == 30
 
 
 def test_complete_programs_only_use_supported_exercises_and_safe_builder_shapes():
@@ -82,7 +85,7 @@ def test_complete_programs_only_use_supported_exercises_and_safe_builder_shapes(
 
 def test_program_metadata_and_expert_guard_are_exposed_without_source_mutation():
     catalog = public_catalog()
-    assert len(catalog["programs"]) == 23
+    assert len(catalog["programs"]) == 27
     periodized = next(item for item in catalog["programs"] if item["id"] == "abcdef-12-week")
     assert "abcdef" in periodized["categories"]
     assert "periodized" in periodized["categories"]
@@ -97,3 +100,43 @@ def test_program_metadata_and_expert_guard_are_exposed_without_source_mutation()
 def test_female_program_is_machine_filterable():
     wellness = next(item for item in TRAINING_PROGRAMS if item["id"] == "abcd-wellness-advanced")
     assert wellness["audience_type"] == "female"
+
+
+def test_os_quatro_hibridos_antigos_continuam_na_biblioteca():
+    """A instrucao foi ACRESCENTAR, nao substituir.
+
+    Os nomes dos quatro novos sao parecidos com os dos quatro antigos — "Rotativo",
+    "Full Body Rotativo", "Upper / Lower". Trocar um pelo outro por engano numa
+    refatoracao futura nao levantaria erro nenhum sem este teste.
+    """
+    ids = {p["id"] for p in TRAINING_PROGRAMS}
+    antigos = {p["id"] for p in TRAINING_PROGRAMS if p["category"] == "hibrido"
+               and not p["id"].startswith("hibrido-clavicular")}
+    assert len(antigos) == 4, antigos
+    novos = {i for i in ids if i.startswith("hibrido-clavicular")}
+    assert len(novos) == 4, novos
+    assert not (antigos & novos)
+
+
+def test_os_hibridos_claviculares_sao_distinguiveis_entre_si():
+    """Oito hibridos na mesma gaveta: se dois forem iguais, escolher vira adivinhacao."""
+    novos = [p for p in TRAINING_PROGRAMS if p["id"].startswith("hibrido-clavicular")]
+    nomes = [p["name"] for p in novos]
+    assert len(set(nomes)) == 4, nomes
+    # Cada um tem um numero de sessoes ou uma forma que o separa dos outros.
+    assinaturas = {(len(p["phases"][0]["sessions"]),
+                    tuple(s["label"].split(" · ")[1] for s in p["phases"][0]["sessions"]))
+                   for p in novos}
+    assert len(assinaturas) == 4, "dois programas tem a mesma semana"
+
+
+def test_o_full_body_7x_nao_tem_dia_de_descanso():
+    """E caracteristica da ficha, e tem consequencia na tela.
+
+    Sem dia sem sessao, o calendario nao marca descanso — e a opcao de trocar o dia de
+    treino, que so aparece no descanso, nunca aparece para quem segue este programa. Fica
+    registrado para nao ser lido como defeito depois.
+    """
+    p = next(x for x in TRAINING_PROGRAMS if x["id"] == "hibrido-clavicular-full-7x")
+    assert len(p["phases"][0]["sessions"]) == 7
+    assert "Domingo" in p["phases"][0]["sessions"][-1]["label"]
