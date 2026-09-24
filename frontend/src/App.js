@@ -408,7 +408,10 @@ export function Workout({db,techniques,openTech,goHome,onExerciseSubstituted,onW
     <span>Não consegui confirmar no servidor se você já treinou hoje. Pode treinar normalmente — eu registro assim que a conexão voltar.</span>
     <button type="button" className="secondary-button" onClick={retryCompletion}>Tentar de novo</button>
   </div>;
-  if(p.rest_day)return <ReferenceWorkoutPreview db={{...db,program:p}} onLibrary={()=>setView("library")}onCardio={()=>setView("cardio")}/>;
+  /* A troca de dia devolve o programa novo, na MESMA forma que a conclusão de treino: as
+     duas dizem "o programa mudou, use este". Reaproveita o mesmo caminho de atualização em
+     vez de abrir um segundo. */
+  if(p.rest_day)return <ReferenceWorkoutPreview db={{...db,program:p}} API={API} onLibrary={()=>setView("library")}onCardio={()=>setView("cardio")}onTrocarDia={onWorkoutCompleted}/>;
   if(!items.length)return <div className="content workout-page">{viewTabs}<div className="empty-state"data-testid="workout-empty-state"><Dumbbell size={22}/><h3>Nenhuma sessão disponível</h3><p className="muted">Escolha um modelo na Biblioteca ou gere um programa para começar.</p><button className="primary-button"type="button"onClick={()=>setView("library")}>Abrir biblioteca</button></div></div>;
   if(!sessionStarted)return <>{avisoDeConferencia}<ReferenceWorkoutPreview db={{...db,program:p}}activeSession={activeSession}items={items}onStart={()=>{if(p.rest_day||todayCompletion||completionStatus==="loading")return;setStartedAt(Date.now());setSessionStarted(true)}}onLibrary={()=>setView("library")}onCardio={()=>setView("cardio")}/></>;
   return <div className="content workout-page workout-live-reference" ref={liveWorkoutRef} onFocusCapture={rememberExercise} onClickCapture={rememberExercise} data-testid="workout-resumable-session">

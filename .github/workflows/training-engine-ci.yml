@@ -105,6 +105,12 @@ on:
       - 'backend/tests/test_female_program_selector.py'
       - 'backend/tests/test_female_program_selection.py'
       - 'backend/workout_calendar.py'
+      - 'backend/troca_de_dia.py'
+      - 'backend/tests/test_troca_de_dia.py'
+      - 'backend/tests/test_troca_de_dia_api.py'
+      - 'frontend/src/features/TrocarDiaDeTreino.jsx'
+      - 'frontend/src/features/TrocarDiaDeTreino.test.js'
+      - 'frontend/src/features/trocar-dia.css'
       - 'backend/tests/test_workout_calendar.py'
       - 'frontend/src/features/workoutCalendar*'
       - 'frontend/src/features/AuthContext.jsx'
@@ -320,6 +326,12 @@ on:
       - 'backend/engine.py'
       - 'backend/tests/test_female_program_selection.py'
       - 'backend/workout_calendar.py'
+      - 'backend/troca_de_dia.py'
+      - 'backend/tests/test_troca_de_dia.py'
+      - 'backend/tests/test_troca_de_dia_api.py'
+      - 'frontend/src/features/TrocarDiaDeTreino.jsx'
+      - 'frontend/src/features/TrocarDiaDeTreino.test.js'
+      - 'frontend/src/features/trocar-dia.css'
       - 'backend/tests/test_workout_calendar.py'
       - 'frontend/src/features/workoutCalendar*'
       - 'frontend/src/features/AuthContext.jsx'
@@ -466,6 +478,7 @@ jobs:
           test_cardio_unit.py
           tests/test_workout_completion_state.py
           tests/test_workout_calendar.py
+          tests/test_troca_de_dia.py
           tests/test_female_program_selector.py
           tests/test_female_program_selection.py
 
@@ -583,6 +596,12 @@ jobs:
       # que o Dockerfile sobe.
       - name: Run deploy marker suite
         run: pytest -q tests/test_marcador_de_deploy.py
+      # Trocar o dia de treino. Mora aqui porque precisa de Mongo: o teste que importa e o
+      # da CONCLUSAO no dia trocado, e ele so existe de ponta a ponta — a rota recusa com
+      # 409 uma sessao que nao bate com o calendario do dia, e sem a troca chegar la o
+      # atleta treinaria no dia adiantado e seria impedido de concluir.
+      - name: Run day swap suite
+        run: pytest -q tests/test_troca_de_dia_api.py
       # O Conselho: a decisao pura roda sem banco; a de ponta a ponta usa o Mongo deste
       # job. `test_billing_api` entra junto porque e ela que varre toda rota paga, e o
       # portao do Conselho e uma delas.

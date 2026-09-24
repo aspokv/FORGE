@@ -15,7 +15,8 @@ from google import genai as google_genai
 
 from llm_providers import deepseek_model, get_coach_provider, FORGE_COACH_SYSTEM
 import visual_storage
-from workout_calendar import browser_offset, calendar_selection
+from workout_calendar import browser_offset, calendar_selection, calendar_today
+import troca_de_dia
 
 from auth import router as auth_router, get_current_user, seed_super_admin
 from admin_routes import router as admin_router
@@ -219,6 +220,13 @@ class CustomProgram(BaseModel):
 class ExerciseSubstituteIn(BaseModel):
     original_exercise_id: str
     new_exercise_id: str
+    profile_id: Optional[str] = None
+
+
+class TrocaDeDiaIn(BaseModel):
+    """Treinar num dia e descansar noutro, nesta semana e só nela."""
+    treinar_em: str = Field(max_length=10)
+    descansar_em: str = Field(max_length=10)
     profile_id: Optional[str] = None
 
 
@@ -1422,6 +1430,86 @@ async def latest_workout_completion(user=Depends(get_current_user), profile_id: 
     return {"completion": record}
 
 
+@api.get("/workout/trocas-de-dia")
+async def listar_trocas(profile_id: Optional[str] = None, user=Depends(get_current_user)):
+    """As trocas que ainda valem, e os dias que dá para escolher.
+
+    A tela precisa dos dois: o que já foi trocado, para poder desfazer, e quais datas da
+    semana têm treino, para oferecer só o que existe. Sem isso ela ofereceria descansar num
+    dia que já é descanso.
+    """
+    target = owned_profile_id(user, profile_id)
+    profile = await load_profile(target)
+    hoje = calendar_today()
+    trocas = troca_de_dia.normalizar(profile.get("trocas_de_dia"), hoje)
+    program = await build_program(profile)
+    sessions = program.get("sessions") or []
+    agenda = calendar_selection(sessions, hoje, trocas=trocas)
+    if agenda is None:
+        # Programa sem rótulo de dia da semana não tem descanso fixo: o atleta já treina
+        # quando quiser, e trocar dia não significa nada. Dizer isso é melhor que oferecer
+        # um botão que não muda nada.
+        return {"disponivel": False, "trocas": [], "dias": [],
+                "motivo": "Seu programa não fixa dias da semana: você pode treinar em qualquer dia."}
+    dias = []
+    for n in range(0, troca_de_dia.ALCANCE_EM_DIAS + 1):
+        data = hoje + timedelta(days=n)
+        do_dia = calendar_selection(sessions, data, trocas=trocas)
+        sessao = (do_dia or {}).get("today")
+        dias.append({"data": data.isoformat(), "treino": bool(sessao),
+                     "label": sessao["label"] if sessao else None})
+    return {"disponivel": True, "trocas": trocas, "dias": dias,
+            "alcance_em_dias": troca_de_dia.ALCANCE_EM_DIAS}
+
+
+@api.post("/workout/trocar-dia")
+async def trocar_dia(payload: TrocaDeDiaIn, user=Depends(get_current_user)):
+    """Move o treino de um dia para outro, sem mexer no programa.
+
+    O programa continua sendo a verdade; a troca é uma anotação datada por cima dele, e
+    vence sozinha. É o que resolve a semana atípica — viagem, plantão, imprevisto — sem
+    obrigar o atleta a reescrever a divisão para depois desfazer.
+    """
+    target = owned_profile_id(user, payload.profile_id)
+    profile = await load_profile(target)
+    hoje = calendar_today()
+    try:
+        treino, descanso = troca_de_dia.validar(payload.treinar_em, payload.descansar_em, hoje)
+    except ValueError as erro:
+        raise HTTPException(422, str(erro))
+
+    program = await build_program(profile)
+    sessions = program.get("sessions") or []
+    if calendar_selection(sessions, hoje) is None:
+        raise HTTPException(409, "Seu programa não fixa dias da semana: você já pode treinar hoje.")
+
+    # O dia de ORIGEM precisa ter treino no programa, senão não há o que mover. Conferido
+    # contra a agenda SEM trocas: é o programa que diz o que existe, e não uma troca
+    # anterior — encadear trocas sobre trocas faria a agenda depender da ordem em que
+    # foram feitas.
+    origem = calendar_selection(sessions, descanso)
+    if not (origem or {}).get("today"):
+        raise HTTPException(409, "Esse dia já é de descanso no seu programa.")
+
+    atuais = troca_de_dia.normalizar(profile.get("trocas_de_dia"), hoje)
+    nova = {"treinar_em": treino.isoformat(), "descansar_em": descanso.isoformat()}
+    trocas = troca_de_dia.normalizar([*atuais, nova], hoje)
+    await db.profiles.update_one({"id": target}, {"$set": {"trocas_de_dia": trocas}})
+    return {"trocas": trocas, "program": await build_program(await load_profile(target))}
+
+
+@api.delete("/workout/trocar-dia")
+async def desfazer_trocas(profile_id: Optional[str] = None, user=Depends(get_current_user)):
+    """Volta para a agenda do programa. Desfaz TODAS as trocas vivas de uma vez.
+
+    Desfazer uma troca específica exigiria a tela identificar qual — e a lista é curta e
+    dura uma semana. Voltar ao programa é o que a pessoa quer dizer com "desfazer".
+    """
+    target = owned_profile_id(user, profile_id)
+    await db.profiles.update_one({"id": target}, {"$set": {"trocas_de_dia": []}})
+    return {"trocas": [], "program": await build_program(await load_profile(target))}
+
+
 @api.post("/workout/complete")
 async def complete_workout(payload: WorkoutCompleteIn, user=Depends(get_current_user)):
     """Complete once per local day, preserving sequential and weekly programs."""
@@ -1438,7 +1526,12 @@ async def complete_workout(payload: WorkoutCompleteIn, user=Depends(get_current_
             raise ValueError("date")
     except (ValueError, TypeError):
         raise HTTPException(400, "Data de conclusão inválida")
-    calendar = calendar_selection(sessions, datetime.strptime(completion_day, "%Y-%m-%d").date(), after_today=True)
+    # As trocas de dia entram AQUI tambem, e nao so na montagem do programa. Esta rota
+    # recusa com 409 uma sessao que nao bate com o calendario do dia — sem as trocas, o
+    # atleta que adiantou o treino para o dia de descanso treinaria normalmente e seria
+    # impedido de CONCLUIR, que e o pior lugar para descobrir o problema.
+    calendar = calendar_selection(sessions, datetime.strptime(completion_day, "%Y-%m-%d").date(),
+                                  after_today=True, trocas=profile.get("trocas_de_dia"))
     if calendar is not None:
         scheduled = calendar["today"]
         if not scheduled or payload.day not in (None, scheduled["day"]):

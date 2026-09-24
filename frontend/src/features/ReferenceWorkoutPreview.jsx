@@ -3,9 +3,10 @@ import ExercisePhoto from "./ExercisePhoto";
 import TrainingCardImage from "./TrainingCardImage";
 import "./training-card-artwork.css";
 import {AstraPage,AstraIntro,AstraMeta,AstraAction,AstraIcon} from "./AstraUI";
+import TrocarDiaDeTreino from "./TrocarDiaDeTreino";
 
 const asArray=value=>Array.isArray(value)?value:(value==null||value===""?[]:[value]);
-export default function ReferenceWorkoutPreview({db={},activeSession,items=[],onStart,onLibrary,onCardio}){
+export default function ReferenceWorkoutPreview({db={},activeSession,items=[],onStart,onLibrary,onCardio,onTrocarDia,API}){
   const [warmupOpen,setWarmupOpen]=useState(false);
   const safeItems=Array.isArray(items)?items:[];
   const raw=activeSession?.label||db.program?.session||"Treino de hoje";
@@ -15,7 +16,12 @@ export default function ReferenceWorkoutPreview({db={},activeSession,items=[],on
   const totalSets=safeItems.reduce((sum,x)=>sum+Number(x?.sets||0),0);
   if(db.program?.rest_day)return <AstraPage screen={1} testId="workout-rest-day">
     <AstraIntro eyebrow="SEU PROGRAMA" title="Treino." subtitle="Hoje é descanso no seu programa."/>
-    <section className="a6-panel"><h2>Descanso programado</h2><p>A próxima sessão é {db.program.calendar?.next?.label||"a próxima do programa"}.</p><button type="button" onClick={onLibrary}>Ver programa na Biblioteca</button></section>
+    <section className="a6-panel"><h2>Descanso programado</h2><p>A próxima sessão é {db.program.calendar?.next?.label||"a próxima do programa"}.</p><button type="button" onClick={onLibrary}>Ver programa na Biblioteca</button>
+      {/* A semana atípica — viagem, plantão, imprevisto — resolvida sem reescrever o
+          programa. Fica aqui dentro, e não como ação de destaque: num dia de descanso a
+          resposta certa quase sempre é descansar. */}
+      {onTrocarDia&&<TrocarDiaDeTreino API={API} aoTrocar={onTrocarDia}/>}
+    </section>
   </AstraPage>;
   return <AstraPage screen={1} testId="reference-workout-preview">
     <AstraIntro eyebrow="SEU PROGRAMA" title="Treino." subtitle="Um passo mais forte, a cada sessão."/>
