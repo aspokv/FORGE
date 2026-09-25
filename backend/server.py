@@ -2103,6 +2103,8 @@ app.include_router(password_reset_router)
 app.include_router(conselho_router)
 app.include_router(cardio_router)
 app.include_router(food_card_router)
+from periodizacao_routes import router as periodizacao_router  # noqa: E402
+app.include_router(periodizacao_router)
 app.include_router(api)
 def _origens_permitidas() -> List[str]:
     """Allowlist exata de origens.

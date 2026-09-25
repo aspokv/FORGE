@@ -50,6 +50,10 @@ COLECOES_DO_ATLETA: Tuple[Tuple[str, str], ...] = (
     ("nutrition_consumed_extras", "profile_id"),
     ("nutrition_preferences", "profile_id"),
     ("nutrition_periodization", "profile_id"),
+    ("periodizacao_da_dieta", "profile_id"),
+    # Planos arquivados: a dieta inteira da pessoa, guardada ao importar outra ou ao
+    # comecar uma periodizacao. Faltava aqui desde que o arquivo existe.
+    ("nutrition_plan_versions", "profile_id"),
     ("nutrition_shopping_checks", "profile_id"),
     ("nutrition_weight_logs", "profile_id"),
     ("weight_logs", "profile_id"),

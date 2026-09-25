@@ -5,6 +5,7 @@ import ForgeDialog from "./ForgeDialog";
 import {AstraPage,AstraAction,AstraMeta,AstraIcon,AstraNavigation} from "./AstraUI";
 import {useScheduledProgram} from "./workoutCalendar";
 import TrainingCardImage from "./TrainingCardImage";
+import LembretePesagem from "./LembretePesagem";
 import {consumedTotals} from "./foodDiary";
 import {useWorkoutCompletion,sessionStatus,completionForToday} from "./workoutCompletionState";
 import {sequenciaDeDias,volumeDaSemana,textoDaCarga,textoDeProntidao} from "./ritmoDaSemana";
@@ -104,6 +105,8 @@ export default function ReferenceHome({db,start,onRecoveryCheckin}){
       <div className="a6-eyebrow">{dateLabel}{sequencia>1&&<em className="forge-sequencia" data-testid="home-sequencia">{sequencia} dias seguidos</em>}</div>
       <h1 id="forge-home-title" className="forge-home-sr-only">{introTitle}</h1>
     </section>
+    {/* A pesagem de sexta: e o dado que a periodizacao e o Conselho usam para decidir a semana. */}
+    <LembretePesagem API={API}/>
     <section className={`a6-signature${todayCompletion?" a6-signature-completed":""}`} aria-labelledby="home-session-title">
     <div className="a6-hero" data-testid="home-top-hero"><TrainingCardImage session={{...shown,label:raw}} program={todayCompletion?{}:p} profile={db.profile} focus={focus} loading="eager" fetchPriority="high" width="640" height="276"/></div>
     <div className="a6-panel a6-workout-card" data-testid="daily-briefing">

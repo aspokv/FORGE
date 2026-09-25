@@ -168,7 +168,7 @@ async def registrar_semana(db, perfil_id: str, visivel: bool) -> Dict[str, Any]:
         return ja
 
     estado = await _ler_atleta(db, perfil_id)
-    decisao = motor.decidir(estado)
+    decisao = await _respeitar_periodizacao(db, perfil_id, motor.decidir(estado))
     documento = {
         "id": str(uuid.uuid4()), "profile_id": perfil_id, "semana": semana,
         "criado_em": agora.isoformat(), "decisao": decisao,
@@ -185,6 +185,29 @@ async def registrar_semana(db, perfil_id: str, visivel: bool) -> Dict[str, Any]:
             {"profile_id": perfil_id, "semana": semana}, {"_id": 0})
     documento.pop("_id", None)
     return documento
+
+
+async def _respeitar_periodizacao(db, perfil_id: str, decisao: Dict[str, Any]) -> Dict[str, Any]:
+    """Com a periodizacao da dieta em andamento, a caloria ja tem quem a conduza.
+
+    Dois motores mexendo na mesma meta na mesma semana cortariam duas vezes, e nenhum dos
+    dois saberia depois qual corte causou o resultado — a mesma razao da regra de UMA
+    alavanca por semana. O Conselho continua lendo e decidindo o resto (aderencia, treino,
+    cardio); so a mudanca de caloria sai, com o motivo dito.
+    """
+    mudanca = decisao.get("mudanca") or {}
+    if mudanca.get("tipo") != "kcal":
+        return decisao
+    try:
+        from periodizacao_routes import periodizacao_ativa
+        if not await periodizacao_ativa(db, perfil_id):
+            return decisao
+    except Exception:  # noqa: BLE001 — sem saber, o Conselho segue como sempre
+        return decisao
+    return {**decisao, "mudanca": None,
+            "motivo": (decisao.get("motivo") or "") + " A periodização da sua dieta já conduz a "
+                      "caloria desta fase, então eu não mexo nela por cima: ela mesma segura o "
+                      "degrau quando o peso anda rápido demais."}
 
 
 async def _pode_ver_conselho(db, user: Dict[str, Any]) -> bool:
@@ -296,6 +319,12 @@ async def aplicar_conselho(payload: AplicarIn, request: Request,
     if not mudanca:
         raise HTTPException(422, "O conselho desta semana nao propoe mudanca.")
 
+    if mudanca.get("tipo") == "kcal":
+        # Semana gravada antes de a periodizacao comecar: aplicar agora cortaria por cima.
+        from periodizacao_routes import periodizacao_ativa
+        if await periodizacao_ativa(db, perfil_id):
+            raise HTTPException(409, "A periodização da sua dieta está conduzindo a caloria. "
+                                     "Encerre ela se quiser aplicar este ajuste.")
     if mudanca.get("tipo") != "kcal":
         resultado = {"status": "manual", "tipo": mudanca.get("tipo"), "em": agora.isoformat()}
         await db.conselho_semanal.update_one(

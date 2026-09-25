@@ -1,0 +1,34 @@
+/* Lembrete da pesagem de sexta. Um cartão com borda de destaque, e não um banner: ele
+ * pede uma ação de dez segundos, e o campo fica ali mesmo. */
+.lembrete-pesagem {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px 12px;
+  align-items: center;
+  margin: 0 0 12px;
+  padding: 14px;
+  border: 1px solid var(--fg-acao, #e8744f);
+  border-radius: 12px;
+  background: var(--fg-superficie, #16181b);
+}
+.lembrete-pesagem > div { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 4px; }
+.lembrete-pesagem strong { font-size: 15px; color: var(--fg-texto, #ecebe7); }
+.lembrete-pesagem small { font-size: 13px; line-height: 1.45; color: var(--fg-texto-2, #a7aaad); }
+.lembrete-pesagem-campo {
+  display: flex; align-items: center; gap: 6px;
+  border: 1px solid var(--fg-linha-forte, #3a3f46); border-radius: 10px; padding: 0 12px;
+  min-height: 44px; background: var(--fg-fundo, #0f1012);
+}
+.lembrete-pesagem-campo input {
+  width: 100%; min-width: 0; border: 0; background: transparent; color: var(--fg-texto, #ecebe7);
+  font: 500 17px var(--fg-mono, monospace); font-variant-numeric: tabular-nums;
+}
+.lembrete-pesagem-campo input:focus { outline: none; }
+.lembrete-pesagem-campo:focus-within { border-color: var(--fg-acao, #e8744f); }
+.lembrete-pesagem-campo span { color: var(--fg-texto-3, #6f7479); font-size: 13px; }
+.lembrete-pesagem .fg-btn { min-height: 44px; }
+.lembrete-pesagem .fg-erro { grid-column: 1 / -1; }
+.lembrete-pesagem-ok {
+  display: block; font-size: 13px; color: var(--fg-ok, #7fbf7f);
+  border-color: var(--fg-linha, #282c31);
+}

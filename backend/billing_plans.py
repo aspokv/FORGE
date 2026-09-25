@@ -33,6 +33,8 @@ ANALISES_AVANCADAS = "advanced_analytics"
 # continua no Pro; o que e do Elite e o diario nomeado, que soma por refeicao e um dia
 # vai alimentar a leitura semanal do Conselho.
 DIARIO_LIVRE = "free_food_log"
+# O plano alimentar anda sozinho semana a semana (periodizacao_automatica.py).
+PERIODIZACAO_DA_DIETA = "diet_periodization"
 VARIACOES_DE_TREINO = "workout_variations"
 BUSCA_ALIMENTOS_PLANO = "food_plan_search"
 
@@ -43,7 +45,8 @@ CAPACIDADES_ESSENCIAL = {TREINO, PROGRESSAO, HISTORICO, SUBSTITUICAO_DE_EXERCICI
 CAPACIDADES_PRO = CAPACIDADES_ESSENCIAL | {
     ALIMENTACAO, SUBSTITUICAO_DE_ALIMENTO, REGENERAR_ALIMENTACAO, INTENSIDADES_PADRAO,
     VARIACOES_DE_TREINO, PROTOCOLOS_AGRESSIVOS}
-CAPACIDADES_ELITE = CAPACIDADES_PRO | {ANALISES_AVANCADAS, DIARIO_LIVRE, BUSCA_ALIMENTOS_PLANO}
+CAPACIDADES_ELITE = CAPACIDADES_PRO | {ANALISES_AVANCADAS, DIARIO_LIVRE, BUSCA_ALIMENTOS_PLANO,
+                                        PERIODIZACAO_DA_DIETA}
 
 ESSENCIAL, PRO, ELITE = "essential", "pro", "elite"
 
@@ -121,11 +124,13 @@ PLANOS: List[Dict[str, Any]] = [
             "O Conselho: toda semana o FORGE lê seus números e decide um ajuste",
             "Previsão semanal conferida: o motor diz se acertou",
             "Diário livre: registre o que você comeu de verdade, refeição por refeição",
+            # Saiu de "em_breve" quando a periodizacao automatica entrou no ar.
+            "Periodização da dieta: o carboidrato desce no corte e sobe no ganho, semana a "
+            "semana, no plano e no prato",
             "Maior nível de personalização",
         ],
         # Separado de proposito: sao promessas, nao entregas.
         "em_breve": [
-            "Periodização avançada",
             "Acesso prioritário a futuros recursos premium",
         ],
         "capacidades": CAPACIDADES_ELITE,

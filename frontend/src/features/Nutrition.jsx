@@ -17,6 +17,7 @@ import DiarioLivre from "./DiarioLivre";
 import TrocasDaDieta from "./TrocasDaDieta";
 import EditorDeRefeicao from "./EditorDeRefeicao";
 import ExcluirRefeicao from "./ExcluirRefeicao";
+import PeriodizacaoDaDieta from "./PeriodizacaoDaDieta";
 const ForgeFoodCard = lazy(() => import("./food-card/components/ForgeFoodCard"));
 import {localFoodDate, consumedTotals} from "./foodDiary";
 import { kcalDoItem, macrosDaRefeicao, textoDoMacro } from "./macrosDaRefeicao";
@@ -738,6 +739,7 @@ export default function Nutrition({ API, profileId, db }) {
                    onFoodCard={entryId => setFoodCard({dia: localFoodDate(), entryId})}/>}
       {/* "+ Adicionar" abria o registro de um EXTRA, e ao lado de "Suas refeicoes" era lido
           como "adicionar refeicao". Agora cada botao diz o que faz. */}
+      <PeriodizacaoDaDieta API={API} compacto/>
       <div className="a6-section-title" style={{marginTop:8,marginBottom:4}}><h2>Suas refeições</h2><span className="fg-acoes-titulo">
         {planEditAccess==="allowed"&&<button type="button" className="a6-textbutton" data-testid="nova-refeicao" disabled={meals.length>=6} onClick={()=>{setPlanEditMessage("");setEditorDeRefeicao({modo:"criar"});}}>+ Nova refeição</button>}
         <button type="button" className="a6-textbutton" data-testid="registrar-extra" disabled={diaryState!=="ready"} onClick={()=>setDiaryEditor({mealIndex:null})}>+ Registrar extra</button>
@@ -895,6 +897,8 @@ export default function Nutrition({ API, profileId, db }) {
       <AcrescentarRefeicao API={API} refeicoes={plan?.meals||[]}
                            onAcrescentada={res=>{setPlan(res.plan);refreshDiary()}}/>
       <CarboidratoDoDia ciclo={cicloDoPlano} alvoDoPlano={tPlano}/>
+      {/* O plano que anda sozinho: corte ou ganho, semana a semana (Elite). */}
+      <PeriodizacaoDaDieta API={API}/>
       {/* Trocar de emagrecimento para ganho exigia refazer o questionario inteiro, para
           mudar dois campos. E objetivo e o que mais muda ao longo do ano. */}
       <TrocarObjetivo API={API} objetivoAtual={form.goal} intensidadeAtual={form.intensity}

@@ -79,6 +79,10 @@ on:
       - 'frontend/src/features/EditorDeRefeicao.test.js'
       - 'frontend/src/features/ExcluirRefeicao.jsx'
       - 'frontend/src/features/Nutrition.refeicoesLivres.test.js'
+      - 'frontend/src/features/PeriodizacaoDaDieta.jsx'
+      - 'frontend/src/features/PeriodizacaoDaDieta.test.js'
+      - 'frontend/src/features/LembretePesagem.jsx'
+      - 'frontend/src/features/LembretePesagem.test.js'
       - 'frontend/src/features/AdminPanel.jsx'
       - 'frontend/src/features/mensagemDeErro.js'
       - 'frontend/src/features/mensagemDeErro.test.js'
@@ -102,6 +106,10 @@ on:
       - 'backend/refeicoes_livres.py'
       - 'backend/tests/test_refeicoes_livres.py'
       - 'backend/tests/test_refeicoes_livres_api.py'
+      - 'backend/periodizacao_automatica.py'
+      - 'backend/periodizacao_routes.py'
+      - 'backend/tests/test_periodizacao_automatica.py'
+      - 'backend/tests/test_periodizacao_api.py'
       - 'backend/tests/test_imported_targets_regression.py'
       - 'frontend/src/features/Nutrition.importedTargets.test.js'
       - 'frontend/src/features/FoodDiaryEditor.jsx'
@@ -321,6 +329,10 @@ on:
       - 'frontend/src/features/EditorDeRefeicao.test.js'
       - 'frontend/src/features/ExcluirRefeicao.jsx'
       - 'frontend/src/features/Nutrition.refeicoesLivres.test.js'
+      - 'frontend/src/features/PeriodizacaoDaDieta.jsx'
+      - 'frontend/src/features/PeriodizacaoDaDieta.test.js'
+      - 'frontend/src/features/LembretePesagem.jsx'
+      - 'frontend/src/features/LembretePesagem.test.js'
       - 'frontend/src/features/AdminPanel.jsx'
       - 'frontend/src/features/mensagemDeErro.js'
       - 'frontend/src/features/mensagemDeErro.test.js'
@@ -344,6 +356,10 @@ on:
       - 'backend/refeicoes_livres.py'
       - 'backend/tests/test_refeicoes_livres.py'
       - 'backend/tests/test_refeicoes_livres_api.py'
+      - 'backend/periodizacao_automatica.py'
+      - 'backend/periodizacao_routes.py'
+      - 'backend/tests/test_periodizacao_automatica.py'
+      - 'backend/tests/test_periodizacao_api.py'
       - 'backend/tests/test_imported_targets_regression.py'
       - 'frontend/src/features/Nutrition.importedTargets.test.js'
       - 'frontend/src/features/FoodDiaryEditor.jsx'
@@ -649,6 +665,8 @@ jobs:
       # teste que importa e o da CONCLUSAO da sessao escolhida — o compare-and-swap do
       # ponteiro so deixa concluir quem o tem parado na sessao concluida, e quem escolheu
       # outra tem o ponteiro legitimamente noutro lugar.
+      - name: Run diet periodization suite
+        run: pytest -q tests/test_periodizacao_api.py
       - name: Run free meals suite
         run: pytest -q tests/test_refeicoes_livres_api.py
       - name: Run session choice suite
@@ -749,6 +767,7 @@ jobs:
           tests/test_nutrition_import.py
           tests/test_colar_dieta_completa.py
           tests/test_refeicoes_livres.py
+          tests/test_periodizacao_automatica.py
           tests/test_nutrition_meal_type_and_import_guard.py
           tests/test_nutrition_meta_segue_questionario.py
           tests/test_imported_targets_regression.py
