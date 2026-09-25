@@ -1,4 +1,4 @@
-"""FORGE — rotas de importação de dieta em texto e de periodização calórica.
+"""FORGE — rotas de importação de dieta em texto.
 
 Mesmas convenções de nutrition_routes: prefixo /api/nutrition, db em
 request.app.state.db, auth por get_current_user, sem importar server.
@@ -26,7 +26,6 @@ from nutrition_import import (
     apply_resolution, draft_to_plan, parse_diet_text, recompute, review_reasons,
     sanitize_substitutions, unmatched_names, validate_draft, restore_import_targets,
 )
-from nutrition_periodization import build_periodization, sanitize_edited_table
 from text_match import sanitize
 
 router = APIRouter(prefix="/api/nutrition", tags=["nutrition-import"])
@@ -87,18 +86,6 @@ class DietDraftSaveIn(BaseModel):
 class ActivateDietIn(BaseModel):
     draft: Optional[DietDraftIn] = None
     activation_token: str = Field(min_length=8, max_length=64)
-
-
-class PeriodizationIn(BaseModel):
-    target_kcal: Optional[float] = Field(default=None, ge=800, le=8000)
-    pct: Optional[float] = Field(default=None, ge=-60, le=60)
-    weeks: int = Field(ge=1, le=52)
-
-
-class PeriodizationSaveIn(BaseModel):
-    table: List[Dict[str, Any]]
-    target_kcal: Optional[float] = None
-    weeks: int = Field(ge=1, le=52)
 
 
 def _target(user: dict) -> str:
@@ -342,73 +329,3 @@ async def activate_diet(payload: ActivateDietIn, request: Request, user=Depends(
             "archived_version_id": archived_version_id,
             "daily_totals": draft.get("daily_totals")}
 
-
-# --- periodização ---------------------------------------------------------------------
-
-async def _base_for_periodization(db, target: str) -> Dict[str, float]:
-    stored = await db.nutrition_plans.find_one({"profile_id": target}, {"_id": 0})
-    if not stored or not stored.get("plan"):
-        raise HTTPException(404, "Nenhum plano alimentar ativo. Importe ou gere a dieta primeiro.")
-    plan = stored["plan"]
-    totais = plan.get("daily_totals") or {}
-    if not totais:
-        alvos = plan.get("targets") or {}
-        totais = {"kcal": alvos.get("goal_calories", 0), "protein_g": alvos.get("protein_g", 0),
-                  "carbs_g": alvos.get("carbs_g", 0), "fat_g": alvos.get("fat_g", 0)}
-    return {"kcal": float(totais.get("kcal") or 0), "protein_g": float(totais.get("protein_g") or 0),
-            "carbs_g": float(totais.get("carbs_g") or 0), "fat_g": float(totais.get("fat_g") or 0)}
-
-
-async def _weight_and_goal(db, target: str):
-    profile = await _profile(db, target)
-    na = profile.get("nutrition_assessment") or {}
-    peso = na.get("weight_kg")
-    if not peso:
-        ultimo = await db.nutrition_weight_logs.find_one({"profile_id": target}, {"_id": 0},
-                                                         sort=[("created_at", -1)])
-        peso = (ultimo or {}).get("weight_kg")
-    if not peso:
-        raise HTTPException(400, "Peso corporal necessário para o piso de gordura. "
-                                 "Faça o assessment nutricional ou registre seu peso.")
-    return float(peso), na.get("goal", "fat_loss")
-
-
-@router.post("/periodization/preview")
-async def preview_periodization(payload: PeriodizationIn, request: Request,
-                                user=Depends(get_current_user)):
-    """Gera a tabela semanal sem salvar nada."""
-    db = request.app.state.db
-    target = _target(user)
-    base = await _base_for_periodization(db, target)
-    peso, goal = await _weight_and_goal(db, target)
-    try:
-        return build_periodization(base, peso, payload.weeks,
-                                   target_kcal=payload.target_kcal, pct=payload.pct, goal=goal)
-    except ValueError as e:
-        raise HTTPException(400, str(e))
-
-
-@router.post("/periodization/save")
-async def save_periodization(payload: PeriodizationSaveIn, request: Request,
-                             user=Depends(get_current_user)):
-    """Salva a tabela — inclusive editada à mão. As kcal são recalculadas a partir dos
-    macros no servidor e o piso de gordura continua valendo na edição manual."""
-    db = request.app.state.db
-    target = _target(user)
-    peso, goal = await _weight_and_goal(db, target)
-    tabela = sanitize_edited_table(payload.table, peso, goal)
-    if not tabela:
-        raise HTTPException(400, "Tabela vazia.")
-    doc = {"profile_id": target, "weeks": len(tabela), "target_kcal": payload.target_kcal,
-           "weight_kg": peso, "goal": goal, "table": tabela,
-           "updated_at": datetime.now(timezone.utc).isoformat()}
-    await db.nutrition_periodization.replace_one({"profile_id": target}, doc, upsert=True)
-    return {"periodization": doc,
-            "infeasible_weeks": [w["week"] for w in tabela if not w["feasible"]]}
-
-
-@router.get("/periodization")
-async def get_periodization(request: Request, user=Depends(get_current_user)):
-    db = request.app.state.db
-    doc = await db.nutrition_periodization.find_one({"profile_id": _target(user)}, {"_id": 0})
-    return {"periodization": doc}
