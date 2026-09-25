@@ -33,6 +33,7 @@ As regras
    plano espera. Sem pesagens suficientes o calendário segue, e a tela pede a pesagem de
    sexta — que é o que dá à balança o poder de segurar.
 """
+import math
 from datetime import date as Data
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -41,19 +42,49 @@ from conselho import PERDA_RAPIDA, PISO_KCAL, RITMO_ESPERADO, TETO_DO_PASSO_KCAL
 CORTE, GANHO = "corte", "ganho"
 FASES = (CORTE, GANHO)
 DURACOES = (2, 4, 6, 8, 12)
-RITMOS = ("suave", "moderado", "forte")
+AGRESSIVO = "agressivo"
+RITMOS = ("suave", "moderado", "forte", AGRESSIVO)
 
 # Fração da caloria base por degrau. O corte tem passos maiores que o ganho: um superávit
 # grande vira gordura mais rápido do que um déficit grande vira músculo perdido.
 PASSO_POR_RITMO = {
-    CORTE: {"suave": 0.04, "moderado": 0.06, "forte": 0.08},
-    GANHO: {"suave": 0.02, "moderado": 0.03, "forte": 0.04},
+    CORTE: {"suave": 0.04, "moderado": 0.06, "forte": 0.08, AGRESSIVO: 0.10},
+    GANHO: {"suave": 0.02, "moderado": 0.03, "forte": 0.04, AGRESSIVO: 0.06},
 }
 TETO_DO_PASSO = {CORTE: TETO_DO_PASSO_KCAL, GANHO: 150.0}
 PASSO_MINIMO_KCAL = 50.0
 CARBO_MINIMO_G_POR_KG = 1.5
 SUPERAVIT_MAXIMO = 0.20
 GANHO_RAPIDO = RITMO_ESPERADO["muscle_gain"][1]
+
+# O ritmo agressivo é o de atleta: corte que leva o carboidrato para perto de zero, e
+# ganho com superávit grande. É uma estratégia de poucas semanas, e por isso tem regras
+# próprias em vez de "o forte, só que mais":
+#
+#   - passo maior, com teto próprio;
+#   - no corte, o piso de carboidrato desce para 0,5 g/kg, e NUNCA abaixo de 40 g. Zerar
+#     não é opção: o treino pesado e o glicogênio de uma sessão inteira dependem dele,
+#     e uma dieta de zero carboidrato não é dieta de atleta, é dieta de outra coisa;
+#   - a balança tolera mais: quem escolheu agressivo espera andar mais rápido, e segurar o
+#     degrau a 1% por semana anularia a escolha. Mesmo assim ela segura — só mais tarde.
+TETO_DO_PASSO_AGRESSIVO = {CORTE: 350.0, GANHO: 250.0}
+CARBO_MINIMO_AGRESSIVO_G_POR_KG = 0.5
+CARBO_MINIMO_ABSOLUTO_G = 40
+SUPERAVIT_MAXIMO_AGRESSIVO = 0.35
+PERDA_RAPIDA_AGRESSIVA = 0.015
+GANHO_RAPIDO_AGRESSIVO = 0.010
+
+# "Sempre manter um carbo": cada fonte de carboidrato do prato fica com pelo menos esta
+# fração da porção original, e nunca menos de 10 g. Sem isto, o corte agressivo levava a
+# batata a 5 g — número que ninguém pesa e que, na prática, é tirar o alimento do prato.
+FRACAO_MINIMA_DA_FONTE = 0.10
+PORCAO_MINIMA_G = 10.0
+
+
+def piso_de_carbo(peso_kg: float, ritmo: str) -> int:
+    if ritmo == AGRESSIVO:
+        return max(CARBO_MINIMO_ABSOLUTO_G, round(CARBO_MINIMO_AGRESSIVO_G_POR_KG * float(peso_kg)))
+    return round(CARBO_MINIMO_G_POR_KG * float(peso_kg))
 KCAL_CARBO = 4
 
 
@@ -67,13 +98,19 @@ def fase_do_objetivo(objetivo: Optional[str]) -> Optional[str]:
 
 
 def passo_kcal(base_kcal: float, fase: str, ritmo: str) -> float:
-    passo = min(float(base_kcal) * PASSO_POR_RITMO[fase][ritmo], TETO_DO_PASSO[fase])
+    teto = (TETO_DO_PASSO_AGRESSIVO if ritmo == AGRESSIVO else TETO_DO_PASSO)[fase]
+    passo = min(float(base_kcal) * PASSO_POR_RITMO[fase][ritmo], teto)
     return round(max(PASSO_MINIMO_KCAL, passo))
 
 
 def montar_progressao(base: Dict[str, float], peso_kg: float, fase: str, semanas: int,
-                      ritmo: str) -> Dict[str, Any]:
+                      ritmo: str, piso_do_prato_g: Optional[float] = None) -> Dict[str, Any]:
     """A tabela das semanas: kcal e macros de cada uma, e onde um piso travou.
+
+    `piso_do_prato_g` é o mínimo de carboidrato que o prato consegue entregar mantendo uma
+    porção de cada fonte (`carbo_minimo_do_prato`). A meta nunca promete menos que isso:
+    uma meta de 42 g com o iogurte e o whey já somando 44 g seria um número que o prato
+    não cumpre.
 
     Levanta ValueError com frase de tela quando a periodização não faz sentido.
     """
@@ -82,7 +119,7 @@ def montar_progressao(base: Dict[str, float], peso_kg: float, fase: str, semanas
     if int(semanas) not in DURACOES:
         raise ValueError("Escolha 2, 4, 6, 8 ou 12 semanas.")
     if ritmo not in RITMOS:
-        raise ValueError("Escolha o ritmo: suave, moderado ou forte.")
+        raise ValueError("Escolha o ritmo: suave, moderado, forte ou agressivo.")
     kcal = float(base.get("kcal") or 0)
     proteina = float(base.get("protein_g") or 0)
     carbo = float(base.get("carbs_g") or 0)
@@ -92,25 +129,31 @@ def montar_progressao(base: Dict[str, float], peso_kg: float, fase: str, semanas
     if not peso_kg or float(peso_kg) <= 0:
         raise ValueError("Registre seu peso antes: o piso de carboidrato é calculado por ele.")
 
-    piso_carbo = round(CARBO_MINIMO_G_POR_KG * float(peso_kg))
+    piso_carbo = piso_de_carbo(peso_kg, ritmo)
+    motivo_do_piso = f"carboidrato no piso de {piso_carbo} g"
+    if piso_do_prato_g and math.ceil(piso_do_prato_g) > piso_carbo:
+        piso_carbo = int(math.ceil(piso_do_prato_g))
+        motivo_do_piso = (f"carboidrato no mínimo do seu prato ({piso_carbo} g): "
+                          f"cada fonte fica com uma porção")
     if fase == CORTE and carbo <= piso_carbo:
         raise ValueError(f"Seu carboidrato ({round(carbo)} g) já está no mínimo seguro para "
                          f"o seu peso ({piso_carbo} g). Um corte agora sairia do treino, não da gordura.")
 
     passo = passo_kcal(kcal, fase, ritmo)
     sentido = -1 if fase == CORTE else 1
-    teto_ganho = kcal * (1 + SUPERAVIT_MAXIMO)
+    superavit = SUPERAVIT_MAXIMO_AGRESSIVO if ritmo == AGRESSIVO else SUPERAVIT_MAXIMO
+    teto_ganho = kcal * (1 + superavit)
     linhas = []
     for degrau in range(int(semanas)):
         alvo = kcal + sentido * passo * degrau
         travou = None
         if fase == GANHO and alvo > teto_ganho:
-            alvo, travou = teto_ganho, f"superávit no teto de {int(SUPERAVIT_MAXIMO * 100)}%"
+            alvo, travou = teto_ganho, f"superávit no teto de {int(superavit * 100)}%"
         novo_carbo = carbo + (alvo - kcal) / KCAL_CARBO
         if fase == CORTE and novo_carbo < piso_carbo:
             novo_carbo = float(piso_carbo)
             alvo = kcal + (novo_carbo - carbo) * KCAL_CARBO
-            travou = f"carboidrato no piso de {piso_carbo} g"
+            travou = motivo_do_piso
         if fase == CORTE and alvo < PISO_KCAL:
             alvo = PISO_KCAL
             novo_carbo = carbo + (alvo - kcal) / KCAL_CARBO
@@ -128,7 +171,7 @@ def semana_do_calendario(inicio: Data, hoje: Data) -> int:
     return max(1, (hoje - inicio).days // 7 + 1)
 
 
-def decidir_degrau(fase: str, tendencia: Dict[str, Any]) -> Tuple[str, str]:
+def decidir_degrau(fase: str, tendencia: Dict[str, Any], ritmo: str = "moderado") -> Tuple[str, str]:
     """("avancar" | "segurar", motivo). A balança só pode segurar, nunca inventar degrau."""
     if not tendencia.get("suficiente"):
         return "avancar", ("Sem pesagens suficientes para conferir o ritmo: segui o calendário. "
@@ -136,14 +179,17 @@ def decidir_degrau(fase: str, tendencia: Dict[str, Any]) -> Tuple[str, str]:
     peso = float(tendencia.get("peso_atual") or 0)
     kg = float(tendencia.get("kg_por_semana") or 0)
     fracao = kg / peso if peso else 0.0
-    ritmo = f"{numero(kg, 2, sinal=True)} kg por semana ({numero(fracao * 100, 1, sinal=True)}%)"
-    if fase == CORTE and fracao < -PERDA_RAPIDA:
-        return "segurar", (f"Você está a {ritmo}. Acima de {int(PERDA_RAPIDA * 100)}% por semana a "
+    agressivo = ritmo == AGRESSIVO
+    perda_max = PERDA_RAPIDA_AGRESSIVA if agressivo else PERDA_RAPIDA
+    ganho_max = GANHO_RAPIDO_AGRESSIVO if agressivo else GANHO_RAPIDO
+    andamento = f"{numero(kg, 2, sinal=True)} kg por semana ({numero(fracao * 100, 1, sinal=True)}%)"
+    if fase == CORTE and fracao < -perda_max:
+        return "segurar", (f"Você está a {andamento}. Acima de {numero(perda_max * 100, 1)}% por semana a "
                            f"perda começa a sair de músculo: segurei o degrau desta semana.")
-    if fase == GANHO and fracao > GANHO_RAPIDO:
-        return "segurar", (f"Você está a {ritmo}. Acima de {numero(GANHO_RAPIDO * 100, 1)}% por "
+    if fase == GANHO and fracao > ganho_max:
+        return "segurar", (f"Você está a {andamento}. Acima de {numero(ganho_max * 100, 1)}% por "
                            f"semana o ganho vira gordura: segurei o degrau desta semana.")
-    return "avancar", f"Seu peso anda a {ritmo}, dentro do ritmo. Degrau aplicado."
+    return "avancar", f"Seu peso anda a {andamento}, dentro do ritmo. Degrau aplicado."
 
 
 # ── O prato ─────────────────────────────────────────────────────────────────────────────
@@ -174,6 +220,21 @@ def _carbo_do_item(item, catalogo_diario) -> float:
     return float(base.get("carbs_g") or 0) * float(item.get("grams") or 0) / max(1.0, float(base.get("grams") or 100))
 
 
+def carbo_minimo_do_prato(refeicoes: List[Dict[str, Any]], catalogo_motor, catalogo_diario) -> float:
+    """O menor carboidrato que o prato entrega mantendo uma porção de cada fonte: o que vem
+    dos alimentos que não são fonte (iogurte, whey, verdura) mais a porção mínima das fontes."""
+    total = 0.0
+    for refeicao in refeicoes or []:
+        for item in refeicao.get("foods") or []:
+            carbo = _carbo_do_item(item, catalogo_diario)
+            if e_fonte_de_carbo(item, catalogo_motor, catalogo_diario):
+                original = float(item.get("grams") or 0)
+                minimo = min(original, max(PORCAO_MINIMA_G, _arredondar(original * FRACAO_MINIMA_DA_FONTE)))
+                carbo *= (minimo / original) if original else 0
+            total += carbo
+    return round(total, 1)
+
+
 def _arredondar(gramas: float) -> float:
     """De 5 em 5 g: "130 g de arroz" se pesa; "127,4 g" não."""
     return float(max(5, int(round(gramas / 5.0)) * 5))
@@ -192,12 +253,16 @@ def ajustar_refeicoes(refeicoes: List[Dict[str, Any]], delta_carbo_g: float, cat
     total = sum(_carbo_do_item(refeicoes[i]["foods"][j], catalogo_diario) for i, j in fontes)
     if total <= 0 or not delta_carbo_g:
         return refeicoes, 0.0, []
-    fator = max(0.2, (total + float(delta_carbo_g)) / total)
+    fator = max(0.0, (total + float(delta_carbo_g)) / total)
     novas = [dict(r, foods=list(r.get("foods") or [])) for r in refeicoes]
     aplicado, mudancas = 0.0, []
     for i, j in fontes:
         item = novas[i]["foods"][j]
-        gramas = _arredondar(float(item["grams"]) * fator)
+        original = float(item["grams"])
+        gramas = _arredondar(original * fator)
+        if fator < 1:
+            minimo = max(PORCAO_MINIMA_G, _arredondar(original * FRACAO_MINIMA_DA_FONTE))
+            gramas = min(original, max(gramas, minimo))
         if gramas == float(item["grams"]):
             continue
         antes = _carbo_do_item(item, catalogo_diario)

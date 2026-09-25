@@ -271,3 +271,26 @@ async def test_com_a_fase_em_andamento_o_conselho_nao_mexe_na_caloria():
         assert await _respeitar_periodizacao(DB, uid, treino) == treino
     finally:
         await _limpar(uid)
+
+
+@asincrono
+async def test_agressivo_no_corte_leva_o_carbo_perto_do_minimo_do_prato_sem_zerar():
+    import periodizacao_automatica as pa
+    from food_diary import DIARY_FOODS
+    from nutrition_engine import FOOD_INDEX
+    uid, h = await _atleta()
+    try:
+        plano = await _plano(uid)
+        minimo = pa.carbo_minimo_do_prato(plano["meals"], FOOD_INDEX, DIARY_FOODS)
+        async with await _cliente() as c:
+            r = await c.post("/api/nutrition/periodizacao/previa", headers=h,
+                             json={"fase": "corte", "semanas": 12, "ritmo": "agressivo"})
+            assert r.status_code == 200, r.text
+            ligar = await c.post("/api/nutrition/periodizacao/ativar", headers=h,
+                                 json={"fase": "corte", "semanas": 12, "ritmo": "agressivo"})
+        tabela = r.json()["tabela"]
+        assert min(l["carbs_g"] for l in tabela) >= max(minimo, 40) > 0
+        assert tabela[-1]["carbs_g"] < tabela[0]["carbs_g"] / 2
+        assert ligar.status_code == 200
+    finally:
+        await _limpar(uid)

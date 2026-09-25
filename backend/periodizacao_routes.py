@@ -73,8 +73,9 @@ def _progressao(ctx, payload: PeriodizacaoIn) -> Dict[str, Any]:
     if not (ctx["plano"].get("meals")):
         raise HTTPException(404, "Gere ou importe seu plano alimentar antes de periodizar.")
     try:
+        piso_do_prato = pa.carbo_minimo_do_prato(ctx["plano"].get("meals") or [], FOOD_INDEX, DIARY_FOODS)
         return pa.montar_progressao(_base_do_plano(ctx["plano"]), ctx["peso"], fase,
-                                    payload.semanas, payload.ritmo)
+                                    payload.semanas, payload.ritmo, piso_do_prato)
     except ValueError as erro:
         raise HTTPException(422, str(erro))
 
@@ -122,7 +123,7 @@ async def aplicar_semana_pendente(db, perfil_id: str, hoje: Optional[CalendarDat
 
     ctx = await _contexto(db, perfil_id)
     tendencia = tendencia_de_peso(list(reversed(ctx["pesagens"])))
-    decisao, motivo = pa.decidir_degrau(doc["fase"], tendencia)
+    decisao, motivo = pa.decidir_degrau(doc["fase"], tendencia, doc.get("ritmo") or "moderado")
     degrau = int(doc.get("degrau") or 0)
     if decisao == "avancar":
         degrau = min(total - 1, degrau + (semana - ja))

@@ -46,3 +46,4 @@
 .pd-ligada { border-color: var(--fg-acao, #e8744f); }
 .pd-aviso { color: var(--fg-ok, #7fbf7f) !important; font-size: 13px !important; }
 @media (prefers-reduced-motion: reduce) { .pd-chave-trilho, .pd-chave-bola { transition: none; } }
+.pd-alerta { border-left: 2px solid var(--fg-atencao, #e0b25a); padding-left: 10px; color: var(--fg-texto, #ecebe7) !important; font-size: 13px !important; }
