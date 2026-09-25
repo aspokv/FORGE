@@ -1,0 +1,13 @@
+/* Editor de refeição (Elite): mesma base do registro do diário, com o nome e a posição
+ * da refeição em cima. */
+.editor-de-refeicao { display: flex; flex-direction: column; gap: var(--e-2, 8px); }
+.editor-de-refeicao .acrescentar-sugestoes { margin-bottom: 4px; }
+.editor-vazio { color: var(--fg-texto-3, #6f7479); font-size: 13px; }
+
+/* Ações do Elite em cada refeição: montar ocupa a linha; trocar e excluir dividem a de baixo. */
+.fg-refeicao-elite { display: flex; flex-direction: column; gap: 8px; }
+.fg-refeicao-elite .fg-acoes-linha { display: flex; gap: 8px; }
+.fg-refeicao-elite .fg-acoes-linha > button { flex: 1 1 0; min-height: 44px; }
+
+/* Titulo de "Suas refeicoes" com duas acoes lado a lado. */
+.fg-acoes-titulo { display: inline-flex; gap: 14px; flex-wrap: wrap; justify-content: flex-end; }

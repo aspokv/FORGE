@@ -15,6 +15,8 @@ import NutritionImport from "./NutritionImport";
 import FoodDiaryEditor from "./FoodDiaryEditor";
 import DiarioLivre from "./DiarioLivre";
 import TrocasDaDieta from "./TrocasDaDieta";
+import EditorDeRefeicao from "./EditorDeRefeicao";
+import ExcluirRefeicao from "./ExcluirRefeicao";
 const ForgeFoodCard = lazy(() => import("./food-card/components/ForgeFoodCard"));
 import {localFoodDate, consumedTotals} from "./foodDiary";
 import { kcalDoItem, macrosDaRefeicao, textoDoMacro } from "./macrosDaRefeicao";
@@ -105,6 +107,8 @@ export default function Nutrition({ API, profileId, db }) {
   const [step, setStep] = useState("loading");
   const [editingMeal,setEditingMeal]=useState(null),[planEditAccess,setPlanEditAccess]=useState("loading"),[accessAttempt,setAccessAttempt]=useState(0);
   const [planEditMessage,setPlanEditMessage]=useState("");
+  // Elite: montar ({modo:"criar"} ou {modo:"editar",indice}) e excluir refeicoes do plano.
+  const [editorDeRefeicao,setEditorDeRefeicao]=useState(null),[excluindo,setExcluindo]=useState(null);
   useEffect(()=>{
     const controller=new AbortController();setPlanEditAccess("loading");
     axios.get(`${API}/billing/me`,{signal:controller.signal})
@@ -699,6 +703,7 @@ export default function Nutrition({ API, profileId, db }) {
        fat_g: hojeCiclado.fat_g, goal_calories: hojeCiclado.goal_calories}
     : tPlano;
   const meals = plan?.meals || [];
+  const aplicarRefeicoes=(novoPlano,mensagem)=>{setPlan(novoPlano);setSubResult(null);setEditorDeRefeicao(null);setExcluindo(null);setPlanEditMessage(mensagem);refreshDiary();};
   const consumed = consumedTotals(meals, diary.meals, diary.extras);
   const nextMeal=meals.findIndex((_,i)=>mealStatus[i]!=="completed"&&mealStatus[i]!=="skipped");
   return (
@@ -731,7 +736,16 @@ export default function Nutrition({ API, profileId, db }) {
       <div hidden={view!=="today"} className="forge-nutrition-today">
       {diaryState==="ready"&&<DiarioLivre API={API} dia={localFoodDate()} diario={diary} aoMudar={refreshDiary}
                    onFoodCard={entryId => setFoodCard({dia: localFoodDate(), entryId})}/>}
-      <div className="a6-section-title" style={{marginTop:8,marginBottom:4}}><h2>Suas refeições</h2><button type="button" className="a6-textbutton" disabled={diaryState!=="ready"} onClick={()=>setDiaryEditor({mealIndex:null})}>+ Adicionar</button></div>
+      {/* "+ Adicionar" abria o registro de um EXTRA, e ao lado de "Suas refeicoes" era lido
+          como "adicionar refeicao". Agora cada botao diz o que faz. */}
+      <div className="a6-section-title" style={{marginTop:8,marginBottom:4}}><h2>Suas refeições</h2><span className="fg-acoes-titulo">
+        {planEditAccess==="allowed"&&<button type="button" className="a6-textbutton" data-testid="nova-refeicao" disabled={meals.length>=6} onClick={()=>{setPlanEditMessage("");setEditorDeRefeicao({modo:"criar"});}}>+ Nova refeição</button>}
+        <button type="button" className="a6-textbutton" data-testid="registrar-extra" disabled={diaryState!=="ready"} onClick={()=>setDiaryEditor({mealIndex:null})}>+ Registrar extra</button>
+      </span></div>
+      {editorDeRefeicao?.modo==="criar"&&<EditorDeRefeicao API={API} modo="criar" refeicoes={meals} dia={localFoodDate()}
+        onSalvo={p=>aplicarRefeicoes(p,"Refeição criada no plano.")} onFechar={()=>setEditorDeRefeicao(null)}/>}
+      {excluindo&&<ExcluirRefeicao API={API} indice={excluindo.indice} nome={excluindo.nome} dia={localFoodDate()} ultima={meals.length<=1}
+        onExcluida={p=>aplicarRefeicoes(p,`${excluindo.nome} saiu do plano.`)} onFechar={()=>setExcluindo(null)}/>}
       {diaryEditor?.mealIndex===null&&<FoodDiaryEditor API={API} mealIndex={null} onSaved={refreshDiary} onClose={()=>setDiaryEditor(null)}/>}
       {meals.length === 0 && (
         <div className="empty-state" data-testid="nutrition-empty-state">
@@ -754,7 +768,15 @@ export default function Nutrition({ API, profileId, db }) {
               <div>{i===nextMeal&&<div className="a6-eyebrow">PRÓXIMA REFEIÇÃO</div>}<h3>{meal.name}</h3><p>{status==="completed"?"Registrado":status==="skipped"?"Pulado":(meal.foods||[]).map(x=>x.food?.name||x.food_id).join(", ")}{status==="completed"?` · ${Math.round(recordedKcal)} kcal`:""}</p></div>
             </summary>
             <div className="a6-editor nutrition-page">
-            {planEditAccess==="allowed"&&<button type="button" className="fg-btn fg-btn-2 fg-btn-cheio" data-testid={`edit-meal-foods-${i}`} disabled={!meal.foods?.length} onClick={()=>{setPlanEditMessage("");setEditingMeal(i);}}>Editar alimentos · Elite</button>}
+            {planEditAccess==="allowed"&&<div className="fg-refeicao-elite">
+              <button type="button" className="fg-btn fg-btn-2 fg-btn-cheio" data-testid={`montar-refeicao-${i}`} onClick={()=>{setPlanEditMessage("");setEditorDeRefeicao({modo:"editar",indice:i});}}>Montar do meu jeito · Elite</button>
+              <div className="fg-acoes-linha">
+                <button type="button" className="fg-btn fg-btn-2" data-testid={`edit-meal-foods-${i}`} disabled={!meal.foods?.length} onClick={()=>{setPlanEditMessage("");setEditingMeal(i);}}>Trocar um alimento</button>
+                <button type="button" className="fg-btn fg-btn-2" data-testid={`excluir-refeicao-${i}`} onClick={()=>{setPlanEditMessage("");setExcluindo({indice:i,nome:meal.name});}}>Excluir refeição</button>
+              </div>
+            </div>}
+            {editorDeRefeicao?.modo==="editar"&&editorDeRefeicao.indice===i&&<EditorDeRefeicao key={`editar-${i}`} API={API} modo="editar" refeicao={meal} indice={i} dia={localFoodDate()}
+              onSalvo={p=>aplicarRefeicoes(p,"Refeição salva no plano.")} onFechar={()=>setEditorDeRefeicao(null)}/>}
             {/* A foto carrega o titulo em vez de dividir a linha com ele: o nome desce
                 para o pe da imagem, sobre a sombra, onde o contraste e garantido. */}
             <div

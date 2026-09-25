@@ -47,7 +47,8 @@ test("avisa que as outras refeicoes encolhem ANTES de acrescentar",async()=>{
   expect(host.textContent).toContain("porções mudam");
 });
 
-test("acrescentar envia nome e posicao",async()=>{
+// O dia da tela vai junto: os registros de hoje mudam de lugar com as refeicoes.
+test("acrescentar envia nome, posicao e o dia da tela",async()=>{
   axios.post.mockResolvedValue({data:{plan:{meals:[]},meal_count:4,posicao:0}});
   await render();
   await tocar('[data-testid="abrir-acrescentar"]');
@@ -55,7 +56,7 @@ test("acrescentar envia nome e posicao",async()=>{
   await tocar('[data-testid="posicao-0"]');
   await tocar('[data-testid="salvar-refeicao"]');
   expect(axios.post).toHaveBeenCalledWith("/api/nutrition/plan/add-meal",
-    {nome:"Pré-treino",posicao:0});
+    {nome:"Pré-treino",posicao:0,dia:expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/)});
 });
 
 test("nome curto demais nao deixa salvar",async()=>{
