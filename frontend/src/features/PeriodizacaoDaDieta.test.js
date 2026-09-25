@@ -18,81 +18,107 @@ const ATIVA = {status: "ativa", fase: "corte", ritmo: "moderado", semanas: 4, de
   historico: [{semana: 1, decisao: "inicio", motivo: "Semana 1 é a sua dieta."},
               {semana: 2, decisao: "avancar", motivo: "Seu peso anda a -0,50 kg por semana. Degrau aplicado.",
                mudancas: [{refeicao: "Almoço", alimento: "Batata inglesa cozida", de: 250, para: 205}]}]};
+const DESLIGADA = {liberado: true, periodizacao: null, fase_sugerida: "corte"};
+const LIGADA = {liberado: true, periodizacao: ATIVA, semana_atual: 2};
+
+beforeEach(() => jest.useFakeTimers());
+afterEach(() => { jest.useRealTimers(); jest.clearAllMocks(); });
 
 async function montar(estado, props = {}) {
   axios.get.mockResolvedValue({data: estado});
+  axios.post.mockImplementation(url => url.endsWith("/previa") ? Promise.resolve({data: PREVIA}) : Promise.resolve({data: {}}));
   const host = document.createElement("div");
   const root = createRoot(host);
   await act(async () => root.render(<PeriodizacaoDaDieta API="/api" {...props}/>));
+  await act(async () => { jest.advanceTimersByTime(300); });
   return {host, root, $: id => host.querySelector(`[data-testid="${id}"]`)};
 }
+const chamadas = sufixo => axios.post.mock.calls.filter(([u]) => u.endsWith(sufixo));
 
-afterEach(() => jest.clearAllMocks());
-
-test("sem Elite mostra o que é, sem deixar configurar", async () => {
+test("sem Elite: a chave aparece desligada e não liga", async () => {
   const {root, $} = await montar({liberado: false, periodizacao: null});
   try {
-    expect($("pd-bloqueado")).not.toBeNull();
-    expect($("pd-ver-previa")).toBeNull();
+    expect($("pd-chave").getAttribute("aria-checked")).toBe("false");
+    expect($("pd-chave").disabled).toBe(true);
+    expect($("pd-fase-corte")).toBeNull();
   } finally { await act(async () => root.unmount()); }
 });
 
-test("configurar: a fase vem do objetivo, a prévia mostra as semanas e o prato, e aí começa", async () => {
-  const {host, root, $} = await montar({liberado: true, periodizacao: null, fase_sugerida: "corte"});
+test("desligada: escolher o tipo já mostra as semanas e o prato, sem botão de começar", async () => {
+  const {host, root, $} = await montar(DESLIGADA);
   try {
+    expect($("pd-chave").getAttribute("aria-checked")).toBe("false");
     expect($("pd-fase-corte").getAttribute("aria-checked")).toBe("true");
-    await act(async () => $("pd-semanas-4").click());
-    await act(async () => $("pd-ritmo-moderado").click());
-    axios.post.mockResolvedValueOnce({data: PREVIA});
-    await act(async () => $("pd-ver-previa").click());
-    expect(axios.post).toHaveBeenCalledWith("/api/nutrition/periodizacao/previa", {fase: "corte", semanas: 4, ritmo: "moderado"});
+    expect(chamadas("/previa").at(-1)[1]).toEqual({fase: "corte", semanas: 4, ritmo: "moderado"});
     expect(host.querySelectorAll(".pd-semana")).toHaveLength(4);
-    expect(host.textContent).toContain("Batata inglesa cozida 250 g → 110 g");
-    axios.post.mockResolvedValueOnce({data: {}});
-    axios.get.mockResolvedValue({data: {liberado: true, periodizacao: ATIVA, semana_atual: 2}});
-    await act(async () => $("pd-comecar").click());
-    expect(axios.post).toHaveBeenLastCalledWith("/api/nutrition/periodizacao/ativar", {fase: "corte", semanas: 4, ritmo: "moderado"});
-    expect($("pd-ativa")).not.toBeNull();
+    expect($("pd-prato-previa").textContent).toContain("250 g → 110 g");
+    expect(host.textContent).not.toMatch(/Começar/);
+    // Trocar uma escolha refaz a prévia.
+    await act(async () => $("pd-semanas-8").click());
+    await act(async () => { jest.advanceTimersByTime(300); });
+    expect(chamadas("/previa").at(-1)[1]).toEqual({fase: "corte", semanas: 8, ritmo: "moderado"});
   } finally { await act(async () => root.unmount()); }
 });
 
-test("mudar uma escolha apaga a prévia velha", async () => {
-  const {root, $} = await montar({liberado: true, periodizacao: null, fase_sugerida: "corte"});
+test("ligar a chave ativa com o tipo escolhido e já sai ligada", async () => {
+  const {host, root, $} = await montar(DESLIGADA);
   try {
-    axios.post.mockResolvedValueOnce({data: PREVIA});
-    await act(async () => $("pd-ver-previa").click());
-    expect($("pd-previa")).not.toBeNull();
     await act(async () => $("pd-ritmo-forte").click());
-    expect($("pd-previa")).toBeNull();
+    await act(async () => { jest.advanceTimersByTime(300); });
+    axios.get.mockResolvedValue({data: LIGADA});
+    await act(async () => $("pd-chave").click());
+    expect(chamadas("/ativar")[0][1]).toEqual({fase: "corte", semanas: 4, ritmo: "forte"});
+    expect($("pd-chave").getAttribute("aria-checked")).toBe("true");
+    expect(host.textContent).toContain("semana 2 de 4");
+    expect($("pd-aviso").textContent).toContain("Ligada");
   } finally { await act(async () => root.unmount()); }
 });
 
-test("ativa: semana atual, o motivo da semana e o que mudou no prato", async () => {
-  const {host, root, $} = await montar({liberado: true, periodizacao: ATIVA, semana_atual: 2});
+test("ligada: mostra a semana, o motivo e o prato; desligar é só tocar na chave", async () => {
+  const {host, root, $} = await montar(LIGADA);
   try {
-    expect(host.textContent).toContain("Semana 2 de 4");
+    expect($("pd-chave").getAttribute("aria-checked")).toBe("true");
     expect($("pd-motivo").textContent).toContain("Degrau aplicado");
     expect($("pd-prato").textContent).toContain("250 g → 205 g");
     expect(host.querySelector(".pd-semana.atual").textContent).toContain("Semana 2");
+    expect($("pd-fase-corte")).toBeNull();   // o tipo não muda com ela ligada
+    axios.get.mockResolvedValue({data: {...DESLIGADA, periodizacao: {...ATIVA, status: "encerrada"}}});
+    await act(async () => $("pd-chave").click());
+    expect(chamadas("/encerrar")).toHaveLength(1);
+    expect($("pd-chave").getAttribute("aria-checked")).toBe("false");
+    expect($("pd-aviso").textContent).toContain("desligada");
   } finally { await act(async () => root.unmount()); }
 });
 
-test("encerrar pede confirmação antes", async () => {
-  const {root, $} = await montar({liberado: true, periodizacao: ATIVA, semana_atual: 2});
+test("erro ao ligar: a chave continua desligada e diz o motivo", async () => {
+  const {host, root, $} = await montar(DESLIGADA);
   try {
-    await act(async () => $("pd-encerrar").click());
-    expect(axios.post).not.toHaveBeenCalled();
-    axios.post.mockResolvedValueOnce({data: {status: "encerrada"}});
-    await act(async () => $("pd-encerrar-confirmar").click());
-    expect(axios.post).toHaveBeenCalledWith("/api/nutrition/periodizacao/encerrar");
+    axios.post.mockImplementation(url => url.endsWith("/previa") ? Promise.resolve({data: PREVIA})
+      : Promise.reject({response: {status: 409, data: {detail: "Já existe uma periodização em andamento."}}}));
+    await act(async () => $("pd-chave").click());
+    expect($("pd-chave").getAttribute("aria-checked")).toBe("false");
+    expect(host.querySelector('[role="alert"]').textContent).toContain("em andamento");
   } finally { await act(async () => root.unmount()); }
 });
 
-test("versão compacta só aparece com a fase em andamento", async () => {
-  const ativa = await montar({liberado: true, periodizacao: ATIVA, semana_atual: 2}, {compacto: true});
-  expect(ativa.$("pd-compacto").textContent).toContain("semana 2 de 4");
-  await act(async () => ativa.root.unmount());
-  const nada = await montar({liberado: true, periodizacao: null}, {compacto: true});
-  expect(nada.host.innerHTML).toBe("");
-  await act(async () => nada.root.unmount());
+test("prévia impossível (ex.: carbo já no piso) não deixa ligar", async () => {
+  axios.get.mockResolvedValue({data: DESLIGADA});
+  axios.post.mockRejectedValue({response: {status: 422, data: {detail: "Seu carboidrato já está no mínimo seguro."}}});
+  const host = document.createElement("div");
+  const root = createRoot(host);
+  try {
+    await act(async () => root.render(<PeriodizacaoDaDieta API="/api"/>));
+    await act(async () => { jest.advanceTimersByTime(300); });
+    expect(host.querySelector('[data-testid="pd-erro-previa"]').textContent).toContain("mínimo seguro");
+    expect(host.querySelector('[data-testid="pd-chave"]').disabled).toBe(true);
+  } finally { await act(async () => root.unmount()); }
+});
+
+test("versão compacta só aparece ligada", async () => {
+  const ligada = await montar(LIGADA, {compacto: true});
+  expect(ligada.$("pd-compacto").textContent).toContain("Periodização ligada · semana 2 de 4");
+  await act(async () => ligada.root.unmount());
+  const desligada = await montar(DESLIGADA, {compacto: true});
+  expect(desligada.host.innerHTML).toBe("");
+  await act(async () => desligada.root.unmount());
 });

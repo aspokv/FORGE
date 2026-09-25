@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import axios from "axios";
 import {mensagemDeErro} from "./mensagemDeErro";
 import {
-  AlertTriangle, CalendarRange, ChevronDown, ChevronRight, ClipboardPaste,
+  AlertTriangle, ChevronDown, ChevronRight, ClipboardPaste,
   Loader2, Plus, Save, Trash2, X, Zap,
 } from "lucide-react";
 
@@ -41,7 +41,6 @@ const round = n => Math.round(Number(n) || 0);
 
 export default function NutritionImport({ API, onActivated, onClose }) {
   const [foods, setFoods] = useState([]);
-  const [tab, setTab] = useState("import");
   const [text, setText] = useState("");
   const [showExample, setShowExample] = useState(false);
   const [draft, setDraft] = useState(null);
@@ -50,14 +49,6 @@ export default function NutritionImport({ API, onActivated, onClose }) {
   const [busy, setBusy] = useState("");
   const [confirming, setConfirming] = useState(false);
   const activationToken = useRef(null);
-
-  // periodização
-  const [mode, setMode] = useState("kcal");
-  const [targetKcal, setTargetKcal] = useState("");
-  const [pct, setPct] = useState("-15");
-  const [weeks, setWeeks] = useState(8);
-  const [table, setTable] = useState(null);
-  const [periodMeta, setPeriodMeta] = useState(null);
 
   const catalog = useMemo(() => foods || [], [foods]);
   const foodName = useCallback(id => catalog.find(f => f.id === id)?.name || id || "", [catalog]);
@@ -69,9 +60,6 @@ export default function NutritionImport({ API, onActivated, onClose }) {
       .catch(() => {});
     axios.get(`${API}/nutrition/foods`)
       .then(r => { if (alive) setFoods(r.data?.foods || []); })
-      .catch(() => {});
-    axios.get(`${API}/nutrition/periodization`)
-      .then(r => { if (alive && r.data?.periodization) { setTable(r.data.periodization.table); setPeriodMeta(r.data.periodization); } })
       .catch(() => {});
     return () => { alive = false; };
   }, [API]);
@@ -175,37 +163,6 @@ export default function NutritionImport({ API, onActivated, onClose }) {
     } finally { setBusy(""); }
   };
 
-  const generateTable = async () => {
-    setMessage(""); setBusy("period");
-    try {
-      const body = { weeks: Number(weeks) };
-      if (mode === "kcal") body.target_kcal = Number(targetKcal);
-      else body.pct = Number(pct);
-      const r = await axios.post(`${API}/nutrition/periodization/preview`, body);
-      setTable(r.data.table);
-      setPeriodMeta(r.data);
-    } catch (e) {
-      setMessage(mensagemDeErro(e, "Não foi possível gerar a periodização."));
-    } finally { setBusy(""); }
-  };
-
-  const patchWeek = (idx, patch) =>
-    setTable(t => t.map((w, i) => i === idx ? { ...w, ...patch } : w));
-
-  const savePeriodization = async () => {
-    setBusy("period-save");
-    try {
-      const r = await axios.post(`${API}/nutrition/periodization/save`, {
-        table, weeks: table.length,
-        target_kcal: periodMeta?.target_kcal ?? null,
-      });
-      setTable(r.data.periodization.table);
-      setMessage("Periodização salva.");
-    } catch (e) {
-      setMessage(mensagemDeErro(e, "Não foi possível salvar a periodização."));
-    } finally { setBusy(""); }
-  };
-
   const totals = draft?.daily_totals || {};
   const reviewCount = draft?.stats?.needs_review || 0;
 
@@ -215,21 +172,12 @@ export default function NutritionImport({ API, onActivated, onClose }) {
         <div className="coach-header">
           <div>
             <p className="eyebrow">DIETA PRÓPRIA · MANUAL</p>
-            <h2>Colar dieta e periodizar</h2>
+            <h2>Colar minha dieta</h2>
           </div>
           <button className="icon-button" data-testid="close-diet-import" onClick={onClose}><X size={20} /></button>
         </div>
 
-        <div className="manual-tabs">
-          <button className={tab === "import" ? "manual-tab active" : "manual-tab"} data-testid="diet-tab-import" onClick={() => setTab("import")}>
-            <ClipboardPaste size={15} /> Colar dieta
-          </button>
-          <button className={tab === "period" ? "manual-tab active" : "manual-tab"} data-testid="diet-tab-period" onClick={() => setTab("period")}>
-            <CalendarRange size={15} /> Periodização
-          </button>
-        </div>
-
-        {tab === "import" && !draft && (
+        {!draft && (
           <div className="manual-import" data-testid="diet-import-pane">
             <label className="deep-field">
               <span>Cole a dieta completa</span>
@@ -254,7 +202,7 @@ export default function NutritionImport({ API, onActivated, onClose }) {
           </div>
         )}
 
-        {tab === "import" && draft && !confirming && (
+        {draft && !confirming && (
           <div className="manual-preview" data-testid="diet-preview">
             {/* Sem este botao, um rascunho salvo prendia a tela na previa: a caixa de texto
                 nunca voltava e nao havia onde colar outra dieta. */}
@@ -418,94 +366,8 @@ export default function NutritionImport({ API, onActivated, onClose }) {
           </div>
         )}
 
-        {tab === "period" && (
-          <div className="manual-preview" data-testid="diet-period-pane">
-            <p className="muted">
-              A partir do seu plano ativo, gera uma progressão semanal até a meta calórica.
-              A proteína fica fixa; a gordura respeita o piso de segurança e o que sobra vai
-              para o carboidrato.
-            </p>
-
-            <div className="period-form">
-              <label className="deep-field">
-                <span>Meta por</span>
-                <select data-testid="period-mode" value={mode} onChange={e => setMode(e.target.value)}>
-                  <option value="kcal">Calorias finais</option>
-                  <option value="pct">Porcentagem</option>
-                </select>
-              </label>
-              {mode === "kcal" ? (
-                <label className="deep-field">
-                  <span>Kcal finais</span>
-                  <input type="number" data-testid="period-target-kcal" value={targetKcal}
-                    placeholder="2200" onChange={e => setTargetKcal(e.target.value)} />
-                </label>
-              ) : (
-                <label className="deep-field">
-                  <span>Ajuste (%)</span>
-                  <input type="number" data-testid="period-pct" value={pct}
-                    onChange={e => setPct(e.target.value)} />
-                </label>
-              )}
-              <label className="deep-field">
-                <span>Semanas</span>
-                <input type="number" min="1" max="52" data-testid="period-weeks" value={weeks}
-                  onChange={e => setWeeks(e.target.value)} />
-              </label>
-              <button className="primary-button" data-testid="period-generate" onClick={generateTable} disabled={busy === "period"}>
-                {busy === "period" ? <><Loader2 size={15} className="spin" /> Gerando...</> : "Gerar tabela"}
-              </button>
-            </div>
-
-            {message && <p className="builder-error" data-testid="period-message">{message}</p>}
-
-            {table && (
-              <>
-                {periodMeta?.fat_floor_g != null && (
-                  <p className="muted period-floor">
-                    Piso de gordura: <b>{periodMeta.fat_floor_g} g/dia</b>
-                    {periodMeta.weight_kg ? ` (0,8 g/kg · ${periodMeta.weight_kg} kg)` : ""}.
-                  </p>
-                )}
-                <div className="period-table-wrap">
-                  <table className="period-table" data-testid="period-table">
-                    <thead>
-                      <tr><th>Semana</th><th>Kcal</th><th>Proteína</th><th>Carbo</th><th>Gordura</th></tr>
-                    </thead>
-                    <tbody>
-                      {table.map((w, i) => (
-                        <tr key={i} className={w.feasible ? "" : "infeasible"} data-testid={`period-week-${w.week}`}>
-                          <td>{w.week}</td>
-                          <td><b>{w.kcal}</b></td>
-                          <td><input type="number" data-testid={`period-protein-${w.week}`} value={w.protein_g}
-                            onChange={e => patchWeek(i, { protein_g: Number(e.target.value) })} /></td>
-                          <td><input type="number" data-testid={`period-carbs-${w.week}`} value={w.carbs_g}
-                            onChange={e => patchWeek(i, { carbs_g: Number(e.target.value) })} /></td>
-                          <td><input type="number" data-testid={`period-fat-${w.week}`} value={w.fat_g}
-                            onChange={e => patchWeek(i, { fat_g: Number(e.target.value) })} /></td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                {table.some(w => w.warnings?.length) && (
-                  <ul className="manual-errors" data-testid="period-warnings">
-                    {table.filter(w => w.warnings?.length).map(w => (
-                      <li key={w.week}>Semana {w.week}: {w.warnings.join(" ")}</li>
-                    ))}
-                  </ul>
-                )}
-
-                <div className="builder-actions">
-                  <button className="primary-button" data-testid="period-save" onClick={savePeriodization} disabled={!!busy}>
-                    <Save size={15} /> {busy === "period-save" ? "Salvando..." : "Salvar periodização"}
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        )}
+        {/* A periodizacao antiga (uma tabela que nenhuma tela lia) saiu daqui. A que
+            aplica cada semana no plano fica em Nutricao > Meu plano. */}
       </motion.div>
     </div>
   );

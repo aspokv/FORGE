@@ -1,9 +1,8 @@
-"""FORGE — importação de dieta e periodização: testes de API contra servidor + Mongo.
+"""FORGE — importação de dieta: testes de API contra servidor + Mongo.
 
 Mesmo padrão de fixture self-seeding de test_nutrition_guided_flow_api.py. O que estes
 testes defendem: um atleta só alcança a própria dieta, a ativação substitui o plano sem
-apagar peso/aderência, o plano importado é lido pelos endpoints que já existiam, e a
-periodização respeita o piso de gordura inclusive quando a tabela é editada à mão.
+apagar peso/aderência, e o plano importado é lido pelos endpoints que já existiam.
 """
 import asyncio
 import os
@@ -246,49 +245,6 @@ def test_double_click_activates_once():
     assert segunda.json()["already_applied"] is True
 
 
-# --- periodização ---------------------------------------------------------------------
-
-def test_periodization_progresses_linearly_and_holds_protein():
-    _, headers = _athlete("diet.period@forge.test")
-    _parse(headers)
-    assert _activate(headers).status_code == 200
-
-    r = requests.post(f"{NUT}/periodization/preview", json={"pct": -15, "weeks": 4}, headers=headers)
-    assert r.status_code == 200, r.text
-    body = r.json()
-    tabela = body["table"]
-    assert len(tabela) == 4
-    assert len({w["protein_g"] for w in tabela}) == 1        # proteína fixa
-    assert all(w["fat_g"] >= body["fat_floor_g"] for w in tabela)
-    assert tabela[-1]["kcal"] < tabela[0]["kcal"]            # é um corte
-
-
-def test_periodization_requires_an_active_plan():
-    _, headers = _athlete("diet.noplan@forge.test")
-    r = requests.post(f"{NUT}/periodization/preview", json={"pct": -10, "weeks": 4}, headers=headers)
-    assert r.status_code == 404
-
-
-def test_saved_periodization_comes_back_and_manual_edit_cannot_break_the_fat_floor():
-    _, headers = _athlete("diet.periodsave@forge.test")
-    _parse(headers)
-    assert _activate(headers).status_code == 200
-    preview = requests.post(f"{NUT}/periodization/preview", json={"pct": -10, "weeks": 3}, headers=headers).json()
-
-    tabela = preview["table"]
-    tabela[0]["fat_g"] = 5          # edição manual furando o piso
-    tabela[0]["kcal"] = 100         # e mentindo na kcal
-    r = requests.post(f"{NUT}/periodization/save", json={"table": tabela, "weeks": 3}, headers=headers)
-    assert r.status_code == 200, r.text
-    salva = r.json()["periodization"]["table"]
-    assert salva[0]["fat_g"] == preview["fat_floor_g"]
-    assert salva[0]["kcal"] > 100   # recalculada a partir dos macros
-
-    lida = requests.get(f"{NUT}/periodization", headers=headers)
-    assert lida.status_code == 200
-    assert lida.json()["periodization"]["table"][0]["fat_g"] == preview["fat_floor_g"]
-
-
 # --- autorização ----------------------------------------------------------------------
 
 def test_athlete_cannot_reach_another_athletes_diet_draft():
@@ -304,7 +260,6 @@ def test_diet_endpoints_require_authentication():
     for method, url, body in [
         ("post", f"{NUT}/import/parse", {"text": DIETA}),
         ("get", f"{NUT}/import/draft", None),
-        ("post", f"{NUT}/periodization/preview", {"pct": -10, "weeks": 4}),
         ("get", f"{NUT}/foods", None),
     ]:
         r = requests.request(method, url, json=body)
