@@ -6,6 +6,9 @@ import {AstraPage,AstraAction,AstraMeta,AstraIcon,AstraNavigation} from "./Astra
 import {useScheduledProgram} from "./workoutCalendar";
 import TrainingCardImage from "./TrainingCardImage";
 import LembretePesagem from "./LembretePesagem";
+import {tituloEmDuasCores, fraseDoCard, mapaDoCard} from "./cardDoTreino";
+import {trainingCategoryFor} from "./trainingCardArtwork";
+import marca from "../assets/logotipo_forge_em_metal_forjado.png";
 import {consumedTotals} from "./foodDiary";
 import {useWorkoutCompletion,sessionStatus,completionForToday} from "./workoutCompletionState";
 import {sequenciaDeDias,volumeDaSemana,textoDaCarga,textoDeProntidao} from "./ritmoDaSemana";
@@ -89,6 +92,10 @@ export default function ReferenceHome({db,start,onRecoveryCheckin}){
   const introTitle=p.program_selection_required&&!todayCompletion?"Escolha seu programa.":todayCompletion?"Treino concluído.":restDay?"Hoje é recuperação.":"Seu treino está pronto.";
   const cycleLabel=String(p.week||"Ciclo atual").split("·")[0].trim();
   const tituloDoCard=p.program_selection_required&&!todayCompletion?"Escolha seu programa":sessionName;
+  // Arte v1: marca, mapa dos musculos e frase do tipo de treino na coluna da direita.
+  const [tituloClaro,tituloLaranja]=tituloEmDuasCores(tituloDoCard);
+  const mapa=mapaDoCard(items,db.exercises||[],focus,raw);
+  const fraseDoTreino=fraseDoCard(trainingCategoryFor({...shown,label:raw},focus));
   // No descanso os minutos e as series do card sao da PROXIMA sessao, nao de hoje. Dizer
   // "DESCANSO HOJE · AMANHÃ" resolve a contradicao de anunciar descanso com 63 min ao lado.
   const cardContext=p.program_selection_required&&!todayCompletion?"SEU PROGRAMA":todayCompletion?`${cycleLabel} · CONCLUÍDO`:restDay?"DESCANSO HOJE · PRÓXIMA SESSÃO":`${cycleLabel} · PRÓXIMA SESSÃO`;
@@ -111,8 +118,16 @@ export default function ReferenceHome({db,start,onRecoveryCheckin}){
     <div className="a6-hero" data-testid="home-top-hero"><TrainingCardImage session={{...shown,label:raw}} program={todayCompletion?{}:p} profile={db.profile} focus={focus} loading="eager" fetchPriority="high" width="640" height="276"/></div>
     <div className="a6-panel a6-workout-card" data-testid="daily-briefing">
       <div className="a6-eyebrow" data-testid="home-cycle-context">{cardContext}</div>
-      <h2 id="home-session-title" className={classeDoTitulo(tituloDoCard)}>{tituloDoCard}</h2><p>{focus.length?focus.join(" · "):todayCompletion?"Sessão registrada":"Treino completo"}</p>
+      <h2 id="home-session-title" className={classeDoTitulo(tituloDoCard)}>{tituloClaro}{tituloLaranja&&<span className="forge-card-titulo-destaque">{tituloLaranja}</span>}</h2><p>{focus.length?focus.join(" · "):todayCompletion?"Sessão registrada":"Treino completo"}</p>
       {(!p.program_selection_required||todayCompletion)&&<AstraMeta duration={duration} sets={plannedSets}/>}
+    </div>
+    {/* Decorativo: tudo o que ele diz ja esta no texto do card. */}
+    <div className="forge-card-assinatura" aria-hidden="true" data-testid="home-card-assinatura">
+      <img className="forge-card-marca" src={marca} alt="" width="1672" height="941"/>
+      <div className="forge-card-mapa" data-lados={mapa.lados.length}>
+        {mapa.lados.map(lado=><img key={lado} src={`${process.env.PUBLIC_URL||""}/images/anatomy/${mapa.chave}-${lado}.webp`} alt="" decoding="async"/>)}
+      </div>
+      <p className="forge-card-frase">{fraseDoTreino}</p>
     </div>
     <div className="a6-signature-footer">
       {(todayCompletion||restDay)&&<div className={`a6-signature-status${todayCompletion?" a6-completed":""}`} role="status"><span aria-hidden="true"/>{restDay?"Descanso programado":sessionStatus(checkin,db.recent_sets,now,todayCompletion)}</div>}
