@@ -3,6 +3,7 @@ import axios from "axios";
 import {Plus} from "lucide-react";
 import "./acrescentar-refeicao.css";
 import {mensagemDeErro} from "./mensagemDeErro";
+import {localFoodDate} from "./foodDiary";
 
 /**
  * Acrescentar uma refeicao ao plano, na posicao que a pessoa escolher.
@@ -34,7 +35,7 @@ export default function AcrescentarRefeicao({API, refeicoes = [], onAcrescentada
     setSalvando(true); setErro("");
     try {
       const r = await axios.post(`${API}/nutrition/plan/add-meal`,
-        {nome: nome.trim(), posicao});
+        {nome: nome.trim(), posicao, dia: localFoodDate()});
       setAberto(false); setNome("");
       if (onAcrescentada) onAcrescentada(r.data);
     } catch (e) {

@@ -21,7 +21,8 @@ from billing_plans import (ALIMENTACAO, DIARIO_LIVRE, BUSCA_ALIMENTOS_PLANO, PRO
 from entitlements import acesso_de, exigir_capacidade
 from escolha_humana import escolhas_da_refeicao
 import receitas as receitas_do_forge
-from nutrition_import import restore_import_targets
+from nutrition_import import restore_import_targets, targets_from_import_totals
+import refeicoes_livres
 from nutrition_engine import _intensity_key
 
 logger = logging.getLogger(__name__)
@@ -157,6 +158,26 @@ class RefeicaoNovaIn(BaseModel):
     nome: str = Field(min_length=2, max_length=40)
     # Onde ela entra. None significa no fim.
     posicao: Optional[int] = Field(default=None, ge=0, le=5)
+    # O dia que a tela mostra. Os registros de hoje andam junto com as refeicoes que mudam
+    # de lugar; sem o dia do aparelho, o servidor usaria o dia em UTC.
+    dia: Optional[CalendarDate] = None
+
+
+class ItemLivreIn(BaseModel):
+    food_id: str = Field(min_length=1, max_length=120)
+    grams: float = Field(gt=0, le=2000)
+
+
+class RefeicaoLivreIn(BaseModel):
+    """Refeicao montada pela pessoa (Elite): o nome, os alimentos e as gramas que ela quer."""
+    nome: str = Field(min_length=2, max_length=40)
+    itens: List[ItemLivreIn] = Field(min_length=1, max_length=refeicoes_livres.MAXIMO_DE_ITENS)
+    # So ao criar: onde ela entra. None significa no fim.
+    posicao: Optional[int] = Field(default=None, ge=0, le=5)
+    # So ao editar: o nome que a tela mostrava. Se o plano mudou em outra aba, a edicao
+    # cairia na refeicao errada.
+    nome_atual: Optional[str] = Field(default=None, max_length=60)
+    dia: Optional[CalendarDate] = None
 
 
 class ChooseMealIn(BaseModel):
@@ -604,6 +625,11 @@ async def acrescentar_refeicao(payload: RefeicaoNovaIn, request: Request,
     gf = float(alvos.get("fat_g") or 0)
 
     for i, refeicao in enumerate(refeicoes):
+        # A refeicao que a pessoa montou fica como ela montou: gramas e alvo foram decididos
+        # por alguem. Redimensionar aqui apagaria essa decisao sem aviso, e um item manual
+        # passado pelo motor sairia sem nome, porque o motor nao o conhece.
+        if i != posicao and refeicoes_livres.e_livre(refeicao):
+            continue
         fatia = dist[i] if i < len(dist) else dist[-1]
         refeicao["target_cal"] = round(gc * fatia)
         refeicao["target_protein"] = round(gp * fatia)
@@ -628,6 +654,8 @@ async def acrescentar_refeicao(payload: RefeicaoNovaIn, request: Request,
 
     plano["meals"] = refeicoes
     await db.nutrition_plans.update_one({"profile_id": target}, {"$set": {"plan": plano}})
+    await _reindexar_registros_do_dia(db, target, payload.dia,
+                                      refeicoes_livres.mapa_ao_inserir(posicao, quantas - 1))
     # O questionario passa a refletir a quantidade nova, senao a proxima geracao voltaria
     # para a contagem antiga e a refeicao acrescentada sumiria sem aviso.
     if na:
@@ -635,6 +663,149 @@ async def acrescentar_refeicao(payload: RefeicaoNovaIn, request: Request,
         await db.profiles.update_one({"id": target}, {"$set": {"nutrition_assessment": na}})
 
     return {"plan": anotar_peso_cru(plano), "meal_count": quantas, "posicao": posicao}
+
+
+# --- Refeicoes do jeito do atleta (Elite) ----------------------------------------------
+# O porque, e o que cada acao faz e nao faz, esta em refeicoes_livres.py.
+
+def _dia_da_tela(dia: Optional[CalendarDate]) -> str:
+    return str(dia or datetime.now(timezone.utc).date())
+
+
+async def _reindexar_registros_do_dia(db, target: str, dia: Optional[CalendarDate], mapa) -> None:
+    """Move os registros do dia para acompanhar as refeicoes que mudaram de lugar.
+
+    Cada registro mora num _id que carrega o indice ("meal:<atleta>:<dia>:<indice>"), entao
+    mover e regravar com o _id novo e apagar o velho, na ordem que nunca pisa num registro
+    que ainda nao saiu do lugar.
+    """
+    if not mapa:
+        return
+    dia_str = _dia_da_tela(dia)
+    for antigo, novo in refeicoes_livres.ordem_dos_movimentos(mapa):
+        _id_antigo = f"meal:{target}:{dia_str}:{antigo}"
+        if novo is None:
+            await db.nutrition_adherence.delete_one({"_id": _id_antigo, "profile_id": target})
+            continue
+        doc = await db.nutrition_adherence.find_one({"_id": _id_antigo, "profile_id": target})
+        if not doc:
+            continue
+        doc["_id"] = f"meal:{target}:{dia_str}:{novo}"
+        doc["meal_index"] = novo
+        await db.nutrition_adherence.replace_one({"_id": doc["_id"]}, doc, upsert=True)
+        await db.nutrition_adherence.delete_one({"_id": _id_antigo, "profile_id": target})
+
+
+async def _plano_para_editar(db, user) -> dict:
+    await exigir_capacidade(db, user, ALIMENTACAO)
+    await exigir_capacidade(db, user, BUSCA_ALIMENTOS_PLANO)
+    guardado = await db.nutrition_plans.find_one({"profile_id": user["id"]}, {"_id": 0})
+    plano = (guardado or {}).get("plan")
+    if not plano or not isinstance(plano.get("meals"), list):
+        raise HTTPException(404, "Plano não encontrado. Gere ou importe um plano antes de editar as refeições.")
+    return plano
+
+
+async def _gravar_refeicoes(db, user, plano: dict, originais: list, refeicoes: list) -> dict:
+    """Grava as refeicoes novas SE o plano ainda for o que a tela leu.
+
+    O filtro pelas refeicoes originais e a trava: duas abas abertas, uma exclui o cafe da
+    manha, a outra edita "a refeicao 0", que ja e outra. Sem a trava a segunda gravaria
+    por cima da refeicao errada.
+    """
+    target = user["id"]
+    plano["meals"] = refeicoes
+    plano["daily_totals"] = refeicoes_livres.totais_do_plano(refeicoes, DIARY_FOODS)
+    # Dieta importada: a meta e o que a dieta entrega, entao acompanha o plano novo. Plano
+    # gerado: a meta vem do questionario e fica.
+    if plano.get("targets_source") == "manual_import":
+        plano["targets"] = targets_from_import_totals(plano["daily_totals"])
+    r = await db.nutrition_plans.update_one(
+        {"profile_id": target, "plan.meals": originais}, {"$set": {"plan": plano}})
+    if r.matched_count == 0:
+        raise HTTPException(409, "O plano mudou em outra tela. Atualize e tente de novo.")
+    perfil = await db.profiles.find_one({"id": target}, {"_id": 0, "nutrition_assessment": 1})
+    na = (perfil or {}).get("nutrition_assessment")
+    if na:
+        na["meal_count"] = min(MAXIMO_DE_REFEICOES, max(3, len(refeicoes)))
+        await db.profiles.update_one({"id": target}, {"$set": {"nutrition_assessment": na}})
+    return plano
+
+
+def _montar(payload: "RefeicaoLivreIn") -> dict:
+    try:
+        alimentos = refeicoes_livres.montar_itens(
+            [(i.food_id, i.grams) for i in payload.itens], FOOD_INDEX, DIARY_FOODS, build_food_item)
+    except ValueError as erro:
+        raise HTTPException(422, str(erro))
+    return refeicoes_livres.refeicao_livre(payload.nome, alimentos, DIARY_FOODS)
+
+
+@router.post("/plan/meals")
+async def criar_refeicao_livre(payload: RefeicaoLivreIn, request: Request,
+                               user=Depends(get_current_user)):
+    """Uma refeicao nova, com o nome, os alimentos e as gramas que a pessoa escolheu."""
+    db = request.app.state.db
+    plano = await _plano_para_editar(db, user)
+    originais = copy.deepcopy(plano["meals"])
+    refeicoes = list(plano["meals"])
+    if len(refeicoes) >= MAXIMO_DE_REFEICOES:
+        raise HTTPException(400, f"O plano já tem {len(refeicoes)} refeições, que é o máximo. "
+                                 "Exclua uma antes de criar outra.")
+    posicao = len(refeicoes) if payload.posicao is None else max(0, min(payload.posicao, len(refeicoes)))
+    refeicoes.insert(posicao, _montar(payload))
+    plano = await _gravar_refeicoes(db, user, plano, originais, refeicoes)
+    await _reindexar_registros_do_dia(db, user["id"], payload.dia,
+                                      refeicoes_livres.mapa_ao_inserir(posicao, len(originais)))
+    return {"plan": anotar_peso_cru(plano), "posicao": posicao}
+
+
+@router.put("/plan/meals/{indice}")
+async def editar_refeicao_livre(indice: int, payload: RefeicaoLivreIn, request: Request,
+                                user=Depends(get_current_user)):
+    """Troca o nome e os alimentos de uma refeicao, do jeito que a pessoa quer.
+
+    A posicao nao muda, entao os registros de hoje ficam onde estao.
+    """
+    db = request.app.state.db
+    plano = await _plano_para_editar(db, user)
+    originais = copy.deepcopy(plano["meals"])
+    if not 0 <= indice < len(originais):
+        raise HTTPException(404, "Essa refeição não está mais no plano. Atualize a tela.")
+    if payload.nome_atual is not None and originais[indice].get("name") != payload.nome_atual:
+        raise HTTPException(409, "O plano mudou em outra tela. Atualize e tente de novo.")
+    refeicoes = list(plano["meals"])
+    refeicoes[indice] = _montar(payload)
+    plano = await _gravar_refeicoes(db, user, plano, originais, refeicoes)
+    return {"plan": anotar_peso_cru(plano), "indice": indice}
+
+
+@router.delete("/plan/meals/{indice}")
+async def excluir_refeicao(indice: int, request: Request,
+                           nome: str = Query(min_length=1, max_length=60),
+                           dia: Optional[CalendarDate] = Query(default=None),
+                           user=Depends(get_current_user)):
+    """Tira a refeicao do plano. As outras nao crescem para cobrir o buraco.
+
+    `nome` e a refeicao que a tela mostrava: excluir pelo indice sozinho, com o plano
+    mudado em outra aba, apagaria a refeicao errada.
+    """
+    db = request.app.state.db
+    plano = await _plano_para_editar(db, user)
+    originais = copy.deepcopy(plano["meals"])
+    if not 0 <= indice < len(originais):
+        raise HTTPException(404, "Essa refeição não está mais no plano. Atualize a tela.")
+    if originais[indice].get("name") != nome:
+        raise HTTPException(409, "O plano mudou em outra tela. Atualize e tente de novo.")
+    if len(originais) <= 1:
+        # Plano sem refeicao nenhuma nao tem como receber a proxima: criar e acrescentar
+        # partem das que existem. Criar a nova antes e excluir depois resolve.
+        raise HTTPException(400, "Uma refeição precisa ficar no plano. Crie a nova antes de excluir esta.")
+    refeicoes = [r for i, r in enumerate(plano["meals"]) if i != indice]
+    plano = await _gravar_refeicoes(db, user, plano, originais, refeicoes)
+    await _reindexar_registros_do_dia(db, user["id"], dia,
+                                      refeicoes_livres.mapa_ao_excluir(indice, len(originais)))
+    return {"plan": anotar_peso_cru(plano), "removida": nome}
 
 
 @router.post("/substitute")
