@@ -114,6 +114,19 @@ test("prévia impossível (ex.: carbo já no piso) não deixa ligar", async () =
   } finally { await act(async () => root.unmount()); }
 });
 
+test("agressivo aparece nas duas fases e avisa o que é antes de ligar", async () => {
+  const {root, $} = await montar(DESLIGADA);
+  try {
+    expect($("pd-aviso-agressivo")).toBeNull();
+    await act(async () => $("pd-ritmo-agressivo").click());
+    expect($("pd-aviso-agressivo").textContent).toContain("nunca zera");
+    await act(async () => { jest.advanceTimersByTime(300); });
+    expect(chamadas("/previa").at(-1)[1]).toEqual({fase: "corte", semanas: 4, ritmo: "agressivo"});
+    await act(async () => $("pd-fase-ganho").click());
+    expect($("pd-aviso-agressivo").textContent).toContain("35%");
+  } finally { await act(async () => root.unmount()); }
+});
+
 test("versão compacta só aparece ligada", async () => {
   const ligada = await montar(LIGADA, {compacto: true});
   expect(ligada.$("pd-compacto").textContent).toContain("Periodização ligada · semana 2 de 4");

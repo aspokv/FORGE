@@ -20,7 +20,13 @@ const FASES = [
   {id: "ganho", nome: "Ganho de massa", texto: "O carboidrato sobe um degrau por semana."},
 ];
 const DURACOES = [2, 4, 6, 8, 12];
-const RITMOS = [{id: "suave", nome: "Suave"}, {id: "moderado", nome: "Moderado"}, {id: "forte", nome: "Forte"}];
+const RITMOS = [{id: "suave", nome: "Suave"}, {id: "moderado", nome: "Moderado"}, {id: "forte", nome: "Forte"},
+                {id: "agressivo", nome: "Agressivo"}];
+// O agressivo é estratégia de atleta, de poucas semanas: a tela diz isso antes de ligar.
+const AVISO_AGRESSIVO = {
+  corte: "Agressivo: corte de atleta. O carboidrato desce até perto de zero, mas nunca zera: cada fonte do prato fica com uma porção. Use por poucas semanas.",
+  ganho: "Agressivo: superávit grande, até 35% acima da sua dieta. Ganha mais rápido e junta mais gordura junto. Use por poucas semanas.",
+};
 const nomeDaFase = f => (f === "ganho" ? "Ganho de massa" : "Corte");
 const kcal = n => Math.round(Number(n) || 0).toLocaleString("pt-BR");
 const g = n => `${Math.round(Number(n) || 0)} g`;
@@ -180,6 +186,7 @@ export default function PeriodizacaoDaDieta({API, compacto = false}) {
              desabilitado={trocando} onEscolher={setSemanas}/>
       <span className="fg-etiqueta">Ritmo</span>
       <Chips nome="ritmo" opcoes={RITMOS} valor={ritmo} desabilitado={trocando} onEscolher={setRitmo}/>
+      {ritmo === "agressivo" && <p className="pd-alerta" data-testid="pd-aviso-agressivo">{AVISO_AGRESSIVO[fase]}</p>}
 
       {erroDaPrevia && <p className="fg-erro" role="alert" data-testid="pd-erro-previa">{erroDaPrevia}</p>}
       {previa && !erroDaPrevia && <div className="pd-previa" data-testid="pd-previa">

@@ -43,7 +43,7 @@ class TestAProgressao:
         assert tabela[-1]["carbs_g"] > tabela[0]["carbs_g"]
         assert {l["protein_g"] for l in tabela} == {251.4}
 
-    @pytest.mark.parametrize("ritmo", pa.RITMOS)
+    @pytest.mark.parametrize("ritmo", [r for r in pa.RITMOS if r != pa.AGRESSIVO])
     def test_o_passo_tem_teto_como_o_do_conselho(self, ritmo):
         grande = {**BASE, "kcal": 5000, "carbs_g": 700}
         assert pa.passo_kcal(grande["kcal"], pa.CORTE, ritmo) <= pa.TETO_DO_PASSO[pa.CORTE]
@@ -52,6 +52,69 @@ class TestAProgressao:
     def test_ritmo_mais_forte_corta_mais(self):
         suave, forte = _tabela(pa.CORTE, 4, "suave"), _tabela(pa.CORTE, 4, "forte")
         assert forte[1]["kcal"] < suave[1]["kcal"]
+
+
+class TestAgressivo:
+    """O ritmo de atleta: carboidrato perto de zero no corte, superávit grande no ganho.
+    Perto de zero, e nunca zero."""
+
+    def test_passo_maior_com_teto_proprio(self):
+        assert pa.passo_kcal(2416, pa.CORTE, pa.AGRESSIVO) > pa.passo_kcal(2416, pa.CORTE, "forte")
+        assert pa.passo_kcal(8000, pa.CORTE, pa.AGRESSIVO) == pa.TETO_DO_PASSO_AGRESSIVO[pa.CORTE]
+        assert pa.passo_kcal(8000, pa.GANHO, pa.AGRESSIVO) == pa.TETO_DO_PASSO_AGRESSIVO[pa.GANHO]
+
+    @pytest.mark.parametrize("peso,piso", [(83, 42), (60, 40), (120, 60)])
+    def test_piso_de_carbo_desce_mas_nunca_zera(self, peso, piso):
+        assert pa.piso_de_carbo(peso, pa.AGRESSIVO) == piso
+        tabela = _tabela(pa.CORTE, 12, pa.AGRESSIVO, peso=peso)
+        assert min(l["carbs_g"] for l in tabela) == piso > 0
+
+    def test_corte_agressivo_desce_bem_mais_que_o_moderado(self):
+        agressivo = _tabela(pa.CORTE, 12, pa.AGRESSIVO)
+        moderado = _tabela(pa.CORTE, 12, "moderado")
+        assert agressivo[-1]["carbs_g"] < moderado[-1]["carbs_g"] / 2
+
+    def test_ganho_agressivo_passa_do_teto_do_ganho_comum_mas_tem_teto(self):
+        tabela = _tabela(pa.GANHO, 12, pa.AGRESSIVO)
+        assert max(l["kcal"] for l in tabela) > round(BASE["kcal"] * 1.2)
+        assert max(l["kcal"] for l in tabela) <= round(BASE["kcal"] * 1.35)
+
+    def test_a_balanca_tolera_mais_no_agressivo_mas_segura(self):
+        t = lambda kg: {"suficiente": True, "kg_por_semana": kg, "peso_atual": 83.0}
+        assert pa.decidir_degrau(pa.CORTE, t(-1.0), "moderado")[0] == "segurar"      # 1,2%
+        assert pa.decidir_degrau(pa.CORTE, t(-1.0), pa.AGRESSIVO)[0] == "avancar"
+        assert pa.decidir_degrau(pa.CORTE, t(-1.5), pa.AGRESSIVO)[0] == "segurar"    # 1,8%
+        assert pa.decidir_degrau(pa.GANHO, t(0.6), pa.AGRESSIVO)[0] == "avancar"
+        assert pa.decidir_degrau(pa.GANHO, t(1.0), pa.AGRESSIVO)[0] == "segurar"
+
+
+class TestSempreFicaUmCarboNoPrato:
+    """A meta perto de zero não pode virar "5 g de batata": cada fonte fica com uma porção."""
+
+    def _plano(self):
+        return [{"name": "Almoço", "target_cal": 700, "foods": [
+                    build_food_item("chicken-breast", 200), build_food_item("potato", 250)]},
+                {"name": "Ceia", "target_cal": 300, "foods": [
+                    build_food_item("yogurt-natural", 200), build_food_item("banana", 120)]}]
+
+    def test_cortar_tudo_ainda_deixa_uma_porcao_de_cada_fonte(self):
+        novas, _, _ = pa.ajustar_refeicoes(self._plano(), -500, FOOD_INDEX, DIARY_FOODS, build_food_item)
+        gramas = {f["food_id"]: f["grams"] for r in novas for f in r["foods"]}
+        assert gramas["potato"] == 25 and gramas["banana"] == 10   # 10% da porção, no mínimo 10 g
+
+    def test_a_meta_nao_promete_menos_do_que_o_prato_entrega(self):
+        piso = pa.carbo_minimo_do_prato(self._plano(), FOOD_INDEX, DIARY_FOODS)
+        tabela = pa.montar_progressao(BASE, 83, pa.CORTE, 12, pa.AGRESSIVO, piso)["tabela"]
+        assert min(l["carbs_g"] for l in tabela) >= piso
+        # E o prato cortado ao máximo entrega o piso que a meta mostra.
+        novas, _, _ = pa.ajustar_refeicoes(self._plano(), -500, FOOD_INDEX, DIARY_FOODS, build_food_item)
+        entregue = sum(DIARY_FOODS[f["food_id"]]["carbs_g"] * f["grams"] / DIARY_FOODS[f["food_id"]].get("grams", 100)
+                       for r in novas for f in r["foods"])
+        assert entregue == pytest.approx(piso, abs=1)
+
+    def test_o_ganho_nao_tem_minimo_de_porcao_no_caminho(self):
+        novas, _, _ = pa.ajustar_refeicoes(self._plano(), 40, FOOD_INDEX, DIARY_FOODS, build_food_item)
+        assert {f["food_id"]: f["grams"] for r in novas for f in r["foods"]}["potato"] > 250
 
 
 class TestOsPisos:
