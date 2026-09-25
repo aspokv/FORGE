@@ -16,13 +16,16 @@ const EXAMPLE_TEXT = `CAFÉ DA MANHÃ
 
 ALMOÇO
 150g de arroz branco
-120g de peito de frango
+Frango/peixe: 120 g
 1 concha de feijão preto
-salada de alface e tomate
+Legumes: à vontade
 
 LANCHE
-1 scoop de whey
-1 banana`;
+Whey: 30 g
+1 banana
+
+SUBSTITUIÇÕES
+200 g batata inglesa → 160 g batata-doce`;
 
 const REVIEW_LABELS = {
   food_unmatched: "alimento fora do catálogo — registramos sua sugestão; escolha um equivalente",
@@ -31,6 +34,7 @@ const REVIEW_LABELS = {
   ai_suggested: "identificado automaticamente — confirme se é esse mesmo",
   quantity_missing: "quantidade não informada no texto",
   estimated_portion: "peso estimado a partir da medida caseira — confirme",
+  free_portion: "“à vontade” no texto — contamos uma porção de referência; ajuste se quiser",
 };
 
 const round = n => Math.round(Number(n) || 0);
@@ -78,7 +82,6 @@ export default function NutritionImport({ API, onActivated, onClose }) {
       const r = await axios.post(`${API}/nutrition/import/parse`, { text, name: "Dieta importada" });
       setDraft(r.data.draft);
       setErrors(r.data.blocking_errors || []);
-      if (r.data.draft?.warnings?.length) setMessage(r.data.draft.warnings.join(" · "));
     } catch (e) {
       setMessage(mensagemDeErro(e, "Não foi possível interpretar essa dieta."));
     } finally { setBusy(""); }
@@ -89,6 +92,17 @@ export default function NutritionImport({ API, onActivated, onClose }) {
       ...d,
       meals: d.meals.map((m, i) => i !== mealIdx ? m : {
         ...m, items: m.items.map((it, j) => j === itemIdx ? { ...it, ...patch } : it),
+      }),
+    }));
+
+  const escolherAlternativa = (mealIdx, itemIdx, foodId) =>
+    setDraft(d => ({
+      ...d,
+      meals: d.meals.map((m, i) => i !== mealIdx ? m : {
+        ...m, items: m.items.map((it, j) => j !== itemIdx ? it : {
+          ...it, food_id: foodId,
+          alternativas: [it.food_id, ...(it.alternativas || []).filter(a => a !== foodId)].filter(Boolean),
+        }),
       }),
     }));
 
@@ -275,6 +289,7 @@ export default function NutritionImport({ API, onActivated, onClose }) {
                           value={item.grams ?? ""} placeholder="—"
                           onChange={e => patchItem(mealIdx, itemIdx, {
                             grams: e.target.value === "" ? null : Number(e.target.value), estimated: false,
+                            a_vontade: false,
                           })} />
                       </label>
                       <button className="icon-button" data-testid={`diet-item-remove-${mealIdx}-${itemIdx}`}
@@ -282,6 +297,18 @@ export default function NutritionImport({ API, onActivated, onClose }) {
                     </div>
 
                     {item.raw_text && <p className="manual-raw">texto original: “{item.raw_text}”</p>}
+                    {item.food_id && (item.alternativas || []).length > 0 && (
+                      <div className="manual-suggestions" data-testid={`diet-alternatives-${mealIdx}-${itemIdx}`}>
+                        <span className="manual-raw">ou, na mesma quantidade:</span>
+                        {item.alternativas.map(fid => (
+                          <button key={fid} type="button" className="manual-chip"
+                            data-testid={`diet-alternative-${mealIdx}-${itemIdx}-${fid}`}
+                            onClick={() => escolherAlternativa(mealIdx, itemIdx, fid)}>
+                            {foodName(fid)}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                     {item.macros && (
                       <p className="diet-item-macros" data-testid={`diet-item-macros-${mealIdx}-${itemIdx}`}>
                         {round(item.macros.kcal)} kcal · P {item.macros.protein_g}g · C {item.macros.carbs_g}g · G {item.macros.fat_g}g
@@ -311,6 +338,31 @@ export default function NutritionImport({ API, onActivated, onClose }) {
                 </button>
               </section>
             ))}
+
+            {(draft.substituicoes || []).length > 0 && (
+              <section className="manual-day" data-testid="diet-substitutions">
+                <div className="manual-day-head"><strong>Trocas da sua dieta</strong></div>
+                <ul className="diet-substitutions">
+                  {draft.substituicoes.map((troca, k) => (
+                    <li key={k}>
+                      {troca.opcoes.map((op, n) => (
+                        <span key={n} className={op.food_id ? "" : "diet-substitution-unknown"}>
+                          {n > 0 && " ou "}
+                          {op.grams ? `${round(op.grams)} g ` : ""}{op.food_id ? foodName(op.food_id) : op.raw_name}
+                        </span>
+                      ))}
+                    </li>
+                  ))}
+                </ul>
+                <p className="manual-raw">Ficam junto do plano, para consulta. Não entram na conta do dia.</p>
+              </section>
+            )}
+
+            {(draft.warnings || []).length > 0 && (
+              <ul className="manual-errors" data-testid="diet-warnings">
+                {draft.warnings.map((w, i) => <li key={i}>{w}</li>)}
+              </ul>
+            )}
 
             {errors.length > 0 && (
               <ul className="manual-errors" data-testid="diet-blocking-errors">

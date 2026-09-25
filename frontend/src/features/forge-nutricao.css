@@ -182,6 +182,33 @@
   color: var(--fg-texto-2);
 }
 
+/* "Carne bovina/frango/peixe": as outras opções que a dieta deu, abaixo do nome. */
+.fg-alimento-alternativas {
+  margin: 2px 0 0;
+  font: 400 var(--t-apoio) / 1.35 var(--fg-corpo);
+  color: var(--fg-texto-3);
+}
+
+/* ── Trocas da dieta colada ────────────────────────────────────────────────
+ * A tabela de equivalências que a própria dieta escreveu. Texto, e não cartão: é
+ * consulta, e o número que importa é o peso de cada opção.
+ */
+.fg-trocas { display: flex; flex-direction: column; gap: var(--e-2); margin-top: var(--e-3); }
+.fg-trocas-grupo ul { list-style: none; margin: 0; padding: 0; }
+.fg-trocas-grupo li {
+  padding: var(--e-2) 0;
+  border-top: 1px solid var(--fg-linha);
+  font: 400 var(--t-corpo) / 1.5 var(--fg-corpo);
+  color: var(--fg-texto);
+}
+.fg-trocas-grupo li b {
+  font: 500 var(--t-dado) / 1.3 var(--fg-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-texto-2);
+}
+.fg-troca-opcao { white-space: normal; }
+.fg-troca-ou { color: var(--fg-texto-3); font-size: var(--t-apoio); white-space: pre; }
+
 /*
  * Substituir: era um botão de 24px de altura, repetido em cada linha — a maior parte dos
  * 33 alvos pequenos da tela. Agora tem 44px de verdade, com a área de toque maior que a

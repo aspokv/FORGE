@@ -14,6 +14,7 @@ import AcrescentarRefeicao from "./AcrescentarRefeicao";
 import NutritionImport from "./NutritionImport";
 import FoodDiaryEditor from "./FoodDiaryEditor";
 import DiarioLivre from "./DiarioLivre";
+import TrocasDaDieta from "./TrocasDaDieta";
 const ForgeFoodCard = lazy(() => import("./food-card/components/ForgeFoodCard"));
 import {localFoodDate, consumedTotals} from "./foodDiary";
 import { kcalDoItem, macrosDaRefeicao, textoDoMacro } from "./macrosDaRefeicao";
@@ -34,6 +35,9 @@ const mealImages={breakfast:breakfastImage,chicken:chickenImage,beef:beefImage,d
 // display_quantity/display_unit from the real grams (e.g. "3 ovos"); grams stay the
 // source of truth for every calorie/macro calculation, this only changes what's shown.
 function formatQty(item) {
+  // "Legumes: à vontade" veio assim da dieta colada. A porção entra na conta do dia, e a
+  // tela diz que é referência — mostrar só "100g" leria como limite.
+  if (item?.a_vontade) return `à vontade (~${item?.grams ?? 0}g na conta)`;
   if (item?.display_quantity != null && item?.display_unit) {
     const qty = item.display_quantity;
     const qtyStr = Number.isInteger(qty) ? String(qty) : qty.toFixed(1).replace(/\.0$/, "");
@@ -54,6 +58,15 @@ function formatQty(item) {
  * recebe o campo, entao a etiqueta simplesmente nao aparece — repetir "120 g de banana =
  * 120 g de banana crua" em toda linha seria poluicao.
  */
+// "Carne bovina/frango/peixe: 200 g": as opções que a dieta deu para o mesmo item, na
+// mesma quantidade — é o que a barra quer dizer.
+function textoDasAlternativas(alternativas) {
+  const nomes = (alternativas || []).map(a => a?.name || a?.food_id).filter(Boolean);
+  if (!nomes.length) return "";
+  const lista = nomes.length === 1 ? nomes[0] : `${nomes.slice(0, -1).join(", ")} ou ${nomes[nomes.length - 1]}`;
+  return `Pode trocar por ${lista}, na mesma quantidade`;
+}
+
 function pesoCru(item) {
   const cru = Number(item?.raw_grams);
   if (!Number.isFinite(cru) || cru <= 0) return null;
@@ -784,6 +797,11 @@ export default function Nutrition({ API, profileId, db }) {
                   <div className="fg-alimento" key={j}>
                     <div>
                       <p className="fg-alimento-nome">{f.name || item.food_id}</p>
+                      {item.alternativas?.length > 0 && (
+                        <p className="fg-alimento-alternativas" data-testid={`alternativas-${i}-${j}`}>
+                          {textoDasAlternativas(item.alternativas)}
+                        </p>
+                      )}
                       <p className="fg-alimento-porcao">{formatQty(item)} · {textoDoMacro(kcalDoItem(item), "kcal")}{pesoCru(item)&&<em className="fg-peso-cru"> · {pesoCru(item)} na panela</em>}</p>
                     </div>
                     <button
@@ -841,6 +859,8 @@ export default function Nutrition({ API, profileId, db }) {
         );
       })}
       </div>
+
+      <TrocasDaDieta trocas={plan?.substituicoes}/>
 
       {diaryState==="ready"&&<NutritionDailyFooter API={API} compact consumed={consumed} goalCalories={t?.goal_calories||t?.kcal||0}/>}
       </div>
