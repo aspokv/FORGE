@@ -233,9 +233,24 @@ async def _save_draft(db, profile_id: str, draft: Dict[str, Any]) -> Dict[str, A
 async def get_diet_draft(request: Request, user=Depends(get_current_user)):
     db = request.app.state.db
     doc = await db.nutrition_import_drafts.find_one({"profile_id": _target(user)}, {"_id": 0})
-    if not doc:
+    # Rascunho ja ativado nao e rascunho: reabri-lo prendia a tela na previa da dieta que
+    # ja esta no plano, sem a caixa de texto para colar a proxima.
+    if not doc or doc.get("status") == "activated":
         return {"draft": None, "blocking_errors": []}
     return {"draft": doc, "blocking_errors": validate_draft(doc)}
+
+
+@router.delete("/import/draft")
+async def discard_diet_draft(request: Request, user=Depends(get_current_user)):
+    """Descarta o rascunho para colar outra dieta.
+
+    O caso: um atleta colou a dieta quando o importador ainda perdia as quantidades. O
+    rascunho ruim ficou salvo, a tela reabria sempre nele, e nao havia onde colar de novo.
+    O plano ativo nao e tocado — so o rascunho.
+    """
+    db = request.app.state.db
+    await db.nutrition_import_drafts.delete_one({"profile_id": _target(user)})
+    return {"discarded": True}
 
 
 @router.put("/import/draft")

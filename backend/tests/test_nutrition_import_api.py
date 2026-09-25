@@ -218,6 +218,24 @@ def test_dieta_colada_inteira_sobrevive_ao_rascunho_e_chega_ao_plano():
     assert plano["targets"]["goal_calories"] == round(draft["daily_totals"]["kcal"])
 
 
+def test_rascunho_pode_ser_descartado_para_colar_outra_dieta():
+    """O rascunho ruim de uma importação antiga reabria sempre, sem caixa de texto."""
+    _, headers = _athlete("diet.discard@forge.test")
+    _parse(headers)
+    assert requests.get(f"{NUT}/import/draft", headers=headers).json()["draft"] is not None
+    assert requests.delete(f"{NUT}/import/draft", headers=headers).status_code == 200
+    assert requests.get(f"{NUT}/import/draft", headers=headers).json()["draft"] is None
+
+
+def test_rascunho_ja_ativado_nao_reabre_a_previa():
+    _, headers = _athlete("diet.activated@forge.test")
+    _parse(headers)
+    assert _activate(headers).status_code == 200
+    assert requests.get(f"{NUT}/import/draft", headers=headers).json()["draft"] is None
+    # O plano ativado continua lá.
+    assert requests.get(f"{NUT}/plan", headers=headers).status_code == 200
+
+
 def test_double_click_activates_once():
     _, headers = _athlete("diet.idempotent@forge.test")
     _parse(headers)
