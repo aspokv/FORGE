@@ -21,9 +21,10 @@ from catalog_ai_match import (
 )
 from nutrition_engine import FOOD_INDEX, compute_macro_targets
 from nutrition_import import (
-    MAX_IMPORT_CHARS, MAX_ITEMS_PER_MEAL, MAX_LABEL_CHARS, MAX_MEALS, MAX_GRAMS,
-    REVIEW_AI_SUGGESTED, apply_resolution, draft_to_plan, parse_diet_text, recompute,
-    unmatched_names, validate_draft, restore_import_targets,
+    MAX_ALTERNATIVES, MAX_IMPORT_CHARS, MAX_ITEMS_PER_MEAL, MAX_LABEL_CHARS, MAX_MEALS,
+    MAX_GRAMS, MAX_OPTIONS_PER_SUBSTITUTION, MAX_SUBSTITUTIONS, REVIEW_AI_SUGGESTED,
+    apply_resolution, draft_to_plan, parse_diet_text, recompute, review_reasons,
+    sanitize_substitutions, unmatched_names, validate_draft, restore_import_targets,
 )
 from nutrition_periodization import build_periodization, sanitize_edited_table
 from text_match import sanitize
@@ -47,6 +48,10 @@ class DietItemIn(BaseModel):
     unit: str = ""
     grams: Optional[float] = Field(default=None, ge=0, le=MAX_GRAMS)
     estimated: bool = False
+    # "Carne bovina/frango/peixe": as opções que não viraram o item. Sem estes dois campos
+    # o Pydantic descartava o que o parser leu no primeiro salvar do rascunho.
+    alternativas: List[str] = Field(default_factory=list, max_length=MAX_ALTERNATIVES)
+    a_vontade: bool = False
 
 
 class DietMealIn(BaseModel):
@@ -54,10 +59,25 @@ class DietMealIn(BaseModel):
     items: List[DietItemIn] = []
 
 
+class OpcaoDeTrocaIn(BaseModel):
+    food_id: Optional[str] = None
+    raw_name: str = ""
+    grams: Optional[float] = Field(default=None, ge=0, le=MAX_GRAMS)
+    estimated: bool = False
+
+
+class SubstituicaoIn(BaseModel):
+    titulo: str = ""
+    opcoes: List[OpcaoDeTrocaIn] = Field(default_factory=list,
+                                        max_length=MAX_OPTIONS_PER_SUBSTITUTION)
+
+
 class DietDraftIn(BaseModel):
     name: str = "Dieta importada"
     source: str = "manual_import"
     meals: List[DietMealIn] = []
+    substituicoes: List[SubstituicaoIn] = Field(default_factory=list,
+                                                max_length=MAX_SUBSTITUTIONS)
 
 
 class DietDraftSaveIn(BaseModel):
@@ -98,10 +118,6 @@ def _rehydrate(draft: Dict[str, Any], matcher) -> Dict[str, Any]:
     """Revalida no servidor tudo que veio do cliente: alimento tem que existir no
     catálogo, gramas dentro do limite, e as flags de revisão são recalculadas — não dá
     para desbloquear a ativação mentindo pelo navegador."""
-    from nutrition_import import (
-        REVIEW_AMBIGUOUS, REVIEW_ESTIMATED_PORTION, REVIEW_FOOD_UNMATCHED,
-        REVIEW_LOW_CONFIDENCE, REVIEW_QUANTITY_MISSING,
-    )
     meals = []
     for meal in (draft.get("meals") or [])[:MAX_MEALS]:
         itens = []
@@ -123,17 +139,11 @@ def _rehydrate(draft: Dict[str, Any], matcher) -> Dict[str, Any]:
             if grams is not None and not (0 < grams <= MAX_GRAMS):
                 grams = None
 
-            razoes: List[str] = []
-            if confidence == "ambiguous":
-                razoes.append(REVIEW_AMBIGUOUS)
-            elif not food_id:
-                razoes.append(REVIEW_FOOD_UNMATCHED)
-            elif confidence == "fuzzy":
-                razoes.append(REVIEW_LOW_CONFIDENCE)
-            if grams is None:
-                razoes.append(REVIEW_QUANTITY_MISSING)
-            elif raw.get("estimated"):
-                razoes.append(REVIEW_ESTIMATED_PORTION)
+            a_vontade = bool(raw.get("a_vontade"))
+            estimated = bool(raw.get("estimated"))
+            alternativas = [a for a in (raw.get("alternativas") or [])
+                            if isinstance(a, str) and a in FOOD_INDEX and a != food_id]
+            razoes = review_reasons(confidence, food_id, grams, estimated, a_vontade)
 
             itens.append({
                 "food_id": food_id,
@@ -141,10 +151,12 @@ def _rehydrate(draft: Dict[str, Any], matcher) -> Dict[str, Any]:
                 "raw_text": sanitize(raw.get("raw_text") or "", MAX_LABEL_CHARS),
                 "match_confidence": confidence,
                 "suggestions": suggestions[:5],
+                "alternativas": list(dict.fromkeys(alternativas))[:MAX_ALTERNATIVES],
+                "a_vontade": a_vontade,
                 "quantity": raw.get("quantity"),
                 "unit": sanitize(raw.get("unit") or "", 20),
                 "grams": grams,
-                "estimated": bool(raw.get("estimated")),
+                "estimated": estimated,
                 "needs_review": bool(razoes),
                 "review_reasons": razoes,
             })
@@ -154,6 +166,7 @@ def _rehydrate(draft: Dict[str, Any], matcher) -> Dict[str, Any]:
         "name": sanitize(draft.get("name") or "", MAX_LABEL_CHARS) or "Dieta importada",
         "source": "manual_import",
         "meals": meals,
+        "substituicoes": sanitize_substitutions(draft.get("substituicoes")),
         "warnings": [sanitize(w, 200) for w in (draft.get("warnings") or [])][:20],
     })
 

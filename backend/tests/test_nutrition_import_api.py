@@ -107,7 +107,9 @@ def test_food_catalog_is_available_for_the_selects():
     r = requests.get(f"{NUT}/foods", headers=headers)
     assert r.status_code == 200
     foods = r.json()["foods"]
-    assert len(foods) == 62
+    # 63: "Legumes e verduras variados" entrou para "Legumes/verduras: à vontade" deixar
+    # de ser linha sem alimento numa dieta colada.
+    assert len(foods) == 63
     assert all({"id", "name"} <= set(f) for f in foods)
 
 
@@ -179,6 +181,41 @@ def test_activation_does_not_erase_weight_or_adherence():
     peso = requests.get(f"{NUT}/weight", headers=headers)
     assert peso.status_code == 200
     assert peso.json(), "histórico de peso não pode sumir na ativação"
+
+
+def test_dieta_colada_inteira_sobrevive_ao_rascunho_e_chega_ao_plano():
+    """O caminho completo com a dieta que o atleta colou: interpretar, salvar o rascunho
+    (o navegador devolve o rascunho e o servidor revalida tudo), ativar e ler o plano.
+
+    Cada passo reconstrói o item por um caminho diferente — e era aí que as opções, o
+    "à vontade" e a tabela de trocas podiam cair sem ninguém ver."""
+    from test_colar_dieta_completa import DIETA_DO_ATLETA
+
+    _, headers = _athlete("diet.completa@forge.test")
+    draft = _parse(headers, DIETA_DO_ATLETA)["draft"]
+    assert draft["name"] == "DIETA — 83 KG | RECOMPOSIÇÃO"
+    assert draft["stats"] == {"meals": 5, "items": 14, "needs_review": 2}
+
+    salvo = requests.put(f"{NUT}/import/draft", json={"draft": draft}, headers=headers)
+    assert salvo.status_code == 200, salvo.text
+    salvo = salvo.json()
+    assert salvo["blocking_errors"] == []
+    carne = salvo["draft"]["meals"][1]["items"][0]
+    assert carne["alternativas"] == ["chicken-breast", "tilapia"]
+    legumes = salvo["draft"]["meals"][1]["items"][2]
+    assert legumes["a_vontade"] is True and legumes["review_reasons"] == ["free_portion"]
+    assert len(salvo["draft"]["substituicoes"]) == 2
+
+    assert _activate(headers).status_code == 200
+    plano = requests.get(f"{NUT}/plan", headers=headers).json()
+    assert [m["name"] for m in plano["meals"]] == ["Pós-treino", "Almoço", "Lanche", "Jantar", "Ceia"]
+    assert sum(len(m["foods"]) for m in plano["meals"]) == 14
+    almoco = plano["meals"][1]["foods"]
+    assert [a["food_id"] for a in almoco[0]["alternativas"]] == ["chicken-breast", "tilapia"]
+    assert almoco[2]["a_vontade"] is True
+    assert [[o["grams"] for o in t["opcoes"]] for t in plano["substituicoes"]] == [
+        [250, 200, 150], [200, 160, 120]]
+    assert plano["targets"]["goal_calories"] == round(draft["daily_totals"]["kcal"])
 
 
 def test_double_click_activates_once():

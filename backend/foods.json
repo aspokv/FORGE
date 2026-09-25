@@ -1911,6 +1911,49 @@
     "custo": 1
   },
   {
+    "id": "mixed-vegetables",
+    "name": "Legumes e verduras variados",
+    "category": "VEGETABLE",
+    "serving": "1 xíc",
+    "grams": 100,
+    "kcal": 28,
+    "protein_g": 1.4,
+    "carbs_g": 5.6,
+    "fat_g": 0.2,
+    "fiber_g": 2,
+    "tags": [
+      "vegetable",
+      "lunch",
+      "dinner",
+      "gluten_free",
+      "lactose_free",
+      "vegetarian",
+      "vegan"
+    ],
+    "satiety": "HIGH",
+    "roles": [
+      "vegetable"
+    ],
+    "comfortable_portion_g": 300,
+    "hard_max_portion_g": 400,
+    "aliases": [
+      "legumes",
+      "verduras",
+      "legumes e verduras",
+      "verduras e legumes",
+      "vegetais",
+      "hortalicas",
+      "legumes variados",
+      "mix de legumes",
+      "legumes cozidos",
+      "legumes no vapor",
+      "salada de legumes",
+      "legumes refogados",
+      "verduras refogadas"
+    ],
+    "custo": 1
+  },
+  {
     "id": "beetroot",
     "name": "Beterraba cozida",
     "category": "CARBOHYDRATE",

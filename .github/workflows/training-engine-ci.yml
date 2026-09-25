@@ -71,6 +71,10 @@ on:
       - 'backend/tests/test_nutrition_meal_type_and_import_guard.py'
       - 'frontend/src/features/Nutrition.jsx'
       - 'frontend/src/features/NutritionImport.jsx'
+      - 'frontend/src/features/NutritionImport.dietaColada.test.js'
+      - 'frontend/src/features/Nutrition.dietaColada.test.js'
+      - 'frontend/src/features/TrocasDaDieta.jsx'
+      - 'frontend/src/features/TrocasDaDieta.test.js'
       - 'frontend/src/features/AdminPanel.jsx'
       - 'frontend/src/features/mensagemDeErro.js'
       - 'frontend/src/features/mensagemDeErro.test.js'
@@ -90,6 +94,7 @@ on:
       - 'backend/nutrition_routes.py'
       - 'backend/nutrition_import.py'
       - 'backend/nutrition_import_routes.py'
+      - 'backend/tests/test_colar_dieta_completa.py'
       - 'backend/tests/test_imported_targets_regression.py'
       - 'frontend/src/features/Nutrition.importedTargets.test.js'
       - 'frontend/src/features/FoodDiaryEditor.jsx'
@@ -301,6 +306,10 @@ on:
       - 'backend/tests/test_nutrition_meal_type_and_import_guard.py'
       - 'frontend/src/features/Nutrition.jsx'
       - 'frontend/src/features/NutritionImport.jsx'
+      - 'frontend/src/features/NutritionImport.dietaColada.test.js'
+      - 'frontend/src/features/Nutrition.dietaColada.test.js'
+      - 'frontend/src/features/TrocasDaDieta.jsx'
+      - 'frontend/src/features/TrocasDaDieta.test.js'
       - 'frontend/src/features/AdminPanel.jsx'
       - 'frontend/src/features/mensagemDeErro.js'
       - 'frontend/src/features/mensagemDeErro.test.js'
@@ -320,6 +329,7 @@ on:
       - 'backend/nutrition_routes.py'
       - 'backend/nutrition_import.py'
       - 'backend/nutrition_import_routes.py'
+      - 'backend/tests/test_colar_dieta_completa.py'
       - 'backend/tests/test_imported_targets_regression.py'
       - 'frontend/src/features/Nutrition.importedTargets.test.js'
       - 'frontend/src/features/FoodDiaryEditor.jsx'
@@ -721,6 +731,7 @@ jobs:
           tests/test_nutrition_guided_carb_ceiling.py
           tests/test_nutrition_guided_flow.py
           tests/test_nutrition_import.py
+          tests/test_colar_dieta_completa.py
           tests/test_nutrition_meal_type_and_import_guard.py
           tests/test_nutrition_meta_segue_questionario.py
           tests/test_imported_targets_regression.py

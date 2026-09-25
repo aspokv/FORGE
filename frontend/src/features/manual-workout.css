@@ -74,6 +74,9 @@
 .diet-grams{width:96px;flex-shrink:0}
 .diet-grams input{width:100%}
 .diet-item-macros{font:11px 'IBM Plex Mono';color:var(--muted)}
+.diet-substitutions{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.diet-substitutions li{font-size:13px;line-height:1.5;color:var(--text);border-top:1px solid var(--line);padding-top:6px}
+.diet-substitution-unknown{color:#f1b2a0}
 
 .period-form{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;align-items:end}
 .period-form .primary-button{grid-column:1/-1}
