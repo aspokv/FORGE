@@ -102,6 +102,27 @@ test("a tabela de trocas e as linhas que ficaram de fora ficam visíveis", async
   } finally { await act(async () => root.unmount()); }
 });
 
+test("um rascunho salvo não prende a tela: dá para colar outra dieta", async () => {
+  // O vídeo do atleta: a tela abria direto no rascunho antigo e a caixa de texto sumia.
+  axios.get.mockImplementation(url => {
+    if (url.endsWith("/nutrition/import/draft")) return Promise.resolve({data: {draft: rascunho(), blocking_errors: []}});
+    if (url.endsWith("/nutrition/foods")) return Promise.resolve({data: {foods: CATALOGO}});
+    return Promise.resolve({data: {}});
+  });
+  axios.delete = jest.fn().mockResolvedValue({data: {discarded: true}});
+  const host = document.createElement("div");
+  document.body.appendChild(host);
+  const root = createRoot(host);
+  try {
+    await act(async () => root.render(<NutritionImport API="/api" onActivated={() => {}} onClose={() => {}}/>));
+    expect(host.querySelector('[data-testid="diet-textarea"]')).toBeNull();
+    await act(async () => host.querySelector('[data-testid="diet-paste-again"]').click());
+    expect(axios.delete).toHaveBeenCalledWith("/api/nutrition/import/draft");
+    expect(host.querySelector('[data-testid="diet-textarea"]')).not.toBeNull();
+    expect(host.querySelector('[data-testid="diet-preview"]')).toBeNull();
+  } finally { await act(async () => root.unmount()); }
+});
+
 test("digitar os gramas assume o número: deixa de ser à vontade ao salvar", async () => {
   const {host, root} = await abrirComDietaColada();
   try {

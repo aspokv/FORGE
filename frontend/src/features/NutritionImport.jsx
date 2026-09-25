@@ -87,6 +87,14 @@ export default function NutritionImport({ API, onActivated, onClose }) {
     } finally { setBusy(""); }
   };
 
+  // Volta para a caixa de texto. O rascunho salvo sai tambem, senao ele voltaria na
+  // proxima vez que a tela abrisse. O plano ativo nao e tocado.
+  const pasteAgain = async () => {
+    setBusy("discard");
+    try { await axios.delete(`${API}/nutrition/import/draft`); } catch { /* a nova interpretacao sobrescreve */ }
+    setDraft(null); setErrors([]); setMessage(""); setBusy("");
+  };
+
   const patchItem = (mealIdx, itemIdx, patch) =>
     setDraft(d => ({
       ...d,
@@ -248,6 +256,12 @@ export default function NutritionImport({ API, onActivated, onClose }) {
 
         {tab === "import" && draft && !confirming && (
           <div className="manual-preview" data-testid="diet-preview">
+            {/* Sem este botao, um rascunho salvo prendia a tela na previa: a caixa de texto
+                nunca voltava e nao havia onde colar outra dieta. */}
+            <button type="button" className="secondary-button diet-paste-again" data-testid="diet-paste-again"
+              disabled={!!busy} onClick={pasteAgain}>
+              <ClipboardPaste size={15} /> Colar outra dieta
+            </button>
             <div className="macro-strip diet-totals" data-testid="diet-totals">
               <div><span>Calorias</span><b>{round(totals.kcal)}<small>kcal</small></b></div>
               <div><span>Proteína</span><b>{round(totals.protein_g)}<small>g</small></b></div>
