@@ -564,9 +564,16 @@ async def get_plan(request: Request, user=Depends(get_current_user)):
     db = request.app.state.db
     await exigir_capacidade(db, user, ALIMENTACAO)
     target = user["id"]
+    # A semana da periodizacao que venceu desde a ultima visita entra antes de o plano ser
+    # lido. Falha aqui nunca pode impedir a pessoa de ver o plano que ja existe.
+    try:
+        from periodizacao_routes import aplicar_semana_pendente
+        await aplicar_semana_pendente(db, target)
+    except Exception:  # noqa: BLE001
+        logging.getLogger(__name__).exception("periodizacao: falhou ao aplicar a semana de %s", target)
     stored = await db.nutrition_plans.find_one({"profile_id": target}, {"_id": 0})
     if not stored:
-        raise HTTPException(404, "Plano nÃ£o encontrado. Gere primeiro via POST /api/nutrition/generate.")
+        raise HTTPException(404, "Plano não encontrado. Gere primeiro via POST /api/nutrition/generate.")
     stored = await restore_import_targets(db, target, stored)
     if not stored:
         raise HTTPException(404, "Plano não encontrado.")
